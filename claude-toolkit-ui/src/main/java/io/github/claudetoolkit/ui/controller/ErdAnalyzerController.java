@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.controller;
 
+import io.github.claudetoolkit.sql.ddl.DdlGeneratorService;
 import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
@@ -13,19 +14,24 @@ import org.springframework.web.bind.annotation.*;
  * Supports two modes:
  * - DB mode  : reads schema from Oracle (requires Settings DB configuration)
  * - Text mode: user pastes schema description manually
+ *
+ * Also provides ERD → Oracle DDL generation via /erd/ddl (v0.9).
  */
 @Controller
 @RequestMapping("/erd")
 public class ErdAnalyzerController {
 
     private final ErdAnalyzerService   erdService;
+    private final DdlGeneratorService  ddlService;
     private final ToolkitSettings      settings;
     private final ReviewHistoryService historyService;
 
     public ErdAnalyzerController(ErdAnalyzerService erdService,
+                                  DdlGeneratorService ddlService,
                                   ToolkitSettings settings,
                                   ReviewHistoryService historyService) {
         this.erdService     = erdService;
+        this.ddlService     = ddlService;
         this.settings       = settings;
         this.historyService = historyService;
     }
@@ -33,6 +39,7 @@ public class ErdAnalyzerController {
     @GetMapping
     public String showForm(Model model) {
         model.addAttribute("dbConfigured", settings.isDbConfigured());
+        model.addAttribute("activeTab", "erd");
         return "erd/index";
     }
 
@@ -43,6 +50,8 @@ public class ErdAnalyzerController {
             @RequestParam(value = "schemaOwner", defaultValue = "") String schemaOwner,
             @RequestParam(value = "tableFilter", defaultValue = "") String tableFilter,
             Model model) {
+
+        model.addAttribute("activeTab", "erd");
 
         try {
             String result;
@@ -73,6 +82,36 @@ public class ErdAnalyzerController {
         } catch (Exception e) {
             model.addAttribute("error",      "ERD 생성 실패: " + e.getMessage());
             model.addAttribute("schemaText", schemaText);
+        }
+
+        model.addAttribute("dbConfigured", settings.isDbConfigured());
+        return "erd/index";
+    }
+
+    /**
+     * ERD/Schema → Oracle DDL generation (v0.9).
+     * Accepts Mermaid erDiagram, free-form table descriptions, or natural language.
+     */
+    @PostMapping("/ddl")
+    public String generateDdl(
+            @RequestParam(value = "ddlSchemaText", defaultValue = "") String schemaText,
+            Model model) {
+
+        model.addAttribute("activeTab",     "ddl");
+        model.addAttribute("ddlSchemaText", schemaText);
+
+        try {
+            String result = ddlService.generateDdl(schemaText);
+
+            String titleSnippet = schemaText.length() > 80
+                    ? schemaText.substring(0, 80).replaceAll("\\s+", " ") + "..."
+                    : schemaText.replaceAll("\\s+", " ");
+            historyService.save("ERD_DDL", titleSnippet, result);
+
+            model.addAttribute("ddlResult", result);
+
+        } catch (Exception e) {
+            model.addAttribute("error", "DDL 생성 실패: " + e.getMessage());
         }
 
         model.addAttribute("dbConfigured", settings.isDbConfigured());

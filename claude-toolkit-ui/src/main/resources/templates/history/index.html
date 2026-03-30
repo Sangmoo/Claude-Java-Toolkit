@@ -82,6 +82,8 @@
                         <button class="type-filter-btn" onclick="setTypeFilter('DEP_CHECK',this)">의존성</button>
                         <button class="type-filter-btn" onclick="setTypeFilter('DATA_MASKING',this)">마스킹</button>
                         <button class="type-filter-btn" onclick="setTypeFilter('SPRING_MIGRATE',this)">Spring이전</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('ERD_DDL',this)">DDL생성</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('EXPLAIN_PLAN',this)">실행계획</button>
                     </div>
                     <span id="filterCount" style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;"></span>
                 </div>
@@ -207,6 +209,9 @@
                 <button class="copy-btn" onclick="copyModalContent()">
                     <i class="fas fa-copy me-1"></i>복사
                 </button>
+                <button class="btn btn-accent btn-sm" id="rerunBtn" onclick="rerunHistory()" style="display:none;">
+                    <i class="fas fa-redo me-1"></i>재실행
+                </button>
                 <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
@@ -219,6 +224,32 @@
     var _currentDetail = null;
     var _typeFilter    = 'ALL';
 
+    /* ── 재실행 URL 매핑 ── */
+    var RERUN_MAP = {
+        'SQL_REVIEW':    { url: '/advisor',     field: 'sqlContent' },
+        'SQL_SECURITY':  { url: '/advisor',     field: 'sqlContent' },
+        'DOC_GEN':       { url: '/docgen',      field: 'sourceCode' },
+        'CODE_CONVERT':  { url: '/converter',   field: 'sourceCode' },
+        'TEST_GEN':      { url: '/testgen',     field: 'sourceCode' },
+        'API_SPEC':      { url: '/apispec',     field: 'sourceCode' },
+        'CODE_REVIEW':   { url: '/codereview',  field: 'sourceCode' },
+        'CODE_REVIEW_SEC':{ url: '/codereview', field: 'sourceCode' },
+        'ERD':           { url: '/erd/analyze', field: 'schemaText' },
+        'ERD_DDL':       { url: '/erd/ddl',     field: 'ddlSchemaText' },
+        'MOCK_DATA':     { url: '/mockdata',    field: 'tableDefinition' },
+        'MIGRATION':     { url: '/migration',   field: 'sourceSql' },
+        'COMPLEXITY':    { url: '/complexity',  field: 'sourceCode' },
+        'LOG_ANALYSIS':  { url: '/loganalyzer', field: 'logContent' },
+        'REGEX_GEN':     { url: '/regex',       field: 'description' },
+        'COMMIT_MSG':    { url: '/commitmsg',   field: 'diffText' },
+        'JAVADOC':       { url: '/javadoc',     field: 'sourceCode' },
+        'REFACTORING':   { url: '/refactor',    field: 'sourceCode' },
+        'DEP_CHECK':     { url: '/depcheck',    field: 'sourceCode' },
+        'DATA_MASKING':  { url: '/maskgen',     field: 'sqlContent' },
+        'SPRING_MIGRATE':{ url: '/migrate',     field: 'sourceCode' },
+        'EXPLAIN_PLAN':  { url: '/explain/analyze', field: 'sqlContent' }
+    };
+
     // ── Detail modal ──────────────────────────────────────────
     function showDetail(id) {
         fetch('/history/' + id + '/detail')
@@ -228,9 +259,29 @@
                 _currentDetail = data;
                 document.getElementById('modalTitle').textContent = data.title;
                 document.getElementById('modalMeta').textContent  = data.type + '  ·  ' + data.date;
+                var rerunBtn = document.getElementById('rerunBtn');
+                if (rerunBtn) {
+                    rerunBtn.style.display = RERUN_MAP[data.typeCode] ? '' : 'none';
+                }
                 switchTab('output');
                 new bootstrap.Modal(document.getElementById('detailModal')).show();
             });
+    }
+
+    function rerunHistory() {
+        if (!_currentDetail || !_currentDetail.typeCode) return;
+        var m = RERUN_MAP[_currentDetail.typeCode];
+        if (!m) return;
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = m.url;
+        var input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = m.field;
+        input.value = _currentDetail.input || '';
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function switchTab(tab) {

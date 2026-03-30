@@ -80,6 +80,8 @@ public class ReviewHistory {
         if ("DEP_CHECK".equals(type))       return "의존성 분석";
         if ("DATA_MASKING".equals(type))    return "데이터 마스킹";
         if ("SPRING_MIGRATE".equals(type))  return "Spring 마이그레이션";
+        if ("ERD_DDL".equals(type))         return "DDL 생성";
+        if ("EXPLAIN_PLAN".equals(type))    return "실행계획";
         return type;
     }
 
@@ -105,6 +107,8 @@ public class ReviewHistory {
         if ("DEP_CHECK".equals(type))       return "#d97706";
         if ("DATA_MASKING".equals(type))    return "#dc2626";
         if ("SPRING_MIGRATE".equals(type))  return "#16a34a";
+        if ("ERD_DDL".equals(type))         return "#14b8a6";
+        if ("EXPLAIN_PLAN".equals(type))    return "#3b82f6";
         return "#64748b";
     }
 

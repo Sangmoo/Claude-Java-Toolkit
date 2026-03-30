@@ -46,8 +46,12 @@
                 <i class="fas fa-chart-bar"></i><span>복잡도 분석</span>
             </a>
             <a href="/explain" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/explain') ? ' active' : ''}">
+               th:classappend="${#request.requestURI == '/explain' || #request.requestURI == '/explain/analyze' ? ' active' : ''}">
                 <i class="fas fa-sitemap" style="color:#3b82f6"></i><span>실행계획 분석</span>
+            </a>
+            <a href="/explain/compare" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/explain/compare') ? ' active' : ''}">
+                <i class="fas fa-columns" style="color:#8b5cf6"></i><span>실행계획 비교</span>
             </a>
         </div>
 
@@ -153,7 +157,7 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v0.8.0 · JDK 1.8</div>
+        <div class="sidebar-version">v0.9.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -211,6 +215,7 @@
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
             analysis: ['/advisor', '/erd', '/codereview', '/complexity', '/explain'],
+            /* Note: /explain/compare is a sub-path of /explain so it's included above */
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],

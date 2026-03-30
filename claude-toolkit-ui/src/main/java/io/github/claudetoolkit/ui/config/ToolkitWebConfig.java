@@ -114,6 +114,13 @@ public class ToolkitWebConfig {
         return new ExplainPlanService(claudeClient);
     }
 
+    // ── v0.9 beans ────────────────────────────────────────────────────────────
+
+    @Bean
+    public io.github.claudetoolkit.sql.ddl.DdlGeneratorService ddlGeneratorService(ClaudeClient claudeClient) {
+        return new io.github.claudetoolkit.sql.ddl.DdlGeneratorService(claudeClient);
+    }
+
     // ── v0.5-v0.7 beans ───────────────────────────────────────────────────────
 
     @Bean

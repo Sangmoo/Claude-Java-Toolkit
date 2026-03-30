@@ -7,7 +7,14 @@
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250330')}" rel="stylesheet">
+    <style>
+        .erd-tab-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted);
+                       padding: 5px 18px; border-radius: 20px; cursor: pointer; font-size: 0.82rem;
+                       transition: all 0.15s; }
+        .erd-tab-btn.active { background: var(--accent-subtle); border-color: var(--accent);
+                              color: var(--accent); font-weight: 600; }
+    </style>
 </head>
 <body>
 <div class="layout">
@@ -15,7 +22,7 @@
 
     <main class="main-area">
         <div class="top-bar">
-            <span class="top-bar-title"><i class="fas fa-project-diagram me-2" style="color:#f97316"></i>ERD 분석</span>
+            <span class="top-bar-title"><i class="fas fa-project-diagram me-2" style="color:#f97316"></i>ERD 분석 / DDL 생성</span>
             <button id="themeToggle" onclick="toggleTheme()">
                 <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
             </button>
@@ -29,107 +36,185 @@
         </div>
 
         <div class="main-content">
-            <p class="page-subtitle">Oracle DB 스키마 또는 테이블 구조 텍스트로 Mermaid ERD 다이어그램을 생성합니다.</p>
+
+            <!-- Tab buttons -->
+            <div class="d-flex gap-2 mb-4">
+                <button class="erd-tab-btn"
+                        th:classappend="${activeTab == 'erd' || activeTab == null ? ' active' : ''}"
+                        id="tabBtnErd" onclick="switchErdTab('erd')">
+                    <i class="fas fa-project-diagram me-1"></i>ERD 분석
+                </button>
+                <button class="erd-tab-btn"
+                        th:classappend="${activeTab == 'ddl' ? ' active' : ''}"
+                        id="tabBtnDdl" onclick="switchErdTab('ddl')">
+                    <i class="fas fa-file-code me-1"></i>DDL 생성
+                </button>
+            </div>
 
             <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
 
-            <div class="row g-4">
-                <!-- Input -->
-                <div class="col-lg-5">
-                    <div class="panel p-4">
-                        <form method="post" action="/erd/analyze" id="erdForm">
-                            <!-- DB Mode toggle -->
-                            <div class="ctx-box mb-3">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <input class="form-check-input mt-0" type="checkbox" name="useDb" id="useDb"
-                                               value="true" th:checked="${useDb}"
-                                               th:disabled="${!dbConfigured}"
-                                               onchange="toggleDbMode(this.checked)">
-                                        <label class="form-check-label small" for="useDb" style="color:var(--text-sub);">
-                                            <i class="fas fa-database me-1" style="color:#f97316"></i>
-                                            Oracle DB 자동 스캔
-                                        </label>
+            <!-- ═══════════════════════════════════════════════════════════
+                 TAB 1: ERD 분석
+                 ═════════════════════════════════════════════════════════ -->
+            <div id="panelErd" th:style="${activeTab == 'ddl' ? 'display:none' : ''}">
+                <p class="page-subtitle">Oracle DB 스키마 또는 테이블 구조 텍스트로 Mermaid ERD 다이어그램을 생성합니다.</p>
+                <div class="row g-4">
+                    <!-- Input -->
+                    <div class="col-lg-5">
+                        <div class="panel p-4">
+                            <form method="post" action="/erd/analyze" id="erdForm">
+                                <!-- DB Mode toggle -->
+                                <div class="ctx-box mb-3">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input class="form-check-input mt-0" type="checkbox" name="useDb" id="useDb"
+                                                   value="true" th:checked="${useDb}"
+                                                   th:disabled="${!dbConfigured}"
+                                                   onchange="toggleDbMode(this.checked)">
+                                            <label class="form-check-label small" for="useDb" style="color:var(--text-sub);">
+                                                <i class="fas fa-database me-1" style="color:#f97316"></i>
+                                                Oracle DB 자동 스캔
+                                            </label>
+                                        </div>
+                                        <span th:if="${dbConfigured}" class="status-badge status-ok">
+                                            <i class="fas fa-circle" style="font-size:0.5rem;"></i>연결됨
+                                        </span>
+                                        <span th:unless="${dbConfigured}" class="status-badge status-none">
+                                            <a href="/settings" style="color:inherit;text-decoration:none;">설정 필요</a>
+                                        </span>
                                     </div>
-                                    <span th:if="${dbConfigured}" class="status-badge status-ok">
-                                        <i class="fas fa-circle" style="font-size:0.5rem;"></i>연결됨
-                                    </span>
-                                    <span th:unless="${dbConfigured}" class="status-badge status-none">
-                                        <a href="/settings" style="color:inherit;text-decoration:none;">설정 필요</a>
-                                    </span>
+                                    <div id="schemaOwnerGroup" th:style="${useDb} ? '' : 'display:none'" class="mt-2">
+                                        <label class="form-label">Schema Owner (비워두면 로그인 사용자)</label>
+                                        <input type="text" class="form-control form-control-sm" name="schemaOwner"
+                                               placeholder="예: APP_USER" th:value="${schemaOwner}">
+                                        <label class="form-label mt-2">테이블 필터 <span style="color:var(--text-muted);font-weight:400;">(쉼표로 구분, 비워두면 전체)</span></label>
+                                        <input type="text" class="form-control form-control-sm" name="tableFilter"
+                                               placeholder="예: T_ORDER, T_CUSTOMER, T_PRODUCT"
+                                               th:value="${tableFilter}">
+                                    </div>
                                 </div>
-                                <div id="schemaOwnerGroup" th:style="${useDb} ? '' : 'display:none'" class="mt-2">
-                                    <label class="form-label">Schema Owner (비워두면 로그인 사용자)</label>
-                                    <input type="text" class="form-control form-control-sm" name="schemaOwner"
-                                           placeholder="예: APP_USER" th:value="${schemaOwner}">
-                                    <label class="form-label mt-2">테이블 필터 <span style="color:var(--text-muted);font-weight:400;">(쉼표로 구분, 비워두면 전체)</span></label>
-                                    <input type="text" class="form-control form-control-sm" name="tableFilter"
-                                           placeholder="예: T_ORDER, T_CUSTOMER, T_PRODUCT"
-                                           th:value="${tableFilter}">
+
+                                <!-- Manual schema text -->
+                                <div id="schemaTextGroup" th:style="${useDb} ? 'display:none' : ''">
+                                    <label class="form-label">스키마 설명 텍스트</label>
+                                    <textarea class="form-control" name="schemaText" rows="16"
+                                              placeholder="예시:&#10;=== T_ORDER ===&#10;  COL: ORDER_ID NUMBER NOT NULL&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: ORDER_DATE DATE&#10;  PK: ORDER_ID&#10;  FK: CUST_ID -> T_CUSTOMER&#10;&#10;=== T_CUSTOMER ===&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: CUST_NM VARCHAR2(100)&#10;  PK: CUST_ID"
+                                              th:text="${schemaText}"></textarea>
+                                    <p class="upload-hint mt-1">CREATE TABLE 구문이나 직접 작성한 테이블 설명도 가능합니다.</p>
                                 </div>
-                            </div>
 
-                            <!-- Manual schema text -->
-                            <div id="schemaTextGroup" th:style="${useDb} ? 'display:none' : ''">
-                                <label class="form-label">스키마 설명 텍스트</label>
-                                <textarea class="form-control" name="schemaText" rows="16"
-                                          placeholder="예시:&#10;=== T_ORDER ===&#10;  COL: ORDER_ID NUMBER NOT NULL&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: ORDER_DATE DATE&#10;  PK: ORDER_ID&#10;  FK: CUST_ID -> T_CUSTOMER&#10;&#10;=== T_CUSTOMER ===&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: CUST_NM VARCHAR2(100)&#10;  PK: CUST_ID"
-                                          th:text="${schemaText}"></textarea>
-                                <p class="upload-hint mt-1">CREATE TABLE 구문이나 직접 작성한 테이블 설명도 가능합니다.</p>
-                            </div>
-
-                            <button type="submit" class="btn btn-accent w-100 mt-3"
-                                    onclick="showSpinner(['스키마 파싱 중...','테이블 관계 분석 중...','Mermaid ERD 생성 중...','설명 작성 중...'])">
-                                <i class="fas fa-project-diagram me-2"></i>ERD 생성
-                            </button>
-                        </form>
+                                <button type="submit" class="btn btn-accent w-100 mt-3"
+                                        onclick="showSpinner(['스키마 파싱 중...','테이블 관계 분석 중...','Mermaid ERD 생성 중...','설명 작성 중...'])">
+                                    <i class="fas fa-project-diagram me-2"></i>ERD 생성
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Result -->
-                <div class="col-lg-7">
-                    <div class="panel p-4 h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span class="result-meta">ERD 분석 결과</span>
-                            <div class="d-flex gap-2">
-                                <span th:if="${dbUsed}" class="status-badge status-ok">
-                                    <i class="fas fa-database" style="font-size:0.6rem;"></i>DB 자동 스캔
-                                </span>
-                                <button th:if="${result}" class="copy-btn" onclick="openInNewTab('resultMd')">
-                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
-                                </button>
-                                <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultMd')">
-                                    <i class="fas fa-copy me-1"></i>복사
-                                </button>
+                    <!-- Result -->
+                    <div class="col-lg-7">
+                        <div class="panel p-4 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="result-meta">ERD 분석 결과</span>
+                                <div class="d-flex gap-2">
+                                    <span th:if="${dbUsed}" class="status-badge status-ok">
+                                        <i class="fas fa-database" style="font-size:0.6rem;"></i>DB 자동 스캔
+                                    </span>
+                                    <button th:if="${result}" class="copy-btn" onclick="openInNewTab('resultMd')">
+                                        <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                    </button>
+                                    <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultMd')">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div th:if="${result}">
-                            <!-- Markdown + Mermaid rendered result -->
-                            <div class="result-box markdown-body" id="resultMd"></div>
-                            <!-- Raw result stored for copy & rendering -->
-                            <div id="rawResult" th:attr="data-content=${result}" style="display:none;"></div>
-                        </div>
-                        <div th:unless="${result}" class="result-box result-empty">
-                            <i class="fas fa-project-diagram fa-2x" style="color:var(--border-color)"></i>
-                            <span>스키마 정보를 입력하고 ERD를 생성하세요.</span>
+                            <div th:if="${result}">
+                                <div class="result-box markdown-body" id="resultMd"></div>
+                                <div id="rawResult" th:attr="data-content=${result}" style="display:none;"></div>
+                            </div>
+                            <div th:unless="${result}" class="result-box result-empty">
+                                <i class="fas fa-project-diagram fa-2x" style="color:var(--border-color)"></i>
+                                <span>스키마 정보를 입력하고 ERD를 생성하세요.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- ═══════════════════════════════════════════════════════════
+                 TAB 2: DDL 생성
+                 ═════════════════════════════════════════════════════════ -->
+            <div id="panelDdl" th:style="${activeTab == 'ddl' ? '' : 'display:none'}">
+                <p class="page-subtitle">Mermaid ERD, 테이블 구조 설명, 자연어로 Oracle CREATE TABLE DDL 스크립트를 생성합니다.</p>
+                <div class="row g-4">
+                    <!-- Input -->
+                    <div class="col-lg-5">
+                        <div class="panel p-4">
+                            <form method="post" action="/erd/ddl" id="ddlForm">
+                                <label class="form-label">ERD / 테이블 구조 입력</label>
+                                <textarea class="form-control" name="ddlSchemaText" rows="18"
+                                          placeholder="Mermaid erDiagram, CREATE TABLE 구문, 또는 자연어 설명&#10;&#10;예시 (Mermaid):&#10;erDiagram&#10;  T_ORDER {&#10;    NUMBER ORDER_ID PK&#10;    NUMBER CUST_ID FK&#10;    DATE ORDER_DATE&#10;  }&#10;  T_CUSTOMER {&#10;    NUMBER CUST_ID PK&#10;    VARCHAR2 CUST_NM&#10;  }&#10;  T_ORDER }o--|| T_CUSTOMER : has"
+                                          th:text="${ddlSchemaText}"></textarea>
+                                <p class="upload-hint mt-1">ERD 분석 탭에서 생성된 Mermaid 코드를 붙여넣어도 됩니다.</p>
+
+                                <button type="submit" class="btn btn-accent w-100 mt-3"
+                                        onclick="showSpinner(['ERD 파싱 중...','테이블 구조 분석 중...','Oracle DDL 생성 중...','제약 조건 및 인덱스 추가 중...'])">
+                                    <i class="fas fa-file-code me-2"></i>Oracle DDL 생성
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- DDL Result -->
+                    <div class="col-lg-7">
+                        <div class="panel p-4 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="result-meta">
+                                    <i class="fas fa-file-code me-1" style="color:#14b8a6;"></i>Oracle DDL 결과
+                                </span>
+                                <div class="d-flex gap-2">
+                                    <button th:if="${ddlResult}" class="copy-btn" onclick="openInNewTab('ddlResultMd')">
+                                        <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                    </button>
+                                    <button th:if="${ddlResult}" class="copy-btn" onclick="copyToClipboard('ddlResultMd')">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div th:if="${ddlResult}">
+                                <div class="ctx-box mb-3" style="border-color:rgba(20,184,166,.3);background:rgba(20,184,166,.05);">
+                                    <span style="font-size:0.78rem;color:#14b8a6;">
+                                        <i class="fas fa-check-circle me-1"></i>
+                                        Oracle 11g/12c 호환 DDL 생성 완료 — PRIMARY KEY, FOREIGN KEY, INDEX, COMMENT 포함
+                                    </span>
+                                </div>
+                                <div class="result-box markdown-body" id="ddlResultMd"></div>
+                                <div id="rawDdlResult" th:attr="data-content=${ddlResult}" style="display:none;"></div>
+                            </div>
+                            <div th:unless="${ddlResult}" class="result-box result-empty">
+                                <i class="fas fa-file-code fa-2x" style="color:var(--border-color)"></i>
+                                <span>ERD 또는 테이블 구조를 입력하고 DDL을 생성하세요.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script th:src="@{/js/toolkit.js(v='20250330')}"></script>
 <script>
     // Init mermaid with current theme
     var isDark = localStorage.getItem('theme') !== 'light';
     mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
 
-    // Render result
+    // Render ERD result
     var rawEl = document.getElementById('rawResult');
     if (rawEl) {
         var raw = rawEl.getAttribute('data-content');
@@ -137,9 +222,24 @@
         renderMermaidBlocks();
     }
 
+    // Render DDL result
+    var rawDdlEl = document.getElementById('rawDdlResult');
+    if (rawDdlEl) {
+        renderMarkdown(rawDdlEl.getAttribute('data-content'), 'ddlResultMd');
+    }
+
     function toggleDbMode(checked) {
         document.getElementById('schemaOwnerGroup').style.display = checked ? '' : 'none';
         document.getElementById('schemaTextGroup').style.display  = checked ? 'none' : '';
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────
+    function switchErdTab(tab) {
+        var isErd = (tab === 'erd');
+        document.getElementById('panelErd').style.display = isErd ? '' : 'none';
+        document.getElementById('panelDdl').style.display = isErd ? 'none' : '';
+        document.getElementById('tabBtnErd').className = 'erd-tab-btn' + (isErd ? ' active' : '');
+        document.getElementById('tabBtnDdl').className = 'erd-tab-btn' + (isErd ? '' : ' active');
     }
 </script>
 </body>

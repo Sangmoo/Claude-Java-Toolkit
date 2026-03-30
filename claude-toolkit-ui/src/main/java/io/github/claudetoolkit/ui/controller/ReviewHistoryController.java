@@ -44,11 +44,12 @@ public class ReviewHistoryController {
             map.put("error", "Not found");
             return map;
         }
-        map.put("type",   h.getTypeLabel());
-        map.put("title",  h.getTitle());
-        map.put("date",   h.getFormattedDate());
-        map.put("input",  h.getInputContent());
-        map.put("output", h.getOutputContent());
+        map.put("type",     h.getTypeLabel());
+        map.put("typeCode", h.getType());
+        map.put("title",    h.getTitle());
+        map.put("date",     h.getFormattedDate());
+        map.put("input",    h.getInputContent());
+        map.put("output",   h.getOutputContent());
         return map;
     }
 
