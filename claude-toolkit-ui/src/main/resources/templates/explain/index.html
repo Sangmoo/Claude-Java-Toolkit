@@ -383,7 +383,7 @@
 
 <!-- Hidden: plan JSON for JS tree rendering -->
 <script th:if="${planJson}" th:inline="javascript">
-    var PLAN_JSON  = /*[[${planJson}]]*/ null;
+    var PLAN_JSON  = JSON.parse(/*[[${planJson}]]*/ 'null');
     var PLAN_MAX_COST = /*[[${result != null ? result.maxCost : 0}]]*/ 0;
 </script>
 

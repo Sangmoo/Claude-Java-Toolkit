@@ -293,8 +293,8 @@
 
 <!-- Plan JSON for tree rendering -->
 <script th:if="${beforePlanJson}" th:inline="javascript">
-    var BEFORE_JSON     = /*[[${beforePlanJson}]]*/ null;
-    var AFTER_JSON      = /*[[${afterPlanJson}]]*/  null;
+    var BEFORE_JSON     = JSON.parse(/*[[${beforePlanJson}]]*/ 'null');
+    var AFTER_JSON      = JSON.parse(/*[[${afterPlanJson}]]*/  'null');
     var BEFORE_MAX_COST = /*[[${beforeResult != null ? beforeResult.maxCost : 0}]]*/ 0;
     var AFTER_MAX_COST  = /*[[${afterResult  != null ? afterResult.maxCost  : 0}]]*/ 0;
 </script>
