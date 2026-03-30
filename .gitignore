@@ -20,6 +20,9 @@ target/
 *.iws
 *.iml
 out/
+# ⚠️ Run Configurations 에 IntelliJ가 환경변수 값(API Key 등)을 직접 저장합니다.
+# git에 절대 포함하지 않습니다.
+.idea/runConfigurations/
 
 # ── Secrets / API Keys ─────────────────────────────────────────────────────
 # Claude API key 및 DB 접속정보는 절대 커밋하지 않습니다.
