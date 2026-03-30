@@ -4,6 +4,7 @@ import io.github.claudetoolkit.docgen.scanner.ProjectScannerService;
 import io.github.claudetoolkit.docgen.scanner.ScannedFile;
 import io.github.claudetoolkit.sql.db.OracleMetaService;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.starter.properties.ClaudeProperties;
 import io.github.claudetoolkit.ui.config.SettingsPersistenceService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.stereotype.Controller;
@@ -25,22 +26,26 @@ public class SettingsController {
     private final ProjectScannerService      projectScannerService;
     private final SettingsPersistenceService persistenceService;
     private final ClaudeClient               claudeClient;
+    private final ClaudeProperties           claudeProperties;
 
     public SettingsController(ToolkitSettings settings,
                               OracleMetaService oracleMetaService,
                               ProjectScannerService projectScannerService,
                               SettingsPersistenceService persistenceService,
-                              ClaudeClient claudeClient) {
+                              ClaudeClient claudeClient,
+                              ClaudeProperties claudeProperties) {
         this.settings              = settings;
         this.oracleMetaService     = oracleMetaService;
         this.projectScannerService = projectScannerService;
         this.persistenceService    = persistenceService;
         this.claudeClient          = claudeClient;
+        this.claudeProperties      = claudeProperties;
     }
 
     @GetMapping
     public String showSettings(Model model) {
         model.addAttribute("settings", settings);
+        model.addAttribute("currentApiKeyMasked", maskApiKey(claudeProperties.getApiKey()));
         java.util.List<String> availableModels = new java.util.ArrayList<String>();
         availableModels.add("claude-opus-4-5");
         availableModels.add("claude-sonnet-4-5");
@@ -60,6 +65,7 @@ public class SettingsController {
             @RequestParam(value = "scanPath",       defaultValue = "") String scanPath,
             @RequestParam(value = "projectContext", defaultValue = "") String projectContext,
             @RequestParam(required = false, defaultValue = "") String claudeModel,
+            @RequestParam(required = false, defaultValue = "") String claudeApiKey,
             Model model) {
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -69,12 +75,18 @@ public class SettingsController {
         settings.setProjectContext(projectContext.trim());
         settings.setClaudeModel(claudeModel);
 
+        // API 키가 입력된 경우 즉시 적용
+        if (claudeApiKey != null && !claudeApiKey.trim().isEmpty()) {
+            claudeProperties.setApiKey(claudeApiKey.trim());
+        }
+
         persistenceService.save();
 
         claudeClient.setModelOverride(claudeModel);
 
         model.addAttribute("settings",     settings);
         model.addAttribute("saveSuccess",  true);
+        model.addAttribute("currentApiKeyMasked", maskApiKey(claudeProperties.getApiKey()));
 
         java.util.List<String> availableModels = new java.util.ArrayList<String>();
         availableModels.add("claude-opus-4-5");
@@ -115,6 +127,11 @@ public class SettingsController {
         } catch (IOException e) {
             return "error:" + e.getMessage();
         }
+    }
+
+    private String maskApiKey(String key) {
+        if (key == null || key.length() < 8) return key == null || key.isEmpty() ? "(미설정)" : "****";
+        return key.substring(0, 10) + "..." + key.substring(key.length() - 4);
     }
 
     /** AJAX: validates Claude API key by making a minimal test request. */

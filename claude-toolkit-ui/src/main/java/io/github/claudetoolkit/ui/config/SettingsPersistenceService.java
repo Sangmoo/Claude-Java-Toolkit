@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.config;
 
+import io.github.claudetoolkit.starter.properties.ClaudeProperties;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -25,10 +26,12 @@ public class SettingsPersistenceService {
             System.getProperty("user.home") + File.separator + ".claude-toolkit";
     private static final String SETTINGS_FILE = SETTINGS_DIR + File.separator + "settings.json";
 
-    private final ToolkitSettings settings;
+    private final ToolkitSettings  settings;
+    private final ClaudeProperties claudeProperties;
 
-    public SettingsPersistenceService(ToolkitSettings settings) {
-        this.settings = settings;
+    public SettingsPersistenceService(ToolkitSettings settings, ClaudeProperties claudeProperties) {
+        this.settings         = settings;
+        this.claudeProperties = claudeProperties;
         load();
     }
 
@@ -80,7 +83,8 @@ public class SettingsPersistenceService {
                "  \"dbPassword\": "     + quoted(s.getDb().getPassword())       + ",\n" +
                "  \"scanPath\": "       + quoted(s.getProject().getScanPath())  + ",\n" +
                "  \"projectContext\": " + quoted(s.getProjectContext())         + ",\n" +
-               "  \"claudeModel\": "   + quoted(s.getClaudeModel())              + "\n" +
+               "  \"claudeModel\": "    + quoted(s.getClaudeModel())            + ",\n" +
+               "  \"claudeApiKey\": "   + quoted(claudeProperties.getApiKey()) + "\n" +
                "}";
     }
 
@@ -98,6 +102,10 @@ public class SettingsPersistenceService {
         s.setProjectContext(extractField(json, "projectContext"));
         String claudeModel = extractField(json, "claudeModel");
         if (claudeModel != null) s.setClaudeModel(claudeModel);
+        String savedApiKey = extractField(json, "claudeApiKey");
+        if (savedApiKey != null && !savedApiKey.isEmpty()) {
+            claudeProperties.setApiKey(savedApiKey);
+        }
     }
 
     private String extractField(String json, String key) {

@@ -56,18 +56,25 @@
             </div>
 
             <form method="post" action="/settings/save">
-                <!-- Claude API Key validation -->
+                <!-- Claude API Key -->
                 <div class="panel p-4 mb-4">
                     <h5 class="section-title">
                         <i class="fas fa-robot me-2" style="color:#f97316"></i>Claude API 연결
                     </h5>
+                    <div class="mb-3">
+                        <label class="form-label">API 키 <span style="color:var(--text-muted);font-weight:400;">(변경 시에만 입력)</span></label>
+                        <input type="password" class="form-control" name="claudeApiKey"
+                               placeholder="sk-ant-api03-..."
+                               autocomplete="new-password">
+                        <div class="form-text">
+                            현재 설정된 키: <code th:text="${currentApiKeyMasked}"></code>
+                            &nbsp;·&nbsp; 빈칸으로 두면 기존 키가 유지됩니다.
+                        </div>
+                    </div>
                     <div class="d-flex align-items-center gap-3 mb-2">
                         <button type="button" class="btn-test" onclick="validateApi()">
                             <i class="fas fa-plug me-1"></i>API 키 유효성 검사
                         </button>
-                        <span style="font-size:0.78rem;color:var(--text-muted);">
-                            <i class="fas fa-info-circle me-1"></i>API 키는 환경변수 <code>CLAUDE_API_KEY</code> 또는 <code>application.yml</code>로 설정합니다.
-                        </span>
                     </div>
                     <div id="apiTestResult" class="test-result"></div>
                 </div>

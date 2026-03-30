@@ -34,6 +34,7 @@ out/
 .env
 .env.*
 *.env.local
+application.yml
 application-local.yml
 application-local.yaml
 application-secret.yml
