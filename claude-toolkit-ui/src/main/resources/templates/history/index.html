@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>리뷰 이력 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; }
+        .modal-header  { border-bottom: 1px solid var(--border-color); }
+        .modal-footer  { border-top: 1px solid var(--border-color); }
+        .modal-title   { color: var(--text-primary); font-size: 0.95rem; }
+        .tab-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; }
+        .tab-btn.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
+        .detail-pre { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; white-space: pre-wrap; font-family: 'Consolas', monospace; font-size: 0.82rem; color: var(--text-sub); max-height: 380px; overflow-y: auto; }
+        .type-filter-btn { background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 3px 12px; border-radius: 20px; cursor: pointer; font-size: 0.75rem; white-space: nowrap; }
+        .type-filter-btn.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
+        .history-card.hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-history me-2" style="color:#f97316"></i>리뷰 이력</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="result-meta" th:text="${count + '개 항목'}"></span>
+                <a href="/history/export/csv" class="btn btn-outline-tk btn-sm" th:if="${count > 0}">
+                    <i class="fas fa-file-csv me-1"></i>CSV
+                </a>
+                <button onclick="window.print()" class="btn btn-outline-tk btn-sm" th:if="${count > 0}">
+                    <i class="fas fa-print me-1"></i>인쇄
+                </button>
+                <button class="btn btn-outline-tk btn-sm" id="bundleExportBtn" onclick="exportBundle()" style="display:none;" th:if="${count > 0}">
+                    <i class="fas fa-file-archive me-1"></i>선택 내보내기
+                </button>
+                <button class="btn btn-outline-tk btn-sm" id="diffBtn" onclick="showDiff()" style="display:none;" th:if="${count > 0}">
+                    <i class="fas fa-columns me-1"></i>Diff 비교
+                </button>
+                <button class="btn btn-outline-tk btn-sm" id="selectModeBtn" onclick="toggleSelectMode()" th:if="${count > 0}">
+                    <i class="fas fa-check-square me-1"></i>선택
+                </button>
+                <form method="post" action="/history/clear" style="display:inline;"
+                      onsubmit="return confirm('모든 이력을 삭제하시겠습니까?')">
+                    <button type="submit" class="btn btn-outline-tk btn-sm">
+                        <i class="fas fa-trash me-1"></i>전체 삭제
+                    </button>
+                </form>
+                <button id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+
+            <!-- Search & Filter bar -->
+            <div th:unless="${#lists.isEmpty(histories)}" class="mb-3">
+                <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                    <div style="position:relative;flex:1;min-width:200px;max-width:380px;">
+                        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.8rem;"></i>
+                        <input type="text" id="historySearch" class="search-bar" style="padding-left:34px;"
+                               placeholder="제목, 내용으로 검색..." oninput="applyFilters()">
+                    </div>
+                    <div class="d-flex gap-1 flex-wrap" id="typeFilterBtns">
+                        <button class="type-filter-btn active" onclick="setTypeFilter('ALL',this)">전체</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('SQL_REVIEW',this)">SQL 리뷰</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('DOC_GEN',this)">문서 생성</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('CODE_REVIEW',this)">코드 리뷰</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('TEST_GEN',this)">테스트</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('ERD',this)">ERD</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('LOG_ANALYSIS',this)">로그</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('REGEX_GEN',this)">정규식</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('COMMIT_MSG',this)">커밋</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('JAVADOC',this)">Javadoc</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('REFACTORING',this)">리팩터링</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('DEP_CHECK',this)">의존성</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('DATA_MASKING',this)">마스킹</button>
+                        <button class="type-filter-btn" onclick="setTypeFilter('SPRING_MIGRATE',this)">Spring이전</button>
+                    </div>
+                    <span id="filterCount" style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;"></span>
+                </div>
+            </div>
+
+            <!-- Empty state -->
+            <div th:if="${#lists.isEmpty(histories)}" class="text-center py-5" id="emptyState">
+                <i class="fas fa-history fa-3x mb-3" style="color:var(--border-color)"></i>
+                <p style="color:var(--text-muted);">저장된 이력이 없습니다. SQL 리뷰, 문서 생성 등을 실행하면 자동으로 기록됩니다.</p>
+            </div>
+
+            <!-- History grid -->
+            <div class="row g-3" id="historyGrid" th:unless="${#lists.isEmpty(histories)}">
+                <div class="col-md-6 col-xl-4 history-item"
+                     th:each="h : ${histories}"
+                     th:attr="data-type=${h.type},data-title=${h.title},data-preview=${h.outputPreview}">
+                    <div class="history-card" th:attr="data-id=${h.id}" th:onclick="|showDetail(${h.id})|" style="position:relative;">
+                        <div class="select-checkbox" style="display:none;position:absolute;top:8px;right:8px;z-index:2;">
+                            <input type="checkbox" th:attr="data-id=${h.id}" onclick="event.stopPropagation();">
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="history-type-badge"
+                                  th:text="${h.typeLabel}"
+                                  th:style="'background:' + ${h.typeBadgeColor}"></span>
+                            <span class="result-meta" th:text="${h.formattedDate}"></span>
+                        </div>
+                        <div class="history-title" th:text="${h.title}"></div>
+                        <div class="history-preview" th:text="${h.outputPreview}"></div>
+                        <div class="d-flex justify-content-between mt-2" onclick="event.stopPropagation()">
+                            <form method="post" th:action="@{/favorites/star}" style="display:inline;">
+                                <input type="hidden" name="historyId" th:value="${h.id}">
+                                <input type="hidden" name="redirect"  value="/history">
+                                <button type="submit" class="copy-btn" style="font-size:0.72rem;padding:2px 8px;" title="즐겨찾기에 추가">
+                                    <i class="fas fa-star me-1" style="color:#f59e0b"></i>즐겨찾기
+                                </button>
+                            </form>
+                            <form method="post" th:action="'/history/' + ${h.id} + '/delete'"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('이 항목을 삭제하시겠습니까?')">
+                                <button type="submit" class="copy-btn" style="font-size:0.72rem;padding:2px 8px;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No search results -->
+            <div id="noSearchResult" style="display:none;" class="text-center py-4">
+                <i class="fas fa-search fa-2x mb-2" style="color:var(--border-color)"></i>
+                <p style="color:var(--text-muted);">검색 결과가 없습니다.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Diff Modal -->
+<div class="modal fade" id="diffModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-columns me-2" style="color:#f97316"></i>Diff 비교</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.82rem;">항목 A</label>
+                        <select id="diffSelectA" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label" style="font-size:0.82rem;">항목 B</label>
+                        <select id="diffSelectB" class="form-select form-select-sm"></select>
+                    </div>
+                </div>
+                <button class="btn btn-outline-tk btn-sm mb-3" onclick="loadDiff()">
+                    <i class="fas fa-sync me-1"></i>비교 실행
+                </button>
+                <div id="diffResult" style="display:none;">
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="tab-btn active" id="diffTabInput"  onclick="switchDiffTab('input')">입력 비교</button>
+                        <button class="tab-btn"        id="diffTabOutput" onclick="switchDiffTab('output')">결과 비교</button>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;" id="diffLabelA">항목 A</div>
+                            <pre class="detail-pre" id="diffContentA"></pre>
+                        </div>
+                        <div class="col-6">
+                            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;" id="diffLabelB">항목 B</div>
+                            <pre class="detail-pre" id="diffContentB"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="modalTitle">—</h5>
+                    <small id="modalMeta" style="color:var(--text-muted);"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 mb-3">
+                    <button class="tab-btn active" id="tabInput"  onclick="switchTab('input')">입력 코드</button>
+                    <button class="tab-btn"        id="tabOutput" onclick="switchTab('output')">분석 결과</button>
+                </div>
+                <pre class="detail-pre" id="modalContent"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="copy-btn" onclick="copyModalContent()">
+                    <i class="fas fa-copy me-1"></i>복사
+                </button>
+                <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    var _currentDetail = null;
+    var _typeFilter    = 'ALL';
+
+    // ── Detail modal ──────────────────────────────────────────
+    function showDetail(id) {
+        fetch('/history/' + id + '/detail')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) return;
+                _currentDetail = data;
+                document.getElementById('modalTitle').textContent = data.title;
+                document.getElementById('modalMeta').textContent  = data.type + '  ·  ' + data.date;
+                switchTab('output');
+                new bootstrap.Modal(document.getElementById('detailModal')).show();
+            });
+    }
+
+    function switchTab(tab) {
+        var content = _currentDetail ? (tab === 'input' ? _currentDetail.input : _currentDetail.output) : '';
+        document.getElementById('modalContent').textContent = content;
+        document.getElementById('tabInput').className  = 'tab-btn' + (tab === 'input'  ? ' active' : '');
+        document.getElementById('tabOutput').className = 'tab-btn' + (tab === 'output' ? ' active' : '');
+    }
+
+    function copyModalContent() {
+        var el = document.getElementById('modalContent');
+        if (!el) return;
+        var text = el.textContent || '';
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function() {
+                var btn = document.querySelector('#detailModal .copy-btn');
+                if (!btn) return;
+                var o = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨!';
+                setTimeout(function(){ btn.innerHTML = o; }, 2000);
+            });
+        }
+    }
+
+    // ── Search & type filter ──────────────────────────────────
+    function setTypeFilter(type, btn) {
+        _typeFilter = type;
+        document.querySelectorAll('.type-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+        applyFilters();
+    }
+
+    function applyFilters() {
+        var query   = (document.getElementById('historySearch').value || '').trim().toLowerCase();
+        var items   = document.querySelectorAll('.history-item');
+        var visible = 0;
+
+        items.forEach(function(item) {
+            var type    = (item.getAttribute('data-type')    || '').toUpperCase();
+            var title   = (item.getAttribute('data-title')   || '').toLowerCase();
+            var preview = (item.getAttribute('data-preview') || '').toLowerCase();
+
+            var typeOk  = (_typeFilter === 'ALL' || type === _typeFilter);
+            var textOk  = !query || title.indexOf(query) >= 0 || preview.indexOf(query) >= 0;
+            var show    = typeOk && textOk;
+
+            item.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+
+        var noResult = document.getElementById('noSearchResult');
+        if (noResult) noResult.style.display = (visible === 0 && items.length > 0) ? '' : 'none';
+
+        var counter = document.getElementById('filterCount');
+        if (counter && items.length > 0) {
+            counter.textContent = visible + ' / ' + items.length + '개';
+        }
+    }
+
+    // ── localStorage restore ──────────────────────────────────
+    var SERVER_COUNT = parseInt('[[${count}]]', 10) || 0;
+    if (SERVER_COUNT === 0) {
+        var localHistory = loadHistoryLocal();
+        if (localHistory && localHistory.length > 0) showLocalRestoreBanner(localHistory);
+    }
+
+    function showLocalRestoreBanner(lh) {
+        var banner = document.createElement('div');
+        banner.id = 'lsBanner';
+        banner.style.cssText = 'background:rgba(249,115,22,0.1);border:1px solid var(--accent);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;';
+        banner.innerHTML =
+            '<span style="color:var(--accent);font-size:0.85rem;">' +
+            '<i class="fas fa-history me-2"></i>서버 재시작으로 이력이 초기화되었습니다. 브라우저에 <strong>' + lh.length + '건</strong>의 이력이 저장되어 있습니다.</span>' +
+            '<div style="display:flex;gap:8px;">' +
+            '<button onclick="renderLocalHistory()" class="btn-accent" style="font-size:0.8rem;padding:5px 14px;"><i class="fas fa-undo me-1"></i>로컬 이력 보기</button>' +
+            '<button onclick="clearHistoryLocal();document.getElementById(\'lsBanner\').remove();" class="copy-btn" style="font-size:0.78rem;">삭제</button>' +
+            '</div>';
+        var content = document.querySelector('.main-content');
+        if (content) content.insertBefore(banner, content.firstChild);
+    }
+
+    function renderLocalHistory() {
+        var lh = loadHistoryLocal();
+        if (!lh || !lh.length) return;
+        var emptyEl = document.getElementById('emptyState');
+        if (emptyEl) emptyEl.style.display = 'none';
+        var grid = document.createElement('div');
+        grid.className = 'row g-3';
+        grid.id = 'localHistoryGrid';
+        var typeColors = {
+            'SQL_REVIEW':'#3b82f6','SQL_SECURITY':'#ef4444','DOC_GEN':'#8b5cf6',
+            'CODE_CONVERT':'#f59e0b','ERD':'#10b981','TEST_GEN':'#ef4444','API_SPEC':'#06b6d4',
+            'CODE_REVIEW':'#3b82f6','CODE_REVIEW_SEC':'#ef4444','MOCK_DATA':'#f59e0b',
+            'COMPLEXITY':'#06b6d4','MIGRATION':'#ec4899','LOG_ANALYSIS':'#f43f5e',
+            'REGEX_GEN':'#a855f7','COMMIT_MSG':'#14b8a6'
+        };
+        var typeLabels = {
+            'SQL_REVIEW':'SQL 리뷰','SQL_SECURITY':'SQL 보안','DOC_GEN':'문서 생성',
+            'CODE_CONVERT':'코드 변환','ERD':'ERD 분석','TEST_GEN':'테스트 생성','API_SPEC':'API 명세',
+            'CODE_REVIEW':'코드 리뷰','CODE_REVIEW_SEC':'코드 보안','MOCK_DATA':'Mock 데이터',
+            'COMPLEXITY':'복잡도 분석','MIGRATION':'마이그레이션','LOG_ANALYSIS':'로그 분석',
+            'REGEX_GEN':'정규식 생성','COMMIT_MSG':'커밋 메시지'
+        };
+        lh.forEach(function(h) {
+            var preview = (h.output || '').replace(/[#*`>]/g, '').replace(/\s+/g, ' ').substring(0, 150);
+            var col = document.createElement('div');
+            col.className = 'col-md-6 col-xl-4';
+            col.innerHTML = '<div class="history-card" onclick="showLocalDetail(' + h.id + ')">' +
+                '<div class="d-flex align-items-center justify-content-between mb-1">' +
+                '<span class="history-type-badge" style="background:' + (typeColors[h.type] || '#64748b') + '">' +
+                (typeLabels[h.type] || h.type) + '</span>' +
+                '<span style="font-size:0.72rem;color:var(--text-muted)">' + (h.date || '') + '</span></div>' +
+                '<div class="history-title">' + h.title + '</div>' +
+                '<div class="history-preview">' + preview + '</div>' +
+                '<div style="margin-top:6px;"><span style="font-size:0.72rem;color:var(--text-muted)"><i class="fas fa-hdd me-1"></i>로컬 저장</span>' +
+                '<button class="copy-btn" style="float:right;font-size:0.72rem;padding:2px 8px;" onclick="event.stopPropagation();deleteHistoryLocalById(' + h.id + ');this.closest(\'.col-md-6\').remove();">' +
+                '<i class="fas fa-trash"></i></button></div></div>';
+            grid.appendChild(col);
+        });
+        var banner = document.getElementById('lsBanner');
+        if (banner) banner.remove();
+        var content = document.querySelector('.main-content');
+        if (content) content.insertBefore(grid, content.firstChild);
+
+        window.showLocalDetail = function(id) {
+            var found = null;
+            for (var i = 0; i < lh.length; i++) { if (lh[i].id === id) { found = lh[i]; break; } }
+            if (!found) return;
+            _currentDetail = { input: found.input, output: found.output, title: found.title, type: found.type, date: found.date };
+            document.getElementById('modalTitle').textContent = found.title;
+            document.getElementById('modalMeta').textContent  = (typeLabels[found.type] || found.type) + ' · ' + found.date + ' (로컬)';
+            switchTab('output');
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        };
+    }
+
+    // ── Select mode / Bundle export ─────────────────────────────
+    var _selectMode = false;
+
+    function toggleSelectMode() {
+        _selectMode = !_selectMode;
+        var checkboxes = document.querySelectorAll('.select-checkbox');
+        checkboxes.forEach(function(el) { el.style.display = _selectMode ? '' : 'none'; });
+        var btn = document.getElementById('selectModeBtn');
+        if (btn) btn.innerHTML = _selectMode
+            ? '<i class="fas fa-times me-1"></i>취소'
+            : '<i class="fas fa-check-square me-1"></i>선택';
+        var bundleBtn = document.getElementById('bundleExportBtn');
+        if (bundleBtn) bundleBtn.style.display = _selectMode ? '' : 'none';
+        var diffBtn = document.getElementById('diffBtn');
+        if (diffBtn) diffBtn.style.display = _selectMode ? '' : 'none';
+        if (!_selectMode) {
+            document.querySelectorAll('.select-checkbox input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
+        }
+    }
+
+    function exportBundle() {
+        var checked = document.querySelectorAll('.select-checkbox input[type=checkbox]:checked');
+        if (checked.length === 0) { alert('내보낼 항목을 선택하세요.'); return; }
+        var ids = [];
+        checked.forEach(function(cb) { ids.push(cb.getAttribute('data-id')); });
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = '/history/export/bundle';
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'ids';
+        input.value = ids.join(',');
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+
+    // ── Diff Modal ────────────────────────────────────────────────
+    var _diffData = null;
+    var _diffTab  = 'input';
+
+    function showDiff() {
+        var cards = document.querySelectorAll('.history-card[data-id]');
+        var selA = document.getElementById('diffSelectA');
+        var selB = document.getElementById('diffSelectB');
+        selA.innerHTML = '';
+        selB.innerHTML = '';
+        cards.forEach(function(card) {
+            var id    = card.getAttribute('data-id');
+            var title = (card.querySelector('.history-title') || {}).textContent || ('ID ' + id);
+            var optA  = document.createElement('option');
+            optA.value = id; optA.textContent = title.substring(0, 60);
+            var optB  = optA.cloneNode(true);
+            selA.appendChild(optA);
+            selB.appendChild(optB);
+        });
+        if (selB.options.length > 1) selB.selectedIndex = 1;
+        document.getElementById('diffResult').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('diffModal')).show();
+    }
+
+    function loadDiff() {
+        var idA = document.getElementById('diffSelectA').value;
+        var idB = document.getElementById('diffSelectB').value;
+        if (!idA || !idB || idA === idB) { alert('서로 다른 두 항목을 선택하세요.'); return; }
+        fetch('/history/diff?idA=' + idA + '&idB=' + idB)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) { alert(data.error); return; }
+                _diffData = data;
+                document.getElementById('diffResult').style.display = '';
+                switchDiffTab('input');
+            })
+            .catch(function() { alert('비교 데이터를 불러오지 못했습니다.'); });
+    }
+
+    function switchDiffTab(tab) {
+        _diffTab = tab;
+        document.getElementById('diffTabInput').className  = 'tab-btn' + (tab === 'input'  ? ' active' : '');
+        document.getElementById('diffTabOutput').className = 'tab-btn' + (tab === 'output' ? ' active' : '');
+        if (!_diffData) return;
+        if (tab === 'input') {
+            document.getElementById('diffContentA').textContent = _diffData.inputA  || '';
+            document.getElementById('diffContentB').textContent = _diffData.inputB  || '';
+        } else {
+            document.getElementById('diffContentA').textContent = _diffData.outputA || '';
+            document.getElementById('diffContentB').textContent = _diffData.outputB || '';
+        }
+        document.getElementById('diffLabelA').textContent = (_diffData.titleA || 'A') + '  ·  ' + (_diffData.dateA || '');
+        document.getElementById('diffLabelB').textContent = (_diffData.titleB || 'B') + '  ·  ' + (_diffData.dateB || '');
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .hero { background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%); padding: 48px 0 36px; }
+        .hero h1 { color: var(--text-primary); }
+        .hero p  { color: var(--text-sub); }
+        .hero .small-note { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-robot me-2" style="color:#f97316"></i>Claude Java Toolkit</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Hero -->
+        <div class="hero">
+            <div class="container-fluid px-4 text-center">
+                <h1 class="fw-bold mb-2" style="font-size:1.8rem;">Claude Java Toolkit</h1>
+                <p class="mb-0">AI-powered tools for Oracle DB &amp; Java/Spring enterprise development</p>
+                <p class="small-note small mt-1">JDK 1.8+ · Oracle 11g+ · Spring Boot 2.7+</p>
+            </div>
+        </div>
+
+        <!-- Tool cards -->
+        <div class="main-content">
+            <!-- 분석 도구 -->
+            <h6 class="mb-3" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem;">
+                <i class="fas fa-search me-2"></i>분석 도구
+            </h6>
+            <div class="row g-3 mb-4">
+                <!-- SQL Advisor -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-database fa-lg" style="color:#f97316"></i>
+                            <span class="badge-module">SQL Advisor</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">SQL / SP 코드 리뷰</h5>
+                        <p class="mb-3">Oracle SQL·SP 성능 이슈, 버그, 리팩터링 제안. 보안 취약점 탭 포함. HIGH/MEDIUM/LOW 심각도 필터.</p>
+                        <a href="/advisor" class="btn btn-accent w-100 btn-sm"><i class="fas fa-search me-2"></i>SQL 리뷰 시작</a>
+                    </div>
+                </div>
+                <!-- ERD Analyzer -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-project-diagram fa-lg" style="color:#10b981"></i>
+                            <span class="badge-module" style="background:#10b981;">ERD Analyzer</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">DB ERD 분석</h5>
+                        <p class="mb-3">Oracle 스키마 자동 스캔 또는 텍스트 입력으로 Mermaid ERD 다이어그램과 테이블 관계 설명 생성. 테이블 필터 지원.</p>
+                        <a href="/erd" class="btn btn-accent w-100 btn-sm" style="background:#10b981;"><i class="fas fa-project-diagram me-2"></i>ERD 생성</a>
+                    </div>
+                </div>
+                <!-- Code Review -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-search-plus fa-lg" style="color:#3b82f6"></i>
+                            <span class="badge-module" style="background:#3b82f6;">Code Review</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">Java 코드 리뷰</h5>
+                        <p class="mb-3">Java/Spring 소스 코드 정적 분석. 일반 리뷰 및 보안 취약점 특화 리뷰. 프로젝트 컨텍스트 연동.</p>
+                        <a href="/codereview" class="btn btn-accent w-100 btn-sm" style="background:#3b82f6;"><i class="fas fa-search-plus me-2"></i>코드 리뷰</a>
+                    </div>
+                </div>
+                <!-- Complexity -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-chart-bar fa-lg" style="color:#06b6d4"></i>
+                            <span class="badge-module" style="background:#06b6d4;">Complexity</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">코드 복잡도 분석</h5>
+                        <p class="mb-3">순환 복잡도 측정, 리팩터링 우선순위 도출. 단일 파일 또는 전체 프로젝트 스캔 모드 지원.</p>
+                        <a href="/complexity" class="btn btn-accent w-100 btn-sm" style="background:#06b6d4;"><i class="fas fa-chart-bar me-2"></i>복잡도 분석</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 생성 도구 -->
+            <h6 class="mb-3" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem;">
+                <i class="fas fa-magic me-2"></i>생성 도구
+            </h6>
+            <div class="row g-3 mb-4">
+                <!-- Doc Generator -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-file-alt fa-lg" style="color:#8b5cf6"></i>
+                            <span class="badge-module" style="background:#8b5cf6;">Doc Generator</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">기술 문서 자동 생성</h5>
+                        <p class="mb-3">Oracle SP · Java 소스 → Markdown / Typst / HTML 기술 문서. 프로젝트 컨텍스트 스캔, 다국어 출력.</p>
+                        <a href="/docgen" class="btn btn-accent w-100 btn-sm" style="background:#8b5cf6;"><i class="fas fa-magic me-2"></i>문서 생성</a>
+                    </div>
+                </div>
+                <!-- Test Generator -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-vial fa-lg" style="color:#ef4444"></i>
+                            <span class="badge-module" style="background:#ef4444;">Test Generator</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">테스트 코드 자동 생성</h5>
+                        <p class="mb-3">Controller/Service/Mapper 코드 → JUnit 5 테스트 클래스. MockMvc / Mockito / MybatisTest 전략 자동 선택.</p>
+                        <a href="/testgen" class="btn btn-accent w-100 btn-sm" style="background:#ef4444;"><i class="fas fa-vial me-2"></i>테스트 생성</a>
+                    </div>
+                </div>
+                <!-- API Spec -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-code fa-lg" style="color:#06b6d4"></i>
+                            <span class="badge-module" style="background:#06b6d4;">API Spec</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">API 명세 자동 생성</h5>
+                        <p class="mb-3">Spring Controller → OpenAPI 3.0 YAML 또는 Swagger 2.0 어노테이션 자동 추가.</p>
+                        <a href="/apispec" class="btn btn-accent w-100 btn-sm" style="background:#06b6d4;"><i class="fas fa-code me-2"></i>API 명세 생성</a>
+                    </div>
+                </div>
+                <!-- Code Converter -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-exchange-alt fa-lg" style="color:#f59e0b"></i>
+                            <span class="badge-module" style="background:#f59e0b;">Code Converter</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">코드 변환 (양방향)</h5>
+                        <p class="mb-3">Oracle SP ↔ Java/Spring + MyBatis 양방향 변환. Oracle SQL → MyBatis XML 포함. 레거시 마이그레이션 자동화.</p>
+                        <a href="/converter" class="btn btn-accent w-100 btn-sm" style="background:#f59e0b;"><i class="fas fa-exchange-alt me-2"></i>코드 변환</a>
+                    </div>
+                </div>
+                <!-- Mock Data -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-table fa-lg" style="color:#f59e0b"></i>
+                            <span class="badge-module" style="background:#f59e0b;">Mock Data</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">Mock 데이터 생성</h5>
+                        <p class="mb-3">DDL로부터 현실적인 Oracle INSERT / MERGE / CSV 형식 테스트 데이터 자동 생성.</p>
+                        <a href="/mockdata" class="btn btn-accent w-100 btn-sm" style="background:#f59e0b;"><i class="fas fa-table me-2"></i>Mock 데이터 생성</a>
+                    </div>
+                </div>
+                <!-- Migration -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-random fa-lg" style="color:#ec4899"></i>
+                            <span class="badge-module" style="background:#ec4899;">Migration</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">DB 마이그레이션 스크립트</h5>
+                        <p class="mb-3">BEFORE/AFTER DDL 비교 → Oracle DDL · Flyway · Liquibase 마이그레이션 스크립트 자동 생성.</p>
+                        <a href="/migration" class="btn btn-accent w-100 btn-sm" style="background:#ec4899;"><i class="fas fa-random me-2"></i>마이그레이션 생성</a>
+                    </div>
+                </div>
+                <!-- Batch -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-layer-group fa-lg" style="color:#64748b"></i>
+                            <span class="badge-module" style="background:#64748b;">Batch</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">Batch 일괄 처리</h5>
+                        <p class="mb-3">여러 SQL / Java 파일을 한 번에 업로드하여 리뷰 또는 테스트 코드를 일괄 생성. ZIP 다운로드 지원.</p>
+                        <a href="/batch" class="btn btn-accent w-100 btn-sm" style="background:#64748b;"><i class="fas fa-layer-group me-2"></i>Batch 처리</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Start -->
+            <div class="panel p-4">
+                <h6 class="mb-3"><i class="fas fa-bolt me-2" style="color:#f97316"></i>Quick Start</h6>
+                <pre style="background:var(--input-bg);color:var(--text-sub);padding:14px;border-radius:8px;font-size:.82rem;border:1px solid var(--border-color);margin:0;">
+# 1. Clone &amp; Build
+git clone https://github.com/YOUR_USERNAME/claude-java-toolkit.git
+cd claude-java-toolkit
+mvn install -DskipTests
+
+# 2. API 키 설정
+export CLAUDE_API_KEY=sk-ant-...         # Mac/Linux
+set CLAUDE_API_KEY=sk-ant-...            # Windows
+
+# 3. UI 실행
+cd claude-toolkit-ui
+mvn spring-boot:run
+
+# → http://localhost:8027</pre>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>SQL Advisor — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .review-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                      padding:5px 16px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all 0.15s; }
+        .review-tab.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+        .security-tab.active { background:rgba(239,68,68,0.1); border-color:#ef4444; color:#ef4444; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-database me-2" style="color:#f97316"></i>SQL / Oracle SP 코드 리뷰</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">Claude가 분석 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">SQL 쿼리 또는 Oracle Stored Procedure를 붙여넣고 리뷰를 실행하세요.</p>
+
+            <div th:if="${error}"              class="alert alert-danger  mb-3" th:text="${error}"></div>
+            <div th:if="${dbContextWarning}"   class="alert alert-warning mb-3 small" th:text="${dbContextWarning}"></div>
+            <div th:if="${explainPlanWarning}" class="alert alert-warning mb-3 small" th:text="${explainPlanWarning}"></div>
+
+            <!-- Mode tabs -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="review-tab active" id="tabReview"   onclick="switchAdvisorTab('review')">
+                    <i class="fas fa-search me-1"></i>성능/품질 리뷰
+                </button>
+                <button type="button" class="review-tab security-tab" id="tabSecurity" onclick="switchAdvisorTab('security')">
+                    <i class="fas fa-shield-alt me-1"></i>보안 감사
+                </button>
+                <button type="button" class="review-tab" id="tabIndex" onclick="switchAdvisorTab('index')">
+                    <i class="fas fa-bolt me-1" style="color:#f59e0b"></i>인덱스 최적화
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <!-- ── Input Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4">
+                        <form method="post" id="reviewForm"
+                              th:action="${activeTab == 'security'} ? @{/advisor/security} : (${activeTab == 'index'} ? @{/advisor/index} : @{/advisor/review})">
+                            <!-- SQL Type -->
+                            <div class="mb-3">
+                                <label class="form-label">SQL 유형 (자동 감지됨)</label>
+                                <select class="form-select" name="sqlType">
+                                    <option value="">자동 감지</option>
+                                    <option th:each="type : ${sqlTypes}"
+                                            th:value="${type.name()}"
+                                            th:text="${type.displayName}"
+                                            th:selected="${type.name() == param.sqlType}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- SQL Input -->
+                            <div class="mb-3">
+                                <label class="form-label">SQL / PL/SQL 소스</label>
+                                <textarea class="form-control" name="sqlContent" rows="14"
+                                          placeholder="SELECT * FROM T_ORDER o JOIN T_CUSTOMER c ON o.CUST_ID = c.CUST_ID WHERE ..."
+                                          th:text="${sqlContent}"></textarea>
+                            </div>
+
+                            <!-- DB Context -->
+                            <div class="ctx-box mb-2">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input class="form-check-input mt-0" type="checkbox"
+                                               name="useDbContext" id="useDbContext" value="true"
+                                               th:checked="${useDbContext}" th:disabled="${!dbConfigured}">
+                                        <label class="form-check-label" for="useDbContext" style="color:var(--text-sub);font-size:.82rem;">
+                                            <i class="fas fa-database me-1" style="color:#f97316"></i>
+                                            Oracle DB 메타정보 포함 (컬럼·인덱스·PK)
+                                        </label>
+                                    </div>
+                                    <span th:if="${dbConfigured}"  class="status-badge status-ok"><i class="fas fa-circle" style="font-size:.45rem;"></i>연결됨</span>
+                                    <span th:unless="${dbConfigured}" class="status-badge status-none"><a href="/settings" style="color:inherit;text-decoration:none;">설정 필요</a></span>
+                                </div>
+                            </div>
+
+                            <!-- EXPLAIN PLAN -->
+                            <div class="ctx-box mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <input class="form-check-input mt-0" type="checkbox"
+                                           name="useExplainPlan" id="useExplainPlan" value="true"
+                                           th:checked="${useExplainPlan}" th:disabled="${!dbConfigured}">
+                                    <label class="form-check-label" for="useExplainPlan" style="color:var(--text-sub);font-size:.82rem;">
+                                        <i class="fas fa-sitemap me-1" style="color:#3b82f6"></i>
+                                        EXPLAIN PLAN 실행 후 실행계획 포함
+                                    </label>
+                                </div>
+                                <div class="ctx-hint">SELECT 문에만 사용하세요. DML 실행계획은 DB에 영향을 줄 수 있습니다.</div>
+                            </div>
+
+                            <input type="hidden" id="activeTab" value="review">
+                            <div class="d-flex gap-2">
+                                <button type="submit" id="submitReviewBtn" class="btn btn-accent flex-fill"
+                                        onclick="showSpinner(['SQL 파싱 중...','DB 메타정보 조회 중...','Claude 분석 중...','리포트 작성 중...'])">
+                                    <i class="fas fa-search me-2"></i>리뷰 실행
+                                </button>
+                                <button type="submit" id="submitSecurityBtn" class="btn flex-fill"
+                                        style="background:rgba(239,68,68,0.12);border:1px solid #ef4444;color:#ef4444;display:none;"
+                                        onclick="showSpinner(['SQL 파싱 중...','취약점 패턴 검사 중...','보안 감사 중...','보고서 작성 중...'])">
+                                    <i class="fas fa-shield-alt me-2"></i>보안 감사 실행
+                                </button>
+                                <button type="submit" id="submitIndexBtn" class="btn flex-fill"
+                                        style="background:rgba(245,158,11,0.12);border:1px solid #f59e0b;color:#f59e0b;display:none;"
+                                        onclick="showSpinner(['SQL 분석 중...','인덱스 패턴 검사 중...','최적화 방안 도출 중...'])">
+                                    <i class="fas fa-bolt me-2"></i>인덱스 최적화 실행
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm" onclick="runStream()" id="streamBtn">
+                                    <i class="fas fa-bolt me-1" style="color:#f97316"></i>실시간
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- File upload -->
+                        <hr class="divider my-3">
+                        <form method="post" action="/advisor/review/file" enctype="multipart/form-data">
+                            <input type="hidden" name="useDbContext"    th:value="${useDbContext}">
+                            <input type="hidden" name="useExplainPlan" th:value="${useExplainPlan}">
+                            <div class="input-group">
+                                <input type="file" class="form-control form-control-sm" name="file" accept=".sql,.pls,.pck">
+                                <button class="btn btn-outline-tk btn-sm" type="submit" onclick="showSpinner(['파일 처리 중...'])">
+                                    <i class="fas fa-upload me-1"></i>파일 업로드
+                                </button>
+                            </div>
+                            <p class="upload-hint mt-1">지원: .sql, .pls, .pck</p>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ── Result Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4 h-100">
+                        <!-- ── 실시간 스트리밍 패널 ── -->
+                        <div id="streamPanel" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0" style="color:var(--text-sub);font-size:0.88rem;">
+                                    <i class="fas fa-bolt me-2" style="color:#f97316"></i>실시간 결과
+                                    <span id="streamStatus" class="ms-2" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                                </h6>
+                                <button type="button" class="copy-btn" onclick="copyStream()">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                            <div id="streamResult" class="stream-result"></div>
+                            <div class="mt-2" style="font-size:0.73rem;color:var(--text-muted);">
+                                <i class="fas fa-info-circle me-1"></i>실시간 보기 결과는 이력에 자동 저장되지 않습니다.
+                            </div>
+                        </div>
+                        <!-- Result header -->
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="result-meta">분석 결과</span>
+                                <span th:if="${dbContextUsed}"  class="status-badge status-ok" style="font-size:.7rem;"><i class="fas fa-database" style="font-size:.6rem;"></i>DB 메타</span>
+                                <span th:if="${explainPlan}"    class="status-badge status-ok" style="font-size:.7rem;background:rgba(59,130,246,.12);color:#3b82f6;border-color:rgba(59,130,246,.3);">
+                                    <i class="fas fa-sitemap" style="font-size:.6rem;"></i>EXPLAIN PLAN
+                                </span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span th:if="${result}" class="result-meta" th:text="'완료: ' + ${result.reviewedAt}"></span>
+                                <button th:if="${result}" class="copy-btn" onclick="openInNewTab('resultMd')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultMd')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tables found -->
+                        <div th:if="${tablesFound}" class="ctx-box mb-2">
+                            <span style="font-size:.77rem;color:var(--text-sub);">
+                                <i class="fas fa-table me-1" style="color:#f97316"></i>조회된 테이블:
+                            </span>
+                            <span th:each="t,iter : ${tablesFound}" style="font-size:.77rem;">
+                                <code th:text="${t}"></code><span th:unless="${iter.last}">, </span>
+                            </span>
+                        </div>
+
+                        <!-- Severity filter -->
+                        <div th:if="${result}" class="sev-filter">
+                            <button class="sev-filter-btn f-all" id="sevBtn-ALL"    onclick="filterSeverity('ALL')">전체</button>
+                            <button class="sev-filter-btn"       id="sevBtn-HIGH"   onclick="filterSeverity('HIGH')">🔴 HIGH</button>
+                            <button class="sev-filter-btn"       id="sevBtn-MEDIUM" onclick="filterSeverity('MEDIUM')">🟠 MEDIUM</button>
+                            <button class="sev-filter-btn"       id="sevBtn-LOW"    onclick="filterSeverity('LOW')">🟢 LOW</button>
+                        </div>
+
+                        <!-- Result box -->
+                        <div th:if="${result}" class="result-box markdown-body" id="resultMd"></div>
+                        <div id="rawResult" th:if="${result}"
+                             th:attr="data-content=${result.reviewContent}" style="display:none;"></div>
+                        <div th:if="${indexResult}" class="result-box markdown-body" id="indexResultMd"></div>
+                        <div id="rawIndexResult" th:if="${indexResult}"
+                             th:attr="data-content=${indexResult}" style="display:none;"></div>
+                        <div th:unless="${result != null or indexResult != null}" class="result-box result-empty">
+                            <i class="fas fa-search fa-2x" style="color:var(--border-color)"></i>
+                            <span>SQL을 입력하고 리뷰를 실행하면 결과가 여기에 표시됩니다.</span>
+                        </div>
+
+                        <!-- EXPLAIN PLAN raw (collapsible) -->
+                        <div th:if="${explainPlan}" class="mt-3">
+                            <details>
+                                <summary style="color:var(--text-muted);font-size:.8rem;cursor:pointer;">
+                                    <i class="fas fa-sitemap me-1" style="color:#3b82f6;"></i>실행계획 원문 보기
+                                </summary>
+                                <pre style="background:var(--input-bg);border:1px solid var(--border-color);border-radius:6px;padding:12px;font-size:.78rem;color:var(--text-sub);white-space:pre-wrap;margin-top:8px;"
+                                     th:text="${explainPlan}"></pre>
+                            </details>
+                        </div>
+
+                        <!-- Download -->
+                        <div th:if="${result}" class="mt-3">
+                            <form method="get" action="/advisor/review/download">
+                                <input type="hidden" name="sqlContent" th:value="${sqlContent}">
+                                <button type="submit" class="btn btn-outline-tk btn-sm w-100">
+                                    <i class="fas fa-download me-2"></i>Markdown으로 다운로드
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    /* 결과 렌더링 — CDN(Prism/marked) 미로드 시에도 예외 없이 진행 */
+    try {
+        var rawEl = document.getElementById('rawResult');
+        if (rawEl) {
+            var raw = rawEl.getAttribute('data-content');
+            renderMarkdown(raw, 'resultMd');
+            if (typeof Prism !== 'undefined' && document.getElementById('resultMd')) {
+                Prism.highlightAllUnder(document.getElementById('resultMd'));
+            }
+            initSeverityFilter('resultMd');
+        }
+
+        var rawIndexEl = document.getElementById('rawIndexResult');
+        if (rawIndexEl) {
+            var rawIdx = rawIndexEl.getAttribute('data-content');
+            renderMarkdown(rawIdx, 'indexResultMd');
+            if (typeof Prism !== 'undefined' && document.getElementById('indexResultMd')) {
+                Prism.highlightAllUnder(document.getElementById('indexResultMd'));
+            }
+            initSeverityFilter('indexResultMd');
+        }
+    } catch (e) {
+        console.warn('[advisor] 결과 렌더링 중 오류 (무시됨):', e);
+    }
+
+    /* ── 탭 전환 함수 (null-safe) ── */
+    function switchAdvisorTab(tab) {
+        var isReview   = (tab === 'review');
+        var isSecurity = (tab === 'security');
+        var isIndex    = (tab === 'index');
+
+        /* 탭 버튼 active 상태 */
+        var tR = document.getElementById('tabReview');
+        var tS = document.getElementById('tabSecurity');
+        var tI = document.getElementById('tabIndex');
+        if (tR) tR.classList.toggle('active', isReview);
+        if (tS) tS.classList.toggle('active', isSecurity);
+        if (tI) tI.classList.toggle('active', isIndex);
+
+        /* 제출 버튼 표시/숨김 */
+        var btnR = document.getElementById('submitReviewBtn');
+        var btnS = document.getElementById('submitSecurityBtn');
+        var btnI = document.getElementById('submitIndexBtn');
+        if (btnR) btnR.style.display = isReview   ? '' : 'none';
+        if (btnS) btnS.style.display = isSecurity ? '' : 'none';
+        if (btnI) btnI.style.display = isIndex    ? '' : 'none';
+
+        /* DB context 박스 투명도 */
+        var dbBox = document.querySelector('.ctx-box');
+        if (dbBox) dbBox.style.opacity = isSecurity ? '0.4' : '1';
+
+        /* 폼 action 업데이트 */
+        var form = document.getElementById('reviewForm');
+        if (form) form.action = isSecurity ? '/advisor/security' : (isIndex ? '/advisor/index' : '/advisor/review');
+
+        /* 숨은 activeTab 입력값 동기화 */
+        var activeTabEl = document.getElementById('activeTab');
+        if (activeTabEl) activeTabEl.value = tab;
+    }
+
+    /* ── 탭 버튼에 이벤트 리스너 연결 (onclick 백업) ── */
+    (function () {
+        var tabs = [
+            { id: 'tabReview',    key: 'review' },
+            { id: 'tabSecurity',  key: 'security' },
+            { id: 'tabIndex',     key: 'index' }
+        ];
+        tabs.forEach(function (t) {
+            var el = document.getElementById(t.id);
+            if (el) {
+                el.addEventListener('click', function () {
+                    switchAdvisorTab(t.key);
+                });
+            }
+        });
+    })();
+
+    /* ── 서버 응답에서 활성 탭 복원 ── */
+    var activeTab = '[[${activeTab != null ? activeTab : "review"}]]';
+    if (activeTab === 'security') switchAdvisorTab('security');
+    else if (activeTab === 'index') switchAdvisorTab('index');
+
+    function runStream() {
+        var input = document.querySelector('[name=sqlContent]').value.trim();
+        if (!input) { alert('SQL을 입력하세요.'); return; }
+        var sqlType = document.querySelector('select[name=sqlType]') ? document.querySelector('select[name=sqlType]').value : '';
+        // Determine which tab is active
+        var activeTabEl = document.getElementById('activeTab');
+        var currentTab = activeTabEl ? activeTabEl.value : 'review';
+        var feature = currentTab === 'security' ? 'sql_security' : (currentTab === 'index' ? 'index_opt' : 'sql_review');
+        document.getElementById('streamPanel').style.display = '';
+        document.getElementById('streamResult').textContent = '';
+        document.getElementById('streamResult').classList.add('stream-cursor');
+        document.getElementById('streamStatus').textContent = '스트리밍 중...';
+        startStream(feature, {input: input, sourceType: sqlType}, 'streamResult', function() {
+            document.getElementById('streamResult').classList.remove('stream-cursor');
+            document.getElementById('streamStatus').textContent = '완료';
+        });
+    }
+    function copyStream() {
+        var el = document.getElementById('streamResult');
+        if (!el || !el.textContent.trim()) return;
+        navigator.clipboard.writeText(el.textContent).then(function() {
+            var btn = document.querySelector('[onclick="copyStream()"]');
+            if (btn) { var orig = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨'; setTimeout(function(){ btn.innerHTML = orig; }, 1500); }
+        }).catch(function() {
+            var ta = document.createElement('textarea'); ta.value = el.textContent;
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        });
+    }
+</script>
+</body>
+</html>

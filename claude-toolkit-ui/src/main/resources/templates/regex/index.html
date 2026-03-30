@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>정규식 생성기 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .lang-chip { display:inline-block; background:none; border:1px solid var(--border-color);
+                     color:var(--text-muted); border-radius:16px; padding:3px 13px; cursor:pointer;
+                     font-size:0.8rem; transition:all 0.15s; margin-right:6px; }
+        .lang-chip.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+        .regex-box { background:var(--input-bg); border:1px solid var(--border-color); border-radius:8px;
+                     padding:14px; font-family:monospace; font-size:1.05rem; color:var(--accent);
+                     word-break:break-all; margin-bottom:12px; }
+        .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    border-radius:6px; padding:3px 12px; cursor:pointer; font-size:0.78rem; }
+        .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-code me-2" style="color:#f97316"></i>정규식 생성기</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg">Claude가 정규식을 생성 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">자연어로 요구사항을 설명하면 정규식과 사용 예제를 생성합니다.</p>
+
+            <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
+
+            <div class="row g-4">
+                <!-- ── Input Panel ── -->
+                <div class="col-lg-5">
+                    <div class="panel p-4">
+                        <form method="post" action="/regex/generate" id="regexForm" onsubmit="showSpinner()">
+
+                            <!-- Language selector -->
+                            <div class="mb-3">
+                                <label class="form-label">대상 언어</label>
+                                <div>
+                                    <button type="button" class="lang-chip"
+                                            th:classappend="${language == 'java' or language == null} ? ' active' : ''"
+                                            onclick="selectLang('java')">Java</button>
+                                    <button type="button" class="lang-chip"
+                                            th:classappend="${language == 'javascript'} ? ' active' : ''"
+                                            onclick="selectLang('javascript')">JavaScript</button>
+                                    <button type="button" class="lang-chip"
+                                            th:classappend="${language == 'python'} ? ' active' : ''"
+                                            onclick="selectLang('python')">Python</button>
+                                    <button type="button" class="lang-chip"
+                                            th:classappend="${language == 'oracle'} ? ' active' : ''"
+                                            onclick="selectLang('oracle')">Oracle SQL</button>
+                                    <button type="button" class="lang-chip"
+                                            th:classappend="${language == 'kotlin'} ? ' active' : ''"
+                                            onclick="selectLang('kotlin')">Kotlin</button>
+                                </div>
+                                <input type="hidden" name="language" id="langInput"
+                                       th:value="${language != null} ? ${language} : 'java'">
+                            </div>
+
+                            <!-- Description -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label mb-0">요구사항 설명</label>
+                                    <span id="tokenCount" class="token-counter"></span>
+                                </div>
+                                <textarea class="form-control" name="description" id="description"
+                                          rows="8"
+                                          placeholder="예시:&#10;- 한국 휴대폰 번호 (010-1234-5678 형식)&#10;- 이메일 주소 검증&#10;- 날짜 형식 YYYY-MM-DD&#10;- 한글과 영문만 허용, 특수문자 제외&#10;- HTML 태그 제거"
+                                          th:text="${description}"></textarea>
+                            </div>
+
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="submit" id="submitBtn" class="btn-primary-tk">
+                                    <i class="fas fa-magic me-2"></i>정규식 생성
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm"
+                                        onclick="clearForm()">초기화</button>
+                                <span id="draftNotice" class="draft-notice"></span>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Quick Examples -->
+                    <div class="panel p-3 mt-3">
+                        <div class="mb-2" style="font-size:0.8rem;font-weight:500;color:var(--text-sub);">
+                            <i class="fas fa-bolt me-1" style="color:#f97316"></i>빠른 예제
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('한국 휴대폰 번호 (010-0000-0000 또는 010-000-0000 형식)')">📱 휴대폰 번호</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('이메일 주소 유효성 검사 (RFC 표준 준수)')">✉️ 이메일</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('날짜 형식 YYYY-MM-DD 또는 YYYY/MM/DD')">📅 날짜</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('한국 주민등록번호 형식 검사 (앞 6자리-뒤 7자리)')">🪪 주민등록번호</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('URL 추출 (http, https 프로토콜)')">🔗 URL</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('HTML 태그 제거 (모든 태그 포함)')">🏷️ HTML 태그</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('비밀번호 강도 검사: 최소 8자, 영문 대소문자+숫자+특수문자 포함')">🔒 비밀번호</button>
+                            <button type="button" class="quick-chip"
+                                    onclick="setExample('IP 주소 (IPv4) 형식 검사')">🌐 IPv4</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Result Panel ── -->
+                <div class="col-lg-7">
+                    <div class="panel p-4" style="min-height:420px;">
+                        <div th:if="${result != null}">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="mb-0" style="color:var(--text-sub);">
+                                    <i class="fas fa-terminal me-2" style="color:#f97316"></i>생성 결과
+                                    <span class="badge ms-1" style="background:var(--accent-subtle);color:var(--accent);font-size:0.7rem;"
+                                          th:text="${language != null} ? ${language} : 'java'"></span>
+                                </h6>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-tk btn-sm"
+                                            onclick="copyResult()">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                    <form method="post" action="/regex/download" class="d-inline">
+                                        <input type="hidden" name="description" th:value="${description}">
+                                        <input type="hidden" name="language"    th:value="${language}">
+                                        <button type="submit" class="btn btn-outline-tk btn-sm">
+                                            <i class="fas fa-download me-1"></i>다운로드
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div id="resultContent" class="result-box markdown-result"
+                                 th:utext="${#strings.replace(
+                                     #strings.replace(
+                                         #strings.replace(result,'&','&amp;'),
+                                     '<','&lt;'),
+                                 '>','&gt;')}">
+                            </div>
+                        </div>
+                        <div th:unless="${result != null}"
+                             class="d-flex flex-column align-items-center justify-content-center"
+                             style="min-height:380px;color:var(--text-muted);">
+                            <i class="fas fa-code mb-3" style="font-size:2.5rem;opacity:0.25;"></i>
+                            <p class="mb-1" style="font-size:0.9rem;">요구사항을 입력하고 정규식을 생성하세요.</p>
+                            <p style="font-size:0.78rem;opacity:0.7;">
+                                <i class="fas fa-info-circle me-1"></i>정규식, 설명, 사용 예제, 테스트 케이스를 제공합니다
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    /* ── Language selection ── */
+    function selectLang(lang) {
+        document.getElementById('langInput').value = lang;
+        document.querySelectorAll('.lang-chip').forEach(function(c) {
+            c.classList.remove('active');
+        });
+        event.target.classList.add('active');
+    }
+
+    /* ── Quick example ── */
+    function setExample(text) {
+        document.getElementById('description').value = text;
+        updateTokenCount('description', 'tokenCount');
+        saveDraft('regex_draft', text);
+    }
+
+    /* ── Copy result ── */
+    function copyResult() {
+        var el = document.getElementById('resultContent');
+        if (!el) return;
+        var text = el.innerText || el.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('복사 완료!');
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showToast('복사 완료!');
+        });
+    }
+
+    function showToast(msg) {
+        var t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--accent);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.83rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+        document.body.appendChild(t);
+        setTimeout(function(){ document.body.removeChild(t); }, 2500);
+    }
+
+    /* ── Clear ── */
+    function clearForm() {
+        document.getElementById('description').value = '';
+        updateTokenCount('description', 'tokenCount');
+        clearDraft('regex_draft');
+    }
+
+    /* ── Spinner ── */
+    function showSpinner() {
+        var s = document.getElementById('spinner');
+        if (s) s.classList.add('active');
+        guardSubmit('submitBtn');
+    }
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        initAutoDraft('description', 'regex_draft');
+        initTokenCounter('description', 'tokenCount');
+
+        var rc = document.getElementById('resultContent');
+        if (rc) renderMarkdownResult(rc);
+
+        /* Style quick chips */
+        document.querySelectorAll('.quick-chip').forEach(function(btn) {
+            btn.style.cssText = 'background:none;border:1px solid var(--border-color);color:var(--text-muted);border-radius:12px;padding:3px 10px;cursor:pointer;font-size:0.76rem;transition:all 0.15s;';
+            btn.addEventListener('mouseenter', function() {
+                btn.style.borderColor = 'var(--accent)';
+                btn.style.color = 'var(--accent)';
+            });
+            btn.addEventListener('mouseleave', function() {
+                btn.style.borderColor = 'var(--border-color)';
+                btn.style.color = 'var(--text-muted)';
+            });
+        });
+    });
+</script>
+</body>
+</html>

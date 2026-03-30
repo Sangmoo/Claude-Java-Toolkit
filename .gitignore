@@ -1,0 +1,73 @@
+# ── Maven ──────────────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+!**/src/main/**/*.jar
+!**/src/test/**/*.jar
+
+# ── IntelliJ IDEA ──────────────────────────────────────────────────────────
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/shelf
+.idea/aws.xml
+.idea/httpRequests
+.idea/dataSources/
+.idea/dataToImport/
+*.iws
+*.iml
+out/
+
+# ── Secrets / API Keys ─────────────────────────────────────────────────────
+# Claude API key 및 DB 접속정보는 절대 커밋하지 않습니다.
+# 실행 시 환경 변수로 주입하세요:
+#   export CLAUDE_API_KEY=sk-ant-...
+#   export ORACLE_DB_URL=jdbc:oracle:thin:@//host:1521/ORCL
+#   export ORACLE_DB_USERNAME=...
+#   export ORACLE_DB_PASSWORD=...
+.env
+.env.*
+*.env.local
+application-local.yml
+application-local.yaml
+application-secret.yml
+application-secret.yaml
+application-prod.yml
+application-prod.yaml
+secrets.yml
+secrets.yaml
+secret.properties
+
+# ── H2 / Local DB files ────────────────────────────────────────────────────
+*.mv.db
+*.trace.db
+*.h2.db
+*.lock.db
+
+# ── Claude Code (machine-specific) ─────────────────────────────────────────
+# start-ui.cmd 에는 로컬 JDK/IntelliJ 경로가 하드코딩됩니다.
+# settings.local.json 에는 로컬 허가 목록과 머신별 경로가 포함됩니다.
+# 두 파일 모두 로컬에서만 사용하고 git에는 포함하지 않습니다.
+.claude/start-ui.cmd
+.claude/settings.local.json
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Logs ───────────────────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── Spring Boot generated ──────────────────────────────────────────────────
+HELP.md

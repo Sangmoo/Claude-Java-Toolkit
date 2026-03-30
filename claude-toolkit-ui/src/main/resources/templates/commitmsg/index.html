@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>커밋 메시지 생성기 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .mode-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:5px 16px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all 0.15s; }
+        .mode-tab.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+        .style-chip { display:inline-block; background:none; border:1px solid var(--border-color);
+                      color:var(--text-muted); border-radius:16px; padding:3px 13px; cursor:pointer;
+                      font-size:0.8rem; transition:all 0.15s; margin-right:6px; margin-bottom:4px; }
+        .style-chip.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+        .file-label { cursor:pointer; border:1px dashed var(--border-color); border-radius:6px;
+                      padding:6px 14px; color:var(--text-muted); font-size:0.82rem; transition:border-color 0.15s; }
+        .file-label:hover { border-color:var(--accent); color:var(--accent); }
+        .commit-highlight { background:var(--input-bg); border-left:3px solid var(--accent);
+                            padding:10px 14px; border-radius:0 6px 6px 0; font-family:monospace;
+                            font-size:0.9rem; margin-bottom:10px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-code-branch me-2" style="color:#f97316"></i>커밋 메시지 생성기</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg">Claude가 커밋 메시지를 생성 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Git diff 또는 변경 내용 설명을 입력하면 Conventional Commits 형식의 커밋 메시지를 생성합니다.</p>
+
+            <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
+
+            <!-- Mode tabs -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="mode-tab"
+                        th:classappend="${inputMode == 'description'} ? '' : ' active'"
+                        id="tabDiff" onclick="switchMode('diff')">
+                    <i class="fas fa-file-code me-1"></i>Git Diff 입력
+                </button>
+                <button type="button" class="mode-tab"
+                        th:classappend="${inputMode == 'description'} ? ' active' : ''"
+                        id="tabDesc" onclick="switchMode('description')">
+                    <i class="fas fa-align-left me-1"></i>변경 내용 설명
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <!-- ── Input Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4">
+                        <form method="post" action="/commitmsg/generate" id="commitForm"
+                              onsubmit="showSpinner()">
+                            <input type="hidden" name="inputMode" id="inputModeInput"
+                                   th:value="${inputMode != null} ? ${inputMode} : 'diff'">
+
+                            <!-- Commit style (only shown for diff mode) -->
+                            <div class="mb-3" id="stylePanel"
+                                 th:style="${inputMode == 'description'} ? 'display:none' : ''">
+                                <label class="form-label">커밋 스타일</label>
+                                <div>
+                                    <button type="button" class="style-chip"
+                                            th:classappend="${commitStyle == 'conventional' or commitStyle == null} ? ' active' : ''"
+                                            onclick="selectStyle('conventional')">
+                                        Conventional Commits
+                                    </button>
+                                    <button type="button" class="style-chip"
+                                            th:classappend="${commitStyle == 'gitmoji'} ? ' active' : ''"
+                                            onclick="selectStyle('gitmoji')">
+                                        <i class="fas fa-smile me-1"></i>Gitmoji
+                                    </button>
+                                    <button type="button" class="style-chip"
+                                            th:classappend="${commitStyle == 'simple'} ? ' active' : ''"
+                                            onclick="selectStyle('simple')">
+                                        Simple
+                                    </button>
+                                    <button type="button" class="style-chip"
+                                            th:classappend="${commitStyle == 'angular'} ? ' active' : ''"
+                                            onclick="selectStyle('angular')">
+                                        Angular
+                                    </button>
+                                </div>
+                                <input type="hidden" name="commitStyle" id="styleInput"
+                                       th:value="${commitStyle != null} ? ${commitStyle} : 'conventional'">
+                            </div>
+
+                            <!-- Input textarea -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label mb-0" id="inputLabel">Git Diff / 변경 코드</label>
+                                    <span id="tokenCount" class="token-counter"></span>
+                                </div>
+                                <textarea class="form-control font-monospace" name="diffContent" id="diffContent"
+                                          rows="14"
+                                          placeholder="git diff HEAD 또는 git diff --staged 출력 내용을 붙여넣으세요..."
+                                          th:text="${diffContent}"></textarea>
+                            </div>
+
+                            <!-- File upload (diff mode only) -->
+                            <div class="mb-3" id="filePanel"
+                                 th:style="${inputMode == 'description'} ? 'display:none' : ''">
+                                <label class="file-label" for="diffFile">
+                                    <i class="fas fa-upload me-1"></i>.diff / .patch 파일 로드
+                                    <input type="file" id="diffFile" accept=".diff,.patch,.txt" class="d-none"
+                                           onchange="loadDiffFile(this)">
+                                </label>
+                            </div>
+
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="submit" id="submitBtn" class="btn-primary-tk">
+                                    <i class="fas fa-comment-dots me-2"></i>메시지 생성
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm" onclick="runStream()" id="streamBtn">
+                                    <i class="fas fa-bolt me-1" style="color:#f97316"></i>실시간
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm"
+                                        onclick="clearForm()">초기화</button>
+                                <span id="draftNotice" class="draft-notice"></span>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Quick Diff Guide -->
+                    <div class="panel p-3 mt-3" style="font-size:0.8rem;color:var(--text-muted);">
+                        <div class="mb-2" style="font-weight:500;color:var(--text-sub);">
+                            <i class="fas fa-terminal me-1" style="color:#f97316"></i>Git diff 복사 명령어
+                        </div>
+                        <pre style="background:var(--input-bg);padding:10px;border-radius:6px;font-size:0.78rem;margin:0;border:1px solid var(--border-color);">git diff HEAD          # 모든 변경사항
+git diff --staged      # 스테이징된 변경사항
+git diff HEAD~1 HEAD   # 최근 1 커밋</pre>
+                    </div>
+                </div>
+
+                <!-- ── Result Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4" style="min-height:420px;">
+                        <!-- ── 실시간 스트리밍 패널 ── -->
+                        <div id="streamPanel" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0" style="color:var(--text-sub);font-size:0.88rem;">
+                                    <i class="fas fa-bolt me-2" style="color:#f97316"></i>실시간 결과
+                                    <span id="streamStatus" class="ms-2" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                                </h6>
+                                <button type="button" class="copy-btn" onclick="copyStream()">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                            <div id="streamResult" class="stream-result"></div>
+                            <div class="mt-2" style="font-size:0.73rem;color:var(--text-muted);">
+                                <i class="fas fa-info-circle me-1"></i>실시간 보기 결과는 이력에 자동 저장되지 않습니다.
+                            </div>
+                        </div>
+                        <div th:if="${result != null}">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="mb-0" style="color:var(--text-sub);">
+                                    <i class="fas fa-check-circle me-2" style="color:#22c55e"></i>생성된 커밋 메시지
+                                    <span class="badge ms-1" style="background:var(--accent-subtle);color:var(--accent);font-size:0.7rem;"
+                                          th:text="${commitStyle != null} ? ${commitStyle} : 'conventional'"></span>
+                                </h6>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-tk btn-sm"
+                                            onclick="copyResult()">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                    <form method="post" action="/commitmsg/download" class="d-inline">
+                                        <input type="hidden" name="diffContent"  th:value="${diffContent}">
+                                        <input type="hidden" name="commitStyle"  th:value="${commitStyle}">
+                                        <input type="hidden" name="inputMode"    th:value="${inputMode}">
+                                        <button type="submit" class="btn btn-outline-tk btn-sm">
+                                            <i class="fas fa-download me-1"></i>다운로드
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div id="resultContent" class="result-box markdown-result"
+                                 th:utext="${#strings.replace(
+                                     #strings.replace(
+                                         #strings.replace(result,'&','&amp;'),
+                                     '<','&lt;'),
+                                 '>','&gt;')}">
+                            </div>
+                        </div>
+                        <div th:unless="${result != null}"
+                             class="d-flex flex-column align-items-center justify-content-center"
+                             style="min-height:380px;color:var(--text-muted);">
+                            <i class="fas fa-code-branch mb-3" style="font-size:2.5rem;opacity:0.25;"></i>
+                            <p class="mb-1" style="font-size:0.9rem;">변경 내용을 입력하고 메시지를 생성하세요.</p>
+                            <p style="font-size:0.78rem;opacity:0.7;">
+                                <i class="fas fa-info-circle me-1"></i>추천 메시지 3개 + 변경 사항 요약 제공
+                            </p>
+
+                            <!-- Conventional Commits reference -->
+                            <div class="mt-4 p-3 w-100" style="background:var(--input-bg);border-radius:8px;border:1px solid var(--border-color);">
+                                <div class="mb-2" style="font-size:0.78rem;font-weight:500;color:var(--text-sub);">
+                                    Conventional Commits 타입
+                                </div>
+                                <div class="d-flex flex-wrap gap-1" style="font-size:0.72rem;">
+                                    <span class="badge" style="background:rgba(34,197,94,0.15);color:#22c55e;">feat</span>
+                                    <span class="badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">fix</span>
+                                    <span class="badge" style="background:rgba(59,130,246,0.15);color:#3b82f6;">docs</span>
+                                    <span class="badge" style="background:rgba(168,85,247,0.15);color:#a855f7;">style</span>
+                                    <span class="badge" style="background:rgba(249,115,22,0.15);color:#f97316;">refactor</span>
+                                    <span class="badge" style="background:rgba(20,184,166,0.15);color:#14b8a6;">test</span>
+                                    <span class="badge" style="background:rgba(234,179,8,0.15);color:#eab308;">chore</span>
+                                    <span class="badge" style="background:rgba(100,116,139,0.15);color:#64748b;">perf</span>
+                                    <span class="badge" style="background:rgba(100,116,139,0.15);color:#64748b;">ci</span>
+                                    <span class="badge" style="background:rgba(100,116,139,0.15);color:#64748b;">build</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-diff.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    /* ── Mode switching ── */
+    function switchMode(mode) {
+        document.getElementById('inputModeInput').value = mode;
+        var tabD = document.getElementById('tabDiff');
+        var tabDesc = document.getElementById('tabDesc');
+        var stylePanel = document.getElementById('stylePanel');
+        var filePanel  = document.getElementById('filePanel');
+        var label = document.getElementById('inputLabel');
+
+        if (mode === 'description') {
+            tabD.classList.remove('active');
+            tabDesc.classList.add('active');
+            stylePanel.style.display = 'none';
+            filePanel.style.display  = 'none';
+            label.textContent = '변경 내용 설명';
+            document.getElementById('diffContent').placeholder = '무엇을 변경했는지 자유롭게 설명하세요.\n예) 사용자 로그인 기능 추가, JWT 토큰 발급, 비밀번호 암호화 처리';
+        } else {
+            tabDesc.classList.remove('active');
+            tabD.classList.add('active');
+            stylePanel.style.display = '';
+            filePanel.style.display  = '';
+            label.textContent = 'Git Diff / 변경 코드';
+            document.getElementById('diffContent').placeholder = 'git diff HEAD 또는 git diff --staged 출력 내용을 붙여넣으세요...';
+        }
+    }
+
+    /* ── Commit style selection ── */
+    function selectStyle(style) {
+        document.getElementById('styleInput').value = style;
+        document.querySelectorAll('.style-chip').forEach(function(c) {
+            c.classList.remove('active');
+        });
+        event.target.closest('.style-chip').classList.add('active');
+    }
+
+    /* ── File load ── */
+    function loadDiffFile(input) {
+        if (!input.files || !input.files[0]) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('diffContent').value = e.target.result;
+            updateTokenCount('diffContent', 'tokenCount');
+        };
+        reader.readAsText(input.files[0], 'UTF-8');
+    }
+
+    /* ── Copy result ── */
+    function copyResult() {
+        var el = document.getElementById('resultContent');
+        if (!el) return;
+        var text = el.innerText || el.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('복사 완료!');
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showToast('복사 완료!');
+        });
+    }
+
+    function showToast(msg) {
+        var t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--accent);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.83rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+        document.body.appendChild(t);
+        setTimeout(function(){ document.body.removeChild(t); }, 2500);
+    }
+
+    /* ── Clear ── */
+    function clearForm() {
+        document.getElementById('diffContent').value = '';
+        updateTokenCount('diffContent', 'tokenCount');
+        clearDraft('commitmsg_draft');
+    }
+
+    /* ── Spinner ── */
+    function showSpinner() {
+        var s = document.getElementById('spinner');
+        if (s) s.classList.add('active');
+        guardSubmit('submitBtn');
+    }
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        initAutoDraft('diffContent', 'commitmsg_draft');
+        initTokenCounter('diffContent', 'tokenCount');
+
+        var rc = document.getElementById('resultContent');
+        if (rc) renderMarkdownResult(rc);
+    });
+
+    function runStream() {
+        var input = document.getElementById('diffContent').value.trim();
+        if (!input) { alert('내용을 입력하세요.'); return; }
+        document.getElementById('streamPanel').style.display = '';
+        document.getElementById('streamResult').textContent = '';
+        document.getElementById('streamResult').classList.add('stream-cursor');
+        document.getElementById('streamStatus').textContent = '스트리밍 중...';
+        startStream('commit_msg', {input: input}, 'streamResult', function() {
+            document.getElementById('streamResult').classList.remove('stream-cursor');
+            document.getElementById('streamStatus').textContent = '완료';
+        });
+    }
+    function copyStream() {
+        var el = document.getElementById('streamResult');
+        if (!el || !el.textContent.trim()) return;
+        navigator.clipboard.writeText(el.textContent).then(function() {
+            var btn = document.querySelector('[onclick="copyStream()"]');
+            if (btn) { var orig = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨'; setTimeout(function(){ btn.innerHTML = orig; }, 1500); }
+        }).catch(function() {
+            var ta = document.createElement('textarea'); ta.value = el.textContent;
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        });
+    }
+</script>
+</body>
+</html>

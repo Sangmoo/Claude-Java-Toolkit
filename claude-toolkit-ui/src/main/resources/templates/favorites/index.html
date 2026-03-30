@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>즐겨찾기 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .fav-card { background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:10px;
+                    padding:14px 16px; cursor:pointer; transition:border-color 0.15s, transform 0.1s; }
+        .fav-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+        .tag-badge { display:inline-block; background:var(--accent-subtle); color:var(--accent);
+                     border:1px solid var(--accent); padding:1px 8px; border-radius:10px; font-size:0.7rem; margin:1px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-star me-2" style="color:#f97316"></i>즐겨찾기
+                <span th:if="${count > 0}" style="font-size:0.78rem;color:var(--text-muted);margin-left:6px;" th:text="'(' + ${count} + '건)'"></span>
+            </span>
+            <div class="d-flex gap-2 align-items-center">
+                <button id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Actions bar -->
+            <div class="d-flex justify-content-between align-items-center mb-3" th:if="${count > 0}">
+                <div>
+                    <input type="text" id="tagFilter" class="form-control form-control-sm"
+                           style="width:200px;display:inline-block;" placeholder="태그 필터..."
+                           oninput="filterByTag(this.value)">
+                </div>
+                <form th:action="@{/favorites/clear}" method="post">
+                    <button type="submit" class="copy-btn"
+                            onclick="return confirm('즐겨찾기를 모두 삭제하시겠습니까?')">
+                        <i class="fas fa-trash me-1"></i>전체 삭제
+                    </button>
+                </form>
+            </div>
+
+            <!-- Empty state -->
+            <div th:if="${count == 0}" style="text-align:center;padding:80px 0;color:var(--text-muted);">
+                <i class="fas fa-star" style="font-size:3rem;margin-bottom:16px;display:block;"></i>
+                <p style="font-size:0.9rem;">즐겨찾기가 없습니다.<br>이력 페이지에서 <i class="fas fa-star"></i> 버튼으로 저장하세요.</p>
+                <a href="/history" class="btn-accent" style="display:inline-block;margin-top:12px;padding:8px 20px;text-decoration:none;border-radius:6px;">
+                    <i class="fas fa-history me-1"></i>이력 보기
+                </a>
+            </div>
+
+            <!-- Favorites grid -->
+            <div class="row g-3" id="favGrid">
+                <div class="col-md-6 col-xl-4 fav-item"
+                     th:each="fav : ${favorites}"
+                     th:attr="data-tags=${fav.tag}">
+                    <div class="fav-card" th:onclick="|showFavDetail(${fav.id})|">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="history-type-badge"
+                                  th:style="|background:${fav.typeBadgeColor}|"
+                                  th:text="${fav.typeLabel}"></span>
+                            <form th:action="@{'/favorites/' + ${fav.id} + '/delete'}" method="post"
+                                  onclick="event.stopPropagation()">
+                                <button type="submit" class="copy-btn" style="padding:1px 7px;font-size:0.72rem;"
+                                        onclick="return confirm('삭제하시겠습니까?')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <div class="history-title" th:text="${fav.title}"></div>
+                        <div class="history-preview" th:text="${fav.outputPreview}"></div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <div>
+                                <span th:each="t : ${fav.tagList}" class="tag-badge" th:text="${t}"></span>
+                            </div>
+                            <span style="font-size:0.72rem;color:var(--text-muted);" th:text="${fav.formattedDate}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Detail Modal -->
+<div id="detailModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1050;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;width:min(820px,94vw);max-height:86vh;overflow-y:auto;padding:24px;position:relative;">
+        <button onclick="closeFavDetail()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;">✕</button>
+        <div style="margin-bottom:12px;">
+            <span id="favDetailType" class="format-badge" style="margin-right:8px;"></span>
+            <strong id="favDetailTitle" style="color:var(--text-primary);font-size:0.95rem;"></strong>
+            <span id="favDetailTag" style="margin-left:8px;"></span>
+            <span id="favDetailDate" style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;"></span>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button class="copy-btn" onclick="showFavTab('input')"  id="favTabInput">입력 내용</button>
+            <button class="copy-btn" onclick="showFavTab('output')" id="favTabOutput" style="border-color:var(--accent);color:var(--accent);">결과 내용</button>
+        </div>
+        <div class="result-box" id="favInputBox" style="display:none;">
+            <pre style="margin:0;white-space:pre-wrap;font-size:0.83rem;color:var(--text-sub);" id="favInputText"></pre>
+        </div>
+        <div class="result-box markdown-body" id="favOutputMd"></div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    function showFavDetail(id) {
+        fetch('/favorites/' + id + '/detail')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                document.getElementById('favDetailType').textContent  = d.type  || '';
+                document.getElementById('favDetailTitle').textContent = d.title || '';
+                document.getElementById('favDetailDate').textContent  = d.date  || '';
+                var tagEl = document.getElementById('favDetailTag');
+                tagEl.innerHTML = '';
+                if (d.tag) { d.tag.split(/[,;\s]+/).forEach(function(t) {
+                    if (t.trim()) {
+                        var s = document.createElement('span');
+                        s.className = 'tag-badge'; s.textContent = t.trim();
+                        tagEl.appendChild(s);
+                    }
+                }); }
+                document.getElementById('favInputText').textContent = d.input  || '';
+                if (typeof marked !== 'undefined') {
+                    document.getElementById('favOutputMd').innerHTML = marked.parse(d.output || '');
+                } else {
+                    document.getElementById('favOutputMd').textContent = d.output || '';
+                }
+                showFavTab('output');
+                var modal = document.getElementById('detailModal');
+                modal.style.display = 'flex';
+            });
+    }
+
+    function showFavTab(tab) {
+        document.getElementById('favInputBox').style.display  = (tab === 'input')  ? '' : 'none';
+        document.getElementById('favOutputMd').style.display  = (tab === 'output') ? '' : 'none';
+        document.getElementById('favTabInput').style.borderColor  = (tab === 'input')  ? 'var(--accent)' : '';
+        document.getElementById('favTabInput').style.color        = (tab === 'input')  ? 'var(--accent)' : '';
+        document.getElementById('favTabOutput').style.borderColor = (tab === 'output') ? 'var(--accent)' : '';
+        document.getElementById('favTabOutput').style.color       = (tab === 'output') ? 'var(--accent)' : '';
+    }
+
+    function closeFavDetail() {
+        document.getElementById('detailModal').style.display = 'none';
+    }
+    document.getElementById('detailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeFavDetail();
+    });
+
+    function filterByTag(val) {
+        var v = val.toLowerCase().trim();
+        document.querySelectorAll('.fav-item').forEach(function(item) {
+            var tags = (item.getAttribute('data-tags') || '').toLowerCase();
+            item.style.display = (!v || tags.includes(v)) ? '' : 'none';
+        });
+    }
+</script>
+</body>
+</html>

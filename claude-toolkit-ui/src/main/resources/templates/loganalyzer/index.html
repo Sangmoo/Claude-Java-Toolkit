@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>로그 분석기 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .mode-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:5px 16px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all 0.15s; }
+        .mode-tab.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+        .mode-tab.security.active { background:rgba(239,68,68,0.1); border-color:#ef4444; color:#ef4444; }
+        .file-label { cursor:pointer; border:1px dashed var(--border-color); border-radius:6px;
+                      padding:6px 14px; color:var(--text-muted); font-size:0.82rem; transition:border-color 0.15s; }
+        .file-label:hover { border-color:var(--accent); color:var(--accent); }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-bug me-2" style="color:#f97316"></i>로그 분석기</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg">Claude가 로그를 분석 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Spring Boot / Java 애플리케이션 로그를 붙여넣거나 파일로 업로드하여 AI 분석을 실행하세요.</p>
+
+            <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
+
+            <!-- Mode tabs -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="mode-tab"
+                        th:classappend="${analyzeMode == 'security'} ? '' : ' active'"
+                        id="tabGeneral" onclick="switchMode('general')">
+                    <i class="fas fa-search me-1"></i>일반 분석
+                </button>
+                <button type="button" class="mode-tab security"
+                        th:classappend="${analyzeMode == 'security'} ? ' active' : ''"
+                        id="tabSecurity" onclick="switchMode('security')">
+                    <i class="fas fa-shield-alt me-1"></i>보안 위협 탐지
+                </button>
+            </div>
+
+            <div class="row g-4">
+                <!-- ── Input Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4">
+                        <form method="post" id="analyzeForm" action="/loganalyzer/analyze"
+                              onsubmit="showSpinner()">
+                            <input type="hidden" name="analyzeMode" id="analyzeModeInput"
+                                   th:value="${analyzeMode != null} ? ${analyzeMode} : 'general'">
+
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label mb-0">로그 내용</label>
+                                    <span id="tokenCount" class="token-counter"></span>
+                                </div>
+                                <textarea class="form-control font-monospace" name="logContent" id="logContent"
+                                          rows="16"
+                                          placeholder="2024-01-15 10:23:45.123 ERROR ... NullPointerException ..."
+                                          th:text="${logContent}"></textarea>
+                                <div class="form-text">스택 트레이스, 에러 로그, 접근 로그 등을 붙여넣으세요.</div>
+                            </div>
+
+                            <!-- File upload -->
+                            <div class="mb-3">
+                                <label class="file-label" for="logFile">
+                                    <i class="fas fa-upload me-1"></i>파일에서 로드 (.log, .txt)
+                                    <input type="file" id="logFile" accept=".log,.txt" class="d-none"
+                                           onchange="loadLogFile(this)">
+                                </label>
+                            </div>
+
+                            <div class="d-flex gap-2 align-items-center">
+                                <button type="submit" id="submitBtn" class="btn-primary-tk">
+                                    <i class="fas fa-microscope me-2"></i>분석 실행
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm" onclick="runStream()" id="streamBtn">
+                                    <i class="fas fa-bolt me-1" style="color:#f97316"></i>실시간
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm"
+                                        onclick="clearForm()">초기화</button>
+                                <span id="draftNotice" class="draft-notice"></span>
+                            </div>
+                        </form>
+
+                        <!-- File upload form (hidden) -->
+                        <form method="post" id="fileForm" action="/loganalyzer/analyze/file"
+                              enctype="multipart/form-data" class="d-none">
+                            <input type="hidden" name="analyzeMode" id="fileAnalyzeModeInput" value="general">
+                            <input type="file" name="file" id="hiddenFileInput">
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ── Result Panel ── -->
+                <div class="col-lg-6">
+                    <div class="panel p-4" style="min-height:420px;">
+                        <!-- ── 실시간 스트리밍 패널 ── -->
+                        <div id="streamPanel" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0" style="color:var(--text-sub);font-size:0.88rem;">
+                                    <i class="fas fa-bolt me-2" style="color:#f97316"></i>실시간 결과
+                                    <span id="streamStatus" class="ms-2" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                                </h6>
+                                <button type="button" class="copy-btn" onclick="copyStream()">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                            <div id="streamResult" class="stream-result"></div>
+                            <div class="mt-2" style="font-size:0.73rem;color:var(--text-muted);">
+                                <i class="fas fa-info-circle me-1"></i>실시간 보기 결과는 이력에 자동 저장되지 않습니다.
+                            </div>
+                        </div>
+                        <div th:if="${result != null}">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="mb-0" style="color:var(--text-sub);">
+                                    <i class="fas fa-clipboard-list me-2" style="color:#f97316"></i>분석 결과
+                                    <span th:if="${analyzeMode == 'security'}"
+                                          class="badge ms-2" style="background:#ef4444;font-size:0.7rem;">보안 분석</span>
+                                </h6>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-tk btn-sm"
+                                            onclick="copyResult()">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                    <form method="post" action="/loganalyzer/download" class="d-inline">
+                                        <input type="hidden" name="logContent"  th:value="${logContent}">
+                                        <input type="hidden" name="analyzeMode" th:value="${analyzeMode}">
+                                        <button type="submit" class="btn btn-outline-tk btn-sm">
+                                            <i class="fas fa-download me-1"></i>다운로드
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div id="resultContent" class="result-box markdown-result"
+                                 th:utext="${#strings.replace(
+                                     #strings.replace(
+                                         #strings.replace(result,'&','&amp;'),
+                                     '<','&lt;'),
+                                 '>','&gt;')}">
+                            </div>
+                        </div>
+                        <div th:unless="${result != null}"
+                             class="d-flex flex-column align-items-center justify-content-center h-100"
+                             style="min-height:380px;color:var(--text-muted);">
+                            <i class="fas fa-bug mb-3" style="font-size:2.5rem;opacity:0.25;"></i>
+                            <p class="mb-1" style="font-size:0.9rem;">로그를 입력하고 분석을 실행하세요.</p>
+                            <p style="font-size:0.78rem;opacity:0.7;">
+                                <i class="fas fa-info-circle me-1"></i>스택 트레이스, HTTP 에러, 보안 이벤트 지원
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="panel p-3 mt-4" style="font-size:0.8rem;color:var(--text-muted);">
+                <i class="fas fa-lightbulb me-2" style="color:#f97316"></i>
+                <strong>분석 팁:</strong>
+                일반 분석 — 오류 원인·해결 방법·예방 방법을 제안합니다 &nbsp;|&nbsp;
+                보안 위협 탐지 — SQL 인젝션, XSS, 인증 실패, 무차별 대입 시도 등을 탐지합니다.
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-log.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    /* ── Mode switching ── */
+    function switchMode(mode) {
+        document.getElementById('analyzeModeInput').value = mode;
+        document.getElementById('fileAnalyzeModeInput').value = mode;
+
+        var tabG = document.getElementById('tabGeneral');
+        var tabS = document.getElementById('tabSecurity');
+        if (mode === 'security') {
+            tabG.classList.remove('active');
+            tabS.classList.add('active');
+        } else {
+            tabS.classList.remove('active');
+            tabG.classList.add('active');
+        }
+    }
+
+    /* ── File load ── */
+    function loadLogFile(input) {
+        if (!input.files || !input.files[0]) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('logContent').value = e.target.result;
+            updateTokenCount('logContent', 'tokenCount');
+        };
+        reader.readAsText(input.files[0], 'UTF-8');
+    }
+
+    /* ── Copy result ── */
+    function copyResult() {
+        var el = document.getElementById('resultContent');
+        if (!el) return;
+        var text = el.innerText || el.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+            showToast('결과가 클립보드에 복사되었습니다.');
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            showToast('복사 완료!');
+        });
+    }
+
+    function showToast(msg) {
+        var t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--accent);color:#fff;padding:8px 18px;border-radius:8px;font-size:0.83rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+        document.body.appendChild(t);
+        setTimeout(function(){ document.body.removeChild(t); }, 2500);
+    }
+
+    /* ── Form clear ── */
+    function clearForm() {
+        document.getElementById('logContent').value = '';
+        updateTokenCount('logContent', 'tokenCount');
+        clearDraft('loganalyzer_draft');
+    }
+
+    /* ── Spinner ── */
+    function showSpinner() {
+        var s = document.getElementById('spinner');
+        if (s) s.classList.add('active');
+        guardSubmit('submitBtn');
+    }
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        initAutoDraft('logContent', 'loganalyzer_draft');
+        initTokenCounter('logContent', 'tokenCount');
+
+        /* Render markdown result */
+        var rc = document.getElementById('resultContent');
+        if (rc) renderMarkdownResult(rc);
+    });
+
+    function runStream() {
+        var input = document.getElementById('logContent').value.trim();
+        if (!input) { alert('로그를 입력하세요.'); return; }
+        var mode = document.getElementById('analyzeModeInput').value;
+        var feature = (mode === 'security') ? 'log_security' : 'log_analysis';
+        document.getElementById('streamPanel').style.display = '';
+        document.getElementById('streamResult').textContent = '';
+        document.getElementById('streamResult').classList.add('stream-cursor');
+        document.getElementById('streamStatus').textContent = '스트리밍 중...';
+        startStream(feature, {input: input}, 'streamResult', function() {
+            document.getElementById('streamResult').classList.remove('stream-cursor');
+            document.getElementById('streamStatus').textContent = '완료';
+        });
+    }
+    function copyStream() {
+        var el = document.getElementById('streamResult');
+        if (!el || !el.textContent.trim()) return;
+        navigator.clipboard.writeText(el.textContent).then(function() {
+            var btn = document.querySelector('[onclick="copyStream()"]');
+            if (btn) { var orig = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨'; setTimeout(function(){ btn.innerHTML = orig; }, 1500); }
+        }).catch(function() {
+            var ta = document.createElement('textarea'); ta.value = el.textContent;
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        });
+    }
+</script>
+</body>
+</html>

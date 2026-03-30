@@ -1,0 +1,20 @@
+@echo off
+REM ─────────────────────────────────────────────────────────────────────────
+REM  start-ui.cmd.example
+REM  Maven이 PATH에 없는 환경(예: IntelliJ 번들 Maven)에서 사용하는 로컬 런처.
+REM
+REM  사용 방법:
+REM  1. 이 파일을 start-ui.cmd 로 복사하세요 (이 .example 파일은 git 추적됨)
+REM  2. 아래 경로를 본인 환경에 맞게 수정하세요
+REM  3. start-ui.cmd 는 .gitignore 에 등록되어 있으므로 커밋되지 않습니다
+REM ─────────────────────────────────────────────────────────────────────────
+
+REM ▼ JDK 8+ 경로 설정 (예: C:\Program Files\Java\jdk1.8.0_221)
+set JAVA_HOME=C:\Program Files\Java\jdk1.8.0_221
+set PATH=%JAVA_HOME%\bin;%PATH%
+
+REM ▼ IntelliJ 번들 Maven 경로 (또는 별도 설치한 Maven bin 경로)
+set MVN=C:\Users\%USERNAME%\AppData\Local\Programs\IntelliJ IDEA Ultimate\plugins\maven\lib\maven3\bin\mvn.cmd
+
+cd /d "%~dp0.."
+"%MVN%" spring-boot:run -pl claude-toolkit-ui

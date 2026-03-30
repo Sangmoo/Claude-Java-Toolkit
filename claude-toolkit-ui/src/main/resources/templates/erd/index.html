@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>ERD 분석 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-project-diagram me-2" style="color:#f97316"></i>ERD 분석</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">스키마 분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Oracle DB 스키마 또는 테이블 구조 텍스트로 Mermaid ERD 다이어그램을 생성합니다.</p>
+
+            <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
+
+            <div class="row g-4">
+                <!-- Input -->
+                <div class="col-lg-5">
+                    <div class="panel p-4">
+                        <form method="post" action="/erd/analyze" id="erdForm">
+                            <!-- DB Mode toggle -->
+                            <div class="ctx-box mb-3">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input class="form-check-input mt-0" type="checkbox" name="useDb" id="useDb"
+                                               value="true" th:checked="${useDb}"
+                                               th:disabled="${!dbConfigured}"
+                                               onchange="toggleDbMode(this.checked)">
+                                        <label class="form-check-label small" for="useDb" style="color:var(--text-sub);">
+                                            <i class="fas fa-database me-1" style="color:#f97316"></i>
+                                            Oracle DB 자동 스캔
+                                        </label>
+                                    </div>
+                                    <span th:if="${dbConfigured}" class="status-badge status-ok">
+                                        <i class="fas fa-circle" style="font-size:0.5rem;"></i>연결됨
+                                    </span>
+                                    <span th:unless="${dbConfigured}" class="status-badge status-none">
+                                        <a href="/settings" style="color:inherit;text-decoration:none;">설정 필요</a>
+                                    </span>
+                                </div>
+                                <div id="schemaOwnerGroup" th:style="${useDb} ? '' : 'display:none'" class="mt-2">
+                                    <label class="form-label">Schema Owner (비워두면 로그인 사용자)</label>
+                                    <input type="text" class="form-control form-control-sm" name="schemaOwner"
+                                           placeholder="예: APP_USER" th:value="${schemaOwner}">
+                                    <label class="form-label mt-2">테이블 필터 <span style="color:var(--text-muted);font-weight:400;">(쉼표로 구분, 비워두면 전체)</span></label>
+                                    <input type="text" class="form-control form-control-sm" name="tableFilter"
+                                           placeholder="예: T_ORDER, T_CUSTOMER, T_PRODUCT"
+                                           th:value="${tableFilter}">
+                                </div>
+                            </div>
+
+                            <!-- Manual schema text -->
+                            <div id="schemaTextGroup" th:style="${useDb} ? 'display:none' : ''">
+                                <label class="form-label">스키마 설명 텍스트</label>
+                                <textarea class="form-control" name="schemaText" rows="16"
+                                          placeholder="예시:&#10;=== T_ORDER ===&#10;  COL: ORDER_ID NUMBER NOT NULL&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: ORDER_DATE DATE&#10;  PK: ORDER_ID&#10;  FK: CUST_ID -> T_CUSTOMER&#10;&#10;=== T_CUSTOMER ===&#10;  COL: CUST_ID NUMBER NOT NULL&#10;  COL: CUST_NM VARCHAR2(100)&#10;  PK: CUST_ID"
+                                          th:text="${schemaText}"></textarea>
+                                <p class="upload-hint mt-1">CREATE TABLE 구문이나 직접 작성한 테이블 설명도 가능합니다.</p>
+                            </div>
+
+                            <button type="submit" class="btn btn-accent w-100 mt-3"
+                                    onclick="showSpinner(['스키마 파싱 중...','테이블 관계 분석 중...','Mermaid ERD 생성 중...','설명 작성 중...'])">
+                                <i class="fas fa-project-diagram me-2"></i>ERD 생성
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="col-lg-7">
+                    <div class="panel p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="result-meta">ERD 분석 결과</span>
+                            <div class="d-flex gap-2">
+                                <span th:if="${dbUsed}" class="status-badge status-ok">
+                                    <i class="fas fa-database" style="font-size:0.6rem;"></i>DB 자동 스캔
+                                </span>
+                                <button th:if="${result}" class="copy-btn" onclick="openInNewTab('resultMd')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultMd')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                        </div>
+
+                        <div th:if="${result}">
+                            <!-- Markdown + Mermaid rendered result -->
+                            <div class="result-box markdown-body" id="resultMd"></div>
+                            <!-- Raw result stored for copy & rendering -->
+                            <div id="rawResult" th:attr="data-content=${result}" style="display:none;"></div>
+                        </div>
+                        <div th:unless="${result}" class="result-box result-empty">
+                            <i class="fas fa-project-diagram fa-2x" style="color:var(--border-color)"></i>
+                            <span>스키마 정보를 입력하고 ERD를 생성하세요.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    // Init mermaid with current theme
+    var isDark = localStorage.getItem('theme') !== 'light';
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+
+    // Render result
+    var rawEl = document.getElementById('rawResult');
+    if (rawEl) {
+        var raw = rawEl.getAttribute('data-content');
+        renderMarkdown(raw, 'resultMd');
+        renderMermaidBlocks();
+    }
+
+    function toggleDbMode(checked) {
+        document.getElementById('schemaOwnerGroup').style.display = checked ? '' : 'none';
+        document.getElementById('schemaTextGroup').style.display  = checked ? 'none' : '';
+    }
+</script>
+</body>
+</html>

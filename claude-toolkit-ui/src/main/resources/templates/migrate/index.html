@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>Spring Boot 3.x 마이그레이션 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-rocket me-2" style="color:#f97316"></i>Spring Boot 3.x 마이그레이션</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">pom.xml 또는 Java 소스를 입력하면 Spring Boot 2.x → 3.x 마이그레이션 체크리스트를 생성합니다.</p>
+
+            <!-- Error Alert -->
+            <div th:if="${error}" class="alert" style="background:rgba(239,68,68,0.12);border:1px solid #ef4444;color:#ef4444;margin-bottom:16px;padding:12px 16px;border-radius:8px;">
+                <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+            </div>
+
+            <div class="row g-3">
+                <!-- Input Panel -->
+                <div class="col-lg-6">
+                    <div class="panel p-3">
+                        <form id="migrateForm" th:action="@{/migrate/analyze}" method="post"
+                              onsubmit="showSpinner(['소스 파싱 중...','Spring Boot 2.x 패턴 탐지 중...','호환성 이슈 분석 중...','마이그레이션 체크리스트 생성 중...','보고서 작성 중...'])">
+
+                            <label class="form-label">pom.xml 또는 Java 소스 코드</label>
+                            <textarea name="sourceInput" class="form-control" rows="18"
+                                      style="font-family:monospace;font-size:0.82rem;"
+                                      placeholder="pom.xml 내용 또는 Java 소스 코드를 붙여넣으세요..."
+                                      th:text="${sourceInput}"></textarea>
+
+                            <div class="d-flex gap-2 mt-2 flex-wrap">
+                                <button type="submit" class="btn-accent">
+                                    <i class="fas fa-rocket me-1"></i>마이그레이션 분석
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Result Panel -->
+                <div class="col-lg-6">
+                    <div class="panel p-3" style="height:100%;">
+                        <!-- Result Action Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-2" th:if="${result}">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="result-meta">분석 완료</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="copy-btn" onclick="copyToClipboard('rawResult')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                                <button class="copy-btn" onclick="openInNewTab('rawResult')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <form th:action="@{/migrate/download}" method="post" style="display:inline">
+                                    <input type="hidden" name="sourceInput" th:value="${sourceInput}">
+                                    <button type="submit" class="copy-btn">
+                                        <i class="fas fa-download me-1"></i>MD 저장
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="result-box" id="resultBox">
+                            <div th:if="${result}">
+                                <div class="markdown-body" id="resultMd"></div>
+                                <span id="rawResult" style="display:none" th:text="${result}"></span>
+                            </div>
+                            <div th:unless="${result}" class="result-empty">
+                                <i class="fas fa-rocket" style="font-size:2.5rem;color:var(--text-muted)"></i>
+                                <p style="color:var(--text-muted);font-size:0.85rem;margin:0">소스를 입력하고 분석 버튼을 클릭하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    var rawEl = document.getElementById('rawResult');
+    if (rawEl) {
+        var raw = rawEl.textContent || '';
+        renderMarkdown(raw, 'resultMd');
+        Prism.highlightAllUnder(document.getElementById('resultMd'));
+    }
+</script>
+</body>
+</html>

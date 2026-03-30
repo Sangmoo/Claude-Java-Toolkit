@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<nav th:fragment="sidebar" class="sidebar">
+
+    <!-- Brand + 전체 닫기 버튼 -->
+    <div class="sidebar-brand">
+        <a href="/">
+            <i class="fas fa-robot" style="color:#f97316"></i>
+            <span>Claude Toolkit</span>
+        </a>
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn"
+                onclick="toggleSidebarCollapse()" title="사이드바 접기">
+            <i class="fas fa-chevron-left" id="sidebarCollapseIcon"></i>
+        </button>
+    </div>
+
+    <!-- Navigation -->
+    <div class="sidebar-nav">
+        <a href="/" class="sidebar-item"
+           th:classappend="${#request.requestURI == '/' ? ' active' : ''}">
+            <i class="fas fa-home"></i><span>홈</span>
+        </a>
+
+        <!-- ── 분석 ── -->
+        <button class="sidebar-section-toggle" id="toggle-analysis"
+                onclick="toggleSidebarSection('analysis')">
+            <span>분석</span>
+            <i class="fas fa-chevron-down sidebar-chevron" id="chevron-analysis"></i>
+        </button>
+        <div class="sidebar-group-items" id="group-analysis">
+            <a href="/advisor" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">
+                <i class="fas fa-database"></i><span>SQL 리뷰</span>
+            </a>
+            <a href="/erd" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/erd') ? ' active' : ''}">
+                <i class="fas fa-project-diagram"></i><span>ERD 분석</span>
+            </a>
+            <a href="/codereview" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/codereview') ? ' active' : ''}">
+                <i class="fas fa-search-plus"></i><span>코드 리뷰</span>
+            </a>
+            <a href="/complexity" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/complexity') ? ' active' : ''}">
+                <i class="fas fa-chart-bar"></i><span>복잡도 분석</span>
+            </a>
+        </div>
+
+        <!-- ── 생성 ── -->
+        <button class="sidebar-section-toggle" id="toggle-generate"
+                onclick="toggleSidebarSection('generate')">
+            <span>생성</span>
+            <i class="fas fa-chevron-down sidebar-chevron" id="chevron-generate"></i>
+        </button>
+        <div class="sidebar-group-items" id="group-generate">
+            <a href="/docgen" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/docgen') ? ' active' : ''}">
+                <i class="fas fa-file-alt"></i><span>기술 문서</span>
+            </a>
+            <a href="/testgen" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/testgen') ? ' active' : ''}">
+                <i class="fas fa-vial"></i><span>테스트 코드</span>
+            </a>
+            <a href="/apispec" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/apispec') ? ' active' : ''}">
+                <i class="fas fa-code"></i><span>API 명세</span>
+            </a>
+            <a href="/converter" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/converter') ? ' active' : ''}">
+                <i class="fas fa-exchange-alt"></i><span>코드 변환</span>
+            </a>
+            <a href="/mockdata" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/mockdata') ? ' active' : ''}">
+                <i class="fas fa-table"></i><span>Mock 데이터</span>
+            </a>
+            <a href="/migration" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/migration') ? ' active' : ''}">
+                <i class="fas fa-random"></i><span>DB 마이그레이션</span>
+            </a>
+            <a href="/batch" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/batch') ? ' active' : ''}">
+                <i class="fas fa-layer-group"></i><span>Batch 처리</span>
+            </a>
+            <a href="/javadoc" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/javadoc') ? ' active' : ''}">
+                <i class="fas fa-file-code"></i><span>Javadoc 생성</span>
+            </a>
+            <a href="/refactor" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/refactor') ? ' active' : ''}">
+                <i class="fas fa-magic"></i><span>리팩터링 제안</span>
+            </a>
+            <a href="/depcheck" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/depcheck') ? ' active' : ''}">
+                <i class="fas fa-cubes"></i><span>의존성 분석</span>
+            </a>
+            <a href="/migrate" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/migrate') ? ' active' : ''}">
+                <i class="fas fa-rocket"></i><span>Spring 마이그레이션</span>
+            </a>
+        </div>
+
+        <!-- ── 기록 ── -->
+        <button class="sidebar-section-toggle" id="toggle-history"
+                onclick="toggleSidebarSection('history')">
+            <span>기록</span>
+            <i class="fas fa-chevron-down sidebar-chevron" id="chevron-history"></i>
+        </button>
+        <div class="sidebar-group-items" id="group-history">
+            <a href="/history" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/history') ? ' active' : ''}">
+                <i class="fas fa-history"></i><span>리뷰 이력</span>
+            </a>
+            <a href="/favorites" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/favorites') ? ' active' : ''}">
+                <i class="fas fa-star"></i><span>즐겨찾기</span>
+            </a>
+        </div>
+
+        <!-- ── 도구 ── -->
+        <button class="sidebar-section-toggle" id="toggle-tools"
+                onclick="toggleSidebarSection('tools')">
+            <span>도구</span>
+            <i class="fas fa-chevron-down sidebar-chevron" id="chevron-tools"></i>
+        </button>
+        <div class="sidebar-group-items" id="group-tools">
+            <a href="/loganalyzer" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/loganalyzer') ? ' active' : ''}">
+                <i class="fas fa-bug"></i><span>로그 분석기</span>
+            </a>
+            <a href="/regex" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/regex') ? ' active' : ''}">
+                <i class="fas fa-code"></i><span>정규식 생성기</span>
+            </a>
+            <a href="/commitmsg" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/commitmsg') ? ' active' : ''}">
+                <i class="fas fa-code-branch"></i><span>커밋 메시지</span>
+            </a>
+            <a href="/maskgen" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/maskgen') ? ' active' : ''}">
+                <i class="fas fa-user-shield"></i><span>마스킹 스크립트</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Footer: Settings 링크만 유지 -->
+    <div class="sidebar-footer">
+        <a href="/settings" class="sidebar-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
+            <i class="fas fa-cog"></i><span>Settings</span>
+        </a>
+        <div class="sidebar-version">v0.7.0 · JDK 1.8</div>
+    </div>
+
+    <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
+    <button class="sidebar-open-tab" id="sidebarOpenTab"
+            onclick="toggleSidebarCollapse()" title="사이드바 열기">
+        <i class="fas fa-bars"></i>
+        <span style="writing-mode:vertical-rl;font-size:0.6rem;letter-spacing:0.05em;">메뉴</span>
+    </button>
+
+    <!-- ── 사이드바 스크립트: nav 안에 위치해야 th:replace 시 페이지에 포함됨 ── -->
+    <script>
+    (function () {
+        var SECTION_KEY  = 'sidebar_sections_v1';
+        var COLLAPSE_KEY = 'sidebar_collapsed_v1';
+
+        /* ─── 전체 사이드바 접기 / 펼치기 ─── */
+        function applySidebarCollapse(collapsed, animate) {
+            if (!animate) {
+                var sb = document.querySelector('.sidebar');
+                var ma = document.querySelector('.main-area');
+                if (sb) sb.style.transition = 'none';
+                if (ma) ma.style.transition  = 'none';
+            }
+
+            if (collapsed) {
+                document.body.classList.add('sidebar-collapsed');
+                document.body.classList.remove('mobile-sidebar-open');
+            } else {
+                document.body.classList.remove('sidebar-collapsed');
+                /* mobile-sidebar-open은 모바일에서 사이드바가 실제로 열릴 때만 추가 */
+                if (window.innerWidth <= 768) {
+                    document.body.classList.add('mobile-sidebar-open');
+                }
+            }
+
+            var icon = document.getElementById('sidebarCollapseIcon');
+            if (icon) icon.className = collapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
+
+            if (!animate) {
+                requestAnimationFrame(function () {
+                    var sb = document.querySelector('.sidebar');
+                    var ma = document.querySelector('.main-area');
+                    if (sb) sb.style.transition = '';
+                    if (ma) ma.style.transition  = '';
+                });
+            }
+        }
+
+        window.toggleSidebarCollapse = function () {
+            var willCollapse = !document.body.classList.contains('sidebar-collapsed');
+            applySidebarCollapse(willCollapse, true);
+            try { localStorage.setItem(COLLAPSE_KEY, willCollapse ? 'true' : 'false'); } catch (e) {}
+        };
+
+        /* ─── 개별 섹션 접기 / 펼치기 ─── */
+        var SECTION_PATHS = {
+            analysis: ['/advisor', '/erd', '/codereview', '/complexity'],
+            generate: ['/docgen', '/testgen', '/apispec', '/converter',
+                       '/mockdata', '/migration', '/batch',
+                       '/javadoc', '/refactor', '/depcheck', '/migrate'],
+            history:  ['/history', '/favorites'],
+            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen']
+        };
+        var ALL_KEYS = ['analysis', 'generate', 'history', 'tools'];
+
+        function currentSection() {
+            var p = window.location.pathname;
+            for (var i = 0; i < ALL_KEYS.length; i++) {
+                var key = ALL_KEYS[i];
+                var paths = SECTION_PATHS[key];
+                for (var j = 0; j < paths.length; j++) {
+                    if (p === paths[j] || p.indexOf(paths[j] + '/') === 0) return key;
+                }
+            }
+            return null;
+        }
+
+        function loadSectionState() {
+            try { return JSON.parse(localStorage.getItem(SECTION_KEY) || '{}'); } catch (e) { return {}; }
+        }
+        function saveSectionState(s) {
+            try { localStorage.setItem(SECTION_KEY, JSON.stringify(s)); } catch (e) {}
+        }
+
+        function applySectionImmediate(key, collapsed) {
+            var group   = document.getElementById('group-'   + key);
+            var chevron = document.getElementById('chevron-' + key);
+            if (!group) return;
+            group.style.transition = 'none';
+            if (collapsed) {
+                group.style.maxHeight = '0px';
+                group.style.overflow  = 'hidden';
+                if (chevron) chevron.style.transform = 'rotate(-90deg)';
+            } else {
+                group.style.maxHeight = group.scrollHeight + 'px';
+                group.style.overflow  = '';
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+            requestAnimationFrame(function () { group.style.transition = ''; });
+        }
+
+        window.toggleSidebarSection = function (key) {
+            var group   = document.getElementById('group-'   + key);
+            var chevron = document.getElementById('chevron-' + key);
+            if (!group) return;
+            var willCollapse = group.style.maxHeight !== '0px';
+            var saved = loadSectionState();
+            if (willCollapse) {
+                group.style.maxHeight = group.scrollHeight + 'px';
+                requestAnimationFrame(function () {
+                    group.style.maxHeight = '0px';
+                    group.style.overflow  = 'hidden';
+                });
+                if (chevron) chevron.style.transform = 'rotate(-90deg)';
+            } else {
+                group.style.overflow  = '';
+                group.style.maxHeight = group.scrollHeight + 'px';
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                group.addEventListener('transitionend', function onEnd() {
+                    group.removeEventListener('transitionend', onEnd);
+                    if (group.style.maxHeight !== '0px') group.style.maxHeight = '';
+                });
+            }
+            saved[key] = willCollapse;
+            saveSectionState(saved);
+        };
+
+        /* ─── 사이드바 접힘 상태 즉시 적용 ───────────────────────────────────────
+           이 스크립트는 <nav class="sidebar"> 안에 위치하므로, HTML 파싱 중에
+           동기적으로 실행됩니다. 이 시점에서 <main class="main-area">는 아직
+           렌더링되지 않았으므로, 여기서 body 클래스를 설정하면 main-area가
+           처음 렌더링될 때부터 올바른 CSS 상태(opacity:1, pointer-events:auto)가
+           적용됩니다. CDN 스크립트 로딩 지연과 무관하게 즉시 동작합니다. */
+        (function () {
+            var storedCollapse   = localStorage.getItem(COLLAPSE_KEY);
+            var isMobile         = window.innerWidth <= 768;
+            var sidebarCollapsed = isMobile ? true : (storedCollapse === 'true');
+            applySidebarCollapse(sidebarCollapsed, false);
+        })();
+
+        /* ─── DOM 준비 후 초기화 (openTab 이동, 섹션 상태, resize 리스너) ─── */
+        function init() {
+            /* 플로팅 열기 탭을 sidebar 밖(body)으로 이동.
+               sidebar에 transform이 걸리면 position:fixed 자식도 같이 밀려나므로
+               body 직속 자식으로 옮겨 transform 영향을 받지 않게 함. */
+            var openTab = document.getElementById('sidebarOpenTab');
+            if (openTab) document.body.appendChild(openTab);
+
+            /* 창 크기 변경 시 모바일 폭이 되면 자동으로 사이드바 닫기 */
+            window.addEventListener('resize', function () {
+                if (window.innerWidth <= 768) {
+                    if (!document.body.classList.contains('sidebar-collapsed')) {
+                        applySidebarCollapse(true, false);
+                    }
+                }
+            });
+
+            /* 섹션 상태 복원 */
+            var saved   = loadSectionState();
+            var current = currentSection();
+            for (var i = 0; i < ALL_KEYS.length; i++) {
+                var key = ALL_KEYS[i];
+                var collapsed = (key === current) ? false : (saved[key] === true);
+                applySectionImmediate(key, collapsed);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+
+</nav>
+</body>
+</html>

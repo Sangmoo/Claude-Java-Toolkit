@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>Javadoc 자동 생성 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-file-code me-2" style="color:#f97316"></i>Javadoc 자동 생성</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Java 소스 코드를 입력하면 Javadoc 주석을 자동 생성합니다.</p>
+
+            <!-- Error Alert -->
+            <div th:if="${error}" class="alert" style="background:rgba(239,68,68,0.12);border:1px solid #ef4444;color:#ef4444;margin-bottom:16px;padding:12px 16px;border-radius:8px;">
+                <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+            </div>
+
+            <div class="row g-3">
+                <!-- Input Panel -->
+                <div class="col-lg-6">
+                    <div class="panel p-3">
+                        <form id="javadocForm" th:action="@{/javadoc/generate}" method="post"
+                              onsubmit="showSpinner(['소스 파싱 중...','메서드 시그니처 분석 중...','Javadoc 주석 생성 중...','결과 정리 중...'])">
+
+                            <label class="form-label">Java 소스 코드</label>
+                            <textarea name="javaSource" class="form-control" rows="18"
+                                      style="font-family:monospace;font-size:0.82rem;"
+                                      placeholder="public class OrderService {&#10;    public List&lt;OrderVO&gt; getOrderList(OrderVO vo) {...}&#10;}"
+                                      th:text="${javaSource}"></textarea>
+
+                            <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+                                <button type="submit" class="btn-accent">
+                                    <i class="fas fa-magic me-1"></i>Javadoc 생성
+                                </button>
+                                <button type="button" class="btn btn-outline-tk btn-sm" onclick="runStream()" id="streamBtn">
+                                    <i class="fas fa-bolt me-1" style="color:#f97316"></i>실시간
+                                </button>
+                                <label class="btn btn-outline-tk btn-sm mb-0" style="cursor:pointer;padding:6px 14px;">
+                                    <i class="fas fa-upload me-1"></i>파일 업로드
+                                    <input type="file" accept=".java" style="display:none"
+                                           onchange="uploadJavaFile(this)">
+                                </label>
+                                <span th:if="${projectContextActive}"
+                                      class="ms-1 badge"
+                                      style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid #22c55e;font-size:0.75rem;padding:4px 10px;border-radius:20px;">
+                                    <i class="fas fa-check-circle me-1"></i>컨텍스트 적용
+                                </span>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Result Panel -->
+                <div class="col-lg-6">
+                    <div class="panel p-3" style="height:100%;">
+                        <!-- SSE Stream Panel -->
+                        <div id="streamPanel" style="display:none;">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0" style="color:var(--text-sub);font-size:0.88rem;">
+                                    <i class="fas fa-bolt me-2" style="color:#f97316"></i>실시간 결과
+                                    <span id="streamStatus" class="ms-2" style="font-size:0.75rem;color:var(--text-muted);"></span>
+                                </h6>
+                                <button type="button" class="copy-btn" onclick="copyStream()">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                            <div id="streamResult" class="stream-result"></div>
+                            <div class="mt-2" style="font-size:0.73rem;color:var(--text-muted);">
+                                <i class="fas fa-info-circle me-1"></i>실시간 보기 결과는 이력에 자동 저장되지 않습니다.
+                            </div>
+                        </div>
+
+                        <!-- Result Action Bar -->
+                        <div class="d-flex justify-content-between align-items-center mb-2" th:if="${result}">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="result-meta">생성 완료</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="copy-btn" onclick="copyToClipboard('rawResult')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                                <button class="copy-btn" onclick="openInNewTab('rawResult')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <form th:action="@{/javadoc/download}" method="post" style="display:inline">
+                                    <input type="hidden" name="javaSource" th:value="${javaSource}">
+                                    <button type="submit" class="copy-btn">
+                                        <i class="fas fa-download me-1"></i>MD 저장
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="result-box" id="resultBox">
+                            <div th:if="${result}">
+                                <div class="markdown-body" id="resultMd"></div>
+                                <span id="rawResult" style="display:none" th:text="${result}"></span>
+                            </div>
+                            <div th:unless="${result}" class="result-empty">
+                                <i class="fas fa-file-code" style="font-size:2.5rem;color:var(--text-muted)"></i>
+                                <p style="color:var(--text-muted);font-size:0.85rem;margin:0">Java 소스를 입력하고 생성 버튼을 클릭하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Hidden file upload form -->
+<form id="uploadForm" th:action="@{/javadoc/generate/file}" method="post" enctype="multipart/form-data" style="display:none">
+    <input type="file" id="uploadFileInput" name="file">
+</form>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    var rawEl = document.getElementById('rawResult');
+    if (rawEl) {
+        var raw = rawEl.textContent || '';
+        renderMarkdown(raw, 'resultMd');
+        Prism.highlightAllUnder(document.getElementById('resultMd'));
+    }
+
+    function uploadJavaFile(input) {
+        if (!input.files || !input.files[0]) return;
+        showSpinner(['파일 읽는 중...','코드 분석 중...']);
+        document.getElementById('uploadFileInput').files = input.files;
+        document.getElementById('uploadForm').submit();
+    }
+
+    function runStream() {
+        var input = document.querySelector('[name=javaSource]').value.trim();
+        if (!input) { alert('Java 소스 코드를 입력하세요.'); return; }
+        document.getElementById('streamPanel').style.display = '';
+        document.getElementById('streamResult').textContent = '';
+        document.getElementById('streamResult').classList.add('stream-cursor');
+        document.getElementById('streamStatus').textContent = '스트리밍 중...';
+        startStream('javadoc_gen', {input: input}, 'streamResult', function() {
+            document.getElementById('streamResult').classList.remove('stream-cursor');
+            document.getElementById('streamStatus').textContent = '완료';
+        });
+    }
+
+    function copyStream() {
+        var el = document.getElementById('streamResult');
+        if (!el || !el.textContent.trim()) return;
+        navigator.clipboard.writeText(el.textContent).then(function() {
+            var btn = document.querySelector('[onclick="copyStream()"]');
+            if (btn) {
+                var orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨';
+                setTimeout(function() { btn.innerHTML = orig; }, 1500);
+            }
+        }).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = el.textContent;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        });
+    }
+</script>
+</body>
+</html>

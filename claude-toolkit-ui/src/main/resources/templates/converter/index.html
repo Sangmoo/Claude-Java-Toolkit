@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>코드 변환 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-exchange-alt me-2" style="color:#f97316"></i>코드 변환</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Oracle SP/SQL ↔ Java/Spring + MyBatis 코드를 양방향으로 자동 변환합니다.</p>
+
+            <div th:if="${error}" class="alert alert-danger mb-3" th:text="${error}"></div>
+
+            <div class="row g-4">
+                <!-- Input -->
+                <div class="col-lg-6">
+                    <div class="panel p-4">
+                        <form method="post" action="/converter/convert" id="convForm">
+                            <div class="mb-3">
+                                <label class="form-label">변환 대상</label>
+                                <select class="form-select" name="targetType" id="targetTypeSelect" onchange="updateConverterHint()">
+                                    <option value="java"       th:selected="${targetType == 'java' or targetType == null}">Oracle SP → Java/Spring + MyBatis</option>
+                                    <option value="mybatis"    th:selected="${targetType == 'mybatis'}">Oracle SQL → MyBatis XML</option>
+                                    <option value="ibatis"     th:selected="${targetType == 'ibatis'}">iBatis XML → MyBatis XML</option>
+                                    <option value="java_to_sp" th:selected="${targetType == 'java_to_sp'}">Java/Spring + MyBatis → Oracle SP</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label" id="sourceLabel">소스 코드</label>
+                                <textarea class="form-control" name="sourceCode" rows="18"
+                                          id="sourceCodeArea"
+                                          placeholder="CREATE OR REPLACE PROCEDURE SP_ORDER_LIST ..."
+                                          th:text="${sourceCode}"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-accent w-100"
+                                    onclick="showSpinner(['코드 파싱 중...','변환 로직 분석 중...','코드 생성 중...','파일 구조 작성 중...'])">
+                                <i class="fas fa-exchange-alt me-2"></i>변환 실행
+                            </button>
+                        </form>
+                        <hr class="divider my-3">
+                        <form method="post" action="/converter/convert/file" enctype="multipart/form-data">
+                            <input type="hidden" name="targetType" id="fileTargetType"
+                                   th:value="${targetType != null ? targetType : 'java'}">
+                            <div class="input-group">
+                                <input type="file" class="form-control form-control-sm" name="file"
+                                       accept=".sql,.pls,.pck,.xml,.java">
+                                <button class="btn btn-outline-tk btn-sm" type="submit" onclick="syncFileTargetType();showSpinner(['파일 처리 중...'])">
+                                    <i class="fas fa-upload me-1"></i>파일 업로드
+                                </button>
+                            </div>
+                            <p class="upload-hint mt-1" id="fileHint">지원: .sql, .pls, .pck, .xml / Java→SP 모드: .java, .xml</p>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="col-lg-6">
+                    <div class="panel p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="result-meta">변환 결과</span>
+                            <div class="d-flex gap-2">
+                                <button th:if="${result}" id="newTabBtn" class="copy-btn" onclick="openInNewTab('resultRaw')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultRaw')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                                <form th:if="${result}" method="post" action="/converter/download" style="display:inline;">
+                                    <input type="hidden" name="sourceCode"  th:value="${sourceCode}">
+                                    <input type="hidden" name="targetType"  th:value="${targetType}">
+                                    <button type="submit" class="btn btn-outline-tk btn-sm">
+                                        <i class="fas fa-download me-1"></i>다운로드
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <div th:if="${result}" class="result-box result-raw" id="resultRaw"
+                             th:text="${result}"></div>
+                        <div th:unless="${result}" class="result-box result-empty">
+                            <i class="fas fa-exchange-alt fa-2x" style="color:var(--border-color)"></i>
+                            <span>코드를 입력하고 변환을 실행하세요.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    var HINTS = {
+        java:       { label: 'Oracle PL/SQL / SP 소스', placeholder: 'CREATE OR REPLACE PROCEDURE SP_ORDER_LIST ...' },
+        mybatis:    { label: 'Oracle SQL 소스',          placeholder: 'SELECT * FROM T_ORDER WHERE ...' },
+        ibatis:     { label: 'iBatis Mapper XML 소스', placeholder: '<sqlMap namespace="order">\n  <select id="selectOrderList" resultClass="com.example.OrderVO">\n    SELECT * FROM T_ORDER WHERE CUST_ID = #custId#\n  </select>\n</sqlMap>' },
+        java_to_sp: { label: 'Java/Spring + MyBatis 소스', placeholder: '@Service\npublic class OrderService {\n    public List<OrderVO> getOrderList(OrderVO vo) { ... }\n}' }
+    };
+
+    function updateConverterHint() {
+        var type = document.getElementById('targetTypeSelect').value;
+        var hint = HINTS[type] || HINTS['java'];
+        document.getElementById('sourceLabel').textContent = hint.label;
+        document.getElementById('sourceCodeArea').placeholder = hint.placeholder;
+    }
+
+    function syncFileTargetType() {
+        document.getElementById('fileTargetType').value =
+            document.getElementById('targetTypeSelect').value;
+    }
+
+    // Init on page load
+    updateConverterHint();
+</script>
+</body>
+</html>

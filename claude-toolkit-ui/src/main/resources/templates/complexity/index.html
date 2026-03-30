@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>코드 복잡도 분석 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .mode-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:5px 16px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all 0.15s; }
+        .mode-tab.active { background:var(--accent-subtle); border-color:var(--accent); color:var(--accent); font-weight:500; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-chart-bar me-2" style="color:#f97316"></i>코드 복잡도 분석</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">복잡도를 분석 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Java 소스를 직접 입력하거나 프로젝트 전체를 스캔해 복잡도 및 리팩토링 우선순위를 분석합니다.</p>
+
+            <div th:if="${error}" class="alert" style="background:rgba(239,68,68,0.12);border:1px solid #ef4444;color:#ef4444;margin-bottom:16px;padding:12px 16px;border-radius:8px;">
+                <i class="fas fa-exclamation-circle me-2"></i><span th:text="${error}"></span>
+            </div>
+
+            <div class="row g-3">
+                <!-- Input -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+                        <form id="analyzeForm" th:action="@{/complexity/analyze}" method="post"
+                              onsubmit="showSpinner(['소스 파싱 중...','순환 복잡도 계산 중...','코드 스멜 탐지 중...','리팩토링 우선순위 결정 중...'])">
+
+                            <!-- Mode tabs -->
+                            <div class="d-flex gap-2 mb-3">
+                                <button type="button" class="mode-tab active" id="tabFile"    onclick="switchMode('file')">
+                                    <i class="fas fa-file-code me-1"></i>단일 파일
+                                </button>
+                                <button type="button" class="mode-tab" id="tabProject" onclick="switchMode('project')"
+                                        th:classappend="${projectConfigured} ? '' : ' disabled'"
+                                        th:title="${projectConfigured} ? '' : '설정에서 프로젝트 경로를 먼저 설정하세요'">
+                                    <i class="fas fa-folder-open me-1"></i>프로젝트 전체
+                                </button>
+                            </div>
+                            <input type="hidden" name="analyzeMode" id="analyzeMode" th:value="${analyzeMode != null ? analyzeMode : 'file'}">
+
+                            <!-- File mode -->
+                            <div id="fileModeArea">
+                                <label class="form-label">Java 소스 코드</label>
+                                <textarea name="sourceCode" id="sourceCodeArea" class="form-control" rows="16"
+                                          style="font-family:monospace;font-size:0.82rem;"
+                                          placeholder="분석할 Java 클래스를 붙여넣기 하세요..."
+                                          th:text="${sourceCode}"></textarea>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="submit" class="btn-accent">
+                                        <i class="fas fa-chart-bar me-1"></i>분석
+                                    </button>
+                                    <label class="btn btn-outline-tk btn-sm mb-0" style="cursor:pointer;padding:6px 14px;">
+                                        <i class="fas fa-upload me-1"></i>파일 업로드
+                                        <input type="file" accept=".java" style="display:none" onchange="uploadFile(this)">
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Project mode -->
+                            <div id="projectModeArea" style="display:none;">
+                                <div class="ctx-box mb-2">
+                                    <label class="form-label mb-1">스캔 경로</label>
+                                    <input type="text" name="scanPath" class="form-control form-control-sm"
+                                           th:value="${scanPath != null ? scanPath : currentScanPath}"
+                                           placeholder="비우면 Settings 경로 사용">
+                                    <div class="ctx-hint">
+                                        <span th:if="${currentScanPath != null and !currentScanPath.isEmpty()}">
+                                            현재 설정: <code th:text="${currentScanPath}"></code>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div th:if="${scanSummary}" class="ctx-box mb-2" style="font-size:0.78rem;color:var(--text-muted);">
+                                    <i class="fas fa-info-circle me-1"></i><span th:text="${scanSummary}"></span>
+                                </div>
+                                <button type="submit" class="btn-accent">
+                                    <i class="fas fa-project-diagram me-1"></i>프로젝트 분석
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="col-lg-7">
+                    <div class="panel p-3" style="height:100%;">
+                        <div class="d-flex justify-content-between align-items-center mb-2" th:if="${result}">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="result-meta">분석 완료</span>
+                                <span class="format-badge" th:text="${analyzeMode == 'project' ? '프로젝트' : '단일 파일'}"></span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="copy-btn" id="copyBtn" onclick="copyToClipboard('rawResult')">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                                <button class="copy-btn" onclick="openInNewTab('rawResult')">
+                                    <i class="fas fa-external-link-alt me-1"></i>새 탭
+                                </button>
+                                <form th:action="@{/complexity/download}" method="post" style="display:inline">
+                                    <input type="hidden" name="sourceCode"  th:value="${sourceCode}">
+                                    <input type="hidden" name="analyzeMode" th:value="${analyzeMode}">
+                                    <input type="hidden" name="scanPath"    th:value="${scanPath}">
+                                    <button type="submit" class="copy-btn"><i class="fas fa-download me-1"></i>MD 저장</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Priority filter -->
+                        <div class="sev-filter" th:if="${result}" id="sevFilterBar">
+                            <button class="sev-filter-btn f-all" id="sevBtn-ALL"    onclick="filterPriority('ALL')">ALL</button>
+                            <button class="sev-filter-btn"       id="sevBtn-HIGH"   onclick="filterPriority('HIGH')">🔴 HIGH</button>
+                            <button class="sev-filter-btn"       id="sevBtn-MEDIUM" onclick="filterPriority('MEDIUM')">🟡 MEDIUM</button>
+                            <button class="sev-filter-btn"       id="sevBtn-LOW"    onclick="filterPriority('LOW')">🟢 LOW</button>
+                        </div>
+
+                        <div class="result-box">
+                            <div th:if="${result}">
+                                <div class="markdown-body" id="resultMd"></div>
+                                <div id="rawResult" style="display:none" th:text="${result}"></div>
+                            </div>
+                            <div th:unless="${result}" class="result-empty">
+                                <i class="fas fa-chart-bar" style="font-size:2.5rem;color:var(--text-muted)"></i>
+                                <p style="color:var(--text-muted);font-size:0.85rem;margin:0">소스를 입력하거나 프로젝트를 스캔하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<form id="uploadForm" th:action="@{/complexity/analyze/file}" method="post" enctype="multipart/form-data" style="display:none">
+    <input type="file" id="uploadInput" name="file">
+</form>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+    var rawEl = document.getElementById('rawResult');
+    if (rawEl) {
+        renderMarkdown(rawEl.textContent || '', 'resultMd');
+    }
+
+    // Init mode from server response
+    var currentMode = '[[${analyzeMode != null ? analyzeMode : "file"}]]';
+    if (currentMode === 'project') switchMode('project');
+
+    function switchMode(mode) {
+        document.getElementById('analyzeMode').value = mode;
+        document.getElementById('fileModeArea').style.display    = (mode === 'file')    ? '' : 'none';
+        document.getElementById('projectModeArea').style.display = (mode === 'project') ? '' : 'none';
+        document.getElementById('tabFile').classList.toggle('active',    mode === 'file');
+        document.getElementById('tabProject').classList.toggle('active', mode === 'project');
+    }
+
+    function filterPriority(level) {
+        _currentSevFilter = level;
+        document.querySelectorAll('#resultMd li').forEach(function(li) {
+            var txt = li.textContent || '';
+            var liLevel = /\[PRIORITY:\s*HIGH\]/i.test(txt)   ? 'HIGH'   :
+                          /\[PRIORITY:\s*MEDIUM\]/i.test(txt) ? 'MEDIUM' :
+                          /\[PRIORITY:\s*LOW\]/i.test(txt)    ? 'LOW'    : null;
+            li.style.display = (level === 'ALL' || liLevel === level) ? '' : 'none';
+        });
+        document.querySelectorAll('.sev-filter-btn').forEach(function(b) {
+            b.className = b.className.replace(/\s*f-\w+/g, '');
+        });
+        var active = document.getElementById('sevBtn-' + level);
+        if (active) active.className += ' f-' + level.toLowerCase();
+    }
+
+    function uploadFile(input) {
+        if (!input.files || !input.files[0]) return;
+        showSpinner(['파일 읽는 중...','분석 중...']);
+        document.getElementById('uploadInput').files = input.files;
+        document.getElementById('uploadForm').submit();
+    }
+</script>
+</body>
+</html>

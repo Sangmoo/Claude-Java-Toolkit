@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="SqlAdvisorCli" type="Application" factoryName="Application">
+    <option name="ALTERNATIVE_JRE_PATH" value="azul-1.8" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <envs>
+      <env name="CLAUDE_API_KEY" value="sk-ant-YOUR_KEY_HERE" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="io.github.claudetoolkit.sql.cli.SqlAdvisorCli" />
+    <module name="claude-sql-advisor" />
+    <option name="PROGRAM_PARAMETERS" value="review --file src/test/resources/sample.sql" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

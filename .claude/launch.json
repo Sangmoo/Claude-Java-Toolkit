@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "claude-toolkit-ui",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["spring-boot:run", "-pl", "claude-toolkit-ui"],
+      "port": 8027,
+      "autoPort": true
+    }
+  ]
+}
