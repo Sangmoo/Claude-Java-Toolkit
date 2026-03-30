@@ -13,6 +13,7 @@ import io.github.claudetoolkit.docgen.testgen.TestGeneratorService;
 import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
 import io.github.claudetoolkit.sql.db.OracleMetaService;
 import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
+import io.github.claudetoolkit.sql.explain.ExplainPlanService;
 import io.github.claudetoolkit.sql.migration.MigrationScriptService;
 import io.github.claudetoolkit.sql.mockdata.MockDataGeneratorService;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
@@ -104,6 +105,13 @@ public class ToolkitWebConfig {
     @Bean
     public CommitMsgService commitMsgService(ClaudeClient claudeClient) {
         return new CommitMsgService(claudeClient);
+    }
+
+    // ── v0.8 beans ────────────────────────────────────────────────────────────
+
+    @Bean
+    public ExplainPlanService explainPlanService(ClaudeClient claudeClient) {
+        return new ExplainPlanService(claudeClient);
     }
 
     // ── v0.5-v0.7 beans ───────────────────────────────────────────────────────
