@@ -103,20 +103,29 @@ public class ExplainPlanService {
 
             if (explainOk) {
                 // ── Read results from PLAN_TABLE ───────────────────────────────
-                List<ExplainPlanNode> nodes = fetchPlanNodes(conn, stmtId);
-                if (!nodes.isEmpty()) {
-                    ExplainPlanNode root = buildTree(nodes);
-                    result.setRoot(root);
-                    result.setMaxCost(findMaxCost(root));
-                    result.setPlanTableAvailable(true);
+                try {
+                    List<ExplainPlanNode> nodes = fetchPlanNodes(conn, stmtId);
+                    if (!nodes.isEmpty()) {
+                        ExplainPlanNode root = buildTree(nodes);
+                        result.setRoot(root);
+                        result.setMaxCost(findMaxCost(root));
+                        result.setPlanTableAvailable(true);
+                    }
+                    String rawText = fetchRawPlanText(conn, stmtId);
+                    if (sanitized) {
+                        rawText = "-- ⚠️ UDF 함수 호출(예: CRYPTO_DECRYPT)을 NULL로 대체하여 실행계획을 조회했습니다.\n"
+                                + "-- 테이블 접근 경로(FROM/WHERE/JOIN)는 원본 SQL과 동일합니다.\n\n"
+                                + rawText;
+                    }
+                    result.setRawPlanText(rawText);
+                } catch (SQLException planReadErr) {
+                    if (!isUdfBindingError(planReadErr)) {
+                        throw planReadErr;
+                    }
+                    // PLAN_TABLE 조회 단계에서 DEPTH/연산자 바인딩 충돌이 발생한 경우에도
+                    // V$SQL_PLAN 기반 우회 로직으로 자동 복구한다.
+                    populateFromCursorCache(conn, sql, execId, result);
                 }
-                String rawText = fetchRawPlanText(conn, stmtId);
-                if (sanitized) {
-                    rawText = "-- ⚠️ UDF 함수 호출(예: CRYPTO_DECRYPT)을 NULL로 대체하여 실행계획을 조회했습니다.\n"
-                            + "-- 테이블 접근 경로(FROM/WHERE/JOIN)는 원본 SQL과 동일합니다.\n\n"
-                            + rawText;
-                }
-                result.setRawPlanText(rawText);
 
             } else {
                 // ── Tier 3: V$SQL_PLAN / DBMS_XPLAN.DISPLAY_CURSOR ────────────
@@ -238,7 +247,7 @@ public class ExplainPlanService {
                                                           int childNo) throws SQLException {
         List<ExplainPlanNode> nodes = new ArrayList<>();
         String query =
-            "SELECT ID, PARENT_ID, DEPTH, POSITION, OPERATION, OPTIONS, OBJECT_NAME," +
+            "SELECT ID, PARENT_ID, DEPTH AS PLAN_DEPTH, POSITION, OPERATION, OPTIONS, OBJECT_NAME," +
             "       CARDINALITY, BYTES, COST, CPU_COST, IO_COST" +
             "  FROM V$SQL_PLAN" +
             " WHERE SQL_ID = ? AND CHILD_NUMBER = ?" +
@@ -255,7 +264,7 @@ public class ExplainPlanService {
                     int parentId = rs.getInt("PARENT_ID");
                     node.setParentId(rs.wasNull() ? null : parentId);
 
-                    node.setDepth(rs.getInt("DEPTH"));
+                    node.setDepth(rs.getInt("PLAN_DEPTH"));
                     node.setPosition(rs.getInt("POSITION"));
                     node.setOperation(rs.getString("OPERATION"));
                     node.setOptions(rs.getString("OPTIONS"));
@@ -332,7 +341,7 @@ public class ExplainPlanService {
     private List<ExplainPlanNode> fetchPlanNodes(Connection conn, String stmtId) throws SQLException {
         List<ExplainPlanNode> nodes = new ArrayList<>();
         String query =
-                "SELECT ID, PARENT_ID, DEPTH, POSITION, OPERATION, OPTIONS, OBJECT_NAME," +
+                "SELECT ID, PARENT_ID, DEPTH AS PLAN_DEPTH, POSITION, OPERATION, OPTIONS, OBJECT_NAME," +
                 "       CARDINALITY, BYTES, COST, CPU_COST, IO_COST" +
                 "  FROM PLAN_TABLE" +
                 " WHERE STATEMENT_ID = ?" +
@@ -348,7 +357,7 @@ public class ExplainPlanService {
                     int parentId = rs.getInt("PARENT_ID");
                     node.setParentId(rs.wasNull() ? null : parentId);
 
-                    node.setDepth(rs.getInt("DEPTH"));
+                    node.setDepth(rs.getInt("PLAN_DEPTH"));
                     node.setPosition(rs.getInt("POSITION"));
                     node.setOperation(rs.getString("OPERATION"));
                     node.setOptions(rs.getString("OPTIONS"));
