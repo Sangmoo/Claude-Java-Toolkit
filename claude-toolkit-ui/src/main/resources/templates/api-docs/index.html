@@ -648,20 +648,64 @@ function callGet(url, resId, btnId) {
         });
 }
 
+/* ── JSON 문자열 내 제어 문자 자동 이스케이프 ──────────────────────────────
+   문제: textarea에 SQL을 여러 줄로 입력하면 JSON 문자열 안에 리터럴
+         개행(0x0A)·탭(0x09)·CR(0x0D)이 포함되어 JSON.parse가 실패함.
+   해결: 문자열 리터럴 내부(따옴표 사이)에서만 제어 문자를 \n \t \r 로 치환. */
+function sanitizeJson(text) {
+    var result   = '';
+    var inString = false;
+    var escaped  = false;
+    for (var i = 0; i < text.length; i++) {
+        var c = text[i];
+        if (escaped) {
+            result  += c;
+            escaped  = false;
+            continue;
+        }
+        if (c === '\\') {
+            escaped = true;
+            result += c;
+            continue;
+        }
+        if (c === '"') {
+            inString = !inString;
+            result  += c;
+            continue;
+        }
+        if (inString) {
+            if      (c === '\n') { result += '\\n';  continue; }
+            else if (c === '\r') { result += '\\r';  continue; }
+            else if (c === '\t') { result += '\\t';  continue; }
+        }
+        result += c;
+    }
+    return result;
+}
+
 /* ── POST 호출 ── */
 function callPost(url, bodyId, resId, btnId, statusId) {
-    var btn    = document.getElementById(btnId);
-    var res    = document.getElementById(resId);
+    var btn      = document.getElementById(btnId);
+    var res      = document.getElementById(resId);
     var statusEl = document.getElementById(statusId);
-    var bodyText = document.getElementById(bodyId).value;
+    var rawText  = document.getElementById(bodyId).value;
 
+    // 1차: 그대로 파싱 시도 → 실패하면 제어 문자 이스케이프 후 재시도
     var parsed;
-    try { parsed = JSON.parse(bodyText); }
-    catch(e) {
-        statusEl.innerHTML = '<span class="response-status status-err">JSON 파싱 오류</span>';
-        res.textContent = 'Request Body가 올바른 JSON 형식이 아닙니다: ' + e.message;
-        res.classList.add('visible');
-        return;
+    try {
+        parsed = JSON.parse(rawText);
+    } catch(e1) {
+        try {
+            parsed = JSON.parse(sanitizeJson(rawText));
+        } catch(e2) {
+            statusEl.innerHTML = '<span class="response-status status-err">JSON 파싱 오류</span>';
+            res.textContent = 'Request Body가 올바른 JSON 형식이 아닙니다.\n\n'
+                + '힌트: SQL을 여러 줄로 입력하면 자동으로 \\n 처리되지만,\n'
+                + '      중괄호({}) 누락이나 쌍따옴표 불일치가 없는지 확인하세요.\n\n'
+                + '오류: ' + e2.message;
+            res.classList.add('visible');
+            return;
+        }
     }
 
     btn.disabled = true;
