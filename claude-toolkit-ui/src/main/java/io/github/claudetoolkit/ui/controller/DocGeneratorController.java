@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.docgen.generator.DocGeneratorService;
 import io.github.claudetoolkit.docgen.scanner.ProjectScannerService;
 import io.github.claudetoolkit.docgen.scanner.ScannedFile;
+import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.http.HttpHeaders;
@@ -33,15 +34,18 @@ public class DocGeneratorController {
     private final ProjectScannerService projectScannerService;
     private final ToolkitSettings       settings;
     private final ReviewHistoryService  historyService;
+    private final PromptTemplateService promptTemplateService;
 
     public DocGeneratorController(DocGeneratorService docGeneratorService,
                                   ProjectScannerService projectScannerService,
                                   ToolkitSettings settings,
-                                  ReviewHistoryService historyService) {
+                                  ReviewHistoryService historyService,
+                                  PromptTemplateService promptTemplateService) {
         this.docGeneratorService   = docGeneratorService;
         this.projectScannerService = projectScannerService;
         this.settings              = settings;
         this.historyService        = historyService;
+        this.promptTemplateService = promptTemplateService;
     }
 
     @GetMapping
@@ -136,16 +140,16 @@ public class DocGeneratorController {
                 ? "\n\n[INSTRUCTION: Write the documentation in English.]\n\n"
                 : "";
         String ctx = langHint + (projectContext == null ? "" : projectContext);
+        String docPrompt = promptTemplateService.getPrompt("DOC_GENERATE", DocGeneratorService.DEFAULT_SYSTEM_PROMPT_MARKDOWN);
 
         if ("typst".equals(format)) {
             return docGeneratorService.generateTypstWithContext(sourceCode, sourceType, ctx);
         }
         if ("html".equals(format)) {
-            // Generate Markdown then wrap in minimal HTML
-            String md = docGeneratorService.generateMarkdownWithContext(sourceCode, sourceType, ctx);
+            String md = docGeneratorService.generateMarkdownWithContext(sourceCode, sourceType, ctx, docPrompt);
             return wrapInHtml(md, sourceType);
         }
-        return docGeneratorService.generateMarkdownWithContext(sourceCode, sourceType, ctx);
+        return docGeneratorService.generateMarkdownWithContext(sourceCode, sourceType, ctx, docPrompt);
     }
 
     private String wrapInHtml(String markdownContent, String title) {

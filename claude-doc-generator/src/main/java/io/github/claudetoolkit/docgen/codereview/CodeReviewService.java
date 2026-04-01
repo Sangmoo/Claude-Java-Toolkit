@@ -10,7 +10,7 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
  */
 public class CodeReviewService {
 
-    private static final String SYSTEM_PROMPT =
+    public static final String DEFAULT_SYSTEM_PROMPT =
             "You are a senior Java/Spring architect with 15+ years of enterprise development experience.\n" +
             "Review the provided Java or Spring source code and return a structured report in the following format:\n\n" +
             "## Summary\n" +
@@ -30,7 +30,7 @@ public class CodeReviewService {
             "Be specific. Include line references when possible. " +
             "Use Korean for explanations if the code contains Korean comments or identifiers.";
 
-    private static final String SYSTEM_PROMPT_SECURITY =
+    public static final String DEFAULT_SYSTEM_PROMPT_SECURITY =
             "You are a Java application security expert (OWASP, SANS Top 25).\n" +
             "Perform a SECURITY-ONLY review of the provided Java/Spring code.\n\n" +
             "## Security Audit Report\n\n" +
@@ -57,22 +57,25 @@ public class CodeReviewService {
      * Full code review (quality + security + refactoring).
      */
     public String review(String sourceCode, String sourceType) {
-        String prompt = "Review the following " + sourceType + ":\n\n```java\n" + sourceCode + "\n```";
-        return claudeClient.chat(SYSTEM_PROMPT, prompt);
+        return reviewWithContext(sourceCode, sourceType, "", null);
     }
 
-    /**
-     * Security-focused review only.
-     */
     public String reviewSecurity(String sourceCode, String sourceType) {
-        String prompt = "Perform a security audit on the following " + sourceType + ":\n\n```java\n" + sourceCode + "\n```";
-        return claudeClient.chat(SYSTEM_PROMPT_SECURITY, prompt);
+        return reviewSecurity(sourceCode, sourceType, null);
     }
 
-    /**
-     * Review with additional project context (scanned classes).
-     */
+    public String reviewSecurity(String sourceCode, String sourceType, String customPrompt) {
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT_SECURITY;
+        String prompt = "Perform a security audit on the following " + sourceType + ":\n\n```java\n" + sourceCode + "\n```";
+        return claudeClient.chat(effectivePrompt, prompt);
+    }
+
     public String reviewWithContext(String sourceCode, String sourceType, String projectContext) {
+        return reviewWithContext(sourceCode, sourceType, projectContext, null);
+    }
+
+    public String reviewWithContext(String sourceCode, String sourceType, String projectContext, String customPrompt) {
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT;
         StringBuilder sb = new StringBuilder();
         if (projectContext != null && !projectContext.trim().isEmpty()) {
             sb.append(projectContext).append("\n\n---\n\n");
@@ -81,6 +84,6 @@ public class CodeReviewService {
             sb.append("Review the following ").append(sourceType).append(":\n\n");
         }
         sb.append("```java\n").append(sourceCode).append("\n```");
-        return claudeClient.chat(SYSTEM_PROMPT, sb.toString());
+        return claudeClient.chat(effectivePrompt, sb.toString());
     }
 }

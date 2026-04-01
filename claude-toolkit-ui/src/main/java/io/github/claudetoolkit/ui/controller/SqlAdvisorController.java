@@ -4,6 +4,7 @@ import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
 import io.github.claudetoolkit.sql.db.OracleMetaService;
 import io.github.claudetoolkit.sql.model.AdvisoryResult;
 import io.github.claudetoolkit.sql.model.SqlType;
+import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
@@ -28,19 +29,22 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/advisor")
 public class SqlAdvisorController {
 
-    private final SqlAdvisorService sqlAdvisorService;
-    private final OracleMetaService oracleMetaService;
-    private final ToolkitSettings   settings;
+    private final SqlAdvisorService    sqlAdvisorService;
+    private final OracleMetaService    oracleMetaService;
+    private final ToolkitSettings      settings;
     private final ReviewHistoryService historyService;
+    private final PromptTemplateService promptTemplateService;
 
     public SqlAdvisorController(SqlAdvisorService sqlAdvisorService,
                                 OracleMetaService oracleMetaService,
                                 ToolkitSettings settings,
-                                ReviewHistoryService historyService) {
-        this.sqlAdvisorService = sqlAdvisorService;
-        this.oracleMetaService = oracleMetaService;
-        this.settings          = settings;
-        this.historyService    = historyService;
+                                ReviewHistoryService historyService,
+                                PromptTemplateService promptTemplateService) {
+        this.sqlAdvisorService    = sqlAdvisorService;
+        this.oracleMetaService    = oracleMetaService;
+        this.settings             = settings;
+        this.historyService       = historyService;
+        this.promptTemplateService = promptTemplateService;
     }
 
     @GetMapping
@@ -104,7 +108,8 @@ public class SqlAdvisorController {
                 dbContext = dbContext + "\n\n## Execution Plan (EXPLAIN PLAN)\n```\n" + explainPlan + "\n```\n";
             }
 
-            AdvisoryResult result = sqlAdvisorService.reviewWithContext(sqlContent, sqlType, dbContext);
+            String sqlReviewPrompt = promptTemplateService.getPrompt("SQL_REVIEW", SqlAdvisorService.DEFAULT_SYSTEM_PROMPT);
+            AdvisoryResult result = sqlAdvisorService.reviewWithContext(sqlContent, sqlType, dbContext, sqlReviewPrompt);
 
             // ── History ────────────────────────────────────────────────────
             historyService.save("SQL_REVIEW", sqlContent, result.getReviewContent());
@@ -183,7 +188,8 @@ public class SqlAdvisorController {
             Model model) {
 
         try {
-            AdvisoryResult result = sqlAdvisorService.reviewSecurity(sqlContent);
+            String sqlSecPrompt = promptTemplateService.getPrompt("SQL_SECURITY", SqlAdvisorService.DEFAULT_SYSTEM_PROMPT_SECURITY);
+            AdvisoryResult result = sqlAdvisorService.reviewSecurity(sqlContent, sqlSecPrompt);
             historyService.save("SQL_SECURITY", sqlContent, result.getReviewContent());
 
             model.addAttribute("result",       result);

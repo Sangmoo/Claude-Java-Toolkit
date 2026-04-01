@@ -94,6 +94,26 @@ public class ReviewHistoryController {
                 .body(out);
     }
 
+    /** Single entry Markdown download */
+    @GetMapping("/{id}/export")
+    public ResponseEntity<byte[]> exportMarkdown(@PathVariable long id) {
+        ReviewHistory h = historyService.findById(id);
+        if (h == null) {
+            return ResponseEntity.notFound().build();
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("# ").append(h.getTypeLabel()).append(" — ").append(h.getTitle()).append("\n\n");
+        sb.append("**분석 일시**: ").append(h.getFormattedDate()).append("\n\n");
+        sb.append("## 입력 내용\n\n```\n").append(h.getInputContent()).append("\n```\n\n");
+        sb.append("## 분석 결과\n\n").append(h.getOutputContent()).append("\n");
+        byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+        String filename = "analysis-" + id + ".md";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"))
+                .body(bytes);
+    }
+
     /** diff 비교: 두 항목 ID를 받아 입력/출력 나란히 비교 */
     @GetMapping("/diff")
     @ResponseBody

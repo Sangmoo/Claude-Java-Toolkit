@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.docgen.codereview.CodeReviewService;
 import io.github.claudetoolkit.docgen.scanner.ProjectScannerService;
 import io.github.claudetoolkit.docgen.scanner.ScannedFile;
+import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.http.HttpHeaders;
@@ -28,15 +29,18 @@ public class CodeReviewController {
     private final ProjectScannerService projectScannerService;
     private final ToolkitSettings       settings;
     private final ReviewHistoryService  historyService;
+    private final PromptTemplateService promptTemplateService;
 
     public CodeReviewController(CodeReviewService codeReviewService,
                                 ProjectScannerService projectScannerService,
                                 ToolkitSettings settings,
-                                ReviewHistoryService historyService) {
-        this.codeReviewService    = codeReviewService;
+                                ReviewHistoryService historyService,
+                                PromptTemplateService promptTemplateService) {
+        this.codeReviewService     = codeReviewService;
         this.projectScannerService = projectScannerService;
         this.settings              = settings;
         this.historyService        = historyService;
+        this.promptTemplateService = promptTemplateService;
     }
 
     @GetMapping
@@ -58,8 +62,10 @@ public class CodeReviewController {
         try {
             String result;
             String memoCtx = settings.getProjectContext();
+            String codeReviewPrompt = promptTemplateService.getPrompt("CODE_REVIEW", CodeReviewService.DEFAULT_SYSTEM_PROMPT);
+            String codeSecPrompt    = promptTemplateService.getPrompt("CODE_SECURITY", CodeReviewService.DEFAULT_SYSTEM_PROMPT_SECURITY);
             if ("security".equals(reviewMode)) {
-                result = codeReviewService.reviewSecurity(sourceCode, sourceType);
+                result = codeReviewService.reviewSecurity(sourceCode, sourceType, codeSecPrompt);
                 historyService.save("CODE_REVIEW_SEC", sourceCode, result);
             } else if (useProjectContext) {
                 String scanCtx = buildContext(scanPath, model);
@@ -71,13 +77,13 @@ public class CodeReviewController {
                 } else {
                     combinedCtx = memoCtx;
                 }
-                result = codeReviewService.reviewWithContext(sourceCode, sourceType, combinedCtx);
+                result = codeReviewService.reviewWithContext(sourceCode, sourceType, combinedCtx, codeReviewPrompt);
                 historyService.save("CODE_REVIEW", sourceCode, result);
             } else if (settings.isProjectContextSet()) {
-                result = codeReviewService.reviewWithContext(sourceCode, sourceType, memoCtx);
+                result = codeReviewService.reviewWithContext(sourceCode, sourceType, memoCtx, codeReviewPrompt);
                 historyService.save("CODE_REVIEW", sourceCode, result);
             } else {
-                result = codeReviewService.review(sourceCode, sourceType);
+                result = codeReviewService.reviewWithContext(sourceCode, sourceType, "", codeReviewPrompt);
                 historyService.save("CODE_REVIEW", sourceCode, result);
             }
 

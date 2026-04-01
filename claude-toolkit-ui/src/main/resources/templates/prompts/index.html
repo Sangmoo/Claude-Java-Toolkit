@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>프롬프트 템플릿 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .prompt-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 22px;
+            margin-bottom: 18px;
+        }
+        .prompt-card.has-custom {
+            border-left: 3px solid var(--accent);
+        }
+        .prompt-label {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+        .feature-code {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        .custom-badge {
+            display: inline-block;
+            font-size: 0.68rem;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 4px;
+            padding: 1px 7px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .prompt-textarea {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 10px 12px;
+            resize: vertical;
+            min-height: 130px;
+            line-height: 1.5;
+            transition: border-color 0.15s;
+        }
+        .prompt-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .btn-save-prompt {
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            border-radius: 6px;
+            padding: 6px 18px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-save-prompt:hover { background: var(--accent-hover); }
+        .btn-reset-prompt {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-sub);
+            border-radius: 6px;
+            padding: 6px 18px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .btn-reset-prompt:hover { border-color: #ef4444; color: #ef4444; }
+        .default-preview {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            background: var(--bg-primary);
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: monospace;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            max-height: 90px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .default-label {
+            font-size: 0.73rem;
+            color: var(--text-sub);
+            margin-bottom: 4px;
+        }
+        .page-subtitle { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-sliders me-2" style="color:#f97316"></i>프롬프트 템플릿</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content" style="max-width:820px;">
+            <p class="page-subtitle">각 AI 기능에서 사용하는 시스템 프롬프트를 커스터마이징합니다. 비워두면 기본값이 사용됩니다.</p>
+
+            <div th:if="${success}" class="alert alert-success d-flex align-items-center mb-4" style="border-radius:8px;">
+                <i class="fas fa-check-circle me-2"></i>
+                <span th:text="${success}"></span>
+            </div>
+            <div th:if="${error}" class="alert alert-danger d-flex align-items-center mb-4" style="border-radius:8px;">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <span th:text="${error}"></span>
+            </div>
+
+            <div th:each="code : ${featureCodes}">
+                <div class="prompt-card" th:classappend="${customPrompts.containsKey(code)} ? 'has-custom' : ''">
+                    <div class="prompt-label">
+                        <span th:text="${featureLabels[code]}"></span>
+                        <span th:if="${customPrompts.containsKey(code)}" class="custom-badge">커스텀</span>
+                    </div>
+                    <div class="feature-code" th:text="${code}"></div>
+
+                    <!-- Default prompt preview (click to copy into textarea) -->
+                    <div class="default-label">기본 프롬프트 (클릭하면 편집창에 복사)</div>
+                    <div class="default-preview"
+                         th:id="'default-' + ${code}"
+                         th:text="${defaultPrompts[code]}"
+                         th:onclick="'copyDefault(\'' + ${code} + '\')'"></div>
+
+                    <div class="mt-3">
+                        <form method="post" action="/prompts/save">
+                            <input type="hidden" name="featureCode" th:value="${code}">
+                            <textarea class="prompt-textarea"
+                                      name="promptText"
+                                      th:id="'textarea-' + ${code}"
+                                      th:placeholder="'기본 프롬프트를 사용하려면 비워 두세요'"
+                                      th:text="${customPrompts[code]}"></textarea>
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="submit" class="btn-save-prompt">
+                                    <i class="fas fa-save me-1"></i>저장
+                                </button>
+                                <form method="post" action="/prompts/reset" style="display:inline;">
+                                    <input type="hidden" name="featureCode" th:value="${code}">
+                                    <button type="submit" class="btn-reset-prompt"
+                                            th:disabled="${!customPrompts.containsKey(code)}">
+                                        <i class="fas fa-rotate-left me-1"></i>기본값으로 초기화
+                                    </button>
+                                </form>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+function copyDefault(code) {
+    var defaultText = document.getElementById('default-' + code).textContent;
+    var textarea = document.getElementById('textarea-' + code);
+    textarea.value = defaultText;
+    textarea.focus();
+}
+</script>
+</body>
+</html>

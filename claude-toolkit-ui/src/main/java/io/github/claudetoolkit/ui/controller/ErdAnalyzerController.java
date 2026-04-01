@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.sql.ddl.DdlGeneratorService;
 import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
+import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
@@ -25,15 +26,18 @@ public class ErdAnalyzerController {
     private final DdlGeneratorService  ddlService;
     private final ToolkitSettings      settings;
     private final ReviewHistoryService historyService;
+    private final PromptTemplateService promptTemplateService;
 
     public ErdAnalyzerController(ErdAnalyzerService erdService,
                                   DdlGeneratorService ddlService,
                                   ToolkitSettings settings,
-                                  ReviewHistoryService historyService) {
-        this.erdService     = erdService;
-        this.ddlService     = ddlService;
-        this.settings       = settings;
-        this.historyService = historyService;
+                                  ReviewHistoryService historyService,
+                                  PromptTemplateService promptTemplateService) {
+        this.erdService           = erdService;
+        this.ddlService           = ddlService;
+        this.settings             = settings;
+        this.historyService       = historyService;
+        this.promptTemplateService = promptTemplateService;
     }
 
     @GetMapping
@@ -54,6 +58,7 @@ public class ErdAnalyzerController {
         model.addAttribute("activeTab", "erd");
 
         try {
+            String erdPrompt = promptTemplateService.getPrompt("ERD_ANALYZE", ErdAnalyzerService.DEFAULT_SYSTEM_PROMPT);
             String result;
             if (useDb && settings.isDbConfigured()) {
                 result = erdService.generateFromDb(
@@ -61,10 +66,11 @@ public class ErdAnalyzerController {
                         settings.getDb().getUsername(),
                         settings.getDb().getPassword(),
                         schemaOwner,
-                        tableFilter.isEmpty() ? null : tableFilter);
+                        tableFilter.isEmpty() ? null : tableFilter,
+                        erdPrompt);
                 model.addAttribute("dbUsed", true);
             } else {
-                result = erdService.generateFromText(schemaText);
+                result = erdService.generateFromText(schemaText, erdPrompt);
             }
 
             String historyInput = useDb

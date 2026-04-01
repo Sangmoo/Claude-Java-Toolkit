@@ -126,6 +126,10 @@
                                     <button th:if="${result}" id="copyBtn" class="copy-btn" onclick="copyToClipboard('resultMd')">
                                         <i class="fas fa-copy me-1"></i>복사
                                     </button>
+                                    <button th:if="${result}" class="copy-btn"
+                                            onclick="exportMarkdownBlob(document.getElementById('rawResult').getAttribute('data-content'),'erd-analysis.md')">
+                                        <i class="fas fa-download me-1"></i>MD 저장
+                                    </button>
                                 </div>
                             </div>
 

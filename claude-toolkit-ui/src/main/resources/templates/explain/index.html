@@ -351,8 +351,12 @@
                         <!-- AI Analysis (collapsible) -->
                         <div th:if="${result != null and result.aiAnalysis != null}" class="mt-3">
                             <details open>
-                                <summary style="color:var(--accent);font-size:.82rem;cursor:pointer;font-weight:600;">
-                                    <i class="fas fa-robot me-1"></i>Claude AI 성능 분석
+                                <summary style="color:var(--accent);font-size:.82rem;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:8px;">
+                                    <span><i class="fas fa-robot me-1"></i>Claude AI 성능 분석</span>
+                                    <button type="button" class="copy-btn" style="font-size:.72rem;padding:2px 10px;"
+                                            onclick="event.preventDefault();exportMarkdownBlob(document.getElementById('rawAiAnalysis').getAttribute('data-content'),'explain-plan-analysis.md')">
+                                        <i class="fas fa-download me-1"></i>MD 저장
+                                    </button>
                                 </summary>
                                 <div class="result-box markdown-body mt-2" id="aiAnalysisMd"></div>
                                 <div id="rawAiAnalysis"

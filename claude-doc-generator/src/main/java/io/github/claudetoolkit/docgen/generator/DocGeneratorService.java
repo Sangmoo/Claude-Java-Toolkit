@@ -14,7 +14,7 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
  */
 public class DocGeneratorService {
 
-    private static final String SYSTEM_PROMPT_MARKDOWN =
+    public static final String DEFAULT_SYSTEM_PROMPT_MARKDOWN =
             "You are a senior technical writer specializing in enterprise Java and Oracle database systems.\n" +
             "Generate comprehensive technical documentation in Markdown format.\n" +
             "Include: Overview, Parameters/Arguments, Return values, Business logic description,\n" +
@@ -60,11 +60,14 @@ public class DocGeneratorService {
      *                       or empty string to skip context
      */
     public String generateMarkdownWithContext(String sourceCode, String sourceType, String projectContext) {
+        return generateMarkdownWithContext(sourceCode, sourceType, projectContext, null);
+    }
+
+    public String generateMarkdownWithContext(String sourceCode, String sourceType, String projectContext, String customPrompt) {
         String prompt = buildPrompt(sourceCode, sourceType, projectContext, "md");
-        String systemPrompt = "Oracle Package".equals(sourceType)
-                ? SYSTEM_PROMPT_ORACLE_PACKAGE
-                : SYSTEM_PROMPT_MARKDOWN;
-        return claudeClient.chat(systemPrompt, prompt);
+        String defaultPrompt = "Oracle Package".equals(sourceType) ? SYSTEM_PROMPT_ORACLE_PACKAGE : DEFAULT_SYSTEM_PROMPT_MARKDOWN;
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : defaultPrompt;
+        return claudeClient.chat(effectivePrompt, prompt);
     }
 
     /**

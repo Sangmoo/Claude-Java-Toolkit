@@ -17,7 +17,7 @@ import io.github.claudetoolkit.sql.model.SqlType;
  */
 public class SqlAdvisorService {
 
-    private static final String SYSTEM_PROMPT =
+    public static final String DEFAULT_SYSTEM_PROMPT =
             "You are an expert Oracle DBA and SQL performance engineer with 15+ years of experience.\n" +
             "Analyze the provided SQL or PL/SQL code and return a structured review in the following format:\n\n" +
             "## Summary\n" +
@@ -61,13 +61,18 @@ public class SqlAdvisorService {
      * @param dbContext   formatted Markdown table metadata, or empty string
      */
     public AdvisoryResult reviewWithContext(String sqlContent, SqlType sqlType, String dbContext) {
+        return reviewWithContext(sqlContent, sqlType, dbContext, null);
+    }
+
+    public AdvisoryResult reviewWithContext(String sqlContent, SqlType sqlType, String dbContext, String customPrompt) {
         if (sqlType == null) sqlType = SqlType.detect(sqlContent);
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT;
         String prompt = buildPrompt(sqlContent, sqlType, dbContext);
-        String response = claudeClient.chat(SYSTEM_PROMPT, prompt);
+        String response = claudeClient.chat(effectivePrompt, prompt);
         return AdvisoryResult.from(sqlContent, sqlType, response);
     }
 
-    private static final String SYSTEM_PROMPT_SECURITY =
+    public static final String DEFAULT_SYSTEM_PROMPT_SECURITY =
             "You are an Oracle database security expert specializing in SQL injection prevention and secure coding.\n" +
             "Perform a SECURITY-ONLY audit of the provided SQL or PL/SQL code.\n\n" +
             "## SQL Security Audit Report\n\n" +
@@ -95,9 +100,14 @@ public class SqlAdvisorService {
      * Security-focused audit of SQL/PL/SQL code.
      */
     public AdvisoryResult reviewSecurity(String sqlContent) {
+        return reviewSecurity(sqlContent, null);
+    }
+
+    public AdvisoryResult reviewSecurity(String sqlContent, String customPrompt) {
         SqlType sqlType = SqlType.detect(sqlContent);
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT_SECURITY;
         String prompt   = "Perform a security audit on the following " + sqlType.getDisplayName() + ":\n\n```sql\n" + sqlContent + "\n```";
-        String response = claudeClient.chat(SYSTEM_PROMPT_SECURITY, prompt);
+        String response = claudeClient.chat(effectivePrompt, prompt);
         return AdvisoryResult.from(sqlContent, sqlType, response);
     }
 

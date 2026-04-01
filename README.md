@@ -914,12 +914,15 @@ claude-java-toolkit/
 
 ---
 
+### ✅ v1.1.0
+
+- [x] **프롬프트 템플릿 관리** — `/prompts` 에서 기능별 시스템 프롬프트 편집·저장·적용
+- [x] **분석 결과 내보내기** — 실행계획·ERD 결과 Markdown 다운로드, 히스토리 단건 `/history/{id}/export`
+
 ### ✅ v1.0.0
 
 - [x] GitHub Actions CI/CD 파이프라인 (자동 빌드 · master push / PR 트리거)
 - [x] REST API 모드 (외부 CI/CD 파이프라인 연동용 JSON API)
-- [ ] SQL 성능 히스토리 대시보드 (Cost 추이 차트)
-- [ ] 프롬프트 템플릿 관리 (사용자 정의 시스템 프롬프트 저장/적용)
 
 #### 🔌 REST API 엔드포인트 (`/api/v1/`)
 
@@ -956,13 +959,11 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔜 v1.1.0 (예정)
+### 🔜 v1.2.0 (예정)
 
-- [ ] 프롬프트 템플릿 관리 — Settings에서 기능별 시스템 프롬프트 편집·저장·적용
 - [ ] SQL 성능 히스토리 대시보드 — 실행계획 Cost 추이 차트 (기간별 비교)
 - [ ] API 키 인증 — REST API 호출 시 `X-API-Key` 헤더 인증 (보안 강화)
 - [ ] 배치 SQL 분석 — 여러 SQL을 한 번에 업로드하여 일괄 리뷰 (CSV/텍스트)
-- [ ] 분석 결과 내보내기 — PDF / Excel 리포트 다운로드
 
 ---
 

@@ -237,6 +237,20 @@ function openInNewTab(elementId) {
     window.open(url, '_blank');
 }
 
+// ── Markdown export (Blob download) ─────────────────────────
+function exportMarkdownBlob(text, filename) {
+    if (!text) return;
+    var blob = new Blob([text], {type: 'text/markdown; charset=UTF-8'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename || 'result.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 // ── Auto-draft (localStorage) ────────────────────────────────
 var DRAFT_PREFIX = 'toolkit_draft_';
 

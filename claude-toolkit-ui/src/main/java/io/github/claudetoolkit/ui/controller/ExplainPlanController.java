@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.claudetoolkit.sql.explain.ExplainPlanResult;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
+import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
@@ -22,19 +23,22 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/explain")
 public class ExplainPlanController {
 
-    private final ExplainPlanService  explainPlanService;
-    private final ToolkitSettings     settings;
+    private final ExplainPlanService   explainPlanService;
+    private final ToolkitSettings      settings;
     private final ReviewHistoryService historyService;
-    private final ObjectMapper        objectMapper;
+    private final ObjectMapper         objectMapper;
+    private final PromptTemplateService promptTemplateService;
 
     public ExplainPlanController(ExplainPlanService explainPlanService,
                                   ToolkitSettings settings,
                                   ReviewHistoryService historyService,
-                                  ObjectMapper objectMapper) {
-        this.explainPlanService = explainPlanService;
-        this.settings           = settings;
-        this.historyService     = historyService;
-        this.objectMapper       = objectMapper;
+                                  ObjectMapper objectMapper,
+                                  PromptTemplateService promptTemplateService) {
+        this.explainPlanService   = explainPlanService;
+        this.settings             = settings;
+        this.historyService       = historyService;
+        this.objectMapper         = objectMapper;
+        this.promptTemplateService = promptTemplateService;
     }
 
     // ── Single analysis ─────────────────────────────────────────────────────
@@ -59,11 +63,13 @@ public class ExplainPlanController {
         }
 
         try {
+            String explainPrompt = promptTemplateService.getPrompt("SQL_EXPLAIN", ExplainPlanService.DEFAULT_SYSTEM_PROMPT);
             ExplainPlanResult result = explainPlanService.analyze(
                     settings.getDb().getUrl(),
                     settings.getDb().getUsername(),
                     settings.getDb().getPassword(),
-                    sqlContent);
+                    sqlContent,
+                    explainPrompt);
 
             // Serialize tree to JSON for JS-side rendering
             String planJson = "null";

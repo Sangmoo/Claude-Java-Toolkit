@@ -18,7 +18,7 @@ import java.sql.SQLException;
  */
 public class ErdAnalyzerService {
 
-    private static final String SYSTEM_PROMPT =
+    public static final String DEFAULT_SYSTEM_PROMPT =
             "당신은 데이터베이스 설계 전문가입니다.\n" +
             "Oracle DB 테이블 스키마 정보를 분석하여 Mermaid ERD 다이어그램과 설명을 생성합니다.\n\n" +
             "반드시 다음 형식으로 출력하세요:\n\n" +
@@ -79,16 +79,26 @@ public class ErdAnalyzerService {
      */
     public String generateFromDb(String url, String username, String password,
                                  String schemaOwner, String tableFilter) {
+        return generateFromDb(url, username, password, schemaOwner, tableFilter, null);
+    }
+
+    public String generateFromDb(String url, String username, String password,
+                                 String schemaOwner, String tableFilter, String customPrompt) {
         String schemaInfo = fetchSchemaInfo(url, username, password, schemaOwner, tableFilter);
-        return generateFromText(schemaInfo);
+        return generateFromText(schemaInfo, customPrompt);
     }
 
     /**
      * Generate ERD from manually entered schema description text.
      */
     public String generateFromText(String schemaText) {
+        return generateFromText(schemaText, null);
+    }
+
+    public String generateFromText(String schemaText, String customPrompt) {
+        String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT;
         String userMessage = "다음 Oracle DB 스키마 정보를 분석하여 ERD와 관계 설명을 생성해주세요:\n\n" + schemaText;
-        return claudeClient.chat(SYSTEM_PROMPT, userMessage);
+        return claudeClient.chat(effectivePrompt, userMessage);
     }
 
     // ── private helpers ──────────────────────────────────────────────────────

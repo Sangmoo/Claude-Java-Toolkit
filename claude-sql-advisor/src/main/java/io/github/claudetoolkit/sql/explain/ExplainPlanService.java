@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public class ExplainPlanService {
 
-    private static final String SYSTEM_PROMPT =
+    public static final String DEFAULT_SYSTEM_PROMPT =
             "당신은 Oracle DBA 전문가입니다. Oracle EXPLAIN PLAN 실행 계획을 분석하여 다음 형식으로 답변하세요.\n\n" +
             "## 📊 실행 계획 요약\n" +
             "전체 비용(Cost)과 주요 특징을 2~3줄로 요약.\n\n" +
@@ -60,6 +60,10 @@ public class ExplainPlanService {
     // ── Public API ────────────────────────────────────────────────────────────
 
     public ExplainPlanResult analyze(String url, String username, String password, String sql) {
+        return analyze(url, username, password, sql, null);
+    }
+
+    public ExplainPlanResult analyze(String url, String username, String password, String sql, String customPrompt) {
 
         ExplainPlanResult result = new ExplainPlanResult();
         // Use only digits for the ID so it is safe in LIKE patterns (no _ or % wildcards)
@@ -139,7 +143,8 @@ public class ExplainPlanService {
                 String userMsg = "## SQL\n```sql\n" + sql + "\n```\n\n"
                                + "## EXPLAIN PLAN\n```\n" + planText + "\n```";
                 try {
-                    result.setAiAnalysis(claudeClient.chat(SYSTEM_PROMPT, userMsg));
+                    String effectivePrompt = (customPrompt != null && !customPrompt.trim().isEmpty()) ? customPrompt : DEFAULT_SYSTEM_PROMPT;
+                    result.setAiAnalysis(claudeClient.chat(effectivePrompt, userMsg));
                 } catch (Exception e) {
                     result.setAiAnalysis("(AI 분석 오류: " + e.getMessage() + ")");
                 }
