@@ -125,6 +125,19 @@
             </a>
         </div>
 
+        <!-- ── REST API ── -->
+        <button class="sidebar-section-toggle" id="toggle-api"
+                onclick="toggleSidebarSection('api')">
+            <span>REST API</span>
+            <i class="fas fa-chevron-down sidebar-chevron" id="chevron-api"></i>
+        </button>
+        <div class="sidebar-group-items" id="group-api">
+            <a href="/api-docs" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/api-docs') ? ' active' : ''}">
+                <i class="fas fa-plug"></i><span>API Playground</span>
+            </a>
+        </div>
+
         <!-- ── 도구 ── -->
         <button class="sidebar-section-toggle" id="toggle-tools"
                 onclick="toggleSidebarSection('tools')">
@@ -224,9 +237,10 @@
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
             history:  ['/history', '/favorites'],
-            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen']
+            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen'],
+            api:      ['/api-docs']
         };
-        var ALL_KEYS = ['analysis', 'generate', 'history', 'tools'];
+        var ALL_KEYS = ['analysis', 'generate', 'history', 'tools', 'api'];
 
         function currentSection() {
             var p = window.location.pathname;

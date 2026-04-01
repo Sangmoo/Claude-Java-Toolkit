@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>REST API — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        /* ── 레이아웃 ── */
+        .api-nav {
+            position: sticky;
+            top: 20px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 0;
+        }
+        .api-nav-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: 0 16px 8px;
+        }
+        .api-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            color: var(--text-main);
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: background .12s, border-color .12s;
+            text-decoration: none;
+        }
+        .api-nav-item:hover { background: var(--bg-hover); color: var(--text-main); }
+        .api-nav-item.active { border-left-color: var(--accent); background: rgba(249,115,22,.08); }
+
+        /* ── 엔드포인트 카드 ── */
+        .ep-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .ep-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: background .12s;
+        }
+        .ep-header:hover { background: var(--bg-hover); }
+        .ep-header.open { border-bottom-color: var(--border); }
+        .ep-method {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 4px;
+            min-width: 44px;
+            text-align: center;
+            letter-spacing: .04em;
+        }
+        .method-get  { background: #0ea5e920; color: #0ea5e9; }
+        .method-post { background: rgba(249,115,22,.15); color: #f97316; }
+        .ep-path {
+            font-family: monospace;
+            font-size: 0.88rem;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        .ep-desc { font-size: 0.8rem; color: var(--text-sub); margin-left: auto; }
+        .ep-chevron { color: var(--text-sub); font-size: .72rem; transition: transform .2s; }
+        .ep-chevron.open { transform: rotate(180deg); }
+
+        .ep-body { display: none; padding: 18px 20px; }
+        .ep-body.open { display: block; }
+
+        /* ── 필드 테이블 ── */
+        .fields-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 14px; }
+        .fields-table th { background: rgba(249,115,22,.08); color: var(--text-sub); font-weight: 600;
+                           padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        .fields-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: top; }
+        .fields-table tr:last-child td { border-bottom: none; }
+        .field-req  { color: #f97316; font-weight: 600; font-size: .7rem; }
+        .field-opt  { color: var(--text-sub); font-size: .7rem; }
+        .field-type { font-family: monospace; color: #3b82f6; font-size: .78rem; }
+
+        /* ── Try it 영역 ── */
+        .try-section { margin-top: 10px; }
+        .try-label { font-size: .78rem; font-weight: 600; color: var(--text-sub); margin-bottom: 6px; }
+        .try-textarea {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: monospace;
+            font-size: .8rem;
+            padding: 10px 12px;
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.5;
+            transition: border-color .15s;
+        }
+        .try-textarea:focus { outline: none; border-color: var(--accent); }
+        .try-btn {
+            background: var(--accent);
+            border: none;
+            color: #fff;
+            border-radius: 6px;
+            padding: 7px 20px;
+            font-size: .82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .try-btn:hover { background: var(--accent-hover); }
+        .try-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .curl-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-sub);
+            border-radius: 6px;
+            padding: 7px 16px;
+            font-size: .78rem;
+            cursor: pointer;
+            transition: border-color .15s, color .15s;
+        }
+        .curl-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .response-box {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px 14px;
+            font-family: monospace;
+            font-size: .78rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text-main);
+            display: none;
+        }
+        .response-box.visible { display: block; }
+        .response-status {
+            display: inline-block;
+            font-size: .72rem;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .status-ok  { background: #22c55e20; color: #22c55e; }
+        .status-err { background: #ef444420; color: #ef4444; }
+
+        .section-title {
+            font-size: .72rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin: 20px 0 10px;
+        }
+        .page-subtitle { color: var(--text-sub); font-size: .9rem; margin-bottom: 20px; }
+
+        /* ── cURL 예시 ── */
+        .curl-example {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 12px 14px;
+            font-family: monospace;
+            font-size: .76rem;
+            color: #94a3b8;
+            white-space: pre-wrap;
+            word-break: break-all;
+            position: relative;
+        }
+        .curl-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: rgba(249,115,22,.15);
+            border: none;
+            color: #f97316;
+            border-radius: 4px;
+            padding: 2px 10px;
+            font-size: .7rem;
+            cursor: pointer;
+        }
+        .curl-copy-btn:hover { background: rgba(249,115,22,.3); }
+        .divider { border: none; border-top: 1px solid var(--border); margin: 6px 0 14px; }
+        .badge-db { font-size:.65rem; background: #3b82f620; color:#3b82f6;
+                    border-radius:4px; padding:2px 7px; font-weight:600; }
+        .badge-ai { font-size:.65rem; background: rgba(249,115,22,.15); color:#f97316;
+                    border-radius:4px; padding:2px 7px; font-weight:600; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-plug me-2" style="color:#f97316"></i>REST API Playground</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content" style="max-width:1100px;">
+            <p class="page-subtitle">
+                모든 AI 분석 기능을 JSON API로 호출합니다. CI/CD 파이프라인, Postman, curl 등 외부 도구와 연동할 수 있습니다.
+            </p>
+
+            <div class="row g-4">
+                <!-- ── 좌측 네비게이션 ── -->
+                <div class="col-lg-3 d-none d-lg-block">
+                    <div class="api-nav">
+                        <div class="api-nav-title">엔드포인트</div>
+                        <a class="api-nav-item active" href="#ep-health" onclick="scrollTo('ep-health',this)">
+                            <span class="ep-method method-get" style="font-size:.65rem;padding:2px 6px;">GET</span>Health Check
+                        </a>
+                        <div class="api-nav-title mt-3">SQL 분석</div>
+                        <a class="api-nav-item" href="#ep-sql-review" onclick="scrollTo('ep-sql-review',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>SQL 리뷰
+                        </a>
+                        <a class="api-nav-item" href="#ep-sql-security" onclick="scrollTo('ep-sql-security',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>SQL 보안
+                        </a>
+                        <a class="api-nav-item" href="#ep-sql-explain" onclick="scrollTo('ep-sql-explain',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>실행계획 분석
+                        </a>
+                        <div class="api-nav-title mt-3">코드 분석</div>
+                        <a class="api-nav-item" href="#ep-code-review" onclick="scrollTo('ep-code-review',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>코드 리뷰
+                        </a>
+                        <a class="api-nav-item" href="#ep-code-security" onclick="scrollTo('ep-code-security',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>코드 보안
+                        </a>
+                        <div class="api-nav-title mt-3">문서 / ERD</div>
+                        <a class="api-nav-item" href="#ep-doc-generate" onclick="scrollTo('ep-doc-generate',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>문서 생성
+                        </a>
+                        <a class="api-nav-item" href="#ep-erd-analyze" onclick="scrollTo('ep-erd-analyze',this)">
+                            <span class="ep-method method-post" style="font-size:.65rem;padding:2px 6px;">POST</span>ERD 분석
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ── 우측 엔드포인트 목록 ── -->
+                <div class="col-lg-9">
+
+                    <!-- ■ 공통 응답 형식 안내 -->
+                    <div class="ep-card mb-4" style="border-left:3px solid var(--accent);">
+                        <div class="ep-body open" style="padding:16px 20px;">
+                            <div style="font-size:.82rem;font-weight:600;color:var(--text-main);margin-bottom:8px;">
+                                <i class="fas fa-info-circle me-1" style="color:var(--accent)"></i>공통 응답 형식
+                            </div>
+                            <div style="display:flex;gap:16px;flex-wrap:wrap;">
+                                <div style="flex:1;min-width:220px;">
+                                    <div style="font-size:.72rem;color:#22c55e;font-weight:600;margin-bottom:4px;">✓ 성공 (200 OK)</div>
+                                    <div class="curl-example" style="font-size:.72rem;">{ "success": true,
+  "data": { ... },
+  "error": null,
+  "timestamp": "2026-04-01 12:00:00"
+}</div>
+                                </div>
+                                <div style="flex:1;min-width:220px;">
+                                    <div style="font-size:.72rem;color:#ef4444;font-weight:600;margin-bottom:4px;">✗ 실패 (4xx / 5xx)</div>
+                                    <div class="curl-example" style="font-size:.72rem;">{ "success": false,
+  "data": null,
+  "error": "오류 메시지",
+  "timestamp": "2026-04-01 12:00:00"
+}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ────────────────────────────────────── -->
+                    <!-- GET /api/v1/health                     -->
+                    <!-- ────────────────────────────────────── -->
+                    <div class="ep-card" id="ep-health">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-get">GET</span>
+                            <span class="ep-path">/api/v1/health</span>
+                            <span class="ep-desc">서버 상태 및 설정 확인</span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <p style="font-size:.82rem;color:var(--text-sub);margin-bottom:12px;">
+                                Claude API 키, DB 연결, 현재 모델 설정 상태를 확인합니다. 파라미터 없음.
+                            </p>
+                            <div class="try-label">cURL 예시</div>
+                            <div class="curl-example" id="curl-health">curl http://localhost:8027/api/v1/health
+<button class="curl-copy-btn" onclick="copyCurl('curl-health')"><i class="fas fa-copy me-1"></i>복사</button></div>
+                            <div class="try-section mt-3">
+                                <button class="try-btn" onclick="callGet('/api/v1/health','res-health','btn-health')" id="btn-health">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-health"></div>
+                                <div class="response-box" id="res-health"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ────────────────────────────────────── -->
+                    <!-- POST /api/v1/sql/review               -->
+                    <!-- ────────────────────────────────────── -->
+                    <div class="section-title">SQL 분석</div>
+                    <div class="ep-card" id="ep-sql-review">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/sql/review</span>
+                            <span class="ep-desc">SQL 성능·품질 리뷰 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>sql</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>분석할 SQL 쿼리 또는 PL/SQL</td></tr>
+                                    <tr><td><code>context</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>프로젝트 컨텍스트 (테이블 설명, 비즈니스 규칙 등)</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-sql-review">{
+  "sql": "SELECT * FROM T_ORDER WHERE STATUS = 1 AND CUST_ID = 100",
+  "context": ""
+}</textarea>
+                            <div class="try-label mt-2">cURL 예시</div>
+                            <div class="curl-example" id="curl-sql-review">curl -X POST http://localhost:8027/api/v1/sql/review \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"SELECT * FROM T_ORDER WHERE STATUS = 1"}'
+<button class="curl-copy-btn" onclick="copyCurl('curl-sql-review')"><i class="fas fa-copy me-1"></i>복사</button></div>
+                            <div class="try-section mt-3 d-flex gap-2">
+                                <button class="try-btn" onclick="callPost('/api/v1/sql/review','body-sql-review','res-sql-review','btn-sql-review','status-sql-review')" id="btn-sql-review">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-sql-review"></div>
+                                <div class="response-box" id="res-sql-review"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/v1/sql/security -->
+                    <div class="ep-card" id="ep-sql-security">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/sql/security</span>
+                            <span class="ep-desc">SQL 보안 취약점 검사 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>sql</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>보안 검사할 SQL / PL/SQL (SQL Injection, 권한 노출 등 검사)</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-sql-security">{
+  "sql": "SELECT * FROM USERS WHERE USER_ID = '" + userId + "'"
+}</textarea>
+                            <div class="try-section mt-3 d-flex gap-2">
+                                <button class="try-btn" onclick="callPost('/api/v1/sql/security','body-sql-security','res-sql-security','btn-sql-security','status-sql-security')" id="btn-sql-security">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-sql-security"></div>
+                                <div class="response-box" id="res-sql-security"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/v1/sql/explain -->
+                    <div class="ep-card" id="ep-sql-explain">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/sql/explain</span>
+                            <span class="ep-desc">Oracle 실행계획 분석 <span class="badge-db">DB</span><span class="badge-ai ms-1">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>sql</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>실행계획을 분석할 SELECT 쿼리</td></tr>
+                                    <tr><td><code>dbUrl</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>JDBC URL (미입력 시 Settings DB 사용)</td></tr>
+                                    <tr><td><code>dbUsername</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>DB 사용자명</td></tr>
+                                    <tr><td><code>dbPassword</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>DB 패스워드</td></tr>
+                                </tbody>
+                            </table>
+                            <div th:if="${dbConfigured}" class="mb-2" style="font-size:.78rem;color:#22c55e;">
+                                <i class="fas fa-check-circle me-1"></i>Settings DB 연결됨 — dbUrl/dbUsername/dbPassword 생략 가능
+                            </div>
+                            <div th:unless="${dbConfigured}" class="mb-2" style="font-size:.78rem;color:#f97316;">
+                                <i class="fas fa-exclamation-triangle me-1"></i>Settings DB 미설정 — dbUrl/dbUsername/dbPassword 직접 입력 필요
+                            </div>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-sql-explain" th:attr="data-db-url=${dbUrl},data-db-user=${dbUsername}">{
+  "sql": "SELECT * FROM T_ORDER WHERE STATUS = 1"
+}</textarea>
+                            <div class="try-section mt-3 d-flex gap-2">
+                                <button class="try-btn" onclick="callPost('/api/v1/sql/explain','body-sql-explain','res-sql-explain','btn-sql-explain','status-sql-explain')" id="btn-sql-explain">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-sql-explain"></div>
+                                <div class="response-box" id="res-sql-explain"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ────────────────────────────────────── -->
+                    <!-- 코드 분석                             -->
+                    <!-- ────────────────────────────────────── -->
+                    <div class="section-title">코드 분석</div>
+
+                    <!-- POST /api/v1/code/review -->
+                    <div class="ep-card" id="ep-code-review">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/code/review</span>
+                            <span class="ep-desc">Java/Spring 코드 리뷰 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>code</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>리뷰할 소스코드</td></tr>
+                                    <tr><td><code>language</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>언어/타입 (java, sql, xml) — 기본값: java</td></tr>
+                                    <tr><td><code>context</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>프로젝트 컨텍스트</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-code-review" style="min-height:160px;">{
+  "code": "public List<Order> getOrders() {\n  return orderRepository.findAll();\n}",
+  "language": "java",
+  "context": ""
+}</textarea>
+                            <div class="try-section mt-3">
+                                <button class="try-btn" onclick="callPost('/api/v1/code/review','body-code-review','res-code-review','btn-code-review','status-code-review')" id="btn-code-review">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-code-review"></div>
+                                <div class="response-box" id="res-code-review"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/v1/code/security -->
+                    <div class="ep-card" id="ep-code-security">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/code/security</span>
+                            <span class="ep-desc">Java/Spring 보안 감사 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>code</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>보안 감사할 소스코드 (OWASP, SQL Injection, 하드코딩 등 검사)</td></tr>
+                                    <tr><td><code>language</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>언어 타입 — 기본값: java</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-code-security" style="min-height:160px;">{
+  "code": "String query = \"SELECT * FROM users WHERE id = \" + userId;\nconn.createStatement().executeQuery(query);",
+  "language": "java"
+}</textarea>
+                            <div class="try-section mt-3">
+                                <button class="try-btn" onclick="callPost('/api/v1/code/security','body-code-security','res-code-security','btn-code-security','status-code-security')" id="btn-code-security">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-code-security"></div>
+                                <div class="response-box" id="res-code-security"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ────────────────────────────────────── -->
+                    <!-- 문서 / ERD                            -->
+                    <!-- ────────────────────────────────────── -->
+                    <div class="section-title">문서 / ERD</div>
+
+                    <!-- POST /api/v1/doc/generate -->
+                    <div class="ep-card" id="ep-doc-generate">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/doc/generate</span>
+                            <span class="ep-desc">소스코드 기술 문서 생성 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>code</code></td><td class="field-type">string</td><td class="field-req">필수</td><td>문서화할 소스코드</td></tr>
+                                    <tr><td><code>language</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>언어/타입 (java, sql, xml) — 기본값: java</td></tr>
+                                    <tr><td><code>context</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>프로젝트 컨텍스트</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-doc-generate" style="min-height:160px;">{
+  "code": "public class OrderService {\n  public Order findById(Long id) {\n    return orderRepository.findById(id).orElseThrow();\n  }\n}",
+  "language": "java",
+  "context": ""
+}</textarea>
+                            <div class="try-section mt-3">
+                                <button class="try-btn" onclick="callPost('/api/v1/doc/generate','body-doc-generate','res-doc-generate','btn-doc-generate','status-doc-generate')" id="btn-doc-generate">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-doc-generate"></div>
+                                <div class="response-box" id="res-doc-generate"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST /api/v1/erd/analyze -->
+                    <div class="ep-card" id="ep-erd-analyze">
+                        <div class="ep-header open" onclick="toggleEp(this)">
+                            <span class="ep-method method-post">POST</span>
+                            <span class="ep-path">/api/v1/erd/analyze</span>
+                            <span class="ep-desc">ERD 분석 <span class="badge-ai">AI</span></span>
+                            <i class="fas fa-chevron-down ep-chevron open"></i>
+                        </div>
+                        <div class="ep-body open">
+                            <table class="fields-table">
+                                <thead><tr><th>필드</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>schemaText</code></td><td class="field-type">string</td><td class="field-opt">택1</td><td>스키마 텍스트 직접 입력 (DDL, 테이블 설명 등)</td></tr>
+                                    <tr><td><code>dbUrl</code></td><td class="field-type">string</td><td class="field-opt">택1</td><td>DB 직접 연결 — schemaText 없을 때 사용</td></tr>
+                                    <tr><td><code>dbUsername</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>DB 사용자명</td></tr>
+                                    <tr><td><code>dbPassword</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>DB 패스워드</td></tr>
+                                    <tr><td><code>schemaOwner</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>스키마 오너 (기본값: dbUsername)</td></tr>
+                                    <tr><td><code>tableFilter</code></td><td class="field-type">string</td><td class="field-opt">선택</td><td>테이블 필터 (예: T_ORDER,T_CUST)</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="try-label">Request Body (편집 가능)</div>
+                            <textarea class="try-textarea" id="body-erd-analyze" style="min-height:160px;">{
+  "schemaText": "TABLE: T_ORDER\n  COL: ORDER_ID NUMBER PK\n  COL: CUST_ID NUMBER FK\n  COL: STATUS VARCHAR2\n\nTABLE: T_CUST\n  COL: CUST_ID NUMBER PK\n  COL: CUST_NM VARCHAR2"
+}</textarea>
+                            <div class="try-section mt-3">
+                                <button class="try-btn" onclick="callPost('/api/v1/erd/analyze','body-erd-analyze','res-erd-analyze','btn-erd-analyze','status-erd-analyze')" id="btn-erd-analyze">
+                                    <i class="fas fa-play me-1"></i>직접 호출
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div class="try-label">응답</div>
+                                <div id="status-erd-analyze"></div>
+                                <div class="response-box" id="res-erd-analyze"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /col-lg-9 -->
+            </div><!-- /row -->
+        </div><!-- /main-content -->
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+/* ── 엔드포인트 접기/펴기 ── */
+function toggleEp(header) {
+    var body    = header.nextElementSibling;
+    var chevron = header.querySelector('.ep-chevron');
+    var isOpen  = body.classList.contains('open');
+    if (isOpen) {
+        body.classList.remove('open');
+        header.classList.remove('open');
+        chevron.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        header.classList.add('open');
+        chevron.classList.add('open');
+    }
+}
+
+/* ── 네비 스크롤 ── */
+function scrollTo(id, el) {
+    event.preventDefault();
+    document.querySelectorAll('.api-nav-item').forEach(function(a){ a.classList.remove('active'); });
+    if (el) el.classList.add('active');
+    var target = document.getElementById(id);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── GET 호출 ── */
+function callGet(url, resId, btnId) {
+    var btn = document.getElementById(btnId);
+    var res = document.getElementById(resId);
+    var statusEl = document.getElementById('status-health');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>호출 중...';
+    fetch(url)
+        .then(function(r) {
+            var status = r.status;
+            return r.json().then(function(data){ return { status: status, data: data }; });
+        })
+        .then(function(result) {
+            showResponse(res, statusEl, result.status, result.data);
+        })
+        .catch(function(e) {
+            showError(res, statusEl, e.message);
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play me-1"></i>직접 호출';
+        });
+}
+
+/* ── POST 호출 ── */
+function callPost(url, bodyId, resId, btnId, statusId) {
+    var btn    = document.getElementById(btnId);
+    var res    = document.getElementById(resId);
+    var statusEl = document.getElementById(statusId);
+    var bodyText = document.getElementById(bodyId).value;
+
+    var parsed;
+    try { parsed = JSON.parse(bodyText); }
+    catch(e) {
+        statusEl.innerHTML = '<span class="response-status status-err">JSON 파싱 오류</span>';
+        res.textContent = 'Request Body가 올바른 JSON 형식이 아닙니다: ' + e.message;
+        res.classList.add('visible');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>호출 중...';
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+    })
+    .then(function(r) {
+        var status = r.status;
+        return r.json().then(function(data){ return { status: status, data: data }; });
+    })
+    .then(function(result) {
+        showResponse(res, statusEl, result.status, result.data);
+    })
+    .catch(function(e) {
+        showError(res, statusEl, e.message);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play me-1"></i>직접 호출';
+    });
+}
+
+/* ── 응답 표시 ── */
+function showResponse(resEl, statusEl, httpStatus, data) {
+    var isOk = httpStatus >= 200 && httpStatus < 300 && data.success;
+    statusEl.innerHTML = '<span class="response-status ' + (isOk ? 'status-ok' : 'status-err') + '">'
+        + httpStatus + ' ' + (isOk ? 'OK' : 'ERROR') + '</span>';
+    resEl.textContent = JSON.stringify(data, null, 2);
+    resEl.classList.add('visible');
+    resEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function showError(resEl, statusEl, msg) {
+    statusEl.innerHTML = '<span class="response-status status-err">Network Error</span>';
+    resEl.textContent = msg;
+    resEl.classList.add('visible');
+}
+
+/* ── cURL 복사 ── */
+function copyCurl(id) {
+    var el = document.getElementById(id);
+    // btn 태그 제외하고 텍스트만 가져오기
+    var clone = el.cloneNode(true);
+    var btns  = clone.querySelectorAll('button');
+    btns.forEach(function(b){ b.remove(); });
+    var text  = clone.textContent.trim();
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function(){
+            showCopyToast();
+        });
+    }
+}
+function showCopyToast() {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#f97316;color:#fff;padding:8px 18px;border-radius:6px;font-size:.8rem;z-index:9999;';
+    t.textContent = '클립보드에 복사되었습니다';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2000);
+}
+</script>
+</body>
+</html>
