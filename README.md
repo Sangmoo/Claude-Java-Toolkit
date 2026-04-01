@@ -3,10 +3,11 @@
 > AI-powered tools for Oracle DB & Java/Spring enterprise development
 > Powered by [Anthropic Claude API](https://docs.anthropic.com)
 
+[![Build](https://github.com/Sangmoo/Claude-Java-Toolkit/actions/workflows/build.yml/badge.svg)](https://github.com/Sangmoo/Claude-Java-Toolkit/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-0.9.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)](#)
 
 ---
 
@@ -915,11 +916,10 @@ claude-java-toolkit/
 
 ### ✅ v1.0.0
 
-- [ ] GitHub Actions CI/CD 파이프라인 (자동 빌드 · 테스트)
-- [ ] 멀티 탭 결과 비교 (동일 쿼리, 다른 모델 병렬 실행 비교)
+- [x] GitHub Actions CI/CD 파이프라인 (자동 빌드 · master push / PR 트리거)
+- [x] REST API 모드 (외부 CI/CD 파이프라인 연동용 JSON API)
 - [ ] SQL 성능 히스토리 대시보드 (Cost 추이 차트)
 - [ ] 프롬프트 템플릿 관리 (사용자 정의 시스템 프롬프트 저장/적용)
-- [x] REST API 모드 (외부 CI/CD 파이프라인 연동용 JSON API)
 
 #### 🔌 REST API 엔드포인트 (`/api/v1/`)
 
@@ -953,6 +953,16 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
   "timestamp": "2026-04-01 12:00:00"
 }
 ```
+
+---
+
+### 🔜 v1.1.0 (예정)
+
+- [ ] 프롬프트 템플릿 관리 — Settings에서 기능별 시스템 프롬프트 편집·저장·적용
+- [ ] SQL 성능 히스토리 대시보드 — 실행계획 Cost 추이 차트 (기간별 비교)
+- [ ] API 키 인증 — REST API 호출 시 `X-API-Key` 헤더 인증 (보안 강화)
+- [ ] 배치 SQL 분석 — 여러 SQL을 한 번에 업로드하여 일괄 리뷰 (CSV/텍스트)
+- [ ] 분석 결과 내보내기 — PDF / Excel 리포트 다운로드
 
 ---
 
