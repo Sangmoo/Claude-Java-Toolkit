@@ -9,99 +9,300 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
     <style>
-        .prompt-card {
+        /* ── 전체 레이아웃 ── */
+        .pt-wrap { display: flex; gap: 20px; align-items: flex-start; }
+
+        /* ── 좌측 기능 목록 네비 ── */
+        .pt-nav {
+            width: 230px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 20px;
+        }
+        .pt-nav-group-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            padding: 14px 14px 6px;
+        }
+        .pt-nav-group-label:first-child { padding-top: 4px; }
+        .pt-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background .13s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            position: relative;
+        }
+        .pt-nav-item:hover { background: var(--bg-hover); }
+        .pt-nav-item.active {
+            background: rgba(249,115,22,.1);
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
+        .pt-nav-item.active .pt-nav-text { color: var(--accent); font-weight: 600; }
+        .pt-nav-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .8rem;
+            flex-shrink: 0;
+        }
+        .pt-nav-text { font-size: .82rem; color: var(--text-main); line-height: 1.3; }
+        .pt-nav-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* ── 우측 에디터 패널 ── */
+        .pt-panel { flex: 1; min-width: 0; }
+        .pt-editor { display: none; }
+        .pt-editor.active { display: block; }
+
+        /* ── 에디터 카드 ── */
+        .editor-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px 22px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .editor-card-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(249,115,22,.05) 0%, transparent 60%);
+        }
+        .editor-icon-lg {
+            width: 44px;
+            height: 44px;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .editor-title { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+        .editor-subtitle { font-size: .78rem; color: var(--text-sub); margin-top: 2px; }
+        .custom-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            background: rgba(249,115,22,.15);
+            color: var(--accent);
+            border: 1px solid rgba(249,115,22,.3);
+            border-radius: 20px;
+            padding: 2px 9px;
+            font-weight: 600;
+        }
+        .default-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.68rem;
+            background: var(--bg-primary);
+            color: var(--text-sub);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2px 9px;
+        }
+
+        .editor-body { padding: 22px; }
+
+        /* ── 기본 프롬프트 미리보기 ── */
+        .default-section {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             margin-bottom: 18px;
+            overflow: hidden;
         }
-        .prompt-card.has-custom {
-            border-left: 3px solid var(--accent);
+        .default-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,.02);
         }
-        .prompt-label {
-            font-size: 0.92rem;
+        .default-section-title {
+            font-size: .72rem;
+            font-weight: 600;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: .07em;
+        }
+        .btn-copy-default {
+            font-size: .7rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-sub);
+            border-radius: 5px;
+            padding: 2px 10px;
+            cursor: pointer;
+            transition: border-color .13s, color .13s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn-copy-default:hover { border-color: var(--accent); color: var(--accent); }
+        .default-preview {
+            padding: 12px 14px;
+            font-family: monospace;
+            font-size: .75rem;
+            color: var(--text-sub);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 110px;
+            overflow: hidden;
+            position: relative;
+        }
+        .default-preview::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 30px;
+            background: linear-gradient(transparent, var(--bg-primary));
+        }
+        .default-preview.expanded { max-height: none; }
+        .default-preview.expanded::after { display: none; }
+        .btn-expand-default {
+            display: block;
+            width: 100%;
+            font-size: .7rem;
+            color: var(--accent);
+            background: transparent;
+            border: none;
+            border-top: 1px solid var(--border);
+            padding: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: background .12s;
+        }
+        .btn-expand-default:hover { background: rgba(249,115,22,.05); }
+
+        /* ── 커스텀 입력 영역 ── */
+        .custom-section-label {
+            font-size: .78rem;
             font-weight: 600;
             color: var(--text-main);
-            margin-bottom: 4px;
-        }
-        .feature-code {
-            font-size: 0.75rem;
-            color: var(--text-sub);
-            font-family: monospace;
-            margin-bottom: 10px;
-        }
-        .custom-badge {
-            display: inline-block;
-            font-size: 0.68rem;
-            background: var(--accent);
-            color: #fff;
-            border-radius: 4px;
-            padding: 1px 7px;
-            margin-left: 8px;
-            vertical-align: middle;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .prompt-textarea {
             width: 100%;
             background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
             color: var(--text-main);
             font-family: monospace;
-            font-size: 0.8rem;
-            padding: 10px 12px;
+            font-size: .8rem;
+            padding: 12px 14px;
             resize: vertical;
-            min-height: 130px;
-            line-height: 1.5;
-            transition: border-color 0.15s;
+            min-height: 160px;
+            line-height: 1.6;
+            transition: border-color .15s, box-shadow .15s;
         }
         .prompt-textarea:focus {
             outline: none;
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(249,115,22,.12);
+        }
+        .prompt-textarea::placeholder { color: var(--text-sub); opacity: .6; }
+
+        /* ── 액션 버튼 영역 ── */
+        .editor-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 14px 22px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-primary);
         }
         .btn-save-prompt {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             background: var(--accent);
             border: none;
             color: #fff;
-            border-radius: 6px;
-            padding: 6px 18px;
-            font-size: 0.82rem;
-            font-weight: 500;
+            border-radius: 7px;
+            padding: 8px 22px;
+            font-size: .84rem;
+            font-weight: 600;
             cursor: pointer;
-            transition: background 0.15s;
+            transition: background .15s, transform .1s;
         }
         .btn-save-prompt:hover { background: var(--accent-hover); }
+        .btn-save-prompt:active { transform: scale(.97); }
         .btn-reset-prompt {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             background: transparent;
             border: 1px solid var(--border);
             color: var(--text-sub);
-            border-radius: 6px;
-            padding: 6px 18px;
-            font-size: 0.82rem;
+            border-radius: 7px;
+            padding: 8px 18px;
+            font-size: .82rem;
             cursor: pointer;
-            transition: border-color 0.15s, color 0.15s;
+            transition: border-color .15s, color .15s;
         }
-        .btn-reset-prompt:hover { border-color: #ef4444; color: #ef4444; }
-        .default-preview {
-            font-size: 0.75rem;
-            color: var(--text-sub);
-            background: var(--bg-primary);
-            border: 1px dashed var(--border);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-family: monospace;
-            line-height: 1.5;
-            white-space: pre-wrap;
-            max-height: 90px;
-            overflow: hidden;
-            cursor: pointer;
+        .btn-reset-prompt:hover:not(:disabled) { border-color: #ef4444; color: #ef4444; }
+        .btn-reset-prompt:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* ── 알림 토스트 ── */
+        .pt-toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #1e293b;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 11px 18px;
+            font-size: .82rem;
+            box-shadow: 0 8px 24px rgba(0,0,0,.35);
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity .25s, transform .25s;
         }
-        .default-label {
-            font-size: 0.73rem;
-            color: var(--text-sub);
-            margin-bottom: 4px;
+        .pt-toast.show { opacity: 1; transform: translateY(0); }
+        .pt-toast-icon { font-size: .9rem; }
+
+        .page-subtitle { color: var(--text-sub); font-size: .88rem; margin-bottom: 22px; }
+
+        /* ── 반응형 ── */
+        @media (max-width: 768px) {
+            .pt-wrap { flex-direction: column; }
+            .pt-nav { width: 100%; position: static; }
+            .pt-nav-group-label { padding-top: 10px; }
         }
-        .page-subtitle { color: var(--text-sub); font-size: 0.9rem; margin-bottom: 24px; }
     </style>
 </head>
 <body>
@@ -110,77 +311,280 @@
 
     <main class="main-area">
         <div class="top-bar">
-            <span class="top-bar-title"><i class="fas fa-sliders me-2" style="color:#f97316"></i>프롬프트 템플릿</span>
+            <span class="top-bar-title">
+                <i class="fas fa-sliders me-2" style="color:#f97316"></i>프롬프트 템플릿
+            </span>
             <button id="themeToggle" onclick="toggleTheme()">
                 <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
             </button>
         </div>
 
-        <div class="main-content" style="max-width:820px;">
-            <p class="page-subtitle">각 AI 기능에서 사용하는 시스템 프롬프트를 커스터마이징합니다. 비워두면 기본값이 사용됩니다.</p>
+        <div class="main-content" style="max-width:980px;">
+            <p class="page-subtitle">
+                각 AI 기능의 시스템 프롬프트를 편집합니다. 저장하면 즉시 적용되며, 초기화하면 기본 프롬프트로 돌아갑니다.
+            </p>
 
-            <div th:if="${success}" class="alert alert-success d-flex align-items-center mb-4" style="border-radius:8px;">
-                <i class="fas fa-check-circle me-2"></i>
-                <span th:text="${success}"></span>
-            </div>
-            <div th:if="${error}" class="alert alert-danger d-flex align-items-center mb-4" style="border-radius:8px;">
-                <i class="fas fa-exclamation-circle me-2"></i>
-                <span th:text="${error}"></span>
-            </div>
+            <!-- 저장/초기화 결과 알림은 JS 토스트로 처리 (flash attr 확인용 hidden) -->
+            <span id="flashSuccess" style="display:none" th:text="${success}"></span>
+            <span id="flashError"   style="display:none" th:text="${error}"></span>
 
-            <div th:each="code : ${featureCodes}">
-                <div class="prompt-card" th:classappend="${customPrompts.containsKey(code)} ? 'has-custom' : ''">
-                    <div class="prompt-label">
-                        <span th:text="${featureLabels[code]}"></span>
-                        <span th:if="${customPrompts.containsKey(code)}" class="custom-badge">커스텀</span>
-                    </div>
-                    <div class="feature-code" th:text="${code}"></div>
+            <div class="pt-wrap">
+                <!-- ══════════════════════════════
+                     좌측 기능 목록 네비게이션
+                     ══════════════════════════════ -->
+                <nav class="pt-nav">
+                    <!-- SQL 분석 그룹 -->
+                    <div class="pt-nav-group-label">SQL 분석</div>
+                    <button class="pt-nav-item active" data-target="SQL_REVIEW" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">
+                            <i class="fas fa-magnifying-glass-chart"></i>
+                        </span>
+                        <span class="pt-nav-text">SQL 성능·품질 리뷰</span>
+                        <span th:if="${customPrompts.containsKey('SQL_REVIEW')}" class="pt-nav-dot"></span>
+                    </button>
+                    <button class="pt-nav-item" data-target="SQL_SECURITY" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(249,115,22,.12);color:#f97316;">
+                            <i class="fas fa-shield-halved"></i>
+                        </span>
+                        <span class="pt-nav-text">SQL 보안 취약점 검사</span>
+                        <span th:if="${customPrompts.containsKey('SQL_SECURITY')}" class="pt-nav-dot"></span>
+                    </button>
+                    <button class="pt-nav-item" data-target="SQL_EXPLAIN" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">
+                            <i class="fas fa-sitemap"></i>
+                        </span>
+                        <span class="pt-nav-text">실행계획 AI 분석</span>
+                        <span th:if="${customPrompts.containsKey('SQL_EXPLAIN')}" class="pt-nav-dot"></span>
+                    </button>
 
-                    <!-- Default prompt preview (click to copy into textarea) -->
-                    <div class="default-label">기본 프롬프트 (클릭하면 편집창에 복사)</div>
-                    <div class="default-preview"
-                         th:id="'default-' + ${code}"
-                         th:text="${defaultPrompts[code]}"
-                         th:attr="data-code=${code}"
-                         onclick="copyDefault(this.getAttribute('data-code'))"></div>
+                    <!-- 코드 분석 그룹 -->
+                    <div class="pt-nav-group-label">코드 분석</div>
+                    <button class="pt-nav-item" data-target="CODE_REVIEW" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">
+                            <i class="fas fa-code"></i>
+                        </span>
+                        <span class="pt-nav-text">Java/Spring 코드 리뷰</span>
+                        <span th:if="${customPrompts.containsKey('CODE_REVIEW')}" class="pt-nav-dot"></span>
+                    </button>
+                    <button class="pt-nav-item" data-target="CODE_SECURITY" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(16,185,129,.12);color:#10b981;">
+                            <i class="fas fa-shield-virus"></i>
+                        </span>
+                        <span class="pt-nav-text">Java/Spring 보안 감사</span>
+                        <span th:if="${customPrompts.containsKey('CODE_SECURITY')}" class="pt-nav-dot"></span>
+                    </button>
 
-                    <div class="mt-3">
-                        <form method="post" action="/prompts/save">
-                            <input type="hidden" name="featureCode" th:value="${code}">
-                            <textarea class="prompt-textarea"
-                                      name="promptText"
-                                      th:id="'textarea-' + ${code}"
-                                      th:placeholder="'기본 프롬프트를 사용하려면 비워 두세요'"
-                                      th:text="${customPrompts[code]}"></textarea>
-                            <div class="d-flex gap-2 mt-2">
-                                <button type="submit" class="btn-save-prompt">
-                                    <i class="fas fa-save me-1"></i>저장
-                                </button>
-                                <form method="post" action="/prompts/reset" style="display:inline;">
-                                    <input type="hidden" name="featureCode" th:value="${code}">
-                                    <button type="submit" class="btn-reset-prompt"
-                                            th:disabled="${!customPrompts.containsKey(code)}">
-                                        <i class="fas fa-rotate-left me-1"></i>기본값으로 초기화
+                    <!-- 문서 / ERD 그룹 -->
+                    <div class="pt-nav-group-label">문서 / ERD</div>
+                    <button class="pt-nav-item" data-target="DOC_GENERATE" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(20,184,166,.12);color:#14b8a6;">
+                            <i class="fas fa-file-lines"></i>
+                        </span>
+                        <span class="pt-nav-text">기술 문서 생성</span>
+                        <span th:if="${customPrompts.containsKey('DOC_GENERATE')}" class="pt-nav-dot"></span>
+                    </button>
+                    <button class="pt-nav-item" data-target="ERD_ANALYZE" onclick="switchPanel(this)">
+                        <span class="pt-nav-icon" style="background:rgba(236,72,153,.12);color:#ec4899;">
+                            <i class="fas fa-diagram-project"></i>
+                        </span>
+                        <span class="pt-nav-text">ERD 분석</span>
+                        <span th:if="${customPrompts.containsKey('ERD_ANALYZE')}" class="pt-nav-dot"></span>
+                    </button>
+                </nav>
+
+                <!-- ══════════════════════════════
+                     우측 에디터 패널
+                     ══════════════════════════════ -->
+                <div class="pt-panel">
+                    <div th:each="code : ${featureCodes}"
+                         class="pt-editor"
+                         th:id="'panel-' + ${code}"
+                         th:classappend="${code == 'SQL_REVIEW'} ? ' active' : ''">
+
+                        <div class="editor-card">
+                            <!-- 카드 헤더 -->
+                            <div class="editor-card-header">
+                                <!-- 기능별 아이콘 색상 -->
+                                <span class="editor-icon-lg"
+                                      th:style="${code == 'SQL_REVIEW'}    ? 'background:rgba(239,68,68,.12);color:#ef4444;'   :
+                                                 ${code == 'SQL_SECURITY'} ? 'background:rgba(249,115,22,.12);color:#f97316;'  :
+                                                 ${code == 'SQL_EXPLAIN'}  ? 'background:rgba(59,130,246,.12);color:#3b82f6;'  :
+                                                 ${code == 'CODE_REVIEW'}  ? 'background:rgba(139,92,246,.12);color:#8b5cf6;'  :
+                                                 ${code == 'CODE_SECURITY'}? 'background:rgba(16,185,129,.12);color:#10b981;'  :
+                                                 ${code == 'DOC_GENERATE'} ? 'background:rgba(20,184,166,.12);color:#14b8a6;'  :
+                                                                             'background:rgba(236,72,153,.12);color:#ec4899;'">
+                                    <i th:class="${code == 'SQL_REVIEW'}    ? 'fas fa-magnifying-glass-chart' :
+                                                  ${code == 'SQL_SECURITY'} ? 'fas fa-shield-halved'         :
+                                                  ${code == 'SQL_EXPLAIN'}  ? 'fas fa-sitemap'               :
+                                                  ${code == 'CODE_REVIEW'}  ? 'fas fa-code'                  :
+                                                  ${code == 'CODE_SECURITY'}? 'fas fa-shield-virus'           :
+                                                  ${code == 'DOC_GENERATE'} ? 'fas fa-file-lines'            :
+                                                                              'fas fa-diagram-project'"></i>
+                                </span>
+                                <div style="flex:1;">
+                                    <div class="editor-title" th:text="${featureLabels[code]}"></div>
+                                    <div class="editor-subtitle">
+                                        <code style="font-size:.7rem;color:var(--text-sub);" th:text="${code}"></code>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span th:if="${customPrompts.containsKey(code)}" class="custom-badge">
+                                        <i class="fas fa-pen" style="font-size:.6rem;"></i>커스텀 적용 중
+                                    </span>
+                                    <span th:unless="${customPrompts.containsKey(code)}" class="default-badge">
+                                        <i class="fas fa-check" style="font-size:.6rem;"></i>기본값 사용
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- 카드 본문 -->
+                            <div class="editor-body">
+                                <!-- 기본 프롬프트 미리보기 -->
+                                <div class="default-section">
+                                    <div class="default-section-header">
+                                        <span class="default-section-title">
+                                            <i class="fas fa-lock me-1" style="font-size:.65rem;"></i>기본 프롬프트 (읽기 전용)
+                                        </span>
+                                        <button class="btn-copy-default"
+                                                th:attr="data-code=${code}"
+                                                onclick="copyDefault(this.getAttribute('data-code'))">
+                                            <i class="fas fa-copy"></i>편집창에 복사
+                                        </button>
+                                    </div>
+                                    <div class="default-preview"
+                                         th:id="'default-' + ${code}"
+                                         th:text="${defaultPrompts[code]}"></div>
+                                    <button class="btn-expand-default"
+                                            th:attr="data-code=${code}"
+                                            onclick="toggleExpand(this.getAttribute('data-code'), this)">
+                                        <i class="fas fa-chevron-down me-1" style="font-size:.65rem;"></i>전체 보기
                                     </button>
+                                </div>
+
+                                <!-- 커스텀 프롬프트 입력 -->
+                                <div class="custom-section-label">
+                                    <i class="fas fa-pen-to-square" style="color:var(--accent);font-size:.8rem;"></i>
+                                    커스텀 프롬프트 입력
+                                    <span style="font-size:.7rem;color:var(--text-sub);font-weight:400;">
+                                        — 비워 두면 기본값이 사용됩니다
+                                    </span>
+                                </div>
+                                <form th:id="'form-' + ${code}" method="post" action="/prompts/save">
+                                    <input type="hidden" name="featureCode" th:value="${code}">
+                                    <textarea class="prompt-textarea"
+                                              name="promptText"
+                                              th:id="'textarea-' + ${code}"
+                                              placeholder="여기에 커스텀 시스템 프롬프트를 입력하세요..."
+                                              th:text="${customPrompts[code]}"></textarea>
                                 </form>
                             </div>
-                        </form>
+
+                            <!-- 카드 액션 푸터 -->
+                            <div class="editor-actions">
+                                <div style="font-size:.75rem;color:var(--text-sub);">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    저장 즉시 모든 API 호출에 적용됩니다
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <!-- 초기화 버튼 (별도 form) -->
+                                    <form method="post" action="/prompts/reset" style="display:inline;">
+                                        <input type="hidden" name="featureCode" th:value="${code}">
+                                        <button type="submit" class="btn-reset-prompt"
+                                                th:disabled="${!customPrompts.containsKey(code)}">
+                                            <i class="fas fa-rotate-left"></i>초기화
+                                        </button>
+                                    </form>
+                                    <!-- 저장 버튼 -->
+                                    <button type="submit" class="btn-save-prompt"
+                                            th:attr="data-form='form-' + ${code}"
+                                            onclick="submitForm(this.getAttribute('data-form'))">
+                                        <i class="fas fa-floppy-disk"></i>저장
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                </div><!-- /pt-panel -->
+            </div><!-- /pt-wrap -->
+        </div><!-- /main-content -->
     </main>
+</div>
+
+<!-- 토스트 -->
+<div class="pt-toast" id="ptToast">
+    <span class="pt-toast-icon" id="ptToastIcon"></span>
+    <span id="ptToastMsg"></span>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250329')}"></script>
 <script>
+/* ── 패널 전환 ── */
+function switchPanel(btn) {
+    var code = btn.getAttribute('data-target');
+    // 네비 active
+    document.querySelectorAll('.pt-nav-item').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    // 패널 전환
+    document.querySelectorAll('.pt-editor').forEach(function(p){ p.classList.remove('active'); });
+    var panel = document.getElementById('panel-' + code);
+    if (panel) panel.classList.add('active');
+}
+
+/* ── 기본 프롬프트 → 편집창 복사 ── */
 function copyDefault(code) {
     var defaultText = document.getElementById('default-' + code).textContent;
-    var textarea = document.getElementById('textarea-' + code);
-    textarea.value = defaultText;
+    var textarea    = document.getElementById('textarea-' + code);
+    textarea.value  = defaultText.trim();
     textarea.focus();
+    showToast('success', '기본 프롬프트를 편집창에 복사했습니다.');
 }
+
+/* ── 기본 프롬프트 전체/축소 토글 ── */
+function toggleExpand(code, btn) {
+    var preview = document.getElementById('default-' + code);
+    var isExpanded = preview.classList.contains('expanded');
+    if (isExpanded) {
+        preview.classList.remove('expanded');
+        btn.innerHTML = '<i class="fas fa-chevron-down me-1" style="font-size:.65rem;"></i>전체 보기';
+    } else {
+        preview.classList.add('expanded');
+        btn.innerHTML = '<i class="fas fa-chevron-up me-1" style="font-size:.65rem;"></i>접기';
+    }
+}
+
+/* ── form submit ── */
+function submitForm(formId) {
+    document.getElementById(formId).submit();
+}
+
+/* ── 토스트 메시지 ── */
+function showToast(type, msg) {
+    var toast   = document.getElementById('ptToast');
+    var icon    = document.getElementById('ptToastIcon');
+    var msgEl   = document.getElementById('ptToastMsg');
+    icon.innerHTML = type === 'success'
+        ? '<i class="fas fa-check-circle" style="color:#22c55e;"></i>'
+        : '<i class="fas fa-exclamation-circle" style="color:#ef4444;"></i>';
+    msgEl.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(function(){ toast.classList.remove('show'); }, 3000);
+}
+
+/* ── 페이지 로드 시 flash 메시지 처리 ── */
+document.addEventListener('DOMContentLoaded', function() {
+    var success = document.getElementById('flashSuccess').textContent.trim();
+    var error   = document.getElementById('flashError').textContent.trim();
+    if (success) showToast('success', success);
+    if (error)   showToast('error', error);
+
+    // URL 해시로 패널 자동 선택
+    var hash = window.location.hash.replace('#', '');
+    if (hash) {
+        var btn = document.querySelector('[data-target="' + hash + '"]');
+        if (btn) switchPanel(btn);
+    }
+});
 </script>
 </body>
 </html>
