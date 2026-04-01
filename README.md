@@ -913,13 +913,46 @@ claude-java-toolkit/
 
 ---
 
-### 🔜 v1.0.0 (예정)
+### ✅ v1.0.0
 
 - [ ] GitHub Actions CI/CD 파이프라인 (자동 빌드 · 테스트)
 - [ ] 멀티 탭 결과 비교 (동일 쿼리, 다른 모델 병렬 실행 비교)
 - [ ] SQL 성능 히스토리 대시보드 (Cost 추이 차트)
 - [ ] 프롬프트 템플릿 관리 (사용자 정의 시스템 프롬프트 저장/적용)
-- [ ] REST API 모드 (외부 CI/CD 파이프라인 연동용 JSON API)
+- [x] REST API 모드 (외부 CI/CD 파이프라인 연동용 JSON API)
+
+#### 🔌 REST API 엔드포인트 (`/api/v1/`)
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/v1/health` | 서버 상태 및 설정 확인 |
+| POST | `/api/v1/sql/review` | SQL 성능·품질 리뷰 |
+| POST | `/api/v1/sql/security` | SQL 보안 취약점 검사 |
+| POST | `/api/v1/sql/explain` | Oracle 실행계획 분석 |
+| POST | `/api/v1/doc/generate` | 소스코드 기술 문서 생성 |
+| POST | `/api/v1/code/review` | Java/Spring 코드 리뷰 |
+| POST | `/api/v1/code/security` | Java/Spring 보안 감사 |
+| POST | `/api/v1/erd/analyze` | ERD 분석 |
+
+**요청/응답 예시:**
+```bash
+# SQL 리뷰
+curl -X POST http://localhost:8027/api/v1/sql/review \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "SELECT * FROM ORDERS WHERE STATUS = 1"}'
+
+# 응답
+{
+  "success": true,
+  "data": {
+    "sqlType": "SELECT",
+    "review":  "## Summary\n...",
+    "reviewedAt": "2026-04-01 12:00:00"
+  },
+  "error": null,
+  "timestamp": "2026-04-01 12:00:00"
+}
+```
 
 ---
 
