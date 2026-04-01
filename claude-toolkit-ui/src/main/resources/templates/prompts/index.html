@@ -141,7 +141,8 @@
                     <div class="default-preview"
                          th:id="'default-' + ${code}"
                          th:text="${defaultPrompts[code]}"
-                         th:onclick="'copyDefault(\'' + ${code} + '\')'"></div>
+                         th:attr="data-code=${code}"
+                         onclick="copyDefault(this.getAttribute('data-code'))"></div>
 
                     <div class="mt-3">
                         <form method="post" action="/prompts/save">
