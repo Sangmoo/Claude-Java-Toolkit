@@ -58,7 +58,10 @@ public class ScheduleService {
 
     @Transactional
     public void toggle(Long id) {
-        ScheduledJob job = repository.findById(id).orElseThrow();
+        ScheduledJob job = repository.findById(id)
+                .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
+                    @Override public RuntimeException get() { return new RuntimeException("Job not found: " + id); }
+                });
         job.setEnabled(!job.isEnabled());
         repository.save(job);
         if (job.isEnabled()) {
@@ -76,7 +79,10 @@ public class ScheduleService {
 
     @Transactional
     public String runNow(Long id) {
-        ScheduledJob job = repository.findById(id).orElseThrow();
+        ScheduledJob job = repository.findById(id)
+                .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
+                    @Override public RuntimeException get() { return new RuntimeException("Job not found: " + id); }
+                });
         return executeJob(job);
     }
 
