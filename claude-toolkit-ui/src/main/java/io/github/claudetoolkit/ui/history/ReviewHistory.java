@@ -33,6 +33,10 @@ public class ReviewHistory {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /** Root-node cost from EXPLAIN PLAN (nullable — only set for EXPLAIN_PLAN type) */
+    @Column(nullable = true)
+    private Long costValue;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -44,6 +48,11 @@ public class ReviewHistory {
         this.createdAt     = LocalDateTime.now();
     }
 
+    public ReviewHistory(String type, String title, String inputContent, String outputContent, Long costValue) {
+        this(type, title, inputContent, outputContent);
+        this.costValue = costValue;
+    }
+
     // ── getters ──────────────────────────────────────────────────────────────
 
     public long getId()              { return id; }
@@ -52,6 +61,7 @@ public class ReviewHistory {
     public String getInputContent()  { return inputContent; }
     public String getOutputContent() { return outputContent; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public Long getCostValue()       { return costValue; }
 
     /** MM-dd HH:mm format */
     public String getFormattedDate() {
@@ -82,6 +92,7 @@ public class ReviewHistory {
         if ("SPRING_MIGRATE".equals(type))  return "Spring 마이그레이션";
         if ("ERD_DDL".equals(type))         return "DDL 생성";
         if ("EXPLAIN_PLAN".equals(type))    return "실행계획";
+        if ("SQL_BATCH".equals(type))       return "SQL 배치";
         return type;
     }
 
@@ -109,6 +120,7 @@ public class ReviewHistory {
         if ("SPRING_MIGRATE".equals(type))  return "#16a34a";
         if ("ERD_DDL".equals(type))         return "#14b8a6";
         if ("EXPLAIN_PLAN".equals(type))    return "#3b82f6";
+        if ("SQL_BATCH".equals(type))       return "#f97316";
         return "#64748b";
     }
 

@@ -32,8 +32,12 @@ public class ReviewHistoryService {
      * @param outputContent Claude's generated output
      */
     public void save(String type, String inputContent, String outputContent) {
+        save(type, inputContent, outputContent, null);
+    }
+
+    public void save(String type, String inputContent, String outputContent, Long costValue) {
         String title = buildTitle(inputContent);
-        ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent);
+        ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue);
         repository.save(h);
 
         // Prune oldest if over limit
@@ -51,6 +55,12 @@ public class ReviewHistoryService {
     @Transactional(readOnly = true)
     public List<ReviewHistory> findAll() {
         return repository.findRecentEntries(PageRequest.of(0, MAX_HISTORY));
+    }
+
+    /** Return all EXPLAIN_PLAN entries sorted by time (for dashboard chart). */
+    @Transactional(readOnly = true)
+    public List<ReviewHistory> findExplainPlanHistory() {
+        return repository.findByTypeOrderByCreatedAtAsc("EXPLAIN_PLAN");
     }
 
     /** Find entry by ID, or null if not found. */

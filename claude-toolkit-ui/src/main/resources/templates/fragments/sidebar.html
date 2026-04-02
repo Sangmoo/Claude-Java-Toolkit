@@ -33,6 +33,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">
                 <i class="fas fa-database"></i><span>SQL 리뷰</span>
             </a>
+            <a href="/sql-batch" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/sql-batch') ? ' active' : ''}">
+                <i class="fas fa-layer-group" style="color:#f97316"></i><span>배치 SQL 분석</span>
+            </a>
             <a href="/erd" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/erd') ? ' active' : ''}">
                 <i class="fas fa-project-diagram"></i><span>ERD 분석</span>
@@ -52,6 +56,10 @@
             <a href="/explain/compare" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/compare') ? ' active' : ''}">
                 <i class="fas fa-columns" style="color:#8b5cf6"></i><span>실행계획 비교</span>
+            </a>
+            <a href="/explain/dashboard" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/explain/dashboard') ? ' active' : ''}">
+                <i class="fas fa-chart-line" style="color:#10b981"></i><span>성능 히스토리</span>
             </a>
         </div>
 
@@ -174,7 +182,7 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v1.1.0 · JDK 1.8</div>
+        <div class="sidebar-version">v1.2.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -231,8 +239,7 @@
 
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
-            analysis: ['/advisor', '/erd', '/codereview', '/complexity', '/explain'],
-            /* Note: /explain/compare is a sub-path of /explain so it's included above */
+            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard'],
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],

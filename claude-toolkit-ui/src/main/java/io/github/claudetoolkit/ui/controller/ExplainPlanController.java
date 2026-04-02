@@ -5,10 +5,13 @@ import io.github.claudetoolkit.sql.explain.ExplainPlanResult;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
 import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Web controller for Oracle Explain Plan visualization (/explain).
@@ -80,9 +83,11 @@ public class ExplainPlanController {
             model.addAttribute("result",   result);
             model.addAttribute("planJson", planJson);
 
-            // Save to history
+            // Save to history (with root cost for dashboard chart)
             if (result.getAiAnalysis() != null) {
-                historyService.save("EXPLAIN_PLAN", sqlContent, result.getAiAnalysis());
+                Long cost = (result.getRoot() != null && result.getRoot().getCost() != null)
+                        ? result.getRoot().getCost() : null;
+                historyService.save("EXPLAIN_PLAN", sqlContent, result.getAiAnalysis(), cost);
             }
 
         } catch (Exception e) {
@@ -90,6 +95,18 @@ public class ExplainPlanController {
         }
 
         return "explain/index";
+    }
+
+    // ── Performance History Dashboard (v1.2) ────────────────────────────────
+
+    @GetMapping("/dashboard")
+    public String dashboard(Model model) {
+        List<ReviewHistory> entries = historyService.findExplainPlanHistory();
+        model.addAttribute("entries", entries);
+        model.addAttribute("totalCount", entries.size());
+        long withCost = entries.stream().filter(e -> e.getCostValue() != null).count();
+        model.addAttribute("withCostCount", withCost);
+        return "explain/dashboard";
     }
 
     // ── Before / After comparison (v0.9) ────────────────────────────────────

@@ -17,4 +17,8 @@ public interface ReviewHistoryRepository extends JpaRepository<ReviewHistory, Lo
 
     /** Oldest entry (for trimming when MAX_HISTORY is exceeded) */
     ReviewHistory findTopByOrderByCreatedAtAsc();
+
+    /** All EXPLAIN_PLAN entries ordered by time (for dashboard chart) */
+    @Query("SELECT h FROM ReviewHistory h WHERE h.type = :type ORDER BY h.createdAt ASC")
+    List<ReviewHistory> findByTypeOrderByCreatedAtAsc(@org.springframework.data.repository.query.Param("type") String type);
 }

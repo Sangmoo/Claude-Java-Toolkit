@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>배치 SQL 분석 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250402')}" rel="stylesheet">
+    <style>
+        .input-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                     padding:4px 16px; border-radius:16px; cursor:pointer; font-size:0.8rem; transition:all 0.15s; }
+        .input-tab.active { background:var(--accent-subtle); border-color:var(--accent);
+                            color:var(--accent); font-weight:500; }
+        .batch-result { border:1px solid var(--border-color); border-radius:8px;
+                        margin-bottom:10px; overflow:hidden; }
+        .batch-result-hd { background:var(--bg-tertiary); padding:9px 14px;
+                           display:flex; justify-content:space-between; align-items:center;
+                           cursor:pointer; user-select:none; }
+        .batch-result-hd:hover { background:var(--bg-hover,var(--bg-tertiary)); }
+        .batch-result-bd { padding:14px; display:none; border-top:1px solid var(--border-color); }
+        .batch-result-bd.open { display:block; }
+        .sql-code { font-family:monospace; font-size:0.75rem; color:var(--text-muted);
+                    background:var(--bg-code,#1e293b); border-radius:4px; padding:8px 10px;
+                    max-height:120px; overflow:auto; white-space:pre-wrap; word-break:break-all;
+                    margin-bottom:10px; }
+        .badge-type { background:var(--accent-subtle); color:var(--accent); border-radius:10px;
+                      padding:1px 8px; font-size:0.7rem; font-weight:500; }
+        .badge-ok   { background:rgba(16,185,129,0.15); color:#10b981; border-radius:10px;
+                      padding:1px 8px; font-size:0.7rem; font-weight:500; }
+        .badge-err  { background:rgba(239,68,68,0.15); color:#ef4444; border-radius:10px;
+                      padding:1px 8px; font-size:0.7rem; font-weight:500; }
+        .summary-bar { background:var(--bg-secondary); border:1px solid var(--border-color);
+                       border-radius:8px; padding:10px 16px; margin-bottom:14px;
+                       display:flex; gap:20px; align-items:center; }
+        .summary-num { font-size:1.4rem; font-weight:700; color:var(--accent); line-height:1; }
+        .summary-lbl { font-size:0.72rem; color:var(--text-muted); }
+        .delimiter-hint { font-size:0.72rem; color:var(--text-muted); margin-top:4px; }
+        textarea.batch-input { font-family:monospace; font-size:0.8rem; resize:vertical; }
+        .drop-zone { border:2px dashed var(--border-color); border-radius:8px;
+                     padding:28px; text-align:center; cursor:pointer;
+                     transition:border-color 0.2s, background 0.2s; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color:var(--accent);
+                                                  background:var(--accent-subtle); }
+        .drop-zone i { font-size:1.6rem; color:var(--text-muted); margin-bottom:6px; }
+        .drop-zone p { font-size:0.82rem; color:var(--text-muted); margin:0; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-layer-group me-2" style="color:#f97316"></i>배치 SQL 분석
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">SQL 블록을 순서대로 분석 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">여러 SQL을 한 번에 입력하거나 CSV/텍스트 파일로 업로드하여 일괄 리뷰합니다. 최대 30개 SQL 지원.</p>
+
+            <div class="row g-3">
+                <!-- ── 입력 패널 ── -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="input-tab active" id="tabText"
+                                    onclick="switchInputTab('text')">
+                                <i class="fas fa-keyboard me-1"></i>텍스트 입력
+                            </button>
+                            <button type="button" class="input-tab" id="tabFile"
+                                    onclick="switchInputTab('file')">
+                                <i class="fas fa-file-upload me-1"></i>파일 업로드
+                            </button>
+                        </div>
+
+                        <!-- 텍스트 입력 탭 -->
+                        <div id="panelText">
+                            <form id="textForm" th:action="@{/sql-batch/analyze-text}" method="post"
+                                  onsubmit="guardSubmit('btnAnalyzeText');showSpinner(['SQL 블록 파싱 중...','순서대로 분석 중...','결과 취합 중...']);">
+                                <div class="mb-2">
+                                    <label class="form-label-sm">구분자</label>
+                                    <select name="delimiter" id="delimiterText" class="form-select form-select-sm"
+                                            style="width:auto;display:inline-block;margin-left:8px;"
+                                            onchange="updateHint(this.value)">
+                                        <option value="---">--- (triple dash, 권장)</option>
+                                        <option value=";;">;;  (double semicolon)</option>
+                                        <option value=";">; (semicolon)</option>
+                                    </select>
+                                    <div class="delimiter-hint" id="delimHint">각 SQL 블록을 <code>---</code> 로 구분하세요.</div>
+                                </div>
+                                <textarea name="sqlText" id="sqlText" class="form-control batch-input"
+                                          rows="16" placeholder="SELECT * FROM T_ORDER WHERE STATUS = 'A';
+---
+SELECT COUNT(*) FROM T_USER WHERE ROWNUM &lt;= 100;
+---
+UPDATE T_LOG SET PROC_YN = 'Y' WHERE LOG_DT &lt; SYSDATE - 30;"
+                                          th:value="${sqlText}"></textarea>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span id="blockCount" style="font-size:0.75rem;color:var(--text-muted);">0 블록</span>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                onclick="document.getElementById('sqlText').value=''">
+                                            <i class="fas fa-trash-alt me-1"></i>지우기
+                                        </button>
+                                        <button type="submit" id="btnAnalyzeText" class="btn btn-sm btn-accent">
+                                            <i class="fas fa-play me-1"></i>일괄 분석
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                            <!-- Download form (same textarea content) -->
+                            <form id="dlForm" th:action="@{/sql-batch/download}" method="post" class="mt-2">
+                                <input type="hidden" name="sqlText" id="dlSqlText">
+                                <input type="hidden" name="delimiter" id="dlDelimiter" value="---">
+                                <button type="button" onclick="submitDownload()"
+                                        class="btn btn-sm btn-outline-secondary w-100">
+                                    <i class="fas fa-download me-1"></i>MD 보고서 다운로드
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- 파일 업로드 탭 -->
+                        <div id="panelFile" style="display:none;">
+                            <form id="fileForm" th:action="@{/sql-batch/analyze-file}" method="post"
+                                  enctype="multipart/form-data"
+                                  onsubmit="guardSubmit('btnAnalyzeFile');showSpinner(['파일 파싱 중...','순서대로 분석 중...','결과 취합 중...']);">
+                                <div class="mb-2">
+                                    <label class="form-label-sm">텍스트 파일 구분자</label>
+                                    <select name="delimiter" class="form-select form-select-sm"
+                                            style="width:auto;display:inline-block;margin-left:8px;">
+                                        <option value="---">--- (triple dash)</option>
+                                        <option value=";;">;;  (double semicolon)</option>
+                                        <option value=";">; (semicolon)</option>
+                                    </select>
+                                    <div class="delimiter-hint" style="margin-top:4px;">
+                                        CSV 파일은 구분자 무시 (행 단위로 파싱, 1열 = SQL)
+                                    </div>
+                                </div>
+                                <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-cloud-upload-alt d-block mx-auto"></i>
+                                    <p class="mt-2">CSV, SQL, TXT 파일을 클릭하거나 드래그하세요</p>
+                                    <p id="fileLabel" style="font-size:0.75rem;color:var(--accent);margin-top:4px;"></p>
+                                </div>
+                                <input type="file" id="fileInput" name="file"
+                                       accept=".csv,.sql,.txt" style="display:none;"
+                                       onchange="updateFileLabel(this)">
+                                <div th:if="${uploadedFilename}" class="mt-2"
+                                     style="font-size:0.78rem;color:var(--text-muted);">
+                                    마지막 업로드: <strong th:text="${uploadedFilename}"></strong>
+                                </div>
+                                <div class="d-flex justify-content-end mt-3">
+                                    <button type="submit" id="btnAnalyzeFile" class="btn btn-sm btn-accent">
+                                        <i class="fas fa-play me-1"></i>일괄 분석
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- CSV 형식 안내 -->
+                    <div class="panel p-3 mt-3" style="font-size:0.78rem;color:var(--text-muted);">
+                        <div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">
+                            <i class="fas fa-info-circle me-1" style="color:var(--accent)"></i>CSV 파일 형식
+                        </div>
+                        <pre style="font-size:0.72rem;margin:0;color:var(--text-muted);">SQL,비고
+"SELECT * FROM T_ORDER",주문 조회
+"UPDATE T_USER SET STATUS='Y'",상태 업데이트
+</pre>
+                        <div class="mt-2">1열(SQL 컬럼)만 읽습니다. 헤더 행은 자동 스킵됩니다.</div>
+                    </div>
+                </div>
+
+                <!-- ── 결과 패널 ── -->
+                <div class="col-lg-7">
+                    <!-- 에러 -->
+                    <div th:if="${error}" class="alert alert-danger py-2 px-3 mb-3"
+                         th:text="${error}"></div>
+
+                    <!-- 결과 없음 -->
+                    <div th:if="${results == null}" class="panel p-4 text-center"
+                         style="color:var(--text-muted);">
+                        <i class="fas fa-layer-group" style="font-size:2.5rem;opacity:0.25;"></i>
+                        <p class="mt-3 mb-0" style="font-size:0.9rem;">SQL을 입력하고 일괄 분석을 실행하면 결과가 여기에 표시됩니다.</p>
+                    </div>
+
+                    <!-- 결과 요약 -->
+                    <div th:if="${results != null}">
+                        <div class="summary-bar">
+                            <div>
+                                <div class="summary-num" th:text="${totalCount}">0</div>
+                                <div class="summary-lbl">총 SQL</div>
+                            </div>
+                            <div>
+                                <div class="summary-num" style="color:#10b981;" th:text="${okCount}">0</div>
+                                <div class="summary-lbl">성공</div>
+                            </div>
+                            <div>
+                                <div class="summary-num" style="color:#ef4444;"
+                                     th:text="${totalCount - okCount}">0</div>
+                                <div class="summary-lbl">실패</div>
+                            </div>
+                            <div class="ms-auto">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        onclick="toggleAllResults()">
+                                    <i class="fas fa-expand-alt me-1"></i>전체 펼치기/접기
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 결과 목록 -->
+                        <div id="resultList">
+                            <div th:each="item : ${results}" class="batch-result">
+                                <div class="batch-result-hd"
+                                     th:attr="onclick='toggleResult(this)'"
+                                     th:classappend="${!item.success} ? ' border-start border-danger border-2' : ''">
+                                    <div class="d-flex align-items-center gap-2" style="min-width:0;flex:1;">
+                                        <span style="font-size:0.75rem;font-weight:600;color:var(--text-muted);flex-shrink:0;">
+                                            #<span th:text="${item.index}"></span>
+                                        </span>
+                                        <span class="badge-type" th:if="${item.success}"
+                                              th:text="${item.sqlTypeName}"></span>
+                                        <span class="badge-err" th:unless="${item.success}">오류</span>
+                                        <span style="font-family:monospace;font-size:0.75rem;
+                                                     color:var(--text-secondary);overflow:hidden;
+                                                     text-overflow:ellipsis;white-space:nowrap;"
+                                              th:text="${item.sqlPreview}"></span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <span class="badge-ok"  th:if="${item.success}">완료</span>
+                                        <span class="badge-err" th:unless="${item.success}">실패</span>
+                                        <i class="fas fa-chevron-down" style="font-size:0.7rem;color:var(--text-muted);transition:transform 0.2s;"></i>
+                                    </div>
+                                </div>
+                                <div class="batch-result-bd">
+                                    <div class="sql-code" th:text="${item.sql}"></div>
+                                    <div th:if="${item.success}" class="result-markdown"
+                                         th:text="${item.result}"></div>
+                                    <div th:unless="${item.success}"
+                                         class="alert alert-danger py-2 px-3 mb-0"
+                                         style="font-size:0.82rem;" th:text="${item.result}"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- /main-content -->
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250402')}"></script>
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchInputTab(tab) {
+    document.getElementById('panelText').style.display = tab === 'text' ? '' : 'none';
+    document.getElementById('panelFile').style.display = tab === 'file' ? '' : 'none';
+    document.getElementById('tabText').classList.toggle('active', tab === 'text');
+    document.getElementById('tabFile').classList.toggle('active', tab === 'file');
+}
+
+// ── Delimiter hint ───────────────────────────────────────────────────────────
+function updateHint(val) {
+    var hints = {
+        '---': '각 SQL 블록을 <code>---</code> 으로 구분하세요.',
+        ';;':  '각 SQL 블록을 <code>;;</code> 으로 구분하세요.',
+        ';':   '세미콜론(<code>;</code>) 기준으로 분리합니다.'
+    };
+    document.getElementById('delimHint').innerHTML = hints[val] || '';
+    document.getElementById('dlDelimiter').value = val;
+}
+
+// ── Block counter ─────────────────────────────────────────────────────────────
+function countBlocks() {
+    var ta  = document.getElementById('sqlText');
+    var del = document.getElementById('delimiterText').value;
+    if (!ta) return;
+    var text = ta.value.trim();
+    if (!text) { document.getElementById('blockCount').textContent = '0 블록'; return; }
+    var count;
+    if (del === ';;')    count = text.split(';;').filter(function(s){ return s.trim(); }).length;
+    else if (del === ';') count = text.split(/;\s*$/).filter(function(s){ return s.trim(); }).length;
+    else                  count = text.split(/(?:^|\n)\s*---\s*(?:\n|$)/).filter(function(s){ return s.trim(); }).length;
+    document.getElementById('blockCount').textContent = count + ' 블록';
+}
+
+var ta = document.getElementById('sqlText');
+if (ta) {
+    ta.addEventListener('input', countBlocks);
+    countBlocks();
+}
+document.getElementById('delimiterText') && document.getElementById('delimiterText').addEventListener('change', countBlocks);
+
+// ── Download ─────────────────────────────────────────────────────────────────
+function submitDownload() {
+    var sql = document.getElementById('sqlText').value;
+    var del = document.getElementById('delimiterText').value;
+    document.getElementById('dlSqlText').value = sql;
+    document.getElementById('dlDelimiter').value = del;
+    document.getElementById('dlForm').submit();
+}
+
+// ── Result accordion ─────────────────────────────────────────────────────────
+function toggleResult(hd) {
+    var bd = hd.nextElementSibling;
+    var icon = hd.querySelector('.fa-chevron-down,.fa-chevron-up');
+    var open = bd.classList.toggle('open');
+    if (icon) {
+        icon.classList.toggle('fa-chevron-down', !open);
+        icon.classList.toggle('fa-chevron-up',    open);
+    }
+    // Render markdown on first open
+    if (open && !hd.dataset.rendered) {
+        hd.dataset.rendered = '1';
+        var mdEl = bd.querySelector('.result-markdown');
+        if (mdEl && window.marked) {
+            mdEl.innerHTML = marked.parse(mdEl.textContent || '');
+        }
+    }
+}
+
+var _allOpen = false;
+function toggleAllResults() {
+    _allOpen = !_allOpen;
+    document.querySelectorAll('.batch-result-hd').forEach(function(hd) {
+        var bd   = hd.nextElementSibling;
+        var icon = hd.querySelector('.fa-chevron-down,.fa-chevron-up');
+        bd.classList.toggle('open', _allOpen);
+        if (icon) {
+            icon.classList.toggle('fa-chevron-down', !_allOpen);
+            icon.classList.toggle('fa-chevron-up',    _allOpen);
+        }
+        if (_allOpen && !hd.dataset.rendered) {
+            hd.dataset.rendered = '1';
+            var mdEl = bd.querySelector('.result-markdown');
+            if (mdEl && window.marked) {
+                mdEl.innerHTML = marked.parse(mdEl.textContent || '');
+            }
+        }
+    });
+}
+
+// ── File drag & drop ─────────────────────────────────────────────────────────
+var dz = document.getElementById('dropZone');
+if (dz) {
+    dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', function(){ dz.classList.remove('drag-over'); });
+    dz.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dz.classList.remove('drag-over');
+        var f = e.dataTransfer.files[0];
+        if (f) {
+            var fi = document.getElementById('fileInput');
+            // DataTransfer trick for setting file input
+            var dt = new DataTransfer();
+            dt.items.add(f);
+            fi.files = dt.files;
+            updateFileLabel(fi);
+        }
+    });
+}
+
+function updateFileLabel(input) {
+    var lbl = document.getElementById('fileLabel');
+    if (lbl && input.files[0]) {
+        lbl.textContent = input.files[0].name + ' (' + Math.round(input.files[0].size/1024) + ' KB)';
+    }
+}
+
+// ── Restore tab if file result ───────────────────────────────────────────────
+(function(){
+    var hasFileResult = /*[[${uploadedFilename != null}]]*/ false;
+    if (hasFileResult) switchInputTab('file');
+})();
+</script>
+</body>
+</html>
