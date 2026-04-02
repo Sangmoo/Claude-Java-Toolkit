@@ -205,6 +205,7 @@
     (function () {
         var SECTION_KEY  = 'sidebar_sections_v1';
         var COLLAPSE_KEY = 'sidebar_collapsed_v1';
+        var SCROLL_KEY   = 'sidebar_scroll_v1';
 
         /* ─── 전체 사이드바 접기 / 펼치기 ─── */
         function applySidebarCollapse(collapsed, animate) {
@@ -356,6 +357,36 @@
                 var key = ALL_KEYS[i];
                 var collapsed = (key === current) ? false : (saved[key] === true);
                 applySectionImmediate(key, collapsed);
+            }
+
+            /* ─── 사이드바 스크롤 위치 저장 / 복원 ───────────────────────────
+               메뉴를 클릭하면 페이지가 새로 로드되므로 sidebar-nav의 scrollTop이
+               초기화됩니다. 클릭 시 현재 위치를 저장하고, 로드 시 복원합니다.    */
+            var sidebarNav = document.querySelector('.sidebar-nav');
+
+            /* 복원: localStorage에 저장된 scrollTop 적용 */
+            if (sidebarNav) {
+                var savedScroll = parseInt(localStorage.getItem(SCROLL_KEY) || '0', 10);
+                if (savedScroll > 0) {
+                    sidebarNav.scrollTop = savedScroll;
+                } else {
+                    /* 저장값이 없으면 활성 메뉴 아이템이 보이도록 스크롤 */
+                    var activeItem = sidebarNav.querySelector('.sidebar-item.active');
+                    if (activeItem) {
+                        activeItem.scrollIntoView({ block: 'nearest' });
+                    }
+                }
+            }
+
+            /* 저장: 모든 사이드바 링크 클릭 시 현재 scrollTop 저장 */
+            var navLinks = document.querySelectorAll('.sidebar-nav .sidebar-item');
+            for (var n = 0; n < navLinks.length; n++) {
+                navLinks[n].addEventListener('click', function () {
+                    var nav = document.querySelector('.sidebar-nav');
+                    if (nav) {
+                        try { localStorage.setItem(SCROLL_KEY, nav.scrollTop); } catch (e) {}
+                    }
+                });
             }
         }
 
