@@ -7,7 +7,16 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.1.0-brightgreen.svg)](#)
+
+---
+
+## 🌐 프로젝트 소개 페이지
+
+**👉 [https://sangmoo.github.io/Claude-Java-Toolkit/#ko](https://sangmoo.github.io/Claude-Java-Toolkit/#ko)**
+
+프로젝트의 전체 기능, 설치 방법, REST API 목록을 한눈에 확인할 수 있는 GitHub Pages 소개 페이지입니다.
+한국어(`#ko`) / 영어(`#en`) 전환을 지원합니다.
 
 ---
 
