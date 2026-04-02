@@ -51,6 +51,30 @@ public class PromptTemplateController {
         FEATURE_LABELS.put("ERD_ANALYZE",   "ERD 분석");
     }
 
+    /** Inline CSS style string per feature code (avoids multi-${} ternary in Thymeleaf 3.0). */
+    private static final Map<String, String> FEATURE_COLORS = new LinkedHashMap<>();
+    static {
+        FEATURE_COLORS.put("SQL_REVIEW",    "background:rgba(239,68,68,.12);color:#ef4444;");
+        FEATURE_COLORS.put("SQL_SECURITY",  "background:rgba(249,115,22,.12);color:#f97316;");
+        FEATURE_COLORS.put("SQL_EXPLAIN",   "background:rgba(59,130,246,.12);color:#3b82f6;");
+        FEATURE_COLORS.put("CODE_REVIEW",   "background:rgba(139,92,246,.12);color:#8b5cf6;");
+        FEATURE_COLORS.put("CODE_SECURITY", "background:rgba(16,185,129,.12);color:#10b981;");
+        FEATURE_COLORS.put("DOC_GENERATE",  "background:rgba(20,184,166,.12);color:#14b8a6;");
+        FEATURE_COLORS.put("ERD_ANALYZE",   "background:rgba(236,72,153,.12);color:#ec4899;");
+    }
+
+    /** Font Awesome icon class per feature code (avoids multi-${} ternary in Thymeleaf 3.0). */
+    private static final Map<String, String> FEATURE_ICONS = new LinkedHashMap<>();
+    static {
+        FEATURE_ICONS.put("SQL_REVIEW",    "fas fa-magnifying-glass-chart");
+        FEATURE_ICONS.put("SQL_SECURITY",  "fas fa-shield-halved");
+        FEATURE_ICONS.put("SQL_EXPLAIN",   "fas fa-sitemap");
+        FEATURE_ICONS.put("CODE_REVIEW",   "fas fa-code");
+        FEATURE_ICONS.put("CODE_SECURITY", "fas fa-shield-virus");
+        FEATURE_ICONS.put("DOC_GENERATE",  "fas fa-file-lines");
+        FEATURE_ICONS.put("ERD_ANALYZE",   "fas fa-diagram-project");
+    }
+
     public PromptTemplateController(PromptTemplateService promptTemplateService) {
         this.promptTemplateService = promptTemplateService;
     }
@@ -59,6 +83,8 @@ public class PromptTemplateController {
     public String showTemplates(Model model) {
         model.addAttribute("featureCodes",   DEFAULT_PROMPTS.keySet());
         model.addAttribute("featureLabels",  FEATURE_LABELS);
+        model.addAttribute("featureColors",  FEATURE_COLORS);
+        model.addAttribute("featureIcons",   FEATURE_ICONS);
         model.addAttribute("defaultPrompts", DEFAULT_PROMPTS);
         model.addAttribute("customPrompts",  promptTemplateService.getAll());
         return "prompts/index";

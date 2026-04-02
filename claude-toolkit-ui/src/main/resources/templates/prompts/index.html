@@ -406,20 +406,8 @@
                             <div class="editor-card-header">
                                 <!-- 기능별 아이콘 색상 -->
                                 <span class="editor-icon-lg"
-                                      th:style="${code == 'SQL_REVIEW'}    ? 'background:rgba(239,68,68,.12);color:#ef4444;'   :
-                                                 ${code == 'SQL_SECURITY'} ? 'background:rgba(249,115,22,.12);color:#f97316;'  :
-                                                 ${code == 'SQL_EXPLAIN'}  ? 'background:rgba(59,130,246,.12);color:#3b82f6;'  :
-                                                 ${code == 'CODE_REVIEW'}  ? 'background:rgba(139,92,246,.12);color:#8b5cf6;'  :
-                                                 ${code == 'CODE_SECURITY'}? 'background:rgba(16,185,129,.12);color:#10b981;'  :
-                                                 ${code == 'DOC_GENERATE'} ? 'background:rgba(20,184,166,.12);color:#14b8a6;'  :
-                                                                             'background:rgba(236,72,153,.12);color:#ec4899;'">
-                                    <i th:class="${code == 'SQL_REVIEW'}    ? 'fas fa-magnifying-glass-chart' :
-                                                  ${code == 'SQL_SECURITY'} ? 'fas fa-shield-halved'         :
-                                                  ${code == 'SQL_EXPLAIN'}  ? 'fas fa-sitemap'               :
-                                                  ${code == 'CODE_REVIEW'}  ? 'fas fa-code'                  :
-                                                  ${code == 'CODE_SECURITY'}? 'fas fa-shield-virus'           :
-                                                  ${code == 'DOC_GENERATE'} ? 'fas fa-file-lines'            :
-                                                                              'fas fa-diagram-project'"></i>
+                                      th:style="${featureColors[code]}">
+                                    <i th:class="${featureIcons[code]}"></i>
                                 </span>
                                 <div style="flex:1;">
                                     <div class="editor-title" th:text="${featureLabels[code]}"></div>
