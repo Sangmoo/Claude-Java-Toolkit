@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>사용량 모니터링 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250402')}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        .stat-card { background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:4px; }
+        .stat-label { font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em; }
+        .stat-value { font-size:1.6rem;font-weight:700;color:var(--text-primary); }
+        .stat-sub { font-size:.75rem;color:var(--text-muted); }
+        .stat-icon { font-size:1.2rem;margin-bottom:6px; }
+        .chart-panel { background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:20px 22px; }
+        .chart-title { font-size:.88rem;font-weight:700;color:var(--text-primary);margin-bottom:16px; }
+        .usage-table th { font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;border-bottom:1px solid var(--border-color); }
+        .usage-table td { font-size:.82rem;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04); }
+        .tok-bar-wrap { width:120px;height:8px;background:var(--input-bg);border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle; }
+        .tok-bar { height:100%;background:linear-gradient(90deg,#f97316,#fb923c);border-radius:4px; }
+        .hint-box { background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:8px;padding:12px 16px;font-size:.78rem;color:var(--text-muted);margin-bottom:20px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-gauge-high me-2" style="color:#f97316"></i>사용량 모니터링</span>
+            <button id="themeToggle" onclick="toggleTheme()"><i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span></button>
+        </div>
+        <div class="main-content" style="max-width:1080px;">
+
+            <div class="hint-box">
+                <i class="fas fa-info-circle me-1" style="color:#f97316"></i>
+                실제 토큰 수는 Claude API 응답에서 자동 기록됩니다. 기존 이력(v1.3.0 이전)은 토큰 정보가 없을 수 있습니다.
+                현재 모델: <strong th:text="${currentModel}"></strong>
+                · 비용 추정은 Sonnet 기준 ($3/$15 per 1M tokens)이며 실제 청구와 다를 수 있습니다.
+            </div>
+
+            <!-- 통계 카드 -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-paper-plane" style="color:#f97316"></i></div>
+                        <div class="stat-label">총 요청 수</div>
+                        <div class="stat-value" th:text="${totalRequests}">0</div>
+                        <div class="stat-sub" th:text="${recordedCount} + '건 토큰 기록됨'"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-arrow-up" style="color:#3b82f6"></i></div>
+                        <div class="stat-label">입력 토큰</div>
+                        <div class="stat-value" th:text="${#numbers.formatInteger(totalInputTok, 1, 'COMMA')}">0</div>
+                        <div class="stat-sub" th:text="${inputCost}"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-arrow-down" style="color:#10b981"></i></div>
+                        <div class="stat-label">출력 토큰</div>
+                        <div class="stat-value" th:text="${#numbers.formatInteger(totalOutputTok, 1, 'COMMA')}">0</div>
+                        <div class="stat-sub" th:text="${outputCost}"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-dollar-sign" style="color:#f59e0b"></i></div>
+                        <div class="stat-label">추정 비용 (USD)</div>
+                        <div class="stat-value" th:text="${totalCost}">$0.0000</div>
+                        <div class="stat-sub">총 토큰: <span th:text="${#numbers.formatInteger(totalInputTok + totalOutputTok, 1, 'COMMA')}"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <!-- 일별 토큰 차트 -->
+                <div class="col-md-8">
+                    <div class="chart-panel">
+                        <div class="chart-title"><i class="fas fa-chart-bar me-2" style="color:#f97316"></i>일별 토큰 사용량</div>
+                        <canvas id="dailyChart" height="100"></canvas>
+                    </div>
+                </div>
+                <!-- 기능별 토큰 -->
+                <div class="col-md-4">
+                    <div class="chart-panel" style="height:100%;">
+                        <div class="chart-title"><i class="fas fa-list me-2" style="color:#f97316"></i>기능별 토큰 사용량</div>
+                        <canvas id="typeChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상세 이력 테이블 -->
+            <div class="panel p-0 overflow-hidden">
+                <div style="padding:16px 20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:.88rem;font-weight:700;color:var(--text-primary);">
+                        <i class="fas fa-table me-2" style="color:#f97316"></i>이력별 토큰 상세
+                    </span>
+                </div>
+                <table class="w-100 usage-table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>기능</th>
+                            <th>제목</th>
+                            <th>입력</th>
+                            <th>출력</th>
+                            <th>비율</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="h : ${allHistory}" th:if="${h.inputTokens != null or h.outputTokens != null}">
+                            <td style="color:var(--text-muted);white-space:nowrap;" th:text="${h.formattedDate}"></td>
+                            <td><span class="badge" th:style="'background:' + ${h.typeBadgeColor}" th:text="${h.typeLabel}"></span></td>
+                            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" th:text="${h.title}"></td>
+                            <td th:text="${h.inputTokens != null ? #numbers.formatInteger(h.inputTokens, 1, 'COMMA') : '-'}"></td>
+                            <td th:text="${h.outputTokens != null ? #numbers.formatInteger(h.outputTokens, 1, 'COMMA') : '-'}"></td>
+                            <td>
+                                <div class="tok-bar-wrap" th:if="${h.totalTokens > 0}">
+                                    <div class="tok-bar" th:style="'width:' + ${h.outputTokens != null ? (h.outputTokens * 100 / h.totalTokens) : 0} + '%'"></div>
+                                </div>
+                                <span th:unless="${h.totalTokens > 0}">-</span>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(allHistory)}">
+                            <td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">아직 토큰 사용 기록이 없습니다. 분석을 실행하면 자동으로 기록됩니다.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script th:src="@{/js/toolkit.js(v='20250402')}"></script>
+<script th:inline="javascript">
+/*<![CDATA[*/
+var DAILY_DATA  = /*[[${dailyMap}]]*/ {};
+var TYPE_DATA   = /*[[${typeTokenMap}]]*/ {};
+/*]]>*/
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+    var textColor = isDark ? '#94a3b8' : '#64748b';
+
+    // Daily chart
+    var dates  = Object.keys(DAILY_DATA).sort();
+    var inToks = dates.map(function(d) { return DAILY_DATA[d][0]; });
+    var outToks= dates.map(function(d) { return DAILY_DATA[d][1]; });
+
+    new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+            labels: dates,
+            datasets: [
+                { label: '입력 토큰', data: inToks,  backgroundColor: 'rgba(59,130,246,.7)', borderRadius: 4 },
+                { label: '출력 토큰', data: outToks, backgroundColor: 'rgba(249,115,22,.7)', borderRadius: 4 }
+            ]
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: textColor, font: { size: 11 } } } },
+            scales: { x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+                      y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } } } }
+    });
+
+    // Type pie chart
+    var typeLabels = Object.keys(TYPE_DATA);
+    var typeValues = typeLabels.map(function(k) { return TYPE_DATA[k]; });
+    var bgColors = ['#f97316','#3b82f6','#10b981','#8b5cf6','#ec4899','#f59e0b','#14b8a6','#ef4444'];
+    new Chart(document.getElementById('typeChart'), {
+        type: 'doughnut',
+        data: { labels: typeLabels, datasets: [{ data: typeValues, backgroundColor: bgColors.slice(0, typeLabels.length), borderWidth: 0 }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, padding: 8 } } } }
+    });
+});
+</script>
+</body>
+</html>

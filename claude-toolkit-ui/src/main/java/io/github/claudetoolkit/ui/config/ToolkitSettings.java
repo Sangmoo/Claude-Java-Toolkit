@@ -19,6 +19,8 @@ public class ToolkitSettings {
     private String  projectContext = "";
     /** Optional Claude model override — overrides application.yml default when non-blank. */
     private String  claudeModel    = ""; // 빈 문자열이면 application.yml 기본값 사용
+    /** Optional accent color override (hex, e.g. "#f97316"). Empty means use default. */
+    private String  accentColor    = "";
 
     public Db getDb()             { return db; }
     public void setDb(Db db)      { this.db = db; }
@@ -32,6 +34,10 @@ public class ToolkitSettings {
     public String getClaudeModel()                  { return claudeModel != null ? claudeModel : ""; }
     public void setClaudeModel(String claudeModel)  { this.claudeModel = claudeModel; }
     public boolean isClaudeModelOverrideSet()       { return isNotBlank(claudeModel); }
+
+    public String getAccentColor()                  { return accentColor != null ? accentColor : ""; }
+    public void setAccentColor(String c)            { this.accentColor = c == null ? "" : c; }
+    public boolean isAccentColorSet()               { return isNotBlank(accentColor); }
 
     /** Returns true only when all three DB fields are non-empty. */
     public boolean isDbConfigured() {

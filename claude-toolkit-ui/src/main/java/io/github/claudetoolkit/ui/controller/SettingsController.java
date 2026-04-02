@@ -66,6 +66,7 @@ public class SettingsController {
             @RequestParam(value = "projectContext", defaultValue = "") String projectContext,
             @RequestParam(required = false, defaultValue = "") String claudeModel,
             @RequestParam(required = false, defaultValue = "") String claudeApiKey,
+            @RequestParam(required = false, defaultValue = "") String accentColor,
             Model model) {
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -74,6 +75,7 @@ public class SettingsController {
         settings.getProject().setScanPath(scanPath.trim());
         settings.setProjectContext(projectContext.trim());
         settings.setClaudeModel(claudeModel);
+        settings.setAccentColor(accentColor);
 
         // API 키가 입력된 경우 즉시 적용
         if (claudeApiKey != null && !claudeApiKey.trim().isEmpty()) {

@@ -440,8 +440,7 @@
                                         </button>
                                     </div>
                                     <div class="default-preview"
-                                         th:id="'default-' + ${code}"
-                                         th:text="${defaultPrompts[code]}"></div>
+                                         th:id="'default-' + ${code}"></div>
                                     <button class="btn-expand-default"
                                             th:attr="data-code=${code}"
                                             onclick="toggleExpand(this.getAttribute('data-code'), this)">
@@ -506,6 +505,11 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script th:inline="javascript">
+/*<![CDATA[*/
+var DEFAULT_PROMPTS_DATA = /*[[${defaultPrompts}]]*/ {};
+/*]]>*/
+</script>
 <script>
 /* ── 패널 전환 ── */
 function switchPanel(btn) {
@@ -561,6 +565,12 @@ function showToast(type, msg) {
 
 /* ── 페이지 로드 시 flash 메시지 처리 ── */
 document.addEventListener('DOMContentLoaded', function() {
+    // 기본 프롬프트 내용을 JS 데이터로 채우기
+    Object.keys(DEFAULT_PROMPTS_DATA).forEach(function(code) {
+        var el = document.getElementById('default-' + code);
+        if (el) el.textContent = DEFAULT_PROMPTS_DATA[code];
+    });
+
     var success = document.getElementById('flashSuccess').textContent.trim();
     var error   = document.getElementById('flashError').textContent.trim();
     if (success) showToast('success', success);

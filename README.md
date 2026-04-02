@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-1.2.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.3.0-brightgreen.svg)](#)
 
 ---
 
@@ -1001,7 +1001,20 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔜 v1.3.0 (예정)
+### ✅ v1.3.0
+
+**UI / UX 개선**
+- [x] **다크/라이트 테마 커스텀 색상** — 액센트 컬러 선택 (`/settings`) · 5개 프리셋 + 컬러피커, localStorage 즉시 적용
+- [x] **결과 페이지 인쇄/PDF 내보내기** — 모든 분석 결과 페이지 우측 하단 인쇄 버튼, 브라우저 인쇄 최적화 CSS
+- [x] **분석 결과 공유 링크** — `/history` 단건 → `POST /history/{id}/share` → 7일 유효 UUID 공유 URL 생성, `/share/{token}` 독립 뷰
+
+**운영 편의**
+- [x] **Claude 모델 사용량 모니터링** `/usage` — 실제 API 토큰 수(input/output) 자동 기록, 일별·기능별 Chart.js 차트, 모델별 비용 추정($)
+- [x] **분석 스케줄링** `/schedule` — cron 표현식으로 정기 SQL 리뷰 자동 실행, Spring `TaskScheduler` 동적 등록/해제, 즉시 실행 지원, 결과 이력 자동 저장
+
+---
+
+### 🔜 v1.4.0 (예정)
 
 **보안 강화**
 - [ ] **REST API 키 인증** — REST API 호출 시 `X-API-Key` 헤더 인증 (`/settings`에서 키 발급·관리)
@@ -1011,14 +1024,13 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 - [ ] **실행계획 SQL 즐겨찾기** — 자주 분석하는 SQL을 즐겨찾기로 등록, 대시보드에서 바로 재실행
 - [ ] **SQL 최적화 제안 적용** — AI 리뷰 결과의 리팩터링 제안을 에디터에서 직접 수정·재분석
 
-**UI / UX 개선**
-- [ ] **다크/라이트 테마 커스텀 색상** — 액센트 컬러 선택 (`/settings`)
-- [ ] **결과 페이지 인쇄/PDF 내보내기** — 실행계획·분석 결과를 브라우저 인쇄 레이아웃으로 PDF 저장
-- [ ] **분석 결과 공유 링크** — 히스토리 단건을 단기 공유 URL로 생성 (UUID 토큰)
-
 **운영 편의**
-- [ ] **Claude 모델 사용량 모니터링** — 누적 토큰 사용량·비용 추정치를 대시보드에 표시
-- [ ] **분석 스케줄링** — cron 표현식으로 정기 SQL 리뷰 자동 실행 및 결과 이메일 발송
+- [ ] **스케줄 결과 이메일 발송** — JavaMail 연동, 정기 실행 결과를 이메일로 수신
+- [ ] **다중 SQL 프로필** — DB 연결 다중 프로파일 관리 (개발/스테이징/운영)
+
+**UI / UX 개선**
+- [ ] **대시보드 홈 커스터마이징** — 홈 화면에 즐겨찾기 기능·사용량 위젯 배치
+- [ ] **글로벌 검색** — 이력·즐겨찾기·기능 통합 키워드 검색 (`/search`)
 
 ---
 

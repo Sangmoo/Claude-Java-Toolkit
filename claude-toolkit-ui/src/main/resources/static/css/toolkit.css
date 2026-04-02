@@ -756,3 +756,47 @@ input:focus {
         box-shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
 }
+
+/* ── Floating print button ─────────────────────────── */
+.btn-print-float {
+    position: fixed;
+    bottom: 80px;
+    right: 22px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    z-index: 999;
+    transition: background .15s, transform .1s;
+}
+.btn-print-float:hover { background: var(--accent-hover); transform: scale(1.08); }
+@media print { .btn-print-float { display: none !important; } }
+
+/* ── Print / PDF ─────────────────────────────────────── */
+@media print {
+    .sidebar,
+    .top-bar,
+    .sidebar-open-tab,
+    form,
+    button,
+    .btn,
+    .btn-accent,
+    .btn-outline-tk,
+    .spinner-overlay,
+    #spinner { display: none !important; }
+
+    .main-area { margin-left: 0 !important; padding: 0 !important; }
+    .main-content { max-width: 100% !important; padding: 16px !important; }
+    .layout { display: block !important; }
+    .panel { border: 1px solid #ccc !important; page-break-inside: avoid; }
+    pre, .result-box, .result-area, #resultMd { white-space: pre-wrap !important; }
+    a[href]:after { content: "" !important; }
+}

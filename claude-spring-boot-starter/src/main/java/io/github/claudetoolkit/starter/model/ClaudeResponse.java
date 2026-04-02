@@ -20,6 +20,21 @@ public class ClaudeResponse {
     @JsonProperty("stop_reason")
     private String stopReason;
 
+    private Usage usage;
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Usage {
+        @JsonProperty("input_tokens")
+        private int inputTokens;
+        @JsonProperty("output_tokens")
+        private int outputTokens;
+
+        public int getInputTokens()          { return inputTokens; }
+        public void setInputTokens(int t)    { this.inputTokens = t; }
+        public int getOutputTokens()         { return outputTokens; }
+        public void setOutputTokens(int t)   { this.outputTokens = t; }
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ContentBlock {
         private String type;
@@ -55,4 +70,6 @@ public class ClaudeResponse {
     public void setModel(String model) { this.model = model; }
     public String getStopReason() { return stopReason; }
     public void setStopReason(String stopReason) { this.stopReason = stopReason; }
+    public Usage getUsage()       { return usage; }
+    public void setUsage(Usage usage) { this.usage = usage; }
 }

@@ -19,6 +19,8 @@ import io.github.claudetoolkit.sql.mockdata.MockDataGeneratorService;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
  * Registers all module service beans for the UI layer.
@@ -146,5 +148,16 @@ public class ToolkitWebConfig {
     @Bean
     public io.github.claudetoolkit.docgen.migration.SpringMigrationService springMigrationService(ClaudeClient claudeClient) {
         return new io.github.claudetoolkit.docgen.migration.SpringMigrationService(claudeClient);
+    }
+
+    // ── v1.3.0 beans ─────────────────────────────────────────────────────────
+
+    @Bean
+    public TaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(5);
+        scheduler.setThreadNamePrefix("schedule-");
+        scheduler.initialize();
+        return scheduler;
     }
 }

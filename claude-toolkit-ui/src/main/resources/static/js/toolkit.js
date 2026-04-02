@@ -6,6 +6,15 @@
 // NOTE: data-theme is applied via an inline <script> in each page's <head>
 // (before CSS loads) to prevent the dark→light flash on navigation.
 // This IIFE only synchronises the toggle button label/icon on DOMContentLoaded.
+// ── Accent color (applied before DOMContentLoaded) ─────────────
+(function applyAccentColor() {
+    var ac = localStorage.getItem('toolkit_accent_v1');
+    if (ac) {
+        document.documentElement.style.setProperty('--accent', ac);
+        document.documentElement.style.setProperty('--accent-hover', ac);
+    }
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     var saved = localStorage.getItem('theme') || 'dark';
     _syncThemeUI(saved);
@@ -16,6 +25,17 @@ document.addEventListener('DOMContentLoaded', function () {
             document.documentElement.classList.add('theme-ready');
         });
     });
+
+    // ── Auto-inject print button when result is visible ──
+    var resultEl = document.querySelector('.result-area, .result-box, #resultMd, .result-panel');
+    if (resultEl) {
+        var printBtn = document.createElement('button');
+        printBtn.className = 'btn-print-float';
+        printBtn.innerHTML = '<i class="fas fa-print"></i>';
+        printBtn.title = '인쇄 / PDF 저장 (Ctrl+P)';
+        printBtn.onclick = function() { window.print(); };
+        document.body.appendChild(printBtn);
+    }
 });
 
 function _syncThemeUI(theme) {
@@ -540,3 +560,8 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+// ── Print / PDF export ────────────────────────────────────────
+function printPage() {
+    window.print();
+}

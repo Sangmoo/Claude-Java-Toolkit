@@ -131,6 +131,14 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/favorites') ? ' active' : ''}">
                 <i class="fas fa-star"></i><span>즐겨찾기</span>
             </a>
+            <a href="/usage" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/usage') ? ' active' : ''}">
+                <i class="fas fa-gauge-high" style="color:#f97316"></i><span>사용량 모니터링</span>
+            </a>
+            <a href="/schedule" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/schedule') ? ' active' : ''}">
+                <i class="fas fa-calendar-check" style="color:#10b981"></i><span>분석 스케줄링</span>
+            </a>
         </div>
 
         <!-- ── REST API ── -->
@@ -182,7 +190,7 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v1.2.0 · JDK 1.8</div>
+        <div class="sidebar-version">v1.3.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -243,7 +251,7 @@
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
-            history:  ['/history', '/favorites'],
+            history:  ['/history', '/favorites', '/usage', '/schedule'],
             tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen'],
             api:      ['/api-docs']
         };

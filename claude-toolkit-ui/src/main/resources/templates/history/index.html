@@ -120,13 +120,19 @@
                                     <i class="fas fa-star me-1" style="color:#f59e0b"></i>즐겨찾기
                                 </button>
                             </form>
-                            <form method="post" th:action="'/history/' + ${h.id} + '/delete'"
-                                  style="display:inline;"
-                                  onsubmit="return confirm('이 항목을 삭제하시겠습니까?')">
-                                <button type="submit" class="copy-btn" style="font-size:0.72rem;padding:2px 8px;">
-                                    <i class="fas fa-trash"></i>
+                            <div class="d-flex gap-1">
+                                <button class="copy-btn" style="font-size:0.72rem;padding:2px 8px;" title="공유 링크 생성"
+                                        th:attr="data-id=${h.id},data-title=${h.title}" onclick="shareHistory(this)">
+                                    <i class="fas fa-share-nodes"></i>
                                 </button>
-                            </form>
+                                <form method="post" th:action="'/history/' + ${h.id} + '/delete'"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('이 항목을 삭제하시겠습니까?')">
+                                    <button type="submit" class="copy-btn" style="font-size:0.72rem;padding:2px 8px;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -509,6 +515,41 @@
         }
         document.getElementById('diffLabelA').textContent = (_diffData.titleA || 'A') + '  ·  ' + (_diffData.dateA || '');
         document.getElementById('diffLabelB').textContent = (_diffData.titleB || 'B') + '  ·  ' + (_diffData.dateB || '');
+    }
+
+    // ── Share history ──────────────────────────────────────────
+    function shareHistory(btn) {
+        var id = btn.getAttribute('data-id');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        fetch('/history/' + id + '/share', { method: 'POST' })
+            .then(function(r) { return r.text(); })
+            .then(function(token) {
+                var url = window.location.origin + '/share/' + token;
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(url).then(function() {
+                        showShareToast('공유 링크가 클립보드에 복사되었습니다! (7일간 유효)');
+                    });
+                } else {
+                    prompt('공유 링크 (7일간 유효):', url);
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-share-nodes"></i>';
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-share-nodes"></i>';
+                alert('공유 링크 생성에 실패했습니다.');
+            });
+    }
+
+    function showShareToast(msg) {
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:8px;padding:11px 18px;font-size:.82rem;z-index:9999;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);';
+        toast.innerHTML = '<i class="fas fa-check-circle" style="color:#22c55e;"></i>' + msg;
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; }, 2500);
+        setTimeout(function() { if (document.body.contains(toast)) document.body.removeChild(toast); }, 2900);
     }
 </script>
 </body>

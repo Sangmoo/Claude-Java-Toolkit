@@ -21,4 +21,8 @@ public interface ReviewHistoryRepository extends JpaRepository<ReviewHistory, Lo
     /** All EXPLAIN_PLAN entries ordered by time (for dashboard chart) */
     @Query("SELECT h FROM ReviewHistory h WHERE h.type = :type ORDER BY h.createdAt ASC")
     List<ReviewHistory> findByTypeOrderByCreatedAtAsc(@org.springframework.data.repository.query.Param("type") String type);
+
+    /** Entries that have token usage recorded */
+    @Query("SELECT h FROM ReviewHistory h WHERE h.inputTokens IS NOT NULL OR h.outputTokens IS NOT NULL ORDER BY h.createdAt DESC")
+    List<ReviewHistory> findWithTokenUsage();
 }

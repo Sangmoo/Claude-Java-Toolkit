@@ -84,7 +84,8 @@ public class SettingsPersistenceService {
                "  \"scanPath\": "       + quoted(s.getProject().getScanPath())  + ",\n" +
                "  \"projectContext\": " + quoted(s.getProjectContext())         + ",\n" +
                "  \"claudeModel\": "    + quoted(s.getClaudeModel())            + ",\n" +
-               "  \"claudeApiKey\": "   + quoted(claudeProperties.getApiKey()) + "\n" +
+               "  \"claudeApiKey\": "   + quoted(claudeProperties.getApiKey()) + ",\n" +
+               "  \"accentColor\": "    + quoted(s.getAccentColor())            + "\n" +
                "}";
     }
 
@@ -106,6 +107,8 @@ public class SettingsPersistenceService {
         if (savedApiKey != null && !savedApiKey.isEmpty()) {
             claudeProperties.setApiKey(savedApiKey);
         }
+        String accentColor = extractField(json, "accentColor");
+        if (accentColor != null) s.setAccentColor(accentColor);
     }
 
     private String extractField(String json, String key) {

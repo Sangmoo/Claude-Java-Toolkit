@@ -31,7 +31,9 @@ public class ClaudeClient {
     private final ClaudeProperties  properties;
     private final OkHttpClient      httpClient;
     private final ObjectMapper      objectMapper;
-    private volatile String         modelOverride = null;
+    private volatile String         modelOverride     = null;
+    private volatile int            lastInputTokens   = 0;
+    private volatile int            lastOutputTokens  = 0;
 
     public ClaudeClient(ClaudeProperties properties) {
         this.properties   = properties;
@@ -92,6 +94,10 @@ public class ClaudeClient {
                             "Claude API error: HTTP " + response.code() + " - " + responseBody);
                 }
                 ClaudeResponse claudeResponse = objectMapper.readValue(responseBody, ClaudeResponse.class);
+                if (claudeResponse.getUsage() != null) {
+                    this.lastInputTokens  = claudeResponse.getUsage().getInputTokens();
+                    this.lastOutputTokens = claudeResponse.getUsage().getOutputTokens();
+                }
                 return claudeResponse.getFirstTextContent();
             }
         } catch (IOException e) {
@@ -177,4 +183,10 @@ public class ClaudeClient {
 
     /** Returns the model name configured for this client. */
     public String getModel()  { return properties.getModel(); }
+
+    /** Returns input token count from the most recent non-streaming request. */
+    public int getLastInputTokens()  { return lastInputTokens; }
+
+    /** Returns output token count from the most recent non-streaming request. */
+    public int getLastOutputTokens() { return lastOutputTokens; }
 }

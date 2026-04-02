@@ -174,6 +174,33 @@
                     </div>
                 </div>
 
+                <!-- 테마 액센트 색상 -->
+                <div class="panel p-4 mb-4">
+                    <h5 class="section-title">
+                        <i class="fas fa-palette me-2" style="color:#f97316"></i>테마 액센트 색상
+                    </h5>
+                    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">
+                        <i class="fas fa-info-circle me-1" style="color:#f97316"></i>
+                        UI 전체의 강조 색상(버튼, 링크, 아이콘 등)을 원하는 컬러로 변경합니다.
+                    </p>
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <input type="color" name="accentColor" id="accentColorPicker"
+                               th:value="${settings.accentColor != null and !settings.accentColor.isEmpty()} ? ${settings.accentColor} : '#f97316'"
+                               style="width:44px;height:44px;padding:2px;border-radius:8px;border:1.5px solid var(--border-color);cursor:pointer;background:var(--bg-primary);">
+                        <div>
+                            <div style="font-size:0.82rem;color:var(--text-primary);font-weight:500;">현재 색상: <code id="accentColorCode" style="font-size:0.78rem;">[[${settings.accentColor != null and !settings.accentColor.isEmpty()} ? ${settings.accentColor} : '#f97316']]</code></div>
+                            <div style="font-size:0.73rem;color:var(--text-muted);margin-top:2px;">기본값: <code>#f97316</code> (오렌지) — 저장 시 즉시 적용됩니다.</div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn-test" onclick="setAccentPreset('#f97316')" style="border-color:#f97316;color:#f97316;">● 오렌지</button>
+                            <button type="button" class="btn-test" onclick="setAccentPreset('#3b82f6')" style="border-color:#3b82f6;color:#3b82f6;">● 블루</button>
+                            <button type="button" class="btn-test" onclick="setAccentPreset('#10b981')" style="border-color:#10b981;color:#10b981;">● 그린</button>
+                            <button type="button" class="btn-test" onclick="setAccentPreset('#8b5cf6')" style="border-color:#8b5cf6;color:#8b5cf6;">● 퍼플</button>
+                            <button type="button" class="btn-test" onclick="setAccentPreset('#ec4899')" style="border-color:#ec4899;color:#ec4899;">● 핑크</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2 align-items-center">
                     <button type="submit" class="btn-save">
                         <i class="fas fa-save me-2"></i>저장
@@ -249,6 +276,25 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
             })
             .catch(function() { el.innerHTML = '<span style="color:#ef4444">요청 실패</span>'; });
     }
+
+    function setAccentPreset(color) {
+        document.getElementById('accentColorPicker').value = color;
+        document.getElementById('accentColorCode').textContent = color;
+        previewAccent(color);
+    }
+    document.getElementById('accentColorPicker').addEventListener('input', function() {
+        document.getElementById('accentColorCode').textContent = this.value;
+        previewAccent(this.value);
+    });
+    function previewAccent(color) {
+        document.documentElement.style.setProperty('--accent', color);
+        document.documentElement.style.setProperty('--accent-hover', color);
+    }
+
+    document.querySelector('form[action="/settings/save"]').addEventListener('submit', function() {
+        var color = document.getElementById('accentColorPicker').value;
+        if (color) localStorage.setItem('toolkit_accent_v1', color);
+    });
 </script>
 </body>
 </html>

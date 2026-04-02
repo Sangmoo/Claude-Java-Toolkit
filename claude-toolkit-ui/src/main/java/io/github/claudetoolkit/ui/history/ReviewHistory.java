@@ -37,6 +37,14 @@ public class ReviewHistory {
     @Column(nullable = true)
     private Long costValue;
 
+    /** Input token count from Claude API (nullable — only set for v1.3.0+ requests) */
+    @Column(nullable = true)
+    private Long inputTokens;
+
+    /** Output token count from Claude API (nullable — only set for v1.3.0+ requests) */
+    @Column(nullable = true)
+    private Long outputTokens;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -53,6 +61,12 @@ public class ReviewHistory {
         this.costValue = costValue;
     }
 
+    public ReviewHistory(String type, String title, String inputContent, String outputContent, Long costValue, Long inputTokens, Long outputTokens) {
+        this(type, title, inputContent, outputContent, costValue);
+        this.inputTokens  = inputTokens;
+        this.outputTokens = outputTokens;
+    }
+
     // ── getters ──────────────────────────────────────────────────────────────
 
     public long getId()              { return id; }
@@ -62,6 +76,16 @@ public class ReviewHistory {
     public String getOutputContent() { return outputContent; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public Long getCostValue()       { return costValue; }
+    public Long getInputTokens()     { return inputTokens; }
+    public void setInputTokens(Long t) { this.inputTokens = t; }
+    public Long getOutputTokens()    { return outputTokens; }
+    public void setOutputTokens(Long t) { this.outputTokens = t; }
+
+    public long getTotalTokens() {
+        long i = inputTokens  != null ? inputTokens  : 0;
+        long o = outputTokens != null ? outputTokens : 0;
+        return i + o;
+    }
 
     /** MM-dd HH:mm format */
     public String getFormattedDate() {

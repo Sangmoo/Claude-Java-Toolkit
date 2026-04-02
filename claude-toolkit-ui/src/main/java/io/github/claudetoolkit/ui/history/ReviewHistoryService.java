@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.history;
 
+import io.github.claudetoolkit.starter.client.ClaudeClient;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +20,11 @@ public class ReviewHistoryService {
     private static final int MAX_HISTORY = 100;
 
     private final ReviewHistoryRepository repository;
+    private final ClaudeClient            claudeClient;
 
-    public ReviewHistoryService(ReviewHistoryRepository repository) {
-        this.repository = repository;
+    public ReviewHistoryService(ReviewHistoryRepository repository, ClaudeClient claudeClient) {
+        this.repository   = repository;
+        this.claudeClient = claudeClient;
     }
 
     /**
@@ -36,8 +39,11 @@ public class ReviewHistoryService {
     }
 
     public void save(String type, String inputContent, String outputContent, Long costValue) {
+        long inputTok  = claudeClient.getLastInputTokens();
+        long outputTok = claudeClient.getLastOutputTokens();
         String title = buildTitle(inputContent);
-        ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue);
+        ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue,
+                inputTok > 0 ? inputTok : null, outputTok > 0 ? outputTok : null);
         repository.save(h);
 
         // Prune oldest if over limit

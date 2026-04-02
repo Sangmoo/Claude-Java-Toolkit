@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Claude Toolkit Web UI — Spring Boot Application entry point.
@@ -16,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </pre>
  */
 @SpringBootApplication
+@EnableScheduling
 public class ClaudeToolkitUiApplication {
 
     public static void main(String[] args) {
