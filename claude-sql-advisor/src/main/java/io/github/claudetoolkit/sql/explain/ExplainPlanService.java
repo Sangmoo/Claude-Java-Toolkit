@@ -63,6 +63,73 @@ public class ExplainPlanService {
         return analyze(url, username, password, sql, null);
     }
 
+    /**
+     * Runs only the DB-side EXPLAIN PLAN (all 3 tiers) without calling Claude AI.
+     * Use this when you want to stream the AI analysis separately via SSE.
+     */
+    public ExplainPlanResult analyzePlanOnly(String url, String username, String password, String sql) {
+        ExplainPlanResult result = new ExplainPlanResult();
+        String execId = String.valueOf(System.currentTimeMillis());
+        String stmtId = "TK" + execId;
+
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Oracle JDBC 드라이버를 찾을 수 없습니다. ojdbc8.jar 확인 필요.", e);
+        }
+
+        Connection conn = null;
+        try {
+            conn = DriverManager.getConnection(url, username, password);
+            boolean explainOk = false;
+            boolean sanitized  = false;
+
+            try (Statement stmt = conn.createStatement()) {
+                try {
+                    stmt.execute("EXPLAIN PLAN SET STATEMENT_ID = '" + stmtId + "' FOR " + sql);
+                    explainOk = true;
+                } catch (SQLException e1) {
+                    if (!isUdfBindingError(e1)) throw e1;
+                    String sanitizedSql = sanitizeUdfCalls(sql);
+                    if (!sanitizedSql.equals(sql)) {
+                        try {
+                            stmt.execute("EXPLAIN PLAN SET STATEMENT_ID = '" + stmtId + "' FOR " + sanitizedSql);
+                            explainOk = true;
+                            sanitized  = true;
+                        } catch (SQLException e2) { /* Tier 3 */ }
+                    }
+                }
+            }
+
+            if (explainOk) {
+                try {
+                    List<ExplainPlanNode> nodes = fetchPlanNodes(conn, stmtId);
+                    if (!nodes.isEmpty()) {
+                        ExplainPlanNode root = buildTree(nodes);
+                        result.setRoot(root);
+                        result.setMaxCost(findMaxCost(root));
+                        result.setPlanTableAvailable(true);
+                    }
+                    String rawText = fetchRawPlanText(conn, stmtId);
+                    if (sanitized) {
+                        rawText = "-- ⚠️ UDF 함수 호출을 NULL로 대체하여 실행계획을 조회했습니다.\n\n" + rawText;
+                    }
+                    result.setRawPlanText(rawText);
+                } catch (SQLException planReadErr) {
+                    if (!isUdfBindingError(planReadErr)) throw planReadErr;
+                    populateFromCursorCache(conn, sql, execId, result);
+                }
+            } else {
+                populateFromCursorCache(conn, sql, execId, result);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("EXPLAIN PLAN 실행 오류: " + e.getMessage(), e);
+        } finally {
+            if (conn != null) try { conn.close(); } catch (SQLException ignored) {}
+        }
+        return result;
+    }
+
     public ExplainPlanResult analyze(String url, String username, String password, String sql, String customPrompt) {
 
         ExplainPlanResult result = new ExplainPlanResult();

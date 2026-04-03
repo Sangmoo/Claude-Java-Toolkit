@@ -42,6 +42,26 @@ public class SseStreamController {
         this.settings     = settings;
     }
 
+    // ── Direct registration (for internal use, no HTTP round-trip) ──────────
+
+    /**
+     * Register a stream directly (bypasses HTTP). Returns the streamId.
+     * Used by ExplainPlanController for streaming AI analysis after DB phase.
+     */
+    public String registerStream(String feature, String input, String input2, String sourceType) {
+        final String id = java.util.UUID.randomUUID().toString();
+        pending.put(id, new StreamInput(feature, input, input2, sourceType));
+        Thread cleaner = new Thread(new Runnable() {
+            public void run() {
+                try { Thread.sleep(300_000); } catch (InterruptedException ignored) {}
+                pending.remove(id);
+            }
+        });
+        cleaner.setDaemon(true);
+        cleaner.start();
+        return id;
+    }
+
     // ── Step 1: Store input ───────────────────────────────────────────────────
 
     @PostMapping("/init")
@@ -158,6 +178,21 @@ public class SseStreamController {
         if ("index_opt".equals(feature)) {
             return "당신은 Oracle DBA 전문가입니다. 주어진 SQL 쿼리를 분석하여 인덱스 최적화 방안을 ## 현재 쿼리 분석, ## 추천 인덱스 (CREATE INDEX 구문 포함), ## 예상 성능 향상, ## 주의사항 형식으로 출력하세요.";
         }
+        if ("explain_plan".equals(feature)) {
+            return "당신은 Oracle DBA 전문가입니다. Oracle EXPLAIN PLAN 실행 계획을 분석하여 다음 형식으로 답변하세요.\n\n" +
+                   "## 📊 실행 계획 요약\n전체 비용(Cost)과 주요 특징을 2~3줄로 요약.\n\n" +
+                   "## 🔴 성능 이슈\n[SEVERITY: HIGH/MEDIUM/LOW] 이슈 설명 형식으로 목록 작성.\n" +
+                   "예) TABLE ACCESS FULL이 발생하는 테이블, 높은 Cost 단계, Cartesian Join 등\n\n" +
+                   "## 💡 최적화 제안\n구체적인 인덱스 생성 또는 쿼리 개선 방안. Oracle 11g/12c 호환 구문 사용.\n\n" +
+                   "## 🌲 핵심 단계 해설\n가장 비용이 높은 2~3개 단계를 선택하여 왜 비용이 발생하는지 설명.\n\n응답은 한국어로 작성하세요.";
+        }
+        if ("sql_refactor".equals(feature)) {
+            return "당신은 Oracle SQL 최적화 전문가입니다. 주어진 원본 SQL의 문제점을 분석하고 최적화된 SQL을 제안하세요.\n\n" +
+                   "## 📋 원본 SQL 분석\n현재 SQL의 문제점과 개선이 필요한 부분을 설명.\n\n" +
+                   "## 🔧 최적화된 SQL\n```sql\n-- 개선된 SQL 코드\n```\n\n" +
+                   "## 📝 변경 사항 설명\n각 변경 사항과 그 이유를 항목별로 설명.\n\n" +
+                   "## 📈 예상 효과\n성능 개선이 예상되는 근거와 주의사항.\n\n응답은 한국어로 작성하세요.";
+        }
         return "당신은 Java/Spring 개발 전문가 어시스턴트입니다.";
     }
 
@@ -194,6 +229,12 @@ public class SseStreamController {
         }
         if ("index_opt".equals(feature)) {
             return "다음 SQL 쿼리의 인덱스 최적화 방안을 제안해주세요:\n\n```sql\n" + input + "\n```";
+        }
+        if ("explain_plan".equals(feature)) {
+            return "## SQL\n```sql\n" + input + "\n```\n\n## EXPLAIN PLAN\n```\n" + input2 + "\n```";
+        }
+        if ("sql_refactor".equals(feature)) {
+            return "다음 SQL을 분석하고 최적화된 버전을 제안해주세요:\n\n```sql\n" + input + "\n```";
         }
         return input;
     }

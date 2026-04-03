@@ -12,7 +12,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Web controller for Oracle Explain Plan visualization (/explain).
@@ -33,19 +35,22 @@ public class ExplainPlanController {
     private final FavoriteService      favoriteService;
     private final ObjectMapper         objectMapper;
     private final PromptTemplateService promptTemplateService;
+    private final SseStreamController  sseStreamController;
 
     public ExplainPlanController(ExplainPlanService explainPlanService,
                                   ToolkitSettings settings,
                                   ReviewHistoryService historyService,
                                   FavoriteService favoriteService,
                                   ObjectMapper objectMapper,
-                                  PromptTemplateService promptTemplateService) {
+                                  PromptTemplateService promptTemplateService,
+                                  SseStreamController sseStreamController) {
         this.explainPlanService   = explainPlanService;
         this.settings             = settings;
         this.historyService       = historyService;
         this.favoriteService      = favoriteService;
         this.objectMapper         = objectMapper;
         this.promptTemplateService = promptTemplateService;
+        this.sseStreamController  = sseStreamController;
     }
 
     // ── Single analysis ─────────────────────────────────────────────────────
@@ -181,5 +186,70 @@ public class ExplainPlanController {
         }
 
         return "explain/compare";
+    }
+
+    // ── Streaming endpoints (v1.5) ────────────────────────────────────────────
+
+    /**
+     * Step 1: Run EXPLAIN PLAN (DB-only), register SSE stream, return JSON.
+     * The client renders the plan tree immediately, then opens SSE for AI analysis.
+     */
+    @PostMapping("/stream-init")
+    @ResponseBody
+    public Map<String, Object> streamInit(
+            @RequestParam("sqlContent") String sqlContent) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+
+        if (!settings.isDbConfigured()) {
+            result.put("error", "Oracle DB 연결 정보가 설정되어 있지 않습니다. Settings에서 먼저 DB를 설정하세요.");
+            return result;
+        }
+
+        try {
+            ExplainPlanResult planResult = explainPlanService.analyzePlanOnly(
+                    settings.getDb().getUrl(),
+                    settings.getDb().getUsername(),
+                    settings.getDb().getPassword(),
+                    sqlContent);
+
+            String planJson = "null";
+            if (planResult.getRoot() != null) {
+                planJson = objectMapper.writeValueAsString(planResult.getRoot());
+            }
+
+            // Register SSE stream: input=sql, input2=rawPlanText
+            String rawPlan = planResult.getRawPlanText() != null ? planResult.getRawPlanText() : "";
+            String streamId = sseStreamController.registerStream("explain_plan", sqlContent, rawPlan, "");
+
+            result.put("streamId",           streamId);
+            result.put("planJson",           planJson);
+            result.put("maxCost",            planResult.getMaxCost());
+            result.put("planTableAvailable", planResult.isPlanTableAvailable());
+            result.put("rawPlanText",        rawPlan);
+            result.put("analyzedAt",         planResult.getAnalyzedAt());
+
+        } catch (Exception e) {
+            result.put("error", e.getMessage() != null ? e.getMessage() : "알 수 없는 오류");
+        }
+
+        return result;
+    }
+
+    /**
+     * Step 3 (optional): Save streamed analysis result to history.
+     */
+    @PostMapping("/stream-save")
+    @ResponseBody
+    public String streamSave(
+            @RequestParam("sqlContent")  String sqlContent,
+            @RequestParam("aiAnalysis")  String aiAnalysis,
+            @RequestParam(value = "cost", defaultValue = "0") long cost) {
+        try {
+            historyService.save("EXPLAIN_PLAN", sqlContent, aiAnalysis, cost > 0 ? cost : null);
+            return "ok";
+        } catch (Exception e) {
+            return "error:" + e.getMessage();
+        }
     }
 }
