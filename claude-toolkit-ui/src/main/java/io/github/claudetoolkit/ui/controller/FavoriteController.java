@@ -91,9 +91,10 @@ public class FavoriteController {
 
     /** Delete a single favorite */
     @PostMapping("/{id}/delete")
-    public String delete(@PathVariable long id) {
+    public String delete(@PathVariable long id,
+                         @RequestParam(value = "redirect", defaultValue = "/favorites") String redirect) {
         favoriteService.deleteById(id);
-        return "redirect:/favorites";
+        return "redirect:" + redirect;
     }
 
     /** Clear all favorites */

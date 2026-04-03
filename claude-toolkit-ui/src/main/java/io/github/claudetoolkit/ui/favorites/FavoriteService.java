@@ -42,6 +42,11 @@ public class FavoriteService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Favorite> findByType(String type) {
+        return repository.findByType(type, PageRequest.of(0, MAX_FAVORITES));
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Favorite> findByTag(String tag) {
         if (tag == null || tag.trim().isEmpty()) return findAll();
         return repository.findByTagContaining(tag.trim(), PageRequest.of(0, MAX_FAVORITES));

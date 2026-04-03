@@ -21,6 +21,10 @@
            th:classappend="${#request.requestURI == '/' ? ' active' : ''}">
             <i class="fas fa-home"></i><span>홈</span>
         </a>
+        <a href="/search" class="sidebar-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/search') ? ' active' : ''}">
+            <i class="fas fa-search"></i><span>글로벌 검색</span>
+        </a>
 
         <!-- ── 분석 ── -->
         <button class="sidebar-section-toggle" id="toggle-analysis"
@@ -186,11 +190,15 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/prompts') ? ' active' : ''}">
             <i class="fas fa-sliders"></i><span>프롬프트 템플릿</span>
         </a>
+        <a href="/db-profiles" class="sidebar-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/db-profiles') ? ' active' : ''}">
+            <i class="fas fa-server"></i><span>DB 프로필</span>
+        </a>
         <a href="/settings" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v1.3.0 · JDK 1.8</div>
+        <div class="sidebar-version">v1.4.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -252,7 +260,7 @@
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
-            history:  ['/history', '/favorites', '/usage', '/schedule'],
+            history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles'],
             tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen'],
             api:      ['/api-docs']
         };

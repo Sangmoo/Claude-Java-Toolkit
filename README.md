@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-1.3.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.4.0-brightgreen.svg)](#)
 
 ---
 
@@ -1014,23 +1014,31 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔜 v1.4.0 (예정)
+### ✅ v1.4.0
+
+**SQL 분석 고도화**
+- [x] **실행계획 SQL 즐겨찾기** — 분석 결과 ★ 즐겨찾기 등록, `/explain/dashboard`에서 재실행
+- [x] **SQL 최적화 제안 적용** — AI 리뷰 결과에서 SQL 코드 블록 추출 → 인라인 편집 → 재분석
+
+**운영 편의**
+- [x] **스케줄 결과 이메일 발송** — JavaMail(`spring-boot-starter-mail`) 연동, SMTP 설정(`/settings`), 수신 주소 등록 시 스케줄 완료 후 자동 발송
+- [x] **다중 SQL 프로필** `/db-profiles` — Oracle DB 연결 프로필 저장·편집·삭제, 원클릭 전환(현재 Settings에 즉시 반영)
+
+**UI / UX 개선**
+- [x] **대시보드 홈 커스터마이징** — 홈(`/`) 에 최근 즐겨찾기·분석 이력 위젯 추가
+- [x] **글로벌 검색** `/search` — 이력·즐겨찾기·기능 목록 통합 키워드 검색, `/` 단축키 포커스
+
+---
+
+### 🔜 v1.5.0 (예정)
 
 **보안 강화**
 - [ ] **REST API 키 인증** — REST API 호출 시 `X-API-Key` 헤더 인증 (`/settings`에서 키 발급·관리)
 - [ ] **Settings 비밀번호 잠금** — 설정 페이지 접근 시 PIN 또는 비밀번호 입력 요구
 
 **SQL 분석 고도화**
-- [ ] **실행계획 SQL 즐겨찾기** — 자주 분석하는 SQL을 즐겨찾기로 등록, 대시보드에서 바로 재실행
-- [ ] **SQL 최적화 제안 적용** — AI 리뷰 결과의 리팩터링 제안을 에디터에서 직접 수정·재분석
-
-**운영 편의**
-- [ ] **스케줄 결과 이메일 발송** — JavaMail 연동, 정기 실행 결과를 이메일로 수신
-- [ ] **다중 SQL 프로필** — DB 연결 다중 프로파일 관리 (개발/스테이징/운영)
-
-**UI / UX 개선**
-- [ ] **대시보드 홈 커스터마이징** — 홈 화면에 즐겨찾기 기능·사용량 위젯 배치
-- [ ] **글로벌 검색** — 이력·즐겨찾기·기능 통합 키워드 검색 (`/search`)
+- [ ] **실시간 스트리밍 실행계획 분석** — SSE 스트리밍으로 EXPLAIN PLAN 분석 결과 실시간 출력
+- [ ] **SQL 자동 리팩터링 diff 뷰** — 원본 SQL vs AI 제안 SQL 차이를 diff 형식으로 시각화
 
 ---
 

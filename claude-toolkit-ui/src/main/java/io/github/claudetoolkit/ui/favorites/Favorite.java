@@ -63,6 +63,7 @@ public class Favorite {
         if ("MOCK_DATA".equals(type))      return "Mock 데이터";
         if ("COMPLEXITY".equals(type))     return "복잡도 분석";
         if ("MIGRATION".equals(type))      return "마이그레이션";
+        if ("EXPLAIN_PLAN".equals(type))   return "실행계획";
         return type;
     }
 
@@ -76,6 +77,7 @@ public class Favorite {
         if ("MOCK_DATA".equals(type))      return "#f59e0b";
         if ("COMPLEXITY".equals(type))     return "#06b6d4";
         if ("MIGRATION".equals(type))      return "#ec4899";
+        if ("EXPLAIN_PLAN".equals(type))   return "#3b82f6";
         return "#94a3b8";
     }
 

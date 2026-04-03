@@ -99,6 +99,57 @@
                     </div>
                 </div>
 
+                <!-- Favorites Section -->
+                <div class="chart-wrap mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="chart-title"><i class="fas fa-star me-1" style="color:#f59e0b"></i>즐겨찾기 SQL</span>
+                        <a th:href="@{/explain}" class="copy-btn" style="font-size:.75rem;padding:3px 10px;text-decoration:none;">
+                            <i class="fas fa-plus me-1"></i>새 분석
+                        </a>
+                    </div>
+                    <div th:if="${#lists.isEmpty(explainFavorites)}" style="text-align:center;padding:20px;color:var(--text-muted);font-size:.82rem;">
+                        <i class="fas fa-star" style="opacity:.2;font-size:1.5rem;display:block;margin-bottom:8px;"></i>
+                        실행계획 분석 후 ★ 즐겨찾기 버튼을 눌러 저장하세요.
+                    </div>
+                    <div th:unless="${#lists.isEmpty(explainFavorites)}" class="table-responsive">
+                        <table class="hist-table w-100">
+                            <thead>
+                                <tr>
+                                    <th>저장일시</th>
+                                    <th>SQL 미리보기</th>
+                                    <th style="text-align:center;">재실행</th>
+                                    <th style="text-align:center;">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="fav : ${explainFavorites}">
+                                    <td style="white-space:nowrap;" th:text="${fav.formattedDate}"></td>
+                                    <td>
+                                        <span class="sql-preview" th:title="${fav.inputContent}" th:text="${fav.inputContent}"></span>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <form method="post" action="/explain/analyze" style="display:inline;">
+                                            <input type="hidden" name="sqlContent" th:value="${fav.inputContent}">
+                                            <button type="submit" class="copy-btn" style="font-size:.72rem;padding:2px 10px;">
+                                                <i class="fas fa-play me-1" style="color:#22c55e"></i>재실행
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <form method="post" th:action="@{/favorites/{id}/delete(id=${fav.id})}" style="display:inline;">
+                                            <input type="hidden" name="redirect" value="/explain/dashboard">
+                                            <button type="submit" class="copy-btn" style="font-size:.72rem;padding:2px 10px;color:#ef4444;"
+                                                    onclick="return confirm('즐겨찾기를 삭제하시겠습니까?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Chart -->
                 <div class="chart-wrap mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-2">

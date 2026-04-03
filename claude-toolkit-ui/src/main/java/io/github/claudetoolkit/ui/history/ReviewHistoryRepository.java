@@ -25,4 +25,8 @@ public interface ReviewHistoryRepository extends JpaRepository<ReviewHistory, Lo
     /** Entries that have token usage recorded */
     @Query("SELECT h FROM ReviewHistory h WHERE h.inputTokens IS NOT NULL OR h.outputTokens IS NOT NULL ORDER BY h.createdAt DESC")
     List<ReviewHistory> findWithTokenUsage();
+
+    /** Full-text search across title and inputContent */
+    @Query("SELECT h FROM ReviewHistory h WHERE LOWER(h.title) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(h.inputContent) LIKE LOWER(CONCAT('%',:q,'%')) ORDER BY h.createdAt DESC")
+    List<ReviewHistory> searchByKeyword(@org.springframework.data.repository.query.Param("q") String q, Pageable pageable);
 }

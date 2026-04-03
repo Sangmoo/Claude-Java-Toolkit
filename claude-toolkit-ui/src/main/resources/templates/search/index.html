@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>글로벌 검색 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250403')}" rel="stylesheet">
+    <style>
+        .search-hero { background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:28px 24px; margin-bottom:24px; }
+        .search-input-wrap { position:relative; max-width:640px; margin:0 auto; }
+        .search-input { width:100%; padding:12px 48px 12px 16px; font-size:1rem; background:var(--input-bg); border:2px solid var(--border-color); border-radius:10px; color:var(--text-primary); outline:none; transition:border-color .15s; }
+        .search-input:focus { border-color:var(--accent); }
+        .search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:var(--accent); border:none; color:#fff; padding:6px 14px; border-radius:7px; cursor:pointer; font-size:.85rem; }
+        .result-section-title { font-size:.82rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border-color); }
+        .result-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; background:var(--bg-secondary); border:1px solid var(--border-color); margin-bottom:6px; text-decoration:none; color:inherit; transition:border-color .15s; }
+        .result-item:hover { border-color:var(--accent); color:inherit; }
+        .result-type-badge { font-size:.65rem; padding:2px 8px; border-radius:8px; border:1px solid; flex-shrink:0; white-space:nowrap; }
+        .result-title { font-size:.82rem; color:var(--text-primary); font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .result-meta { font-size:.68rem; color:var(--text-muted); flex-shrink:0; }
+        .no-results { text-align:center; padding:40px 20px; color:var(--text-muted); }
+        .total-badge { display:inline-block; background:var(--accent); color:#fff; font-size:.75rem; font-weight:600; padding:2px 10px; border-radius:10px; margin-left:8px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-search me-2" style="color:var(--accent)"></i>글로벌 검색
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <!-- Search Box -->
+            <div class="search-hero">
+                <form method="get" action="/search" class="search-input-wrap">
+                    <input type="text" name="q" class="search-input" id="searchInput"
+                           autofocus autocomplete="off"
+                           placeholder="SQL, 분석 결과, 즐겨찾기, 기능 이름 검색..."
+                           th:value="${q}">
+                    <button type="submit" class="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+                <div th:if="${q != null and !q.isEmpty()}" style="text-align:center;margin-top:10px;font-size:.8rem;color:var(--text-muted);">
+                    "<strong th:text="${q}"></strong>" 검색 결과
+                    <span th:if="${totalCount > 0}" class="total-badge" th:text="${totalCount} + '건'"></span>
+                    <span th:unless="${totalCount > 0}" style="color:#ef4444;margin-left:6px;">결과 없음</span>
+                </div>
+            </div>
+
+            <!-- No query state -->
+            <div th:if="${q == null or q.isEmpty()}" class="no-results">
+                <i class="fas fa-search fa-2x" style="opacity:.2;margin-bottom:12px;display:block;"></i>
+                검색어를 입력하면 이력, 즐겨찾기, 기능 목록을 통합 검색합니다.
+            </div>
+
+            <div th:unless="${q == null or q.isEmpty()}">
+
+                <!-- Feature Results -->
+                <div th:unless="${#lists.isEmpty(featureResults)}" class="mb-4">
+                    <div class="result-section-title">
+                        <i class="fas fa-th-large me-1"></i>기능
+                        <span th:text="'(' + ${#lists.size(featureResults)} + ')'"></span>
+                    </div>
+                    <a th:each="f : ${featureResults}"
+                       th:href="${f[1]}"
+                       class="result-item">
+                        <span class="result-type-badge" style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent);">기능</span>
+                        <span class="result-title" th:text="${f[0]}"></span>
+                        <span class="result-meta" th:text="${f[2]}"></span>
+                        <i class="fas fa-arrow-right" style="font-size:.65rem;color:var(--text-muted);"></i>
+                    </a>
+                </div>
+
+                <!-- Favorites Results -->
+                <div th:unless="${#lists.isEmpty(favoriteResults)}" class="mb-4">
+                    <div class="result-section-title">
+                        <i class="fas fa-star me-1" style="color:#f59e0b"></i>즐겨찾기
+                        <span th:text="'(' + ${#lists.size(favoriteResults)} + ')'"></span>
+                    </div>
+                    <a th:each="fav : ${favoriteResults}"
+                       href="/favorites"
+                       class="result-item">
+                        <span class="result-type-badge"
+                              th:style="'border-color:' + ${fav.typeBadgeColor} + ';color:' + ${fav.typeBadgeColor}"
+                              th:text="${fav.typeLabel}"></span>
+                        <span class="result-title" th:text="${fav.title}"></span>
+                        <span class="result-meta" th:text="${fav.formattedDate}"></span>
+                    </a>
+                </div>
+
+                <!-- History Results -->
+                <div th:unless="${#lists.isEmpty(historyResults)}" class="mb-4">
+                    <div class="result-section-title">
+                        <i class="fas fa-history me-1" style="color:#8b5cf6"></i>분석 이력
+                        <span th:text="'(' + ${#lists.size(historyResults)} + ')'"></span>
+                    </div>
+                    <a th:each="h : ${historyResults}"
+                       th:href="@{/history/{id}(id=${h.id})}"
+                       class="result-item">
+                        <span class="result-type-badge" style="background:var(--accent-subtle);color:var(--accent);border-color:var(--accent);"
+                              th:text="${h.type}"></span>
+                        <span class="result-title" th:text="${h.title}"></span>
+                        <span class="result-meta" th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+                    </a>
+                </div>
+
+                <!-- All empty -->
+                <div th:if="${totalCount == 0}" class="no-results">
+                    <i class="fas fa-search fa-2x" style="opacity:.2;margin-bottom:12px;display:block;"></i>
+                    검색 결과가 없습니다. 다른 키워드로 시도해 보세요.
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250403')}"></script>
+<script>
+    /* Enter key focuses search input on page load */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            document.getElementById('searchInput').focus();
+        }
+    });
+</script>
+</body>
+</html>

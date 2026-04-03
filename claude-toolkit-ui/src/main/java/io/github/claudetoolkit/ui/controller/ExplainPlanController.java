@@ -5,6 +5,7 @@ import io.github.claudetoolkit.sql.explain.ExplainPlanResult;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
 import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.favorites.FavoriteService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
@@ -29,17 +30,20 @@ public class ExplainPlanController {
     private final ExplainPlanService   explainPlanService;
     private final ToolkitSettings      settings;
     private final ReviewHistoryService historyService;
+    private final FavoriteService      favoriteService;
     private final ObjectMapper         objectMapper;
     private final PromptTemplateService promptTemplateService;
 
     public ExplainPlanController(ExplainPlanService explainPlanService,
                                   ToolkitSettings settings,
                                   ReviewHistoryService historyService,
+                                  FavoriteService favoriteService,
                                   ObjectMapper objectMapper,
                                   PromptTemplateService promptTemplateService) {
         this.explainPlanService   = explainPlanService;
         this.settings             = settings;
         this.historyService       = historyService;
+        this.favoriteService      = favoriteService;
         this.objectMapper         = objectMapper;
         this.promptTemplateService = promptTemplateService;
     }
@@ -106,6 +110,7 @@ public class ExplainPlanController {
         model.addAttribute("totalCount", entries.size());
         long withCost = entries.stream().filter(e -> e.getCostValue() != null).count();
         model.addAttribute("withCostCount", withCost);
+        model.addAttribute("explainFavorites", favoriteService.findByType("EXPLAIN_PLAN"));
         return "explain/dashboard";
     }
 

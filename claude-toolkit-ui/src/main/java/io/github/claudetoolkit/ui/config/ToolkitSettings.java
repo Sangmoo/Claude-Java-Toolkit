@@ -15,6 +15,7 @@ public class ToolkitSettings {
 
     private Db      db      = new Db();
     private Project project = new Project();
+    private Email   email   = new Email();
     /** Optional project context memo — prepended to all Claude prompts when set. */
     private String  projectContext = "";
     /** Optional Claude model override — overrides application.yml default when non-blank. */
@@ -24,6 +25,13 @@ public class ToolkitSettings {
 
     public Db getDb()             { return db; }
     public void setDb(Db db)      { this.db = db; }
+
+    public Email getEmail()           { return email; }
+    public void setEmail(Email email) { this.email = email; }
+
+    public boolean isEmailConfigured() {
+        return email != null && isNotBlank(email.getHost()) && isNotBlank(email.getUsername());
+    }
 
     public Project getProject()             { return project; }
     public void setProject(Project project) { this.project = project; }
@@ -83,5 +91,32 @@ public class ToolkitSettings {
 
         public String getScanPath()         { return scanPath; }
         public void setScanPath(String p)   { this.scanPath = p; }
+    }
+
+    public static class Email {
+        private String host     = "";
+        private int    port     = 587;
+        private String username = "";
+        private String password = "";
+        private String from     = "";
+        private boolean tls     = true;
+
+        public String getHost()             { return host; }
+        public void setHost(String h)       { this.host = h == null ? "" : h; }
+
+        public int getPort()                { return port; }
+        public void setPort(int p)          { this.port = p; }
+
+        public String getUsername()             { return username; }
+        public void setUsername(String u)       { this.username = u == null ? "" : u; }
+
+        public String getPassword()             { return password; }
+        public void setPassword(String p)       { this.password = p == null ? "" : p; }
+
+        public String getFrom()                 { return from; }
+        public void setFrom(String f)           { this.from = f == null ? "" : f; }
+
+        public boolean isTls()                  { return tls; }
+        public void setTls(boolean t)           { this.tls = t; }
     }
 }

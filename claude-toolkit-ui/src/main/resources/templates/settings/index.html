@@ -201,6 +201,59 @@
                     </div>
                 </div>
 
+                <!-- 이메일 알림 (SMTP) -->
+                <div class="settings-section mb-4">
+                    <h6 class="settings-section-title">
+                        <i class="fas fa-envelope me-2" style="color:#3b82f6"></i>이메일 알림 (SMTP)
+                    </h6>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+                        스케줄 작업 완료 시 결과를 이메일로 발송합니다. Gmail은 앱 비밀번호를 사용하세요.
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">SMTP 호스트</label>
+                            <input type="text" name="emailHost" class="form-control form-control-sm"
+                                   placeholder="smtp.gmail.com"
+                                   th:value="${settings.email.host}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" style="font-size:.8rem;">포트</label>
+                            <input type="number" name="emailPort" class="form-control form-control-sm"
+                                   placeholder="587"
+                                   th:value="${settings.email.port}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" style="font-size:.8rem;">발신자 주소 (From)</label>
+                            <input type="email" name="emailFrom" class="form-control form-control-sm"
+                                   placeholder="noreply@example.com"
+                                   th:value="${settings.email.from}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">SMTP 사용자명</label>
+                            <input type="text" name="emailUsername" class="form-control form-control-sm"
+                                   placeholder="user@gmail.com"
+                                   th:value="${settings.email.username}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">SMTP 비밀번호 (앱 비밀번호)</label>
+                            <input type="password" name="emailPassword" class="form-control form-control-sm"
+                                   placeholder="저장된 비밀번호 유지 시 빈 칸으로">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch" style="font-size:.82rem;">
+                                <input class="form-check-input" type="checkbox" name="emailTls" value="true"
+                                       id="emailTlsCheck"
+                                       th:checked="${settings.email.tls}">
+                                <label class="form-check-label" for="emailTlsCheck">STARTTLS 사용 (권장)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div th:if="${settings.emailConfigured}" class="mt-2"
+                         style="font-size:.75rem;color:#22c55e;">
+                        <i class="fas fa-check-circle me-1"></i>이메일 설정 완료 — 스케줄 작업에서 수신 주소를 입력하면 발송됩니다.
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2 align-items-center">
                     <button type="submit" class="btn-save">
                         <i class="fas fa-save me-2"></i>저장

@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.schedule;
 
 import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
+import io.github.claudetoolkit.ui.email.EmailService;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
@@ -21,16 +22,19 @@ public class ScheduleService {
     private final SqlAdvisorService       sqlAdvisorService;
     private final ReviewHistoryService    historyService;
     private final TaskScheduler           taskScheduler;
+    private final EmailService            emailService;
     private final Map<Long, ScheduledFuture<?>> futures = new ConcurrentHashMap<Long, ScheduledFuture<?>>();
 
     public ScheduleService(ScheduledJobRepository repository,
                            SqlAdvisorService sqlAdvisorService,
                            ReviewHistoryService historyService,
-                           TaskScheduler taskScheduler) {
+                           TaskScheduler taskScheduler,
+                           EmailService emailService) {
         this.repository        = repository;
         this.sqlAdvisorService = sqlAdvisorService;
         this.historyService    = historyService;
         this.taskScheduler     = taskScheduler;
+        this.emailService      = emailService;
     }
 
     @PostConstruct
@@ -127,6 +131,15 @@ public class ScheduleService {
             job.setLastResult(result);
             repository.save(job);
             historyService.save("SQL_REVIEW", job.getSqlContent(), result);
+            // Send email notification if configured
+            if (job.getNotifyEmail() != null && !job.getNotifyEmail().trim().isEmpty()) {
+                String subject = "[Claude Toolkit] 스케줄 분석 완료: " + job.getName();
+                String body = "스케줄 작업이 완료되었습니다.\n\n"
+                        + "작업명: " + job.getName() + "\n"
+                        + "실행시각: " + job.getLastRunAt() + "\n\n"
+                        + "=== 분석 결과 ===\n" + result;
+                emailService.sendJobResult(job.getNotifyEmail().trim(), subject, body);
+            }
             return result;
         } catch (Exception e) {
             String err = "[자동 실행 오류] " + e.getMessage();

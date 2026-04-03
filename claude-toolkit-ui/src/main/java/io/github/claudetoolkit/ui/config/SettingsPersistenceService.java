@@ -85,7 +85,13 @@ public class SettingsPersistenceService {
                "  \"projectContext\": " + quoted(s.getProjectContext())         + ",\n" +
                "  \"claudeModel\": "    + quoted(s.getClaudeModel())            + ",\n" +
                "  \"claudeApiKey\": "   + quoted(claudeProperties.getApiKey()) + ",\n" +
-               "  \"accentColor\": "    + quoted(s.getAccentColor())            + "\n" +
+               "  \"accentColor\": "    + quoted(s.getAccentColor())            + ",\n" +
+               "  \"emailHost\": "      + quoted(s.getEmail().getHost())        + ",\n" +
+               "  \"emailPort\": "      + s.getEmail().getPort()               + ",\n" +
+               "  \"emailUsername\": "  + quoted(s.getEmail().getUsername())    + ",\n" +
+               "  \"emailPassword\": "  + quoted(s.getEmail().getPassword())    + ",\n" +
+               "  \"emailFrom\": "      + quoted(s.getEmail().getFrom())        + ",\n" +
+               "  \"emailTls\": "       + s.getEmail().isTls()                 + "\n" +
                "}";
     }
 
@@ -109,6 +115,34 @@ public class SettingsPersistenceService {
         }
         String accentColor = extractField(json, "accentColor");
         if (accentColor != null) s.setAccentColor(accentColor);
+        String emailHost = extractField(json, "emailHost");
+        if (emailHost != null) s.getEmail().setHost(emailHost);
+        String emailPortStr = extractRawField(json, "emailPort");
+        if (emailPortStr != null && !emailPortStr.isEmpty()) {
+            try { s.getEmail().setPort(Integer.parseInt(emailPortStr.trim())); } catch (NumberFormatException e2) { /* keep default */ }
+        }
+        String emailUsername = extractField(json, "emailUsername");
+        if (emailUsername != null) s.getEmail().setUsername(emailUsername);
+        String emailPassword = extractField(json, "emailPassword");
+        if (emailPassword != null) s.getEmail().setPassword(emailPassword);
+        String emailFrom = extractField(json, "emailFrom");
+        if (emailFrom != null) s.getEmail().setFrom(emailFrom);
+        String emailTls = extractRawField(json, "emailTls");
+        if (emailTls != null) s.getEmail().setTls(!"false".equals(emailTls.trim()));
+    }
+
+    /** Extract a raw (unquoted) JSON field value — used for numbers and booleans. */
+    private String extractRawField(String json, String key) {
+        String search = "\"" + key + "\"";
+        int keyIdx = json.indexOf(search);
+        if (keyIdx < 0) return null;
+        int colonIdx = json.indexOf(':', keyIdx + search.length());
+        if (colonIdx < 0) return null;
+        int start = colonIdx + 1;
+        while (start < json.length() && Character.isWhitespace(json.charAt(start))) start++;
+        int end = start;
+        while (end < json.length() && json.charAt(end) != ',' && json.charAt(end) != '\n' && json.charAt(end) != '}') end++;
+        return json.substring(start, end).trim();
     }
 
     private String extractField(String json, String key) {

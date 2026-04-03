@@ -67,6 +67,12 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String claudeModel,
             @RequestParam(required = false, defaultValue = "") String claudeApiKey,
             @RequestParam(required = false, defaultValue = "") String accentColor,
+            @RequestParam(required = false, defaultValue = "") String emailHost,
+            @RequestParam(required = false, defaultValue = "587") String emailPort,
+            @RequestParam(required = false, defaultValue = "") String emailUsername,
+            @RequestParam(required = false, defaultValue = "") String emailPassword,
+            @RequestParam(required = false, defaultValue = "") String emailFrom,
+            @RequestParam(required = false, defaultValue = "true") String emailTls,
             Model model) {
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -76,6 +82,12 @@ public class SettingsController {
         settings.setProjectContext(projectContext.trim());
         settings.setClaudeModel(claudeModel);
         settings.setAccentColor(accentColor);
+        settings.getEmail().setHost(emailHost.trim());
+        try { settings.getEmail().setPort(Integer.parseInt(emailPort.trim())); } catch (NumberFormatException ex) { settings.getEmail().setPort(587); }
+        settings.getEmail().setUsername(emailUsername.trim());
+        if (!emailPassword.isEmpty()) settings.getEmail().setPassword(emailPassword.trim());
+        settings.getEmail().setFrom(emailFrom.trim());
+        settings.getEmail().setTls(!"false".equals(emailTls));
 
         // API 키가 입력된 경우 즉시 적용
         if (claudeApiKey != null && !claudeApiKey.trim().isEmpty()) {

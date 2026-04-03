@@ -314,7 +314,15 @@
                             <span class="result-meta">
                                 <i class="fas fa-sitemap me-1" style="color:#3b82f6"></i>실행 계획 트리
                             </span>
-                            <span th:if="${result}" class="result-meta" th:text="'분석: ' + ${result.analyzedAt}"></span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span th:if="${result}" class="result-meta" th:text="'분석: ' + ${result.analyzedAt}"></span>
+                                <button th:if="${result}" type="button"
+                                        class="copy-btn"
+                                        style="font-size:.75rem;padding:3px 10px;"
+                                        onclick="saveFavorite()">
+                                    <i class="fas fa-star me-1" style="color:#f59e0b"></i>즐겨찾기
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Summary badges -->
@@ -561,6 +569,31 @@
         }
     };
 
+})();
+</script>
+
+<!-- Hidden favorite save form -->
+<form id="favoriteForm" method="post" action="/favorites/save" style="display:none;">
+    <input type="hidden" name="type"          value="EXPLAIN_PLAN">
+    <input type="hidden" name="redirect"      value="/explain/dashboard">
+    <input type="hidden" name="inputContent"  id="favInputContent">
+    <input type="hidden" name="outputContent" id="favOutputContent">
+    <input type="hidden" name="title"         id="favTitle">
+    <input type="hidden" name="tag"           value="explain">
+</form>
+<script th:inline="javascript">
+(function() {
+    var SQL_CONTENT    = /*[[${sqlContent}]]*/ '';
+    var AI_ANALYSIS    = /*[[${result != null ? result.aiAnalysis : ''}]]*/ '';
+
+    window.saveFavorite = function() {
+        if (!SQL_CONTENT) { alert('저장할 SQL이 없습니다.'); return; }
+        document.getElementById('favInputContent').value  = SQL_CONTENT;
+        document.getElementById('favOutputContent').value = AI_ANALYSIS || '';
+        var title = SQL_CONTENT.trim().replace(/\s+/g,' ');
+        document.getElementById('favTitle').value = title.length > 60 ? title.substring(0,60)+'…' : title;
+        document.getElementById('favoriteForm').submit();
+    };
 })();
 </script>
 </body>

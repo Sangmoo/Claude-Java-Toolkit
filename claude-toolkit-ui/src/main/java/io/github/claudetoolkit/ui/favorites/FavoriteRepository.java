@@ -19,6 +19,14 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
     @Query("SELECT f FROM Favorite f WHERE f.tag LIKE %:tag% ORDER BY f.createdAt DESC")
     List<Favorite> findByTagContaining(String tag, Pageable pageable);
 
+    /** Entries of a specific type, most recent first */
+    @Query("SELECT f FROM Favorite f WHERE f.type = :type ORDER BY f.createdAt DESC")
+    List<Favorite> findByType(String type, Pageable pageable);
+
+    /** Full-text search across title and inputContent */
+    @Query("SELECT f FROM Favorite f WHERE LOWER(f.title) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(f.inputContent) LIKE LOWER(CONCAT('%',:q,'%')) ORDER BY f.createdAt DESC")
+    List<Favorite> searchByKeyword(@org.springframework.data.repository.query.Param("q") String q, Pageable pageable);
+
     /** Oldest entry (for trimming when MAX_FAVORITES is exceeded) */
     Favorite findTopByOrderByCreatedAtAsc();
 }
