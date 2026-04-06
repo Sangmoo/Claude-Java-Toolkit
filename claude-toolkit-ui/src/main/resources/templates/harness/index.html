@@ -10,83 +10,131 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
     <style>
-        /* ── Language Tabs ── */
+        /* ── Language tabs ── */
         .lang-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
-                    padding:5px 18px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all .15s; }
+                    padding:5px 18px; border-radius:20px; cursor:pointer; font-size:.82rem; transition:all .15s; }
         .lang-tab.active { background:rgba(139,92,246,.15); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
 
-        /* ── Pipeline Steps ── */
-        .pipeline-steps { display:flex; align-items:center; gap:0; margin-bottom:18px; }
-        .pipeline-step { display:flex; align-items:center; gap:6px; padding:6px 14px;
-                         border-radius:20px; font-size:.78rem; font-weight:500;
+        /* ── Source selector ── */
+        .src-toggle-btn {
+            background:none; border:1px solid var(--border-color); color:var(--text-sub);
+            padding:5px 14px; border-radius:8px; font-size:.8rem; cursor:pointer;
+            display:flex; align-items:center; gap:6px; transition:all .15s;
+        }
+        .src-toggle-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
+        .src-toggle-btn.open  { border-color:#8b5cf6; color:#8b5cf6; background:rgba(139,92,246,.07); }
+
+        .source-panel {
+            border:1px solid var(--border-color); border-radius:10px;
+            overflow:hidden; margin-bottom:10px;
+            background:var(--surface-color);
+        }
+        .source-panel-header {
+            padding:8px 14px; background:var(--surface-color);
+            border-bottom:1px solid var(--border-color);
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .src-tab { background:none; border:none; color:var(--text-muted);
+                   padding:5px 14px; border-radius:20px; cursor:pointer;
+                   font-size:.78rem; font-weight:500; transition:all .15s; }
+        .src-tab.active { background:rgba(139,92,246,.12); color:#8b5cf6; font-weight:600; }
+
+        .source-list {
+            max-height:240px; overflow-y:auto;
+            background:var(--surface-color);
+        }
+        .source-item {
+            display:flex; align-items:center; gap:8px;
+            padding:7px 14px; cursor:pointer; font-size:.8rem;
+            border-bottom:1px solid var(--border-color);
+            transition:background .12s;
+        }
+        .source-item:last-child { border-bottom:none; }
+        .source-item:hover { background:rgba(139,92,246,.08); }
+        .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+
+        .source-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; flex-shrink:0; }
+        .source-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .source-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .source-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .source-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+
+        .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
+                      border-bottom:1px solid var(--border-color);
+                      display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+        /* ── Pipeline steps ── */
+        .pipeline-steps { display:flex; align-items:center; gap:0; margin-bottom:18px; flex-wrap:wrap; }
+        .pipeline-step { display:flex; align-items:center; gap:6px; padding:5px 12px;
+                         border-radius:20px; font-size:.76rem; font-weight:500;
                          border:1px solid var(--border-color); color:var(--text-muted);
-                         background:var(--surface-color); transition:all .25s; }
+                         background:var(--surface-color); transition:all .25s; white-space:nowrap; }
         .pipeline-step.active { border-color:#8b5cf6; color:#8b5cf6; background:rgba(139,92,246,.1); }
         .pipeline-step.done   { border-color:#10b981; color:#10b981; background:rgba(16,185,129,.1); }
-        .pipeline-arrow { color:var(--text-muted); font-size:.75rem; margin:0 4px; }
+        .pipeline-arrow { color:var(--text-muted); font-size:.72rem; margin:0 4px; }
 
-        /* ── Result Tabs ── */
+        /* ── Result tabs ── */
         .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                       padding:5px 14px; border-radius:20px; cursor:pointer; font-size:.8rem; transition:all .15s; }
         .result-tab.active { background:rgba(139,92,246,.12); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
 
-        /* ── Diff View ── */
+        /* ── Diff ── */
         .diff-container { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .diff-panel { border:1px solid var(--border-color); border-radius:8px; overflow:hidden; }
-        .diff-panel-header { padding:8px 14px; font-size:.78rem; font-weight:600;
+        .diff-panel-header { padding:7px 12px; font-size:.76rem; font-weight:600;
                              display:flex; align-items:center; gap:6px;
                              background:var(--surface-color); border-bottom:1px solid var(--border-color); }
         .diff-original-header { color:#f87171; }
         .diff-improved-header { color:#34d399; }
-        .diff-body { padding:0; overflow-x:auto; max-height:500px; overflow-y:auto; }
-        .diff-line { display:flex; align-items:baseline; gap:0; font-family:'JetBrains Mono',monospace;
-                     font-size:.78rem; line-height:1.7; white-space:pre; }
-        .diff-line-num { min-width:38px; padding:0 8px; text-align:right;
-                         color:var(--text-muted); user-select:none; font-size:.7rem;
-                         border-right:1px solid var(--border-color); background:var(--surface-color); }
-        .diff-line-code { padding:0 10px; flex:1; }
-        .diff-removed { background:rgba(248,113,113,.12); }
+        .diff-body { overflow-x:auto; max-height:480px; overflow-y:auto; }
+        .diff-line { display:flex; align-items:baseline; font-family:'JetBrains Mono',monospace;
+                     font-size:.76rem; line-height:1.7; white-space:pre; }
+        .diff-line-num  { min-width:36px; padding:0 7px; text-align:right; user-select:none;
+                          color:var(--text-muted); font-size:.68rem;
+                          border-right:1px solid var(--border-color); background:var(--surface-color); }
+        .diff-line-code { padding:0 9px; flex:1; }
+        .diff-removed { background:rgba(248,113,113,.1); }
         .diff-removed .diff-line-code { color:#f87171; text-decoration:line-through; }
-        .diff-removed .diff-line-num  { background:rgba(248,113,113,.08); color:#f87171; }
-        .diff-added   { background:rgba(52,211,153,.10); }
+        .diff-removed .diff-line-num  { background:rgba(248,113,113,.07); color:#f87171; }
+        .diff-added   { background:rgba(52,211,153,.09); }
         .diff-added   .diff-line-code { color:#34d399; }
-        .diff-added   .diff-line-num  { background:rgba(52,211,153,.08); color:#34d399; }
-
-        /* diff legend */
-        .diff-legend { display:flex; gap:16px; font-size:.75rem; margin-bottom:10px; }
+        .diff-added   .diff-line-num  { background:rgba(52,211,153,.07); color:#34d399; }
+        .diff-legend  { display:flex; gap:14px; font-size:.73rem; margin-bottom:8px; }
         .diff-legend span { display:flex; align-items:center; gap:4px; }
-        .legend-dot { width:10px; height:10px; border-radius:2px; }
+        .legend-dot { width:9px; height:9px; border-radius:2px; }
         .legend-removed { background:rgba(248,113,113,.5); }
         .legend-added   { background:rgba(52,211,153,.5); }
         .legend-same    { background:var(--border-color); }
 
-        /* ── Markdown rendered sections ── */
-        .section-content { padding:12px 4px; line-height:1.75; font-size:.9rem; }
-        .section-content h2,.section-content h3 { font-size:1rem; font-weight:700; margin:14px 0 6px;
-                                                   color:var(--text-primary); }
-        .section-content ul { padding-left:20px; margin:6px 0; }
-        .section-content li { margin-bottom:4px; }
+        /* ── Section tabs content ── */
+        .section-content { padding:10px 2px; line-height:1.75; font-size:.88rem; }
+        .section-content h2,.section-content h3 { font-size:.95rem; font-weight:700;
+                                                   margin:12px 0 5px; color:var(--text-primary); }
+        .section-content ul { padding-left:18px; margin:5px 0; }
+        .section-content li { margin-bottom:3px; }
         .section-content code { background:var(--code-bg,rgba(0,0,0,.25)); padding:1px 5px;
-                                 border-radius:4px; font-size:.82em; }
-        .section-content pre { background:var(--code-bg,rgba(0,0,0,.25)); padding:10px 14px;
-                                border-radius:8px; overflow-x:auto; }
+                                 border-radius:4px; font-size:.81em; }
+        .section-content pre  { background:var(--code-bg,rgba(0,0,0,.25)); padding:9px 12px;
+                                 border-radius:7px; overflow-x:auto; font-size:.78rem; }
         .verdict-approved { color:#10b981; font-weight:700; }
         .verdict-revision { color:#f59e0b; font-weight:700; }
 
         /* ── Stream progress ── */
-        .stream-step-row { display:flex; align-items:center; gap:8px; margin-bottom:6px;
-                           font-size:.82rem; color:var(--text-sub); }
-        .stream-step-icon { width:20px; text-align:center; }
-        .stream-step-icon.spin { animation:spin .8s linear infinite; }
+        .stream-step-row { display:flex; align-items:center; gap:7px; margin-bottom:5px;
+                           font-size:.8rem; color:var(--text-sub); }
         @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin .8s linear infinite; }
 
-        /* ── Copy button ── */
+        /* ── Copy / action buttons ── */
         .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
-                    padding:3px 10px; border-radius:6px; font-size:.75rem; cursor:pointer; transition:all .15s; }
-        .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+                    padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
+        .copy-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
 
         @media (max-width:768px) {
             .diff-container { grid-template-columns:1fr; }
+            .source-item-path { display:none; }
         }
     </style>
 </head>
@@ -115,11 +163,11 @@
 
         <div class="main-content">
             <p class="page-subtitle">
-                Java 코드 또는 SQL을 입력하면 <strong>Analyst → Builder → Reviewer</strong> 3단계 파이프라인이
-                개선된 코드와 변경 전/후 Diff를 제공합니다.
+                Java 코드 또는 SQL을 입력하거나 파일·DB 오브젝트에서 선택하면
+                <strong>Analyst → Builder → Reviewer</strong> 3단계 파이프라인이 개선 코드와 Diff를 제공합니다.
             </p>
 
-            <!-- Pipeline flow badge -->
+            <!-- Pipeline step indicators -->
             <div class="pipeline-steps mb-3">
                 <div class="pipeline-step" id="stepAnalyst">
                     <i class="fas fa-search"></i> 분석가 (Analyst)
@@ -135,11 +183,12 @@
             </div>
 
             <div class="row g-3">
-                <!-- ── Input Panel ── -->
+                <!-- ════════════════════════ Input Panel ════════════════════════ -->
                 <div class="col-lg-5">
                     <div class="panel p-3">
-                        <!-- Language selector -->
-                        <div class="d-flex gap-2 mb-3">
+
+                        <!-- Language tabs -->
+                        <div class="d-flex gap-2 mb-2">
                             <button type="button" class="lang-tab active" id="langJava" onclick="setLanguage('java')">
                                 <i class="fab fa-java me-1"></i>Java
                             </button>
@@ -148,20 +197,93 @@
                             </button>
                         </div>
 
-                        <label class="form-label">소스 코드 입력</label>
-                        <textarea id="codeInput" class="form-control" rows="22"
-                                  style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"
-                                  placeholder="Java 코드 또는 SQL을 붙여넣기 하세요...
-&#10;예시 (Java):
-&#10;public List&lt;Order&gt; getOrders(String status) {
-&#10;    return orderList.stream()
-&#10;        .filter(o -&gt; o.getStatus().equals(status))
-&#10;        .collect(Collectors.toList());
-&#10;}
-&#10;
-&#10;예시 (SQL):
-&#10;SELECT * FROM T_ORDER WHERE STATUS = 1"></textarea>
+                        <!-- ── Source Selector ── -->
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <button type="button" class="src-toggle-btn" id="srcToggleBtn" onclick="toggleSourcePanel()">
+                                    <i class="fas fa-folder-open"></i>
+                                    소스 선택하기
+                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;"></i>
+                                </button>
+                                <button type="button" class="copy-btn" onclick="refreshCache()" title="파일·DB 캐시 갱신">
+                                    <i class="fas fa-sync-alt me-1"></i>캐시 갱신
+                                </button>
+                            </div>
 
+                            <!-- Source selector panel -->
+                            <div id="sourcePanel" class="source-panel" style="display:none;">
+                                <!-- Sub-tabs: Java 파일 | DB 오브젝트 -->
+                                <div class="source-panel-header">
+                                    <div class="d-flex gap-1">
+                                        <button class="src-tab active" id="srcTabFiles" onclick="switchSrcTab('files')">
+                                            <i class="fab fa-java me-1"></i>Java 파일
+                                        </button>
+                                        <button class="src-tab" id="srcTabDb" onclick="switchSrcTab('db')">
+                                            <i class="fas fa-database me-1"></i>DB 오브젝트
+                                        </button>
+                                    </div>
+                                    <button type="button" onclick="toggleSourcePanel()"
+                                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;">
+                                        <i class="fas fa-times" style="font-size:.75rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- ── Java Files Tab ── -->
+                                <div id="srcPanelFiles">
+                                    <div class="p-2">
+                                        <input type="text" id="fileSearchInput" class="form-control form-control-sm"
+                                               placeholder="클래스명·경로 검색..." oninput="onFileSearch(this.value)"
+                                               autocomplete="off">
+                                    </div>
+                                    <div class="src-status" id="fileStatus">
+                                        <span id="fileStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="fileCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="fileList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>파일 목록 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ── DB Objects Tab ── -->
+                                <div id="srcPanelDb" style="display:none;">
+                                    <div class="p-2 d-flex gap-2">
+                                        <input type="text" id="dbSearchInput" class="form-control form-control-sm"
+                                               placeholder="오브젝트명 검색..." oninput="onDbSearch(this.value)"
+                                               autocomplete="off" style="flex:1;">
+                                        <select id="dbTypeFilter" class="form-select form-select-sm"
+                                                style="width:130px;flex-shrink:0;"
+                                                onchange="onDbSearch(document.getElementById('dbSearchInput').value)">
+                                            <option value="">전체 유형</option>
+                                            <option value="PROCEDURE">PROCEDURE</option>
+                                            <option value="FUNCTION">FUNCTION</option>
+                                            <option value="PACKAGE">PACKAGE</option>
+                                            <option value="TRIGGER">TRIGGER</option>
+                                        </select>
+                                    </div>
+                                    <div class="src-status" id="dbStatus">
+                                        <span id="dbStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="dbCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="dbList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>DB 오브젝트 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- ── / Source Selector ── -->
+
+                        <!-- Code textarea -->
+                        <label class="form-label" style="font-size:.82rem;">소스 코드 입력</label>
+                        <textarea id="codeInput" class="form-control" rows="18"
+                                  style="font-family:'JetBrains Mono',monospace;font-size:.79rem;resize:vertical;"
+                                  placeholder="Java 코드 또는 SQL을 직접 입력하거나, 위 '소스 선택하기'에서 파일을 고르세요."></textarea>
+
+                        <!-- Action buttons -->
                         <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
                             <button type="button" class="btn-accent" id="analyzeBtn" onclick="runPipeline()">
                                 <i class="fas fa-play me-1"></i>파이프라인 분석
@@ -173,43 +295,45 @@
                                 <i class="fas fa-trash me-1"></i>초기화
                             </button>
                         </div>
-
-                        <div class="mt-2" style="font-size:.75rem;color:var(--text-muted);">
+                        <div class="mt-1" style="font-size:.72rem;color:var(--text-muted);">
                             <i class="fas fa-info-circle me-1"></i>
-                            파이프라인 분석: 전체 결과를 한 번에 반환 &nbsp;|&nbsp;
-                            스트리밍 분석: 실시간으로 출력
+                            파이프라인 분석: 전체 결과 일괄 반환 &nbsp;|&nbsp; 스트리밍: 실시간 출력
                         </div>
                     </div>
                 </div>
 
-                <!-- ── Result Panel ── -->
+                <!-- ════════════════════════ Result Panel ════════════════════════ -->
                 <div class="col-lg-7">
 
                     <!-- Empty state -->
-                    <div id="emptyState" class="panel p-4 text-center" style="min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-                        <div style="font-size:3rem;opacity:.25;">
-                            <i class="fas fa-code-compare"></i>
+                    <div id="emptyState" class="panel p-4 text-center"
+                         style="min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+                        <div style="font-size:2.6rem;opacity:.2;"><i class="fas fa-code-compare"></i></div>
+                        <div style="color:var(--text-muted);font-size:.88rem;">
+                            코드를 입력하거나 파일 / DB 오브젝트를 선택한 뒤<br>분석을 실행하면 결과가 여기 표시됩니다.
                         </div>
-                        <div style="color:var(--text-muted);font-size:.9rem;">
-                            코드를 입력하고 분석을 실행하면<br>변경 전/후 Diff와 상세 설명이 표시됩니다.
-                        </div>
-                        <div style="font-size:.78rem;color:var(--text-muted);opacity:.7;">
-                            Analyst → Builder → Reviewer 3단계 자동 파이프라인
+                        <div class="d-flex gap-2 mt-1" style="font-size:.75rem;color:var(--text-muted);opacity:.7;flex-wrap:wrap;justify-content:center;">
+                            <span><i class="fas fa-columns me-1"></i>Diff 뷰</span>
+                            <span>·</span>
+                            <span><i class="fas fa-search me-1"></i>분석 요약</span>
+                            <span>·</span>
+                            <span><i class="fas fa-list-check me-1"></i>변경 내역</span>
+                            <span>·</span>
+                            <span><i class="fas fa-check-circle me-1"></i>검토 결과</span>
                         </div>
                     </div>
 
-                    <!-- Streaming progress panel -->
+                    <!-- Streaming panel -->
                     <div id="streamPanel" class="panel p-3" style="display:none;min-height:420px;">
-                        <div class="d-flex align-items-center gap-2 mb-3" style="font-size:.85rem;font-weight:600;color:var(--text-sub);">
-                            <i class="fas fa-bolt" style="color:#f97316"></i>
-                            스트리밍 분석 진행 중
+                        <div class="d-flex align-items-center gap-2 mb-2" style="font-size:.82rem;font-weight:600;color:var(--text-sub);">
+                            <i class="fas fa-bolt" style="color:#f97316"></i>스트리밍 분석 진행 중
                         </div>
-                        <div id="streamSteps" class="mb-3"></div>
-                        <div id="streamRaw" style="font-size:.8rem;font-family:'JetBrains Mono',monospace;
-                             white-space:pre-wrap;word-break:break-word;
-                             background:var(--code-bg,rgba(0,0,0,.2));
-                             border-radius:8px;padding:12px;min-height:300px;
-                             max-height:480px;overflow-y:auto;line-height:1.7;"></div>
+                        <div id="streamSteps" class="mb-2"></div>
+                        <div id="streamRaw"
+                             style="font-size:.77rem;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;
+                                    word-break:break-word;background:var(--code-bg,rgba(0,0,0,.2));
+                                    border-radius:8px;padding:10px 12px;min-height:260px;
+                                    max-height:450px;overflow-y:auto;line-height:1.7;"></div>
                         <div id="streamDoneBar" style="display:none;" class="mt-2">
                             <button class="btn-accent btn-sm" onclick="parseStreamResult()">
                                 <i class="fas fa-layer-group me-1"></i>Diff 뷰로 보기
@@ -238,15 +362,15 @@
                             </button>
                         </div>
 
-                        <!-- Tab: Diff -->
+                        <!-- Diff tab -->
                         <div id="tabDiff" class="panel p-3">
                             <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                                 <div class="diff-legend">
-                                    <span><span class="legend-dot legend-removed"></span>원본</span>
-                                    <span><span class="legend-dot legend-added"></span>개선</span>
+                                    <span><span class="legend-dot legend-removed"></span>원본(삭제)</span>
+                                    <span><span class="legend-dot legend-added"></span>개선(추가)</span>
                                     <span><span class="legend-dot legend-same"></span>동일</span>
                                 </div>
-                                <div class="d-flex gap-2">
+                                <div class="d-flex gap-2 flex-wrap">
                                     <button class="copy-btn" onclick="copyCode('original')">
                                         <i class="fas fa-copy me-1"></i>원본 복사
                                     </button>
@@ -261,78 +385,81 @@
                             <div class="diff-container" id="diffContainer"></div>
                         </div>
 
-                        <!-- Tab: Analysis -->
+                        <!-- Analysis tab -->
                         <div id="tabAnalysis" class="panel p-3" style="display:none;">
                             <div class="section-content" id="analysisContent"></div>
                         </div>
 
-                        <!-- Tab: Changes -->
+                        <!-- Changes tab -->
                         <div id="tabChanges" class="panel p-3" style="display:none;">
                             <div class="section-content" id="changesContent"></div>
                         </div>
 
-                        <!-- Tab: Review -->
+                        <!-- Review tab -->
                         <div id="tabReview" class="panel p-3" style="display:none;">
                             <div class="section-content" id="reviewContent"></div>
                         </div>
 
-                        <!-- Tab: Raw -->
+                        <!-- Raw tab -->
                         <div id="tabRaw" class="panel p-3" style="display:none;">
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="copy-btn" onclick="copyRaw()">
                                     <i class="fas fa-copy me-1"></i>전체 복사
                                 </button>
                             </div>
-                            <pre id="rawContent" style="font-size:.78rem;white-space:pre-wrap;word-break:break-word;
+                            <pre id="rawContent" style="font-size:.76rem;white-space:pre-wrap;word-break:break-word;
                                  max-height:520px;overflow-y:auto;margin:0;"></pre>
                         </div>
                     </div>
 
-                </div><!-- col -->
-            </div><!-- row -->
-        </div><!-- main-content -->
+                </div><!-- /col-lg-7 -->
+            </div><!-- /row -->
+        </div><!-- /main-content -->
     </main>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250329')}"></script>
 <script>
-/* ── State ──────────────────────────────────────────────────── */
-var currentLang     = 'java';
-var currentOrigCode = '';
-var currentImpCode  = '';
-var currentFullResp = '';
-var streamBuffer    = '';
-var streamEs        = null;
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+var currentLang      = 'java';
+var currentOrigCode  = '';
+var currentImpCode   = '';
+var currentFullResp  = '';
+var streamBuffer     = '';
+var streamEs         = null;
+var srcTab           = 'files';     // active source-selector tab
+var fileDataLoaded   = false;       // whether file list has been loaded
+var dbDataLoaded     = false;       // whether db list has been loaded
 
-/* ── Language selector ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Language selector
+   ═══════════════════════════════════════════════════════════════ */
 function setLanguage(lang) {
     currentLang = lang;
     document.getElementById('langJava').classList.toggle('active', lang === 'java');
     document.getElementById('langSql').classList.toggle('active',  lang === 'sql');
-    var placeholder = lang === 'sql'
-        ? 'SQL을 붙여넣기 하세요...\n\nSELECT o.ORDER_ID, c.NAME\nFROM T_ORDER o, T_CUSTOMER c\nWHERE o.CUST_ID = c.CUST_ID\nAND o.STATUS = 1'
-        : 'Java 코드를 붙여넣기 하세요...\n\npublic List<Order> getOrders(String status) {\n    return orderList.stream()\n        .filter(o -> o.getStatus().equals(status))\n        .collect(Collectors.toList());\n}';
-    document.getElementById('codeInput').placeholder = placeholder;
 }
 
-/* ── Pipeline step indicator ────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Pipeline step indicator
+   ═══════════════════════════════════════════════════════════════ */
 function resetSteps() {
     ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
         document.getElementById(id).className = 'pipeline-step';
     });
 }
-function setStep(name) {
+function setStep(step) {
+    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
     resetSteps();
-    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
-    if (map[name]) document.getElementById(map[name]).className = 'pipeline-step active';
+    if (map[step]) document.getElementById(map[step]).className = 'pipeline-step active';
 }
-function doneStep(name) {
+function doneStep(step) {
     var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
-    if (map[name]) document.getElementById(map[name]).className = 'pipeline-step done';
+    if (map[step]) document.getElementById(map[step]).className = 'pipeline-step done';
 }
 function allStepsDone() {
     ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
@@ -340,7 +467,231 @@ function allStepsDone() {
     });
 }
 
-/* ── Run pipeline (non-streaming) ───────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Source Selector: toggle / tab switch
+   ═══════════════════════════════════════════════════════════════ */
+function toggleSourcePanel() {
+    var panel   = document.getElementById('sourcePanel');
+    var btn     = document.getElementById('srcToggleBtn');
+    var chevron = document.getElementById('srcChevron');
+    var isOpen  = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : '';
+    btn.classList.toggle('open', !isOpen);
+    chevron.className   = isOpen ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+    chevron.style.fontSize = '.65rem';
+    // Load on first open
+    if (!isOpen) {
+        if (!fileDataLoaded && srcTab === 'files') loadFiles('');
+        if (!dbDataLoaded   && srcTab === 'db')    loadDbObjects('');
+    }
+}
+
+function switchSrcTab(tab) {
+    srcTab = tab;
+    document.getElementById('srcTabFiles').classList.toggle('active', tab === 'files');
+    document.getElementById('srcTabDb').classList.toggle('active',    tab === 'db');
+    document.getElementById('srcPanelFiles').style.display = tab === 'files' ? '' : 'none';
+    document.getElementById('srcPanelDb').style.display    = tab === 'db'    ? '' : 'none';
+    if (tab === 'files' && !fileDataLoaded) loadFiles('');
+    if (tab === 'db'    && !dbDataLoaded)   loadDbObjects('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Source Selector: Java file list
+   ═══════════════════════════════════════════════════════════════ */
+var _fileTimer;
+function onFileSearch(q) {
+    clearTimeout(_fileTimer);
+    _fileTimer = setTimeout(function() { loadFiles(q); }, 280);
+}
+
+function loadFiles(q) {
+    document.getElementById('fileStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    fetch('/harness/cache/files?q=' + encodeURIComponent(q || ''))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            fileDataLoaded = data.loaded;
+            var countEl = document.getElementById('fileCount');
+            var statusEl = document.getElementById('fileStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… Settings에서 프로젝트 경로 설정 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = q ? ('검색 결과') : ('전체 파일');
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderFileList(data.files || []);
+        })
+        .catch(function() {
+            document.getElementById('fileStatusText').textContent = '오류: 파일 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderFileList(files) {
+    var list = document.getElementById('fileList');
+    if (!files.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">파일 없음</div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        html += '<div class="source-item" onclick="loadFileContent(' + JSON.stringify(f.absolutePath) + ',' + JSON.stringify(f.relativePath) + ')">'
+              + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316"></i></span>'
+              + '<span class="source-item-name">' + escHtml(f.fileName) + '</span>'
+              + '<span class="source-item-path">' + escHtml(f.relativePath) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function loadFileContent(absolutePath, relativePath) {
+    document.getElementById('fileList').innerHTML =
+        '<div class="source-item" style="justify-content:center;color:var(--text-muted);">'
+      + '<i class="fas fa-circle-notch spin-icon me-2"></i>파일 읽는 중...</div>';
+    fetch('/harness/cache/file-content?path=' + encodeURIComponent(absolutePath))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                alert('파일 읽기 실패: ' + data.error);
+                loadFiles(document.getElementById('fileSearchInput').value);
+                return;
+            }
+            document.getElementById('codeInput').value = data.content;
+            setLanguage('java');
+            closeSourcePanel();
+            try { localStorage.setItem('harness_input_v1', data.content); } catch(e) {}
+        })
+        .catch(function(e) {
+            alert('파일 불러오기 실패: ' + e.message);
+            loadFiles('');
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Source Selector: DB object list
+   ═══════════════════════════════════════════════════════════════ */
+var _dbTimer;
+function onDbSearch(q) {
+    clearTimeout(_dbTimer);
+    _dbTimer = setTimeout(function() { loadDbObjects(q); }, 280);
+}
+
+function loadDbObjects(q) {
+    var typeFilter = document.getElementById('dbTypeFilter').value;
+    document.getElementById('dbStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    var url = '/harness/cache/db-objects?q=' + encodeURIComponent(q || '')
+            + '&type=' + encodeURIComponent(typeFilter);
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            dbDataLoaded = data.loaded;
+            var countEl  = document.getElementById('dbCount');
+            var statusEl = document.getElementById('dbStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… Settings에서 DB 연결 설정 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = (typeFilter || q) ? '검색 결과' : '전체 오브젝트';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderDbList(data.objects || []);
+        })
+        .catch(function() {
+            document.getElementById('dbStatusText').textContent = '오류: DB 오브젝트 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderDbList(objects) {
+    var list = document.getElementById('dbList');
+    if (!objects.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">오브젝트 없음</div>';
+        return;
+    }
+    var typeIcons = { PROCEDURE:'🔧', FUNCTION:'⚙️', PACKAGE:'📦', TRIGGER:'⚡' };
+    var html = '';
+    for (var i = 0; i < objects.length; i++) {
+        var o    = objects[i];
+        var icon = typeIcons[o.type] || '📄';
+        var badgeClass = 'source-badge source-badge-' + o.type.toLowerCase();
+        html += '<div class="source-item" onclick="loadDbSource(' + JSON.stringify(o.name) + ',' + JSON.stringify(o.type) + ')">'
+              + '<span class="source-item-icon">' + icon + '</span>'
+              + '<span class="source-item-name">' + escHtml(o.name) + '</span>'
+              + '<span class="source-item-path">' + escHtml(o.owner) + '</span>'
+              + '<span class="' + badgeClass + '">' + o.type + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function loadDbSource(name, type) {
+    document.getElementById('dbList').innerHTML =
+        '<div class="source-item" style="justify-content:center;color:var(--text-muted);">'
+      + '<i class="fas fa-circle-notch spin-icon me-2"></i>소스 불러오는 중...</div>';
+    fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                alert('소스 로드 실패: ' + data.error);
+                loadDbObjects(document.getElementById('dbSearchInput').value);
+                return;
+            }
+            document.getElementById('codeInput').value = data.source;
+            setLanguage('sql');
+            closeSourcePanel();
+            try { localStorage.setItem('harness_input_v1', data.source); } catch(e) {}
+        })
+        .catch(function(e) {
+            alert('소스 불러오기 실패: ' + e.message);
+            loadDbObjects('');
+        });
+}
+
+/* ── Cache refresh ─────────────────────────────────────────── */
+function refreshCache() {
+    var btn = event && event.currentTarget;
+    if (btn) { btn.disabled = true; }
+    fetch('/harness/cache/refresh', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (btn) btn.disabled = false;
+            fileDataLoaded = false;
+            dbDataLoaded   = false;
+            if (srcTab === 'files') {
+                setTimeout(function() { loadFiles(''); }, 1500);
+            } else {
+                setTimeout(function() { loadDbObjects(''); }, 1500);
+            }
+            // Small toast
+            var msg = document.createElement('div');
+            msg.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:8px 16px;border-radius:8px;font-size:.8rem;z-index:9999;';
+            msg.textContent = '캐시 갱신 시작 — 약 2~5초 후 목록이 업데이트됩니다.';
+            document.body.appendChild(msg);
+            setTimeout(function() { msg.remove(); }, 3500);
+        })
+        .catch(function() {
+            if (btn) btn.disabled = false;
+        });
+}
+
+function closeSourcePanel() {
+    document.getElementById('sourcePanel').style.display = 'none';
+    document.getElementById('srcToggleBtn').classList.remove('open');
+    document.getElementById('srcChevron').className = 'fas fa-chevron-down';
+    document.getElementById('srcChevron').style.fontSize = '.65rem';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Pipeline: non-streaming
+   ═══════════════════════════════════════════════════════════════ */
 function runPipeline() {
     var code = document.getElementById('codeInput').value.trim();
     if (!code) { alert('코드를 입력해주세요.'); return; }
@@ -350,15 +701,15 @@ function runPipeline() {
     document.getElementById('streamPanel').style.display = 'none';
     document.getElementById('resultPanel').style.display = 'none';
 
-    var spinMessages = ['분석가(Analyst) 분석 중...','개선가(Builder) 코드 작성 중...','검토자(Reviewer) 검증 중...','결과 정리 중...'];
-    showSpinner(spinMessages);
+    showSpinner(['분석가(Analyst) 분석 중...','개선가(Builder) 코드 작성 중...',
+                 '검토자(Reviewer) 검증 중...','결과 정리 중...']);
     document.getElementById('analyzeBtn').disabled = true;
 
     var fd = new FormData();
     fd.append('code',     code);
     fd.append('language', currentLang);
 
-    fetch('/harness/analyze', { method:'POST', body: fd })
+    fetch('/harness/analyze', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             hideSpinner();
@@ -384,7 +735,9 @@ function runPipeline() {
         });
 }
 
-/* ── Run stream ─────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Pipeline: SSE streaming
+   ═══════════════════════════════════════════════════════════════ */
 function runStream() {
     var code = document.getElementById('codeInput').value.trim();
     if (!code) { alert('코드를 입력해주세요.'); return; }
@@ -392,16 +745,15 @@ function runStream() {
 
     setStep('analyst');
     streamBuffer = '';
-    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('emptyState').style.display   = 'none';
     document.getElementById('resultPanel').style.display  = 'none';
     document.getElementById('streamRaw').textContent      = '';
     document.getElementById('streamDoneBar').style.display = 'none';
 
-    var stepsDiv = document.getElementById('streamSteps');
-    stepsDiv.innerHTML =
-        '<div class="stream-step-row"><span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>분석가(Analyst) 실행 중...</div>'
-      + '<div class="stream-step-row" id="streamStepBuilder" style="opacity:.4"><span class="stream-step-icon"><i class="fas fa-clock"></i></span>개선가(Builder) 대기 중</div>'
-      + '<div class="stream-step-row" id="streamStepReviewer" style="opacity:.4"><span class="stream-step-icon"><i class="fas fa-clock"></i></span>검토자(Reviewer) 대기 중</div>';
+    document.getElementById('streamSteps').innerHTML =
+        mkStepRow(true,  '분석가(Analyst) 실행 중...')
+      + mkStepRow(false, '개선가(Builder) 대기 중', 'streamStepBuilder')
+      + mkStepRow(false, '검토자(Reviewer) 대기 중', 'streamStepReviewer');
 
     document.getElementById('streamPanel').style.display = '';
     document.getElementById('streamBtn').disabled = true;
@@ -409,18 +761,30 @@ function runStream() {
     var fd = new FormData();
     fd.append('code',     code);
     fd.append('language', currentLang);
+    currentOrigCode = code;
 
-    fetch('/harness/stream-init', { method:'POST', body: fd })
+    fetch('/harness/stream-init', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (!data.success) { alert('스트림 등록 실패: ' + (data.error || '')); return; }
-            openSse(data.streamId, code);
+            openSse(data.streamId);
         })
         .catch(function(e) { alert('스트림 초기화 실패: ' + e.message); });
 }
 
-function openSse(streamId, originalCode) {
-    currentOrigCode = originalCode;
+function mkStepRow(active, label, id) {
+    var icon = active
+        ? '<i class="fas fa-circle-notch spin-icon"></i>'
+        : '<i class="fas fa-clock"></i>';
+    return '<div class="stream-step-row" '
+         + (id ? 'id="' + id + '" ' : '')
+         + 'style="' + (active ? '' : 'opacity:.4;') + '">'
+         + '<span style="width:18px;text-align:center;">' + icon + '</span>'
+         + label
+         + '</div>';
+}
+
+function openSse(streamId) {
     streamEs = new EventSource('/stream/' + streamId);
 
     streamEs.onmessage = function(e) {
@@ -429,17 +793,16 @@ function openSse(streamId, originalCode) {
         var el = document.getElementById('streamRaw');
         el.scrollTop = el.scrollHeight;
 
-        // Update step indicators based on content
-        if (streamBuffer.indexOf('🔧 개선된 코드') !== -1 || streamBuffer.indexOf('## 개선된 코드') !== -1) {
+        if (streamBuffer.indexOf('🔧') !== -1 || streamBuffer.indexOf('개선된 코드') !== -1) {
             setStep('builder');
             var b = document.getElementById('streamStepBuilder');
-            if (b) { b.style.opacity = '1'; b.innerHTML = '<span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>개선가(Builder) 코드 작성 중...'; }
+            if (b) { b.style.opacity = '1'; b.innerHTML = '<span style="width:18px;text-align:center;"><i class="fas fa-circle-notch spin-icon"></i></span>개선가(Builder) 코드 작성 중...'; }
         }
-        if (streamBuffer.indexOf('📝 변경 내역') !== -1 || streamBuffer.indexOf('## 변경 내역') !== -1) {
+        if (streamBuffer.indexOf('📝') !== -1 || streamBuffer.indexOf('변경 내역') !== -1) {
             doneStep('builder');
             setStep('reviewer');
             var r = document.getElementById('streamStepReviewer');
-            if (r) { r.style.opacity = '1'; r.innerHTML = '<span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>검토자(Reviewer) 검증 중...'; }
+            if (r) { r.style.opacity = '1'; r.innerHTML = '<span style="width:18px;text-align:center;"><i class="fas fa-circle-notch spin-icon"></i></span>검토자(Reviewer) 검증 중...'; }
         }
     };
 
@@ -448,7 +811,9 @@ function openSse(streamId, originalCode) {
         document.getElementById('streamBtn').disabled = false;
         allStepsDone();
         document.getElementById('streamSteps').innerHTML =
-            '<div class="stream-step-row"><span class="stream-step-icon" style="color:#10b981"><i class="fas fa-check-circle"></i></span>파이프라인 완료</div>';
+            '<div class="stream-step-row" style="color:#10b981;">'
+          + '<span style="width:18px;text-align:center;"><i class="fas fa-check-circle"></i></span>'
+          + '파이프라인 완료</div>';
         document.getElementById('streamDoneBar').style.display = '';
     });
 
@@ -459,7 +824,7 @@ function openSse(streamId, originalCode) {
     });
 
     streamEs.onerror = function() {
-        streamEs.close(); streamEs = null;
+        if (streamEs) { streamEs.close(); streamEs = null; }
         document.getElementById('streamBtn').disabled = false;
     };
 }
@@ -471,140 +836,131 @@ function parseStreamResult() {
     renderResult();
 }
 
-/* ── Render full result ─────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Render result
+   ═══════════════════════════════════════════════════════════════ */
 function renderResult() {
     document.getElementById('resultPanel').style.display = '';
     switchResultTab('diff');
-
-    // Build diff
     buildDiffView(currentOrigCode, currentImpCode);
-
-    // Populate section tabs
-    document.getElementById('analysisContent').innerHTML = renderMarkdown(
+    document.getElementById('analysisContent').innerHTML = renderMd(
         extractSection(currentFullResp, ['📋 분석 요약', '분석 요약']));
-    document.getElementById('changesContent').innerHTML = renderMarkdown(
+    document.getElementById('changesContent').innerHTML  = renderMd(
         extractSection(currentFullResp, ['📝 변경 내역', '변경 내역']));
-    document.getElementById('reviewContent').innerHTML = renderMarkdown(
+    document.getElementById('reviewContent').innerHTML   = renderMd(
         extractSection(currentFullResp, ['📈 기대 효과', '✅ 최종 검토 의견', '기대 효과', '최종 검토']));
-    document.getElementById('rawContent').textContent = currentFullResp;
+    document.getElementById('rawContent').textContent    = currentFullResp;
 }
 
-/* ── Tab switching ──────────────────────────────────────────── */
 function switchResultTab(tab) {
     var tabs = ['diff','analysis','changes','review','raw'];
     tabs.forEach(function(t) {
-        var btn = document.getElementById('rt' + t.charAt(0).toUpperCase() + t.slice(1));
-        var pane = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        var cap  = t.charAt(0).toUpperCase() + t.slice(1);
+        var btn  = document.getElementById('rt' + cap);
+        var pane = document.getElementById('tab' + cap);
         if (btn)  btn.classList.toggle('active', t === tab);
         if (pane) pane.style.display = (t === tab) ? '' : 'none';
     });
 }
 
-/* ── Diff builder ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Diff builder (LCS-based)
+   ═══════════════════════════════════════════════════════════════ */
 function buildDiffView(origCode, impCode) {
     var aLines = origCode ? origCode.split('\n') : [];
     var bLines = impCode  ? impCode.split('\n')  : [];
     var ops    = lcsLineDiff(aLines, bLines);
 
-    // Build left (original) and right (improved) panels
-    var leftHtml  = '';
-    var rightHtml = '';
-    var leftNum   = 0;
-    var rightNum  = 0;
-
+    var leftHtml = '', rightHtml = '', leftNum = 0, rightNum = 0;
     ops.forEach(function(op) {
+        var line = escHtml(op[1]);
+        var cell = (line || '') === '' ? '&nbsp;' : line;
         if (op[0] === 'same') {
-            leftNum++;  rightNum++;
-            var line = escHtml(op[1]);
-            leftHtml  += '<div class="diff-line"><span class="diff-line-num">' + leftNum  + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
-            rightHtml += '<div class="diff-line"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+            leftNum++; rightNum++;
+            leftHtml  += '<div class="diff-line"><span class="diff-line-num">' + leftNum  + '</span><span class="diff-line-code">' + cell + '</span></div>';
+            rightHtml += '<div class="diff-line"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + cell + '</span></div>';
         } else if (op[0] === 'remove') {
             leftNum++;
-            var line = escHtml(op[1]);
-            leftHtml  += '<div class="diff-line diff-removed"><span class="diff-line-num">' + leftNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
-            rightHtml += '<div class="diff-line" style="opacity:0;pointer-events:none;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
-        } else if (op[0] === 'add') {
+            leftHtml  += '<div class="diff-line diff-removed"><span class="diff-line-num">' + leftNum + '</span><span class="diff-line-code">' + cell + '</span></div>';
+            rightHtml += '<div class="diff-line" style="visibility:hidden;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
+        } else {
             rightNum++;
-            var line = escHtml(op[1]);
-            leftHtml  += '<div class="diff-line" style="opacity:0;pointer-events:none;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
-            rightHtml += '<div class="diff-line diff-added"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+            leftHtml  += '<div class="diff-line" style="visibility:hidden;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
+            rightHtml += '<div class="diff-line diff-added"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + cell + '</span></div>';
         }
     });
 
-    var isEmpty = !origCode && !impCode;
-    if (isEmpty) {
+    if (!origCode && !impCode) {
         document.getElementById('diffContainer').innerHTML =
-            '<div class="p-3 text-center" style="color:var(--text-muted);grid-column:1/-1">'
-          + '<i class="fas fa-code me-2"></i>개선된 코드를 추출하지 못했습니다. 원문 탭을 확인하세요.</div>';
+            '<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-muted);">'
+          + '<i class="fas fa-info-circle me-2"></i>개선 코드를 추출하지 못했습니다. 원문 탭을 확인하세요.</div>';
         return;
     }
-
     document.getElementById('diffContainer').innerHTML =
-        '<div class="diff-panel">'
-      + '  <div class="diff-panel-header diff-original-header"><i class="fas fa-minus-circle me-1"></i>원본 코드</div>'
-      + '  <div class="diff-body">' + leftHtml + '</div>'
-      + '</div>'
-      + '<div class="diff-panel">'
-      + '  <div class="diff-panel-header diff-improved-header"><i class="fas fa-plus-circle me-1"></i>개선된 코드</div>'
-      + '  <div class="diff-body">' + rightHtml + '</div>'
-      + '</div>';
+        '<div class="diff-panel"><div class="diff-panel-header diff-original-header">'
+      + '<i class="fas fa-minus-circle me-1"></i>원본 코드</div>'
+      + '<div class="diff-body">' + leftHtml + '</div></div>'
+      + '<div class="diff-panel"><div class="diff-panel-header diff-improved-header">'
+      + '<i class="fas fa-plus-circle me-1"></i>개선된 코드</div>'
+      + '<div class="diff-body">' + rightHtml + '</div></div>';
 }
 
-/* ── LCS-based line diff (max 200 lines) ────────────────────── */
 function lcsLineDiff(aLines, bLines) {
-    var a = aLines.slice(0, 200);
-    var b = bLines.slice(0, 200);
-    var m = a.length, n = b.length;
+    var a = aLines.slice(0, 200), b = bLines.slice(0, 200);
+    var m = a.length, n = b.length, i, j;
     var dp = [];
-    var i, j;
     for (i = 0; i <= m; i++) { dp[i] = []; for (j = 0; j <= n; j++) dp[i][j] = 0; }
-    for (i = 1; i <= m; i++) {
-        for (j = 1; j <= n; j++) {
-            dp[i][j] = (a[i-1] === b[j-1]) ? dp[i-1][j-1] + 1
-                       : Math.max(dp[i-1][j], dp[i][j-1]);
-        }
-    }
-    var ops = [];
-    i = m; j = n;
+    for (i = 1; i <= m; i++)
+        for (j = 1; j <= n; j++)
+            dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j], dp[i][j-1]);
+    var ops = []; i = m; j = n;
     while (i > 0 || j > 0) {
-        if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
-            ops.unshift(['same', a[i-1]]); i--; j--;
-        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
-            ops.unshift(['add', b[j-1]]); j--;
-        } else {
-            ops.unshift(['remove', a[i-1]]); i--;
-        }
+        if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift(['same',   a[i-1]]); i--; j--; }
+        else if (j > 0 && (i===0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift(['add',    b[j-1]]); j--; }
+        else { ops.unshift(['remove', a[i-1]]); i--; }
     }
-    // Append remaining lines (>200) as same
     for (var k = 200; k < aLines.length; k++) ops.push(['remove', aLines[k]]);
     for (var k = 200; k < bLines.length; k++) ops.push(['add',    bLines[k]]);
     return ops;
 }
 
-/* ── Section extractor ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Text utilities
+   ═══════════════════════════════════════════════════════════════ */
+function extractCodeBlock(text, lang) {
+    var markers = ['## 🔧 개선된 코드', '## 개선된 코드'];
+    var sectionIdx = -1;
+    for (var i = 0; i < markers.length; i++) {
+        var idx = text.indexOf(markers[i]);
+        if (idx >= 0) { sectionIdx = idx; break; }
+    }
+    var src     = sectionIdx >= 0 ? text.substring(sectionIdx) : text;
+    var langTag = lang === 'sql' ? '```sql' : '```java';
+    var start   = src.indexOf(langTag);
+    if (start === -1) start = src.indexOf('```');
+    if (start === -1) return '';
+    var cs  = src.indexOf('\n', start) + 1;
+    var end = src.indexOf('```', cs);
+    return (end === -1 ? src.substring(cs) : src.substring(cs, end)).trim();
+}
+
 function extractSection(text, headings) {
     if (!text) return '';
-    // Find first matching heading
     var startIdx = -1;
-    var headingLen = 0;
     for (var i = 0; i < headings.length; i++) {
-        var marker = '## ' + headings[i];
-        var idx = text.indexOf(marker);
-        if (idx >= 0) { startIdx = idx + marker.length; headingLen = marker.length; break; }
+        var idx = text.indexOf('## ' + headings[i]);
+        if (idx >= 0) { startIdx = idx + ('## ' + headings[i]).length; break; }
     }
     if (startIdx < 0) return '';
-
-    // Find next ## heading
     var nextIdx = text.indexOf('\n## ', startIdx);
     var section = nextIdx >= 0 ? text.substring(startIdx, nextIdx) : text.substring(startIdx);
-
-    // If multiple headings requested, also grab subsequent ones until next ##
+    // For review tab, also grab subsequent sections
     if (headings.length > 1) {
         for (var h = 1; h < headings.length; h++) {
-            var marker2 = '## ' + headings[h];
-            var idx2 = text.indexOf(marker2);
-            if (idx2 >= 0) {
-                var after = idx2 + marker2.length;
+            var m2  = '## ' + headings[h];
+            var i2  = text.indexOf(m2);
+            if (i2 >= 0) {
+                var after = i2 + m2.length;
                 var next2 = text.indexOf('\n## ', after);
                 var extra = next2 >= 0 ? text.substring(after, next2) : text.substring(after);
                 section += '\n\n**' + headings[h] + '**\n' + extra;
@@ -614,79 +970,50 @@ function extractSection(text, headings) {
     return section.trim();
 }
 
-/* ── Code block extractor ───────────────────────────────────── */
-function extractCodeBlock(text, lang) {
-    var sectionMarkers = ['## 🔧 개선된 코드', '## 개선된 코드'];
-    var sectionIdx = -1;
-    for (var i = 0; i < sectionMarkers.length; i++) {
-        var idx = text.indexOf(sectionMarkers[i]);
-        if (idx >= 0) { sectionIdx = idx; break; }
-    }
-    var searchIn = sectionIdx >= 0 ? text.substring(sectionIdx) : text;
-    var langTag  = (lang === 'sql') ? '```sql' : '```java';
-    var start    = searchIn.indexOf(langTag);
-    if (start === -1) start = searchIn.indexOf('```');
-    if (start === -1) return '';
-    var codeStart = searchIn.indexOf('\n', start) + 1;
-    var end       = searchIn.indexOf('```', codeStart);
-    if (end === -1) return searchIn.substring(codeStart).trim();
-    return searchIn.substring(codeStart, end).trim();
-}
-
-/* ── Simple Markdown renderer ───────────────────────────────── */
-function renderMarkdown(text) {
+function renderMd(text) {
     if (!text) return '<span style="color:var(--text-muted)">내용 없음</span>';
-    var html = escHtml(text);
-    // Bold
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Code inline
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // Fenced code block
-    html = html.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
-    // APPROVED / NEEDS_REVISION
-    html = html.replace(/APPROVED/g, '<span class="verdict-approved">✅ APPROVED</span>');
-    html = html.replace(/NEEDS_REVISION/g, '<span class="verdict-revision">⚠️ NEEDS_REVISION</span>');
-    // Headings
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-    // List items
-    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>[\s\S]*?<\/li>)/g, function(m) {
-        return m.indexOf('<ul>') === -1 ? '<ul>' + m + '</ul>' : m;
-    });
-    // Line breaks
-    html = html.replace(/\n\n/g, '<br><br>');
-    html = html.replace(/\n/g,   '<br>');
-    return html;
+    var h = escHtml(text);
+    h = h.replace(/\*\*(.+?)\*\*/g,  '<strong>$1</strong>');
+    h = h.replace(/`([^`]+)`/g,       '<code>$1</code>');
+    h = h.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
+    h = h.replace(/APPROVED/g,        '<span class="verdict-approved">✅ APPROVED</span>');
+    h = h.replace(/NEEDS_REVISION/g,  '<span class="verdict-revision">⚠️ NEEDS_REVISION</span>');
+    h = h.replace(/^### (.+)$/gm,     '<h3>$1</h3>');
+    h = h.replace(/^## (.+)$/gm,      '<h2>$1</h2>');
+    h = h.replace(/^- (.+)$/gm,       '<li>$1</li>');
+    h = h.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>');
+    h = h.replace(/\n\n/g,            '<br><br>');
+    h = h.replace(/\n/g,              '<br>');
+    return h;
 }
 
-/* ── Copy helpers ───────────────────────────────────────────── */
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Copy / save
+   ═══════════════════════════════════════════════════════════════ */
 function copyCode(which) {
-    var text = (which === 'original') ? currentOrigCode : currentImpCode;
+    var text = which === 'original' ? currentOrigCode : currentImpCode;
     if (!text) { alert('복사할 내용이 없습니다.'); return; }
     navigator.clipboard.writeText(text).then(function() {
-        alert((which === 'original' ? '원본 코드' : '개선 코드') + '가 클립보드에 복사되었습니다.');
+        showToast((which === 'original' ? '원본' : '개선') + ' 코드가 클립보드에 복사되었습니다.');
     }).catch(function() {
         var ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
     });
 }
 function copyRaw() {
-    if (!currentFullResp) return;
-    navigator.clipboard.writeText(currentFullResp).catch(function() {});
+    if (currentFullResp) navigator.clipboard.writeText(currentFullResp).catch(function() {});
 }
-
 function saveMd() {
     if (!currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
-    var content = '# 코드 리뷰 하네스 결과\n\n'
-                + '**언어**: ' + currentLang.toUpperCase() + '\n\n'
-                + '---\n\n'
-                + currentFullResp;
-    var blob = new Blob([content], {type:'text/markdown;charset=utf-8'});
+    var content = '# 코드 리뷰 하네스 결과\n\n**언어**: '
+                + currentLang.toUpperCase() + '\n\n---\n\n' + currentFullResp;
+    var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
     a.href   = url;
@@ -694,13 +1021,18 @@ function saveMd() {
     a.click();
     URL.revokeObjectURL(url);
 }
-
-/* ── Utils ──────────────────────────────────────────────────── */
-function escHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function showToast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;'
+                    + 'padding:8px 16px;border-radius:8px;font-size:.8rem;z-index:9999;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function() { t.remove(); }, 2800);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Clear
+   ═══════════════════════════════════════════════════════════════ */
 function clearAll() {
     document.getElementById('codeInput').value = '';
     document.getElementById('emptyState').style.display  = '';
@@ -713,16 +1045,19 @@ function clearAll() {
     document.getElementById('analyzeBtn').disabled = false;
 }
 
-/* ── Auto-save input ────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   Auto-save input to localStorage
+   ═══════════════════════════════════════════════════════════════ */
 (function() {
-    var key = 'harness_input_v1';
+    var key   = 'harness_input_v1';
     var saved = localStorage.getItem(key);
     if (saved) document.getElementById('codeInput').value = saved;
     var timer;
     document.getElementById('codeInput').addEventListener('input', function() {
         clearTimeout(timer);
         timer = setTimeout(function() {
-            try { localStorage.setItem(key, document.getElementById('codeInput').value); } catch(e) {}
+            try { localStorage.setItem(key, document.getElementById('codeInput').value); }
+            catch(e) {}
         }, 1500);
     });
 })();

@@ -1,25 +1,30 @@
 package io.github.claudetoolkit.ui.controller;
 
+import io.github.claudetoolkit.ui.harness.HarnessCacheService;
+import io.github.claudetoolkit.ui.harness.HarnessCacheService.DbObjectEntry;
+import io.github.claudetoolkit.ui.harness.HarnessCacheService.FileEntry;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Controller for the Code Review Harness feature (/harness).
  *
- * <p>Implements a 3-step AI pipeline (Analyst → Builder → Reviewer) that:
- * <ol>
- *   <li>Accepts Java or SQL source code input</li>
- *   <li>Returns improved code with a side-by-side diff view</li>
- *   <li>Provides structured explanation of all changes</li>
- * </ol>
- *
- * <p>Supports both synchronous (full result at once) and SSE streaming modes.
+ * <p>Analyst → Builder → Reviewer 3-step pipeline with:
+ * <ul>
+ *   <li>Manual code/SQL input (textarea)</li>
+ *   <li>Project Java file browser (backed by {@link HarnessCacheService})</li>
+ *   <li>Oracle DB object browser with source fetch</li>
+ *   <li>Side-by-side LCS diff view</li>
+ *   <li>SSE streaming mode</li>
+ * </ul>
  */
 @Controller
 @RequestMapping("/harness")
@@ -28,24 +33,30 @@ public class HarnessController {
     private final HarnessReviewService harnessService;
     private final ReviewHistoryService historyService;
     private final SseStreamController  sseStreamController;
+    private final HarnessCacheService  cacheService;
 
     public HarnessController(HarnessReviewService harnessService,
                              ReviewHistoryService historyService,
-                             SseStreamController sseStreamController) {
+                             SseStreamController  sseStreamController,
+                             HarnessCacheService  cacheService) {
         this.harnessService      = harnessService;
         this.historyService      = historyService;
         this.sseStreamController = sseStreamController;
+        this.cacheService        = cacheService;
     }
 
-    /** Show the harness input/result page. */
+    // ── Page ─────────────────────────────────────────────────────────────────
+
     @GetMapping
     public String index(Model model) {
         return "harness/index";
     }
 
+    // ── Pipeline analysis ─────────────────────────────────────────────────────
+
     /**
      * Run the full harness pipeline synchronously.
-     * Returns JSON with originalCode, improvedCode, fullResponse.
+     * Returns JSON: {success, originalCode, improvedCode, fullResponse, language}
      */
     @PostMapping("/analyze")
     @ResponseBody
@@ -73,8 +84,8 @@ public class HarnessController {
     }
 
     /**
-     * Register an SSE stream for streaming harness analysis.
-     * After calling this, open GET /stream/{streamId} for real-time output.
+     * Register an SSE stream for real-time streaming harness analysis.
+     * After calling this endpoint, open GET /stream/{streamId}.
      */
     @PostMapping("/stream-init")
     @ResponseBody
@@ -92,6 +103,172 @@ public class HarnessController {
             result.put("success", false);
             result.put("error",   e.getMessage() != null
                     ? e.getMessage() : "스트림 등록 오류");
+        }
+        return result;
+    }
+
+    // ── Cache: Java file browser ──────────────────────────────────────────────
+
+    /**
+     * Returns list of Java files from the startup cache.
+     * Supports keyword search (filters relativePath and fileName).
+     * Response is capped at 200 items; use {@code q} to narrow down.
+     */
+    @GetMapping("/cache/files")
+    @ResponseBody
+    public Map<String, Object> getCachedFiles(
+            @RequestParam(value = "q", defaultValue = "") String q) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        List<FileEntry> all = cacheService.getCachedFiles();
+
+        if (!q.trim().isEmpty()) {
+            String kw = q.trim().toLowerCase();
+            List<FileEntry> filtered = new ArrayList<FileEntry>();
+            for (FileEntry f : all) {
+                if (f.relativePath.toLowerCase().contains(kw)
+                        || f.fileName.toLowerCase().contains(kw)) {
+                    filtered.add(f);
+                }
+            }
+            all = filtered;
+        }
+
+        int total      = all.size();
+        List<FileEntry> page = total > 200 ? all.subList(0, 200) : all;
+
+        result.put("loaded",      cacheService.isFileCacheLoaded());
+        result.put("refreshing",  cacheService.isFileRefreshing());
+        result.put("totalCount",  cacheService.getCachedFiles().size()); // unfiltered total
+        result.put("count",       total);
+        result.put("files",       page);
+        result.put("lastRefresh", cacheService.getLastFileRefresh());
+        return result;
+    }
+
+    /**
+     * Reads and returns the content of a Java file.
+     * Security: path must be under the configured project scan path.
+     */
+    @GetMapping("/cache/file-content")
+    @ResponseBody
+    public Map<String, Object> getFileContent(
+            @RequestParam("path") String path) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        String content = cacheService.readFileContent(path);
+        if (content == null) {
+            result.put("success", false);
+            result.put("error",   "파일을 읽을 수 없습니다. 경로를 확인하거나 Settings에서 프로젝트 경로를 설정하세요.");
+        } else {
+            result.put("success", true);
+            result.put("content", content);
+        }
+        return result;
+    }
+
+    // ── Cache: Oracle DB object browser ──────────────────────────────────────
+
+    /**
+     * Returns list of Oracle DB objects from the startup cache.
+     * Supports keyword search and optional type filter.
+     * Response is capped at 300 items.
+     */
+    @GetMapping("/cache/db-objects")
+    @ResponseBody
+    public Map<String, Object> getCachedDbObjects(
+            @RequestParam(value = "q",    defaultValue = "") String q,
+            @RequestParam(value = "type", defaultValue = "") String type) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        List<DbObjectEntry> all = cacheService.getCachedDbObjects();
+
+        if (!q.trim().isEmpty()) {
+            String kw = q.trim().toLowerCase();
+            List<DbObjectEntry> filtered = new ArrayList<DbObjectEntry>();
+            for (DbObjectEntry o : all) {
+                if (o.name.toLowerCase().contains(kw)
+                        || o.owner.toLowerCase().contains(kw)) {
+                    filtered.add(o);
+                }
+            }
+            all = filtered;
+        }
+        if (!type.trim().isEmpty()) {
+            List<DbObjectEntry> filtered = new ArrayList<DbObjectEntry>();
+            for (DbObjectEntry o : all) {
+                if (type.trim().toUpperCase().equals(o.type)) {
+                    filtered.add(o);
+                }
+            }
+            all = filtered;
+        }
+
+        int total = all.size();
+        List<DbObjectEntry> page = total > 300 ? all.subList(0, 300) : all;
+
+        result.put("loaded",      cacheService.isDbCacheLoaded());
+        result.put("refreshing",  cacheService.isDbRefreshing());
+        result.put("totalCount",  cacheService.getCachedDbObjects().size());
+        result.put("count",       total);
+        result.put("objects",     page);
+        result.put("lastRefresh", cacheService.getLastDbRefresh());
+        return result;
+    }
+
+    /**
+     * Fetches the full source code of an Oracle DB object from ALL_SOURCE.
+     * This makes a live DB query (not cached) to ensure freshness.
+     */
+    @GetMapping("/cache/db-source")
+    @ResponseBody
+    public Map<String, Object> getDbSource(
+            @RequestParam("name") String name,
+            @RequestParam("type") String type) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        String source = cacheService.getDbObjectSource(name, type);
+        if (source == null) {
+            result.put("success", false);
+            result.put("error",   "소스를 가져올 수 없습니다. DB 연결 상태를 확인하세요.");
+        } else {
+            result.put("success", true);
+            result.put("source",  source);
+            result.put("name",    name);
+            result.put("type",    type);
+        }
+        return result;
+    }
+
+    /**
+     * Triggers asynchronous cache refresh.
+     * {@code target}: "all" (default), "files", "db"
+     */
+    @PostMapping("/cache/refresh")
+    @ResponseBody
+    public Map<String, Object> refreshCache(
+            @RequestParam(value = "target", defaultValue = "all") final String target) {
+
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        try {
+            Thread t = new Thread(new Runnable() {
+                public void run() {
+                    if ("all".equals(target) || "files".equals(target)) {
+                        cacheService.refreshFileCache();
+                    }
+                    if ("all".equals(target) || "db".equals(target)) {
+                        cacheService.refreshDbCache();
+                    }
+                }
+            });
+            t.setDaemon(true);
+            t.setName("harness-cache-refresh");
+            t.start();
+            result.put("success", true);
+            result.put("message", "캐시 갱신을 백그라운드에서 시작했습니다.");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error",   e.getMessage() != null ? e.getMessage() : "갱신 실패");
         }
         return result;
     }
