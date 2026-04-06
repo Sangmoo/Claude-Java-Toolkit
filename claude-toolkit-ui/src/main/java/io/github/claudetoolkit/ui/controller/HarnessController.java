@@ -209,6 +209,8 @@ public class HarnessController {
 
         result.put("loaded",      cacheService.isDbCacheLoaded());
         result.put("refreshing",  cacheService.isDbRefreshing());
+        result.put("configured",  cacheService.isDbConfiguredAtLastRefresh());
+        result.put("dbError",     cacheService.getLastDbError());
         result.put("totalCount",  cacheService.getCachedDbObjects().size());
         result.put("count",       total);
         result.put("objects",     page);

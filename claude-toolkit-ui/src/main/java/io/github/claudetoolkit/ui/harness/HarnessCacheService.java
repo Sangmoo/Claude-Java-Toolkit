@@ -47,9 +47,13 @@ public class HarnessCacheService {
     private final    AtomicBoolean    fileRefreshing  = new AtomicBoolean(false);
 
     // ── DB cache ──────────────────────────────────────────────────────────────
-    private final List<DbObjectEntry> cachedDbObjects = new CopyOnWriteArrayList<DbObjectEntry>();
-    private volatile long             lastDbRefresh   = 0;
-    private final    AtomicBoolean    dbRefreshing    = new AtomicBoolean(false);
+    private final List<DbObjectEntry> cachedDbObjects  = new CopyOnWriteArrayList<DbObjectEntry>();
+    private volatile long             lastDbRefresh    = 0;
+    private final    AtomicBoolean    dbRefreshing     = new AtomicBoolean(false);
+    /** Whether DB was configured (URL+username+password) at the time of last refresh attempt. */
+    private volatile boolean          dbConfigured     = false;
+    /** Last DB connection error message, or null if last refresh succeeded / never ran. */
+    private volatile String           lastDbError      = null;
 
     public HarnessCacheService(ToolkitSettings settings) {
         this.settings = settings;
@@ -114,14 +118,17 @@ public class HarnessCacheService {
     public void refreshDbCache() {
         if (!dbRefreshing.compareAndSet(false, true)) return;
         try {
-            if (!settings.isDbConfigured()) {
+            dbConfigured = settings.isDbConfigured();
+            if (!dbConfigured) {
                 cachedDbObjects.clear();
+                lastDbError   = null;
                 lastDbRefresh = System.currentTimeMillis();
                 return;
             }
             ToolkitSettings.Db db = settings.getDb();
             List<DbObjectEntry> objects = new ArrayList<DbObjectEntry>();
             Connection conn = null;
+            String errorMsg = null;
             try {
                 Class.forName("oracle.jdbc.OracleDriver");
                 conn = DriverManager.getConnection(
@@ -148,7 +155,8 @@ public class HarnessCacheService {
                 rs.close();
                 st.close();
             } catch (Exception ex) {
-                // Silently fail — DB may be unreachable at startup
+                // Capture the error so callers can display a meaningful message
+                errorMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
             } finally {
                 if (conn != null) {
                     try { conn.close(); } catch (Exception ignored) {}
@@ -156,6 +164,7 @@ public class HarnessCacheService {
             }
             cachedDbObjects.clear();
             cachedDbObjects.addAll(objects);
+            lastDbError   = errorMsg;
             lastDbRefresh = System.currentTimeMillis();
         } finally {
             dbRefreshing.set(false);
@@ -251,6 +260,10 @@ public class HarnessCacheService {
     public boolean isDbCacheLoaded()      { return lastDbRefresh  > 0; }
     public boolean isFileRefreshing()     { return fileRefreshing.get(); }
     public boolean isDbRefreshing()       { return dbRefreshing.get(); }
+    /** Whether DB URL/username/password were configured at last refresh attempt. */
+    public boolean isDbConfiguredAtLastRefresh() { return dbConfigured; }
+    /** Last DB connection/query error message, or null if last refresh was successful. */
+    public String  getLastDbError()       { return lastDbError; }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
