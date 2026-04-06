@@ -21,16 +21,26 @@ import java.util.function.Consumer;
  * 분석할 때 max_tokens 한도 내에 응답이 끝나지 않아 변경 내역·검토 결과가
  * 잘리는 문제가 있었습니다. 분리 호출 방식은 각 단계가 집중된 작업만 수행하므로
  * 토큰 한도를 초과하지 않습니다.
+ *
+ * <p>Builder 단계는 {@link io.github.claudetoolkit.starter.client.ClaudeClient#chatWithContinuation}
+ * / {@code chatStreamWithContinuation}을 사용하므로, 8192 토큰을 초과하는 대형 SP도
+ * 이어쓰기(continuation)로 완전하게 출력됩니다 (최대 3회 추가 호출 = 약 32,768 토큰).
  */
 @Service
 public class HarnessReviewService {
 
     /** Analyst: 분석 결과는 항목 목록이므로 짧습니다. */
-    private static final int TOKENS_ANALYST  = 2048;
+    private static final int TOKENS_ANALYST        = 2048;
     /** Builder: 전체 개선 코드를 출력하므로 가장 큰 예산이 필요합니다. */
-    private static final int TOKENS_BUILDER  = 8192;
+    private static final int TOKENS_BUILDER        = 8192;
     /** Reviewer: 변경 내역·기대 효과·최종 판정 3개 섹션. */
-    private static final int TOKENS_REVIEWER = 3072;
+    private static final int TOKENS_REVIEWER       = 3072;
+    /**
+     * Builder 단계 이어쓰기 최대 횟수.
+     * 1회 추가 = 최대 16,384 토큰, 2회 = 24,576 토큰, 3회 = 32,768 토큰 출력 가능.
+     * 대부분의 대형 SP/패키지는 3회 이내에 완결됩니다.
+     */
+    private static final int BUILDER_CONTINUATIONS = 3;
 
     private final ClaudeClient    claudeClient;
     private final ToolkitSettings settings;
@@ -56,11 +66,11 @@ public class HarnessReviewService {
                 buildAnalystUser(code, language),
                 TOKENS_ANALYST);
 
-        // 2단계: Builder — 개선 코드 작성 (코드 펜스 없이 순수 코드만 요청)
-        String rawImproved = claudeClient.chat(
+        // 2단계: Builder — 개선 코드 작성 (이어쓰기로 대형 SP도 완전 출력 보장)
+        String rawImproved = claudeClient.chatWithContinuation(
                 withMemo(buildBuilderSystem(language), memo),
                 buildBuilderUser(code, analysis.trim(), language),
-                TOKENS_BUILDER);
+                TOKENS_BUILDER, BUILDER_CONTINUATIONS);
         String improved = stripCodeFences(rawImproved.trim(), language);
 
         // 3단계: Reviewer — 변경 내역·기대 효과·최종 판정
@@ -106,13 +116,13 @@ public class HarnessReviewService {
                 });
         String analysis = analysisBuf.toString().trim();
 
-        // ── 2단계: Builder ────────────────────────────────────────────────────
+        // ── 2단계: Builder — 이어쓰기로 대형 SP도 완전 출력 보장 ──────────────
         onChunk.accept("\n\n## 🔧 개선된 코드\n```" + codeBlock + "\n");
         final StringBuilder improvedBuf = new StringBuilder();
-        claudeClient.chatStream(
+        claudeClient.chatStreamWithContinuation(
                 withMemo(buildBuilderSystem(language), memo),
                 buildBuilderUser(code, analysis, language),
-                TOKENS_BUILDER,
+                TOKENS_BUILDER, BUILDER_CONTINUATIONS,
                 new Consumer<String>() {
                     public void accept(String chunk) {
                         improvedBuf.append(chunk);
