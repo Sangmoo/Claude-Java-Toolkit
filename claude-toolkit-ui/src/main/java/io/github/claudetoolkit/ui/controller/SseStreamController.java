@@ -112,7 +112,10 @@ public class SseStreamController {
                     }
                     String userMessage  = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
 
-                    claudeClient.chatStream(systemPrompt, userMessage, new Consumer<String>() {
+                    // 하네스는 응답이 길므로 8192 토큰으로 고정, 나머지는 기본값 사용
+                    final int streamMaxTokens = "harness_review".equals(input.feature) ? 8192
+                            : claudeClient.getProperties().getMaxTokens();
+                    claudeClient.chatStream(systemPrompt, userMessage, streamMaxTokens, new Consumer<String>() {
                         public void accept(String chunk) {
                             try { emitter.send(SseEmitter.event().data(chunk)); }
                             catch (IOException e) { emitter.completeWithError(e); }

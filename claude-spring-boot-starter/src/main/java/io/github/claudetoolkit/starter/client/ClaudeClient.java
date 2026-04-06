@@ -76,6 +76,17 @@ public class ClaudeClient {
         return sendRequest(request);
     }
 
+    /** Variant that overrides max_tokens for this call only (e.g. long harness responses). */
+    public String chat(String systemPrompt, String userMessage, int maxTokens) {
+        ClaudeRequest request = ClaudeRequest.builder()
+                .model(getEffectiveModel())
+                .maxTokens(maxTokens)
+                .system(systemPrompt)
+                .messages(Collections.singletonList(ClaudeMessage.ofUser(userMessage)))
+                .build();
+        return sendRequest(request);
+    }
+
     public String sendRequest(ClaudeRequest request) {
         try {
             String requestBody = objectMapper.writeValueAsString(request);
@@ -121,9 +132,15 @@ public class ClaudeClient {
      */
     public void chatStream(String systemPrompt, String userMessage,
                            Consumer<String> onChunk) throws IOException {
+        chatStream(systemPrompt, userMessage, properties.getMaxTokens(), onChunk);
+    }
+
+    /** Variant that overrides max_tokens for this streaming call only. */
+    public void chatStream(String systemPrompt, String userMessage,
+                           int maxTokens, Consumer<String> onChunk) throws IOException {
         ClaudeRequest.Builder builder = ClaudeRequest.builder()
                 .model(getEffectiveModel())
-                .maxTokens(properties.getMaxTokens())
+                .maxTokens(maxTokens)
                 .stream(true)
                 .messages(Collections.singletonList(ClaudeMessage.ofUser(userMessage)));
         if (systemPrompt != null && !systemPrompt.isEmpty()) {
@@ -183,6 +200,9 @@ public class ClaudeClient {
 
     /** Returns the model name configured for this client. */
     public String getModel()  { return properties.getModel(); }
+
+    /** Returns the underlying properties (for callers needing maxTokens etc.). */
+    public ClaudeProperties getProperties() { return properties; }
 
     /** Returns input token count from the most recent non-streaming request. */
     public int getLastInputTokens()  { return lastInputTokens; }

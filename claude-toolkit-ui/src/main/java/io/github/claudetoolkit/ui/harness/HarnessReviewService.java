@@ -37,7 +37,9 @@ public class HarnessReviewService {
         if (memoContext != null && !memoContext.trim().isEmpty()) {
             systemPrompt = systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memoContext;
         }
-        return claudeClient.chat(systemPrompt, buildUserMessage(code, language));
+        // 하네스는 5개 섹션(분석·개선코드·변경내역·기대효과·검토의견)을 한 번에 출력하므로
+        // 큰 소스일수록 응답이 길어짐 — 모델 최대값(8192)을 명시해 중간 잘림 방지
+        return claudeClient.chat(systemPrompt, buildUserMessage(code, language), 8192);
     }
 
     /**
