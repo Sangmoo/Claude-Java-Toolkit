@@ -4,17 +4,33 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.util.function.Consumer;
+
 /**
  * Harness pipeline service: Analyst → Builder → Reviewer
  *
- * <p>Runs a 3-step structured AI review pipeline in a single Claude call.
- * The response is divided into clearly-delimited Markdown sections so the
- * UI can render diff view, analysis, change log and review verdict separately.
+ * <p>각 단계를 <strong>독립된 3번의 API 호출</strong>로 분리합니다.
+ * <ul>
+ *   <li>1단계 Analyst  — 문제점 분석 목록 (max 2048 토큰)</li>
+ *   <li>2단계 Builder  — 완성된 개선 코드 (max 8192 토큰)</li>
+ *   <li>3단계 Reviewer — 변경 내역·기대 효과·최종 판정 (max 3072 토큰)</li>
+ * </ul>
  *
- * <p>Supports Java/Spring and Oracle SQL inputs.
+ * <p>단일 호출로 전체 5개 섹션을 한번에 요청하던 구조에서는 대형 SP/클래스를
+ * 분석할 때 max_tokens 한도 내에 응답이 끝나지 않아 변경 내역·검토 결과가
+ * 잘리는 문제가 있었습니다. 분리 호출 방식은 각 단계가 집중된 작업만 수행하므로
+ * 토큰 한도를 초과하지 않습니다.
  */
 @Service
 public class HarnessReviewService {
+
+    /** Analyst: 분석 결과는 항목 목록이므로 짧습니다. */
+    private static final int TOKENS_ANALYST  = 2048;
+    /** Builder: 전체 개선 코드를 출력하므로 가장 큰 예산이 필요합니다. */
+    private static final int TOKENS_BUILDER  = 8192;
+    /** Reviewer: 변경 내역·기대 효과·최종 판정 3개 섹션. */
+    private static final int TOKENS_REVIEWER = 3072;
 
     private final ClaudeClient    claudeClient;
     private final ToolkitSettings settings;
@@ -24,92 +40,214 @@ public class HarnessReviewService {
         this.settings     = settings;
     }
 
-    /**
-     * Runs the full harness pipeline and returns the raw structured response.
-     *
-     * @param code     source code to analyze (Java or SQL)
-     * @param language "java" or "sql"
-     * @return raw Claude response with ## section headers
-     */
-    public String analyze(String code, String language) {
-        String systemPrompt = buildSystemPrompt(language);
-        String memoContext  = settings.getProjectContext();
-        if (memoContext != null && !memoContext.trim().isEmpty()) {
-            systemPrompt = systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memoContext;
-        }
-        // 하네스는 5개 섹션(분석·개선코드·변경내역·기대효과·검토의견)을 한 번에 출력하므로
-        // 큰 소스일수록 응답이 길어짐 — 모델 최대값(8192)을 명시해 중간 잘림 방지
-        return claudeClient.chat(systemPrompt, buildUserMessage(code, language), 8192);
-    }
+    // ── 파이프라인: 비스트리밍 ─────────────────────────────────────────────────
 
     /**
-     * Extracts the improved code block from the "## 🔧 개선된 코드" section.
+     * 3단계 파이프라인을 순차 실행하고, UI가 기대하는 ## 섹션 형식으로 조립한 결과를 반환합니다.
+     */
+    public String analyze(String code, String language) {
+        boolean isSql    = "sql".equalsIgnoreCase(language);
+        String codeBlock = isSql ? "sql" : "java";
+        String memo      = settings.getProjectContext();
+
+        // 1단계: Analyst — 문제점 분석
+        String analysis = claudeClient.chat(
+                withMemo(buildAnalystSystem(language), memo),
+                buildAnalystUser(code, language),
+                TOKENS_ANALYST);
+
+        // 2단계: Builder — 개선 코드 작성 (코드 펜스 없이 순수 코드만 요청)
+        String rawImproved = claudeClient.chat(
+                withMemo(buildBuilderSystem(language), memo),
+                buildBuilderUser(code, analysis.trim(), language),
+                TOKENS_BUILDER);
+        String improved = stripCodeFences(rawImproved.trim(), language);
+
+        // 3단계: Reviewer — 변경 내역·기대 효과·최종 판정
+        String reviewSections = claudeClient.chat(
+                withMemo(buildReviewerSystem(language), memo),
+                buildReviewerUser(code, improved, analysis.trim(), language),
+                TOKENS_REVIEWER);
+
+        // UI extractSection() 이 기대하는 ## 섹션 형식으로 조립
+        return "## 📋 분석 요약\n" + analysis.trim()
+             + "\n\n## 🔧 개선된 코드\n```" + codeBlock + "\n" + improved + "\n```"
+             + "\n\n" + reviewSections.trim();
+    }
+
+    // ── 파이프라인: SSE 스트리밍 ──────────────────────────────────────────────
+
+    /**
+     * 3단계를 순차 스트리밍합니다. 각 단계의 헤더를 직접 emit한 뒤 해당 단계의
+     * Claude 응답을 실시간으로 흘려보냅니다.
      *
-     * @param response raw Claude response text
-     * @param language "java" or "sql"
-     * @return extracted code string, or empty string if not found
+     * @param code     분석할 소스 코드
+     * @param language "java" 또는 "sql"
+     * @param onChunk  텍스트 청크를 수신할 콜백
+     */
+    public void analyzeStream(String code, String language,
+                              Consumer<String> onChunk) throws IOException {
+        boolean isSql    = "sql".equalsIgnoreCase(language);
+        String codeBlock = isSql ? "sql" : "java";
+        String memo      = settings.getProjectContext();
+
+        // ── 1단계: Analyst ────────────────────────────────────────────────────
+        onChunk.accept("## 📋 분석 요약\n");
+        final StringBuilder analysisBuf = new StringBuilder();
+        claudeClient.chatStream(
+                withMemo(buildAnalystSystem(language), memo),
+                buildAnalystUser(code, language),
+                TOKENS_ANALYST,
+                new Consumer<String>() {
+                    public void accept(String chunk) {
+                        analysisBuf.append(chunk);
+                        onChunk.accept(chunk);
+                    }
+                });
+        String analysis = analysisBuf.toString().trim();
+
+        // ── 2단계: Builder ────────────────────────────────────────────────────
+        onChunk.accept("\n\n## 🔧 개선된 코드\n```" + codeBlock + "\n");
+        final StringBuilder improvedBuf = new StringBuilder();
+        claudeClient.chatStream(
+                withMemo(buildBuilderSystem(language), memo),
+                buildBuilderUser(code, analysis, language),
+                TOKENS_BUILDER,
+                new Consumer<String>() {
+                    public void accept(String chunk) {
+                        improvedBuf.append(chunk);
+                        onChunk.accept(chunk);
+                    }
+                });
+        String improved = stripCodeFences(improvedBuf.toString().trim(), language);
+        onChunk.accept("\n```\n");
+
+        // ── 3단계: Reviewer ───────────────────────────────────────────────────
+        onChunk.accept("\n");
+        claudeClient.chatStream(
+                withMemo(buildReviewerSystem(language), memo),
+                buildReviewerUser(code, improved, analysis, language),
+                TOKENS_REVIEWER,
+                onChunk);
+    }
+
+    // ── 개선 코드 추출 (UI 호환) ───────────────────────────────────────────────
+
+    /**
+     * "## 🔧 개선된 코드" 섹션의 코드 펜스 안 내용을 추출합니다.
+     * {@link #analyze} 가 조립한 텍스트와 스트리밍 파싱 모두에서 사용됩니다.
      */
     public String extractImprovedCode(String response, String language) {
-        // Narrow search to the section starting with 개선된 코드
         String[] markers = {"## 🔧 개선된 코드", "## 개선된 코드"};
         int sectionIdx = -1;
         for (String m : markers) {
             int idx = response.indexOf(m);
             if (idx >= 0) { sectionIdx = idx; break; }
         }
-        String searchIn = sectionIdx >= 0 ? response.substring(sectionIdx) : response;
-
-        // Find first code fence in that section (prefer language-tagged fence)
-        String langTag = "sql".equalsIgnoreCase(language) ? "```sql" : "```java";
+        String searchIn  = sectionIdx >= 0 ? response.substring(sectionIdx) : response;
+        String langTag   = "sql".equalsIgnoreCase(language) ? "```sql" : "```java";
         int start = searchIn.indexOf(langTag);
         if (start == -1) start = searchIn.indexOf("```");
         if (start == -1) return "";
-
         int codeStart = searchIn.indexOf("\n", start);
         if (codeStart == -1) return "";
         codeStart = codeStart + 1;
-
         int end = searchIn.indexOf("```", codeStart);
         if (end == -1) return searchIn.substring(codeStart).trim();
         return searchIn.substring(codeStart, end).trim();
     }
 
-    // ── Prompt builders ───────────────────────────────────────────────────────
+    // ── 시스템 프롬프트 ────────────────────────────────────────────────────────
 
-    private String buildSystemPrompt(String language) {
-        boolean isSql    = "sql".equalsIgnoreCase(language);
-        String langName  = isSql ? "Oracle SQL"   : "Java/Spring";
-        String codeBlock = isSql ? "sql"           : "java";
-
-        return "당신은 " + langName + " 코드 품질 개선 파이프라인입니다.\n"
-             + "다음 3단계 하네스(Harness) 프로세스를 순서대로 실행하여 코드를 개선하세요:\n\n"
-             + "**1단계 — 분석가(Analyst)**: 입력 코드를 꼼꼼히 검토하여 성능 문제, 안티패턴,"
-             + " 가독성 문제, 보안 취약점, 개선 가능 지점을 파악합니다.\n"
-             + "**2단계 — 개선가(Builder)**: 분석 결과를 토대로 모든 문제를 해결한 개선 코드를"
-             + " 작성합니다. 원본의 의도와 기능을 유지하면서 품질을 높입니다.\n"
-             + "**3단계 — 검토자(Reviewer)**: 개선 코드의 각 변경점을 검증하고 변경 내역과"
-             + " 기대 효과를 정리한 뒤, 최종 합격(APPROVED) 또는 추가 수정 필요(NEEDS_REVISION)"
-             + " 판정을 내립니다.\n\n"
-             + "반드시 아래 형식을 정확히 지켜서 응답하세요:\n\n"
-             + "## 📋 분석 요약\n"
-             + "[분석가 결과: 발견된 문제점을 항목 목록(- )으로]\n\n"
-             + "## 🔧 개선된 코드\n"
-             + "```" + codeBlock + "\n"
-             + "[개선가 결과: 완성된 전체 개선 코드]\n"
-             + "```\n\n"
-             + "## 📝 변경 내역\n"
-             + "[검토자 결과: 각 변경 사항과 이유를 항목 목록(- )으로]\n\n"
-             + "## 📈 기대 효과\n"
-             + "[검토자 결과: 성능·가독성·유지보수성·보안 측면 개선 효과]\n\n"
-             + "## ✅ 최종 검토 의견\n"
-             + "[검토자 결과: 종합 판정(APPROVED / NEEDS_REVISION), 심각도, 주의 사항]";
+    private String buildAnalystSystem(String language) {
+        boolean isSql   = "sql".equalsIgnoreCase(language);
+        String langName = isSql ? "Oracle SQL" : "Java/Spring";
+        return "당신은 " + langName + " 코드 분석 전문가(Analyst)입니다.\n"
+             + "입력된 코드를 꼼꼼히 검토하여 성능 문제, 안티패턴, 가독성 문제, "
+             + "보안 취약점, 개선 가능 지점을 파악하세요.\n"
+             + "발견된 문제점을 항목 목록(- )으로 간결하게 출력하세요. "
+             + "헤더나 전문(前文) 없이 목록부터 바로 시작하세요. 응답은 한국어로 작성하세요.";
     }
 
-    private String buildUserMessage(String code, String language) {
+    private String buildBuilderSystem(String language) {
+        boolean isSql   = "sql".equalsIgnoreCase(language);
+        String langName = isSql ? "Oracle SQL" : "Java/Spring";
+        return "당신은 " + langName + " 코드 개선 전문가(Builder)입니다.\n"
+             + "분석 결과에서 지적된 모든 문제를 해결한 완성된 개선 코드를 작성하세요.\n"
+             + "원본의 의도와 기능을 유지하면서 품질을 높이세요.\n"
+             + "반드시 코드만 출력하세요. 코드 펜스(```)나 설명 없이 순수 코드만 출력하세요.";
+    }
+
+    private String buildReviewerSystem(String language) {
+        boolean isSql   = "sql".equalsIgnoreCase(language);
+        String langName = isSql ? "Oracle SQL" : "Java/Spring";
+        return "당신은 " + langName + " 코드 검토자(Reviewer)입니다.\n"
+             + "원본 코드, 분석 결과, 개선된 코드를 비교하여 변경 내역을 검증하고 최종 판정을 내립니다.\n"
+             + "반드시 아래 3개 섹션 형식으로만 응답하세요:\n\n"
+             + "## 📝 변경 내역\n"
+             + "[각 변경 사항과 이유를 항목 목록(- )으로]\n\n"
+             + "## 📈 기대 효과\n"
+             + "[성능·가독성·유지보수성·보안 측면 개선 효과를 항목 목록(- )으로]\n\n"
+             + "## ✅ 최종 검토 의견\n"
+             + "[종합 판정(APPROVED / NEEDS_REVISION), 심각도, 주의 사항]\n\n"
+             + "응답은 한국어로 작성하세요.";
+    }
+
+    // ── 사용자 메시지 ─────────────────────────────────────────────────────────
+
+    private String buildAnalystUser(String code, String language) {
         boolean isSql    = "sql".equalsIgnoreCase(language);
         String langLabel = isSql ? "SQL"  : "Java";
         String codeBlock = isSql ? "sql"  : "java";
-        return "다음 " + langLabel + " 코드를 3단계 하네스 파이프라인으로 분석하고 개선해주세요:\n\n"
+        return "다음 " + langLabel + " 코드의 문제점을 분석하세요:\n\n"
              + "```" + codeBlock + "\n" + code + "\n```";
+    }
+
+    private String buildBuilderUser(String code, String analysis, String language) {
+        boolean isSql    = "sql".equalsIgnoreCase(language);
+        String langLabel = isSql ? "SQL"  : "Java";
+        String codeBlock = isSql ? "sql"  : "java";
+        return "다음 " + langLabel + " 코드를 아래 분석 결과를 반영하여 개선된 코드를 작성하세요.\n\n"
+             + "원본 코드:\n```" + codeBlock + "\n" + code + "\n```\n\n"
+             + "분석 결과:\n" + analysis;
+    }
+
+    private String buildReviewerUser(String code, String improved,
+                                     String analysis, String language) {
+        boolean isSql    = "sql".equalsIgnoreCase(language);
+        String langLabel = isSql ? "SQL"  : "Java";
+        String codeBlock = isSql ? "sql"  : "java";
+        return "다음 " + langLabel + " 코드 개선 결과를 검토하세요.\n\n"
+             + "원본 코드:\n```" + codeBlock + "\n" + code + "\n```\n\n"
+             + "분석 결과:\n" + analysis + "\n\n"
+             + "개선된 코드:\n```" + codeBlock + "\n" + improved + "\n```";
+    }
+
+    // ── 유틸리티 ──────────────────────────────────────────────────────────────
+
+    /** 시스템 프롬프트에 프로젝트 컨텍스트 메모를 추가합니다. */
+    private String withMemo(String systemPrompt, String memo) {
+        if (memo != null && !memo.trim().isEmpty()) {
+            return systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memo;
+        }
+        return systemPrompt;
+    }
+
+    /**
+     * Builder가 지시를 어기고 코드 펜스를 포함해 응답했을 경우 펜스를 제거합니다.
+     * 정상적으로 순수 코드만 왔으면 그대로 반환합니다.
+     */
+    private String stripCodeFences(String text, String language) {
+        if (text == null || text.isEmpty()) return text;
+        String langTag = "sql".equalsIgnoreCase(language) ? "```sql" : "```java";
+        int start = text.indexOf(langTag);
+        if (start == -1) start = text.indexOf("```");
+        if (start == -1) return text; // 펜스 없음 — 그대로 반환
+        int codeStart = text.indexOf('\n', start);
+        if (codeStart == -1) return text;
+        codeStart = codeStart + 1;
+        int end = text.indexOf("```", codeStart);
+        if (end == -1) return text.substring(codeStart).trim();
+        return text.substring(codeStart, end).trim();
     }
 }

@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.harness.HarnessReviewService;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -33,13 +34,16 @@ public class SseStreamController {
     private final ConcurrentHashMap<String, StreamInput> pending =
             new ConcurrentHashMap<String, StreamInput>();
 
-    private final ClaudeClient    claudeClient;
-    private final ToolkitSettings settings;
+    private final ClaudeClient        claudeClient;
+    private final ToolkitSettings     settings;
+    private final HarnessReviewService harnessService;
 
     public SseStreamController(ClaudeClient claudeClient,
-                               ToolkitSettings settings) {
-        this.claudeClient = claudeClient;
-        this.settings     = settings;
+                               ToolkitSettings settings,
+                               HarnessReviewService harnessService) {
+        this.claudeClient   = claudeClient;
+        this.settings       = settings;
+        this.harnessService = harnessService;
     }
 
     // ── Direct registration (for internal use, no HTTP round-trip) ──────────
@@ -105,22 +109,38 @@ public class SseStreamController {
         Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
+                    // ── 하네스: Analyst→Builder→Reviewer 3단계 분리 스트리밍 ────────────
+                    if ("harness_review".equals(input.feature)) {
+                        harnessService.analyzeStream(
+                                input.input,
+                                input.sourceType,  // sourceType에 language("java"/"sql")가 담김
+                                new Consumer<String>() {
+                                    public void accept(String chunk) {
+                                        try { emitter.send(SseEmitter.event().data(chunk)); }
+                                        catch (IOException e) { emitter.completeWithError(e); }
+                                    }
+                                });
+                        emitter.send(SseEmitter.event().name("done").data(""));
+                        emitter.complete();
+                        return;
+                    }
+
+                    // ── 그 외 기능: 단일 스트리밍 호출 ───────────────────────────────────
                     String systemPrompt = resolveSystemPrompt(input.feature, input.sourceType);
                     String memoContext  = settings.getProjectContext();
                     if (memoContext != null && !memoContext.trim().isEmpty()) {
                         systemPrompt = systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memoContext;
                     }
-                    String userMessage  = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
+                    String userMessage = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
 
-                    // 하네스는 응답이 길므로 8192 토큰으로 고정, 나머지는 기본값 사용
-                    final int streamMaxTokens = "harness_review".equals(input.feature) ? 8192
-                            : claudeClient.getProperties().getMaxTokens();
-                    claudeClient.chatStream(systemPrompt, userMessage, streamMaxTokens, new Consumer<String>() {
-                        public void accept(String chunk) {
-                            try { emitter.send(SseEmitter.event().data(chunk)); }
-                            catch (IOException e) { emitter.completeWithError(e); }
-                        }
-                    });
+                    claudeClient.chatStream(systemPrompt, userMessage,
+                            claudeClient.getProperties().getMaxTokens(),
+                            new Consumer<String>() {
+                                public void accept(String chunk) {
+                                    try { emitter.send(SseEmitter.event().data(chunk)); }
+                                    catch (IOException e) { emitter.completeWithError(e); }
+                                }
+                            });
                     emitter.send(SseEmitter.event().name("done").data(""));
                     emitter.complete();
                 } catch (Exception e) {
