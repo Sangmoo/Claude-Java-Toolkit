@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>코드 리뷰 하네스 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        /* ── Language Tabs ── */
+        .lang-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:5px 18px; border-radius:20px; cursor:pointer; font-size:0.82rem; transition:all .15s; }
+        .lang-tab.active { background:rgba(139,92,246,.15); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
+        /* ── Pipeline Steps ── */
+        .pipeline-steps { display:flex; align-items:center; gap:0; margin-bottom:18px; }
+        .pipeline-step { display:flex; align-items:center; gap:6px; padding:6px 14px;
+                         border-radius:20px; font-size:.78rem; font-weight:500;
+                         border:1px solid var(--border-color); color:var(--text-muted);
+                         background:var(--surface-color); transition:all .25s; }
+        .pipeline-step.active { border-color:#8b5cf6; color:#8b5cf6; background:rgba(139,92,246,.1); }
+        .pipeline-step.done   { border-color:#10b981; color:#10b981; background:rgba(16,185,129,.1); }
+        .pipeline-arrow { color:var(--text-muted); font-size:.75rem; margin:0 4px; }
+
+        /* ── Result Tabs ── */
+        .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                      padding:5px 14px; border-radius:20px; cursor:pointer; font-size:.8rem; transition:all .15s; }
+        .result-tab.active { background:rgba(139,92,246,.12); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
+        /* ── Diff View ── */
+        .diff-container { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .diff-panel { border:1px solid var(--border-color); border-radius:8px; overflow:hidden; }
+        .diff-panel-header { padding:8px 14px; font-size:.78rem; font-weight:600;
+                             display:flex; align-items:center; gap:6px;
+                             background:var(--surface-color); border-bottom:1px solid var(--border-color); }
+        .diff-original-header { color:#f87171; }
+        .diff-improved-header { color:#34d399; }
+        .diff-body { padding:0; overflow-x:auto; max-height:500px; overflow-y:auto; }
+        .diff-line { display:flex; align-items:baseline; gap:0; font-family:'JetBrains Mono',monospace;
+                     font-size:.78rem; line-height:1.7; white-space:pre; }
+        .diff-line-num { min-width:38px; padding:0 8px; text-align:right;
+                         color:var(--text-muted); user-select:none; font-size:.7rem;
+                         border-right:1px solid var(--border-color); background:var(--surface-color); }
+        .diff-line-code { padding:0 10px; flex:1; }
+        .diff-removed { background:rgba(248,113,113,.12); }
+        .diff-removed .diff-line-code { color:#f87171; text-decoration:line-through; }
+        .diff-removed .diff-line-num  { background:rgba(248,113,113,.08); color:#f87171; }
+        .diff-added   { background:rgba(52,211,153,.10); }
+        .diff-added   .diff-line-code { color:#34d399; }
+        .diff-added   .diff-line-num  { background:rgba(52,211,153,.08); color:#34d399; }
+
+        /* diff legend */
+        .diff-legend { display:flex; gap:16px; font-size:.75rem; margin-bottom:10px; }
+        .diff-legend span { display:flex; align-items:center; gap:4px; }
+        .legend-dot { width:10px; height:10px; border-radius:2px; }
+        .legend-removed { background:rgba(248,113,113,.5); }
+        .legend-added   { background:rgba(52,211,153,.5); }
+        .legend-same    { background:var(--border-color); }
+
+        /* ── Markdown rendered sections ── */
+        .section-content { padding:12px 4px; line-height:1.75; font-size:.9rem; }
+        .section-content h2,.section-content h3 { font-size:1rem; font-weight:700; margin:14px 0 6px;
+                                                   color:var(--text-primary); }
+        .section-content ul { padding-left:20px; margin:6px 0; }
+        .section-content li { margin-bottom:4px; }
+        .section-content code { background:var(--code-bg,rgba(0,0,0,.25)); padding:1px 5px;
+                                 border-radius:4px; font-size:.82em; }
+        .section-content pre { background:var(--code-bg,rgba(0,0,0,.25)); padding:10px 14px;
+                                border-radius:8px; overflow-x:auto; }
+        .verdict-approved { color:#10b981; font-weight:700; }
+        .verdict-revision { color:#f59e0b; font-weight:700; }
+
+        /* ── Stream progress ── */
+        .stream-step-row { display:flex; align-items:center; gap:8px; margin-bottom:6px;
+                           font-size:.82rem; color:var(--text-sub); }
+        .stream-step-icon { width:20px; text-align:center; }
+        .stream-step-icon.spin { animation:spin .8s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ── Copy button ── */
+        .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:3px 10px; border-radius:6px; font-size:.75rem; cursor:pointer; transition:all .15s; }
+        .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+        @media (max-width:768px) {
+            .diff-container { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-code-compare me-2" style="color:#8b5cf6"></i>코드 리뷰 하네스
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:#8b5cf6;"></div>
+                <div class="spinner-msg" id="spinnerMsg">파이프라인 분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">
+                Java 코드 또는 SQL을 입력하면 <strong>Analyst → Builder → Reviewer</strong> 3단계 파이프라인이
+                개선된 코드와 변경 전/후 Diff를 제공합니다.
+            </p>
+
+            <!-- Pipeline flow badge -->
+            <div class="pipeline-steps mb-3">
+                <div class="pipeline-step" id="stepAnalyst">
+                    <i class="fas fa-search"></i> 분석가 (Analyst)
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step" id="stepBuilder">
+                    <i class="fas fa-hammer"></i> 개선가 (Builder)
+                </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step" id="stepReviewer">
+                    <i class="fas fa-check-circle"></i> 검토자 (Reviewer)
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- ── Input Panel ── -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+                        <!-- Language selector -->
+                        <div class="d-flex gap-2 mb-3">
+                            <button type="button" class="lang-tab active" id="langJava" onclick="setLanguage('java')">
+                                <i class="fab fa-java me-1"></i>Java
+                            </button>
+                            <button type="button" class="lang-tab" id="langSql" onclick="setLanguage('sql')">
+                                <i class="fas fa-database me-1"></i>SQL
+                            </button>
+                        </div>
+
+                        <label class="form-label">소스 코드 입력</label>
+                        <textarea id="codeInput" class="form-control" rows="22"
+                                  style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"
+                                  placeholder="Java 코드 또는 SQL을 붙여넣기 하세요...
+&#10;예시 (Java):
+&#10;public List&lt;Order&gt; getOrders(String status) {
+&#10;    return orderList.stream()
+&#10;        .filter(o -&gt; o.getStatus().equals(status))
+&#10;        .collect(Collectors.toList());
+&#10;}
+&#10;
+&#10;예시 (SQL):
+&#10;SELECT * FROM T_ORDER WHERE STATUS = 1"></textarea>
+
+                        <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+                            <button type="button" class="btn-accent" id="analyzeBtn" onclick="runPipeline()">
+                                <i class="fas fa-play me-1"></i>파이프라인 분석
+                            </button>
+                            <button type="button" class="btn btn-outline-tk btn-sm" id="streamBtn" onclick="runStream()">
+                                <i class="fas fa-bolt me-1" style="color:#f97316"></i>스트리밍 분석
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAll()">
+                                <i class="fas fa-trash me-1"></i>초기화
+                            </button>
+                        </div>
+
+                        <div class="mt-2" style="font-size:.75rem;color:var(--text-muted);">
+                            <i class="fas fa-info-circle me-1"></i>
+                            파이프라인 분석: 전체 결과를 한 번에 반환 &nbsp;|&nbsp;
+                            스트리밍 분석: 실시간으로 출력
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Result Panel ── -->
+                <div class="col-lg-7">
+
+                    <!-- Empty state -->
+                    <div id="emptyState" class="panel p-4 text-center" style="min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+                        <div style="font-size:3rem;opacity:.25;">
+                            <i class="fas fa-code-compare"></i>
+                        </div>
+                        <div style="color:var(--text-muted);font-size:.9rem;">
+                            코드를 입력하고 분석을 실행하면<br>변경 전/후 Diff와 상세 설명이 표시됩니다.
+                        </div>
+                        <div style="font-size:.78rem;color:var(--text-muted);opacity:.7;">
+                            Analyst → Builder → Reviewer 3단계 자동 파이프라인
+                        </div>
+                    </div>
+
+                    <!-- Streaming progress panel -->
+                    <div id="streamPanel" class="panel p-3" style="display:none;min-height:420px;">
+                        <div class="d-flex align-items-center gap-2 mb-3" style="font-size:.85rem;font-weight:600;color:var(--text-sub);">
+                            <i class="fas fa-bolt" style="color:#f97316"></i>
+                            스트리밍 분석 진행 중
+                        </div>
+                        <div id="streamSteps" class="mb-3"></div>
+                        <div id="streamRaw" style="font-size:.8rem;font-family:'JetBrains Mono',monospace;
+                             white-space:pre-wrap;word-break:break-word;
+                             background:var(--code-bg,rgba(0,0,0,.2));
+                             border-radius:8px;padding:12px;min-height:300px;
+                             max-height:480px;overflow-y:auto;line-height:1.7;"></div>
+                        <div id="streamDoneBar" style="display:none;" class="mt-2">
+                            <button class="btn-accent btn-sm" onclick="parseStreamResult()">
+                                <i class="fas fa-layer-group me-1"></i>Diff 뷰로 보기
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Full result panel -->
+                    <div id="resultPanel" style="display:none;">
+                        <!-- Result tabs -->
+                        <div class="d-flex gap-2 mb-2 flex-wrap">
+                            <button class="result-tab active" id="rtDiff"     onclick="switchResultTab('diff')">
+                                <i class="fas fa-columns me-1"></i>Diff 뷰
+                            </button>
+                            <button class="result-tab" id="rtAnalysis"  onclick="switchResultTab('analysis')">
+                                <i class="fas fa-search me-1"></i>분석 요약
+                            </button>
+                            <button class="result-tab" id="rtChanges"   onclick="switchResultTab('changes')">
+                                <i class="fas fa-list-check me-1"></i>변경 내역
+                            </button>
+                            <button class="result-tab" id="rtReview"    onclick="switchResultTab('review')">
+                                <i class="fas fa-check-circle me-1"></i>검토 결과
+                            </button>
+                            <button class="result-tab" id="rtRaw"       onclick="switchResultTab('raw')">
+                                <i class="fas fa-file-lines me-1"></i>원문
+                            </button>
+                        </div>
+
+                        <!-- Tab: Diff -->
+                        <div id="tabDiff" class="panel p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                                <div class="diff-legend">
+                                    <span><span class="legend-dot legend-removed"></span>원본</span>
+                                    <span><span class="legend-dot legend-added"></span>개선</span>
+                                    <span><span class="legend-dot legend-same"></span>동일</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="copy-btn" onclick="copyCode('original')">
+                                        <i class="fas fa-copy me-1"></i>원본 복사
+                                    </button>
+                                    <button class="copy-btn" onclick="copyCode('improved')">
+                                        <i class="fas fa-copy me-1"></i>개선 코드 복사
+                                    </button>
+                                    <button class="copy-btn" onclick="saveMd()">
+                                        <i class="fas fa-download me-1"></i>MD 저장
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="diff-container" id="diffContainer"></div>
+                        </div>
+
+                        <!-- Tab: Analysis -->
+                        <div id="tabAnalysis" class="panel p-3" style="display:none;">
+                            <div class="section-content" id="analysisContent"></div>
+                        </div>
+
+                        <!-- Tab: Changes -->
+                        <div id="tabChanges" class="panel p-3" style="display:none;">
+                            <div class="section-content" id="changesContent"></div>
+                        </div>
+
+                        <!-- Tab: Review -->
+                        <div id="tabReview" class="panel p-3" style="display:none;">
+                            <div class="section-content" id="reviewContent"></div>
+                        </div>
+
+                        <!-- Tab: Raw -->
+                        <div id="tabRaw" class="panel p-3" style="display:none;">
+                            <div class="d-flex justify-content-end mb-2">
+                                <button class="copy-btn" onclick="copyRaw()">
+                                    <i class="fas fa-copy me-1"></i>전체 복사
+                                </button>
+                            </div>
+                            <pre id="rawContent" style="font-size:.78rem;white-space:pre-wrap;word-break:break-word;
+                                 max-height:520px;overflow-y:auto;margin:0;"></pre>
+                        </div>
+                    </div>
+
+                </div><!-- col -->
+            </div><!-- row -->
+        </div><!-- main-content -->
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+/* ── State ──────────────────────────────────────────────────── */
+var currentLang     = 'java';
+var currentOrigCode = '';
+var currentImpCode  = '';
+var currentFullResp = '';
+var streamBuffer    = '';
+var streamEs        = null;
+
+/* ── Language selector ──────────────────────────────────────── */
+function setLanguage(lang) {
+    currentLang = lang;
+    document.getElementById('langJava').classList.toggle('active', lang === 'java');
+    document.getElementById('langSql').classList.toggle('active',  lang === 'sql');
+    var placeholder = lang === 'sql'
+        ? 'SQL을 붙여넣기 하세요...\n\nSELECT o.ORDER_ID, c.NAME\nFROM T_ORDER o, T_CUSTOMER c\nWHERE o.CUST_ID = c.CUST_ID\nAND o.STATUS = 1'
+        : 'Java 코드를 붙여넣기 하세요...\n\npublic List<Order> getOrders(String status) {\n    return orderList.stream()\n        .filter(o -> o.getStatus().equals(status))\n        .collect(Collectors.toList());\n}';
+    document.getElementById('codeInput').placeholder = placeholder;
+}
+
+/* ── Pipeline step indicator ────────────────────────────────── */
+function resetSteps() {
+    ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
+        document.getElementById(id).className = 'pipeline-step';
+    });
+}
+function setStep(name) {
+    resetSteps();
+    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
+    if (map[name]) document.getElementById(map[name]).className = 'pipeline-step active';
+}
+function doneStep(name) {
+    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
+    if (map[name]) document.getElementById(map[name]).className = 'pipeline-step done';
+}
+function allStepsDone() {
+    ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
+        document.getElementById(id).className = 'pipeline-step done';
+    });
+}
+
+/* ── Run pipeline (non-streaming) ───────────────────────────── */
+function runPipeline() {
+    var code = document.getElementById('codeInput').value.trim();
+    if (!code) { alert('코드를 입력해주세요.'); return; }
+
+    setStep('analyst');
+    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('streamPanel').style.display = 'none';
+    document.getElementById('resultPanel').style.display = 'none';
+
+    var spinMessages = ['분석가(Analyst) 분석 중...','개선가(Builder) 코드 작성 중...','검토자(Reviewer) 검증 중...','결과 정리 중...'];
+    showSpinner(spinMessages);
+    document.getElementById('analyzeBtn').disabled = true;
+
+    var fd = new FormData();
+    fd.append('code',     code);
+    fd.append('language', currentLang);
+
+    fetch('/harness/analyze', { method:'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            hideSpinner();
+            document.getElementById('analyzeBtn').disabled = false;
+            if (!data.success) {
+                alert('오류: ' + (data.error || '알 수 없는 오류'));
+                document.getElementById('emptyState').style.display = '';
+                resetSteps();
+                return;
+            }
+            allStepsDone();
+            currentOrigCode = data.originalCode || code;
+            currentImpCode  = data.improvedCode  || '';
+            currentFullResp = data.fullResponse  || '';
+            renderResult();
+        })
+        .catch(function(e) {
+            hideSpinner();
+            document.getElementById('analyzeBtn').disabled = false;
+            alert('요청 실패: ' + e.message);
+            document.getElementById('emptyState').style.display = '';
+            resetSteps();
+        });
+}
+
+/* ── Run stream ─────────────────────────────────────────────── */
+function runStream() {
+    var code = document.getElementById('codeInput').value.trim();
+    if (!code) { alert('코드를 입력해주세요.'); return; }
+    if (streamEs) { streamEs.close(); streamEs = null; }
+
+    setStep('analyst');
+    streamBuffer = '';
+    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('resultPanel').style.display  = 'none';
+    document.getElementById('streamRaw').textContent      = '';
+    document.getElementById('streamDoneBar').style.display = 'none';
+
+    var stepsDiv = document.getElementById('streamSteps');
+    stepsDiv.innerHTML =
+        '<div class="stream-step-row"><span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>분석가(Analyst) 실행 중...</div>'
+      + '<div class="stream-step-row" id="streamStepBuilder" style="opacity:.4"><span class="stream-step-icon"><i class="fas fa-clock"></i></span>개선가(Builder) 대기 중</div>'
+      + '<div class="stream-step-row" id="streamStepReviewer" style="opacity:.4"><span class="stream-step-icon"><i class="fas fa-clock"></i></span>검토자(Reviewer) 대기 중</div>';
+
+    document.getElementById('streamPanel').style.display = '';
+    document.getElementById('streamBtn').disabled = true;
+
+    var fd = new FormData();
+    fd.append('code',     code);
+    fd.append('language', currentLang);
+
+    fetch('/harness/stream-init', { method:'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { alert('스트림 등록 실패: ' + (data.error || '')); return; }
+            openSse(data.streamId, code);
+        })
+        .catch(function(e) { alert('스트림 초기화 실패: ' + e.message); });
+}
+
+function openSse(streamId, originalCode) {
+    currentOrigCode = originalCode;
+    streamEs = new EventSource('/stream/' + streamId);
+
+    streamEs.onmessage = function(e) {
+        streamBuffer += e.data;
+        document.getElementById('streamRaw').textContent = streamBuffer;
+        var el = document.getElementById('streamRaw');
+        el.scrollTop = el.scrollHeight;
+
+        // Update step indicators based on content
+        if (streamBuffer.indexOf('🔧 개선된 코드') !== -1 || streamBuffer.indexOf('## 개선된 코드') !== -1) {
+            setStep('builder');
+            var b = document.getElementById('streamStepBuilder');
+            if (b) { b.style.opacity = '1'; b.innerHTML = '<span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>개선가(Builder) 코드 작성 중...'; }
+        }
+        if (streamBuffer.indexOf('📝 변경 내역') !== -1 || streamBuffer.indexOf('## 변경 내역') !== -1) {
+            doneStep('builder');
+            setStep('reviewer');
+            var r = document.getElementById('streamStepReviewer');
+            if (r) { r.style.opacity = '1'; r.innerHTML = '<span class="stream-step-icon"><i class="fas fa-circle-notch spin"></i></span>검토자(Reviewer) 검증 중...'; }
+        }
+    };
+
+    streamEs.addEventListener('done', function() {
+        streamEs.close(); streamEs = null;
+        document.getElementById('streamBtn').disabled = false;
+        allStepsDone();
+        document.getElementById('streamSteps').innerHTML =
+            '<div class="stream-step-row"><span class="stream-step-icon" style="color:#10b981"><i class="fas fa-check-circle"></i></span>파이프라인 완료</div>';
+        document.getElementById('streamDoneBar').style.display = '';
+    });
+
+    streamEs.addEventListener('error_msg', function(e) {
+        streamEs.close(); streamEs = null;
+        document.getElementById('streamBtn').disabled = false;
+        alert('스트리밍 오류: ' + e.data);
+    });
+
+    streamEs.onerror = function() {
+        streamEs.close(); streamEs = null;
+        document.getElementById('streamBtn').disabled = false;
+    };
+}
+
+function parseStreamResult() {
+    currentFullResp = streamBuffer;
+    currentImpCode  = extractCodeBlock(streamBuffer, currentLang);
+    document.getElementById('streamPanel').style.display = 'none';
+    renderResult();
+}
+
+/* ── Render full result ─────────────────────────────────────── */
+function renderResult() {
+    document.getElementById('resultPanel').style.display = '';
+    switchResultTab('diff');
+
+    // Build diff
+    buildDiffView(currentOrigCode, currentImpCode);
+
+    // Populate section tabs
+    document.getElementById('analysisContent').innerHTML = renderMarkdown(
+        extractSection(currentFullResp, ['📋 분석 요약', '분석 요약']));
+    document.getElementById('changesContent').innerHTML = renderMarkdown(
+        extractSection(currentFullResp, ['📝 변경 내역', '변경 내역']));
+    document.getElementById('reviewContent').innerHTML = renderMarkdown(
+        extractSection(currentFullResp, ['📈 기대 효과', '✅ 최종 검토 의견', '기대 효과', '최종 검토']));
+    document.getElementById('rawContent').textContent = currentFullResp;
+}
+
+/* ── Tab switching ──────────────────────────────────────────── */
+function switchResultTab(tab) {
+    var tabs = ['diff','analysis','changes','review','raw'];
+    tabs.forEach(function(t) {
+        var btn = document.getElementById('rt' + t.charAt(0).toUpperCase() + t.slice(1));
+        var pane = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn)  btn.classList.toggle('active', t === tab);
+        if (pane) pane.style.display = (t === tab) ? '' : 'none';
+    });
+}
+
+/* ── Diff builder ───────────────────────────────────────────── */
+function buildDiffView(origCode, impCode) {
+    var aLines = origCode ? origCode.split('\n') : [];
+    var bLines = impCode  ? impCode.split('\n')  : [];
+    var ops    = lcsLineDiff(aLines, bLines);
+
+    // Build left (original) and right (improved) panels
+    var leftHtml  = '';
+    var rightHtml = '';
+    var leftNum   = 0;
+    var rightNum  = 0;
+
+    ops.forEach(function(op) {
+        if (op[0] === 'same') {
+            leftNum++;  rightNum++;
+            var line = escHtml(op[1]);
+            leftHtml  += '<div class="diff-line"><span class="diff-line-num">' + leftNum  + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+            rightHtml += '<div class="diff-line"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+        } else if (op[0] === 'remove') {
+            leftNum++;
+            var line = escHtml(op[1]);
+            leftHtml  += '<div class="diff-line diff-removed"><span class="diff-line-num">' + leftNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+            rightHtml += '<div class="diff-line" style="opacity:0;pointer-events:none;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
+        } else if (op[0] === 'add') {
+            rightNum++;
+            var line = escHtml(op[1]);
+            leftHtml  += '<div class="diff-line" style="opacity:0;pointer-events:none;"><span class="diff-line-num">&nbsp;</span><span class="diff-line-code">&nbsp;</span></div>';
+            rightHtml += '<div class="diff-line diff-added"><span class="diff-line-num">' + rightNum + '</span><span class="diff-line-code">' + (line || '&nbsp;') + '</span></div>';
+        }
+    });
+
+    var isEmpty = !origCode && !impCode;
+    if (isEmpty) {
+        document.getElementById('diffContainer').innerHTML =
+            '<div class="p-3 text-center" style="color:var(--text-muted);grid-column:1/-1">'
+          + '<i class="fas fa-code me-2"></i>개선된 코드를 추출하지 못했습니다. 원문 탭을 확인하세요.</div>';
+        return;
+    }
+
+    document.getElementById('diffContainer').innerHTML =
+        '<div class="diff-panel">'
+      + '  <div class="diff-panel-header diff-original-header"><i class="fas fa-minus-circle me-1"></i>원본 코드</div>'
+      + '  <div class="diff-body">' + leftHtml + '</div>'
+      + '</div>'
+      + '<div class="diff-panel">'
+      + '  <div class="diff-panel-header diff-improved-header"><i class="fas fa-plus-circle me-1"></i>개선된 코드</div>'
+      + '  <div class="diff-body">' + rightHtml + '</div>'
+      + '</div>';
+}
+
+/* ── LCS-based line diff (max 200 lines) ────────────────────── */
+function lcsLineDiff(aLines, bLines) {
+    var a = aLines.slice(0, 200);
+    var b = bLines.slice(0, 200);
+    var m = a.length, n = b.length;
+    var dp = [];
+    var i, j;
+    for (i = 0; i <= m; i++) { dp[i] = []; for (j = 0; j <= n; j++) dp[i][j] = 0; }
+    for (i = 1; i <= m; i++) {
+        for (j = 1; j <= n; j++) {
+            dp[i][j] = (a[i-1] === b[j-1]) ? dp[i-1][j-1] + 1
+                       : Math.max(dp[i-1][j], dp[i][j-1]);
+        }
+    }
+    var ops = [];
+    i = m; j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+            ops.unshift(['same', a[i-1]]); i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+            ops.unshift(['add', b[j-1]]); j--;
+        } else {
+            ops.unshift(['remove', a[i-1]]); i--;
+        }
+    }
+    // Append remaining lines (>200) as same
+    for (var k = 200; k < aLines.length; k++) ops.push(['remove', aLines[k]]);
+    for (var k = 200; k < bLines.length; k++) ops.push(['add',    bLines[k]]);
+    return ops;
+}
+
+/* ── Section extractor ──────────────────────────────────────── */
+function extractSection(text, headings) {
+    if (!text) return '';
+    // Find first matching heading
+    var startIdx = -1;
+    var headingLen = 0;
+    for (var i = 0; i < headings.length; i++) {
+        var marker = '## ' + headings[i];
+        var idx = text.indexOf(marker);
+        if (idx >= 0) { startIdx = idx + marker.length; headingLen = marker.length; break; }
+    }
+    if (startIdx < 0) return '';
+
+    // Find next ## heading
+    var nextIdx = text.indexOf('\n## ', startIdx);
+    var section = nextIdx >= 0 ? text.substring(startIdx, nextIdx) : text.substring(startIdx);
+
+    // If multiple headings requested, also grab subsequent ones until next ##
+    if (headings.length > 1) {
+        for (var h = 1; h < headings.length; h++) {
+            var marker2 = '## ' + headings[h];
+            var idx2 = text.indexOf(marker2);
+            if (idx2 >= 0) {
+                var after = idx2 + marker2.length;
+                var next2 = text.indexOf('\n## ', after);
+                var extra = next2 >= 0 ? text.substring(after, next2) : text.substring(after);
+                section += '\n\n**' + headings[h] + '**\n' + extra;
+            }
+        }
+    }
+    return section.trim();
+}
+
+/* ── Code block extractor ───────────────────────────────────── */
+function extractCodeBlock(text, lang) {
+    var sectionMarkers = ['## 🔧 개선된 코드', '## 개선된 코드'];
+    var sectionIdx = -1;
+    for (var i = 0; i < sectionMarkers.length; i++) {
+        var idx = text.indexOf(sectionMarkers[i]);
+        if (idx >= 0) { sectionIdx = idx; break; }
+    }
+    var searchIn = sectionIdx >= 0 ? text.substring(sectionIdx) : text;
+    var langTag  = (lang === 'sql') ? '```sql' : '```java';
+    var start    = searchIn.indexOf(langTag);
+    if (start === -1) start = searchIn.indexOf('```');
+    if (start === -1) return '';
+    var codeStart = searchIn.indexOf('\n', start) + 1;
+    var end       = searchIn.indexOf('```', codeStart);
+    if (end === -1) return searchIn.substring(codeStart).trim();
+    return searchIn.substring(codeStart, end).trim();
+}
+
+/* ── Simple Markdown renderer ───────────────────────────────── */
+function renderMarkdown(text) {
+    if (!text) return '<span style="color:var(--text-muted)">내용 없음</span>';
+    var html = escHtml(text);
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Code inline
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Fenced code block
+    html = html.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
+    // APPROVED / NEEDS_REVISION
+    html = html.replace(/APPROVED/g, '<span class="verdict-approved">✅ APPROVED</span>');
+    html = html.replace(/NEEDS_REVISION/g, '<span class="verdict-revision">⚠️ NEEDS_REVISION</span>');
+    // Headings
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+    // List items
+    html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>[\s\S]*?<\/li>)/g, function(m) {
+        return m.indexOf('<ul>') === -1 ? '<ul>' + m + '</ul>' : m;
+    });
+    // Line breaks
+    html = html.replace(/\n\n/g, '<br><br>');
+    html = html.replace(/\n/g,   '<br>');
+    return html;
+}
+
+/* ── Copy helpers ───────────────────────────────────────────── */
+function copyCode(which) {
+    var text = (which === 'original') ? currentOrigCode : currentImpCode;
+    if (!text) { alert('복사할 내용이 없습니다.'); return; }
+    navigator.clipboard.writeText(text).then(function() {
+        alert((which === 'original' ? '원본 코드' : '개선 코드') + '가 클립보드에 복사되었습니다.');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    });
+}
+function copyRaw() {
+    if (!currentFullResp) return;
+    navigator.clipboard.writeText(currentFullResp).catch(function() {});
+}
+
+function saveMd() {
+    if (!currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
+    var content = '# 코드 리뷰 하네스 결과\n\n'
+                + '**언어**: ' + currentLang.toUpperCase() + '\n\n'
+                + '---\n\n'
+                + currentFullResp;
+    var blob = new Blob([content], {type:'text/markdown;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href   = url;
+    a.download = 'harness-review-' + new Date().toISOString().slice(0,10) + '.md';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/* ── Utils ──────────────────────────────────────────────────── */
+function escHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearAll() {
+    document.getElementById('codeInput').value = '';
+    document.getElementById('emptyState').style.display  = '';
+    document.getElementById('streamPanel').style.display = 'none';
+    document.getElementById('resultPanel').style.display = 'none';
+    currentOrigCode = ''; currentImpCode = ''; currentFullResp = ''; streamBuffer = '';
+    resetSteps();
+    if (streamEs) { streamEs.close(); streamEs = null; }
+    document.getElementById('streamBtn').disabled  = false;
+    document.getElementById('analyzeBtn').disabled = false;
+}
+
+/* ── Auto-save input ────────────────────────────────────────── */
+(function() {
+    var key = 'harness_input_v1';
+    var saved = localStorage.getItem(key);
+    if (saved) document.getElementById('codeInput').value = saved;
+    var timer;
+    document.getElementById('codeInput').addEventListener('input', function() {
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+            try { localStorage.setItem(key, document.getElementById('codeInput').value); } catch(e) {}
+        }, 1500);
+    });
+})();
+</script>
+</body>
+</html>

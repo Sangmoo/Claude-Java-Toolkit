@@ -193,6 +193,22 @@ public class SseStreamController {
                    "## 📝 변경 사항 설명\n각 변경 사항과 그 이유를 항목별로 설명.\n\n" +
                    "## 📈 예상 효과\n성능 개선이 예상되는 근거와 주의사항.\n\n응답은 한국어로 작성하세요.";
         }
+        if ("harness_review".equals(feature)) {
+            boolean isSql    = "sql".equalsIgnoreCase(sourceType);
+            String langName  = isSql ? "Oracle SQL"   : "Java/Spring";
+            String codeBlock = isSql ? "sql"           : "java";
+            return "당신은 " + langName + " 코드 품질 개선 파이프라인입니다.\n"
+                 + "다음 3단계 하네스(Harness) 프로세스를 순서대로 실행하세요:\n\n"
+                 + "**1단계 — 분석가(Analyst)**: 성능 문제, 안티패턴, 가독성 문제, 보안 취약점, 개선 가능 지점을 파악합니다.\n"
+                 + "**2단계 — 개선가(Builder)**: 분석 결과를 토대로 모든 문제를 해결한 개선 코드를 작성합니다.\n"
+                 + "**3단계 — 검토자(Reviewer)**: 변경점을 검증하고 변경 내역·기대 효과·최종 판정을 정리합니다.\n\n"
+                 + "반드시 아래 형식으로만 응답하세요:\n\n"
+                 + "## 📋 분석 요약\n[분석가: 문제점 항목 목록]\n\n"
+                 + "## 🔧 개선된 코드\n```" + codeBlock + "\n[개선된 전체 코드]\n```\n\n"
+                 + "## 📝 변경 내역\n[검토자: 변경 사항 항목 목록]\n\n"
+                 + "## 📈 기대 효과\n[검토자: 성능·가독성·유지보수성 개선 효과]\n\n"
+                 + "## ✅ 최종 검토 의견\n[검토자: APPROVED/NEEDS_REVISION 판정, 심각도, 주의 사항]";
+        }
         return "당신은 Java/Spring 개발 전문가 어시스턴트입니다.";
     }
 
@@ -235,6 +251,13 @@ public class SseStreamController {
         }
         if ("sql_refactor".equals(feature)) {
             return "다음 SQL을 분석하고 최적화된 버전을 제안해주세요:\n\n```sql\n" + input + "\n```";
+        }
+        if ("harness_review".equals(feature)) {
+            boolean isSql    = "sql".equalsIgnoreCase(sourceType);
+            String langLabel = isSql ? "SQL"  : "Java";
+            String codeBlock = isSql ? "sql"  : "java";
+            return "다음 " + langLabel + " 코드를 3단계 하네스 파이프라인으로 분석하고 개선해주세요:\n\n"
+                 + "```" + codeBlock + "\n" + input + "\n```";
         }
         return input;
     }

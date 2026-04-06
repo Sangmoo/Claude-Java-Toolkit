@@ -39,7 +39,8 @@ public class SearchController {
         new String[]{"사용량 모니터링",           "/usage",            "Claude API 토큰 사용량 통계",                "usage token 사용량 cost"},
         new String[]{"스케줄 분석",              "/schedule",         "SQL 자동 분석 스케줄 등록·관리",              "schedule cron 스케줄"},
         new String[]{"DB 프로필",               "/db-profiles",      "Oracle DB 연결 프로필 저장·전환",             "db profile oracle 연결"},
-        new String[]{"Settings",               "/settings",         "API 키, DB 연결, 테마 등 설정",               "settings 설정 api key smtp"}
+        new String[]{"Settings",               "/settings",         "API 키, DB 연결, 테마 등 설정",               "settings 설정 api key smtp"},
+        new String[]{"코드 리뷰 하네스",          "/harness",          "Analyst→Builder→Reviewer 3단계 파이프라인, 변경 전/후 Diff 뷰", "harness 하네스 pipeline diff 리팩터링 개선"}
     );
 
     private final ReviewHistoryRepository historyRepo;

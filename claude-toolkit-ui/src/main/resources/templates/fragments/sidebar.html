@@ -65,6 +65,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/dashboard') ? ' active' : ''}">
                 <i class="fas fa-chart-line" style="color:#10b981"></i><span>성능 히스토리</span>
             </a>
+            <a href="/harness" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/harness') ? ' active' : ''}">
+                <i class="fas fa-code-compare" style="color:#8b5cf6"></i><span>코드 리뷰 하네스</span>
+            </a>
         </div>
 
         <!-- ── 생성 ── -->
@@ -198,7 +202,7 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v1.4.0 · JDK 1.8</div>
+        <div class="sidebar-version">v1.6.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -256,7 +260,7 @@
 
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
-            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard'],
+            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness'],
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
