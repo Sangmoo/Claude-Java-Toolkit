@@ -133,16 +133,19 @@ public class HarnessCacheService {
                 Class.forName("oracle.jdbc.OracleDriver");
                 conn = DriverManager.getConnection(
                         db.getUrl(), db.getUsername(), db.getPassword());
+                // ROWNUM 서브쿼리 방식 — Oracle 11g 이하에서도 동작
+                // (FETCH FIRST N ROWS ONLY 는 Oracle 12c+ 전용이라 ORA-00933 발생)
                 String sql =
-                    "SELECT OBJECT_NAME, OBJECT_TYPE, OWNER "
-                  + "FROM ALL_OBJECTS "
-                  + "WHERE OBJECT_TYPE IN ('PROCEDURE','FUNCTION','PACKAGE','TRIGGER') "
-                  + "  AND STATUS = 'VALID' "
-                  + "  AND OWNER NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','MDSYS','CTXSYS','XDB',"
-                  + "                    'APEX_030200','APEX_040000','FLOWS_FILES') "
-                  + "  AND OBJECT_NAME NOT LIKE 'BIN$%' "
-                  + "ORDER BY OWNER, OBJECT_TYPE, OBJECT_NAME "
-                  + "FETCH FIRST " + MAX_OBJECTS + " ROWS ONLY";
+                    "SELECT * FROM ("
+                  + "  SELECT OBJECT_NAME, OBJECT_TYPE, OWNER "
+                  + "  FROM ALL_OBJECTS "
+                  + "  WHERE OBJECT_TYPE IN ('PROCEDURE','FUNCTION','PACKAGE','TRIGGER') "
+                  + "    AND STATUS = 'VALID' "
+                  + "    AND OWNER NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','MDSYS','CTXSYS','XDB',"
+                  + "                      'APEX_030200','APEX_040000','FLOWS_FILES') "
+                  + "    AND OBJECT_NAME NOT LIKE 'BIN$%' "
+                  + "  ORDER BY OWNER, OBJECT_TYPE, OBJECT_NAME"
+                  + ") WHERE ROWNUM <= " + MAX_OBJECTS;
                 Statement st = conn.createStatement();
                 ResultSet rs = st.executeQuery(sql);
                 while (rs.next()) {

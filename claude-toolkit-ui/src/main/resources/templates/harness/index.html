@@ -50,7 +50,8 @@
             transition:background .12s;
         }
         .source-item:last-child { border-bottom:none; }
-        .source-item:hover { background:rgba(139,92,246,.08); }
+        .source-item:hover    { background:rgba(139,92,246,.08); }
+        .source-item.selected { background:rgba(139,92,246,.18); border-left:3px solid #8b5cf6; }
         .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .source-item-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
@@ -479,10 +480,12 @@ function toggleSourcePanel() {
     btn.classList.toggle('open', !isOpen);
     chevron.className   = isOpen ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
     chevron.style.fontSize = '.65rem';
-    // Load on first open
+    // Load on first open + 탭에 맞게 언어 자동 선택
     if (!isOpen) {
         if (!fileDataLoaded && srcTab === 'files') loadFiles('');
         if (!dbDataLoaded   && srcTab === 'db')    loadDbObjects('');
+        if (srcTab === 'files') setLanguage('java');
+        if (srcTab === 'db')    setLanguage('sql');
     }
 }
 
@@ -494,6 +497,9 @@ function switchSrcTab(tab) {
     document.getElementById('srcPanelDb').style.display    = tab === 'db'    ? '' : 'none';
     if (tab === 'files' && !fileDataLoaded) loadFiles('');
     if (tab === 'db'    && !dbDataLoaded)   loadDbObjects('');
+    // ★ 탭 전환 시 언어 자동 선택
+    if (tab === 'files') setLanguage('java');
+    if (tab === 'db')    setLanguage('sql');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -573,7 +579,9 @@ function loadFileContent(absolutePath, relativePath) {
             }
             document.getElementById('codeInput').value = data.content;
             setLanguage('java');
-            closeSourcePanel();
+            // ★ 패널을 닫지 않음 — 검색 결과와 목록을 그대로 유지
+            // 선택된 항목을 하이라이트
+            highlightSelectedItem(findItemByAttr('fileList', 'data-abs', absolutePath));
             try { localStorage.setItem('harness_input_v1', data.content); } catch(e) {}
         })
         .catch(function(e) {
@@ -677,7 +685,9 @@ function loadDbSource(name, type) {
             }
             document.getElementById('codeInput').value = data.source;
             setLanguage('sql');
-            closeSourcePanel();
+            // ★ 패널을 닫지 않음 — 검색 결과와 목록을 그대로 유지
+            // 선택된 항목을 하이라이트
+            highlightSelectedItem(findItemByAttr('dbList', 'data-name', name));
             try { localStorage.setItem('harness_input_v1', data.source); } catch(e) {}
         })
         .catch(function(e) {
@@ -711,6 +721,30 @@ function refreshCache() {
         .catch(function() {
             if (btn) btn.disabled = false;
         });
+}
+
+/* ── 선택 항목 하이라이트 ──────────────────────────────────────── */
+// listId 내에서 attrName 값이 value인 .source-item 요소를 반환 (CSS.escape 없이 안전하게 탐색)
+function findItemByAttr(listId, attrName, value) {
+    var list  = document.getElementById(listId);
+    if (!list) return null;
+    var items = list.querySelectorAll('.source-item');
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].getAttribute(attrName) === value) return items[i];
+    }
+    return null;
+}
+
+function highlightSelectedItem(el) {
+    if (!el) return;
+    // 같은 리스트 안의 기존 선택 해제
+    var parent = el.parentNode;
+    if (parent) {
+        var prev = parent.querySelectorAll('.source-item.selected');
+        for (var i = 0; i < prev.length; i++) { prev[i].classList.remove('selected'); }
+    }
+    el.classList.add('selected');
+    el.scrollIntoView({ block: 'nearest' });
 }
 
 function closeSourcePanel() {
