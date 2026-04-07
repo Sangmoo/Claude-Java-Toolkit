@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.harness;
 
 import io.github.claudetoolkit.ui.email.EmailService;
+import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -109,7 +110,8 @@ public class HarnessBatchService {
                         result.put("success",  true);
                         result.put("response", response);
                         result.put("improved", improved);
-                        historyService.saveHarness(item.code, response, item.language, improved);
+                        ReviewHistory savedHist = historyService.saveHarness(item.code, response, item.language, improved);
+                        result.put("reviewHistoryId", savedHist != null ? savedHist.getId() : -1L);
                         entry.status = "success";
                     } catch (Exception ex) {
                         String errMsg = ex.getMessage() != null ? ex.getMessage() : "오류 발생";
@@ -200,6 +202,11 @@ public class HarnessBatchService {
                 sb.append(",\"startedAt\":\"").append(jsonEscape(le.startedAt != null ? le.startedAt : "")).append("\"");
                 sb.append(",\"finishedAt\":\"").append(jsonEscape(le.finishedAt != null ? le.finishedAt : "")).append("\"");
             }
+            // link to ReviewHistory record for full result lookup
+            Object histId = r.get("reviewHistoryId");
+            long reviewHistoryId = (histId instanceof Long) ? (Long) histId
+                                 : (histId instanceof Number) ? ((Number) histId).longValue() : -1L;
+            sb.append(",\"reviewHistoryId\":").append(reviewHistoryId);
             sb.append("}");
         }
         sb.append("]");

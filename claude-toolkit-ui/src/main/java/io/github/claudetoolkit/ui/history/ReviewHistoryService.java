@@ -60,7 +60,11 @@ public class ReviewHistoryService {
     /**
      * Save a harness pipeline review result — includes original/improved code and language.
      */
-    public void saveHarness(String originalCode, String response, String language, String improvedCode) {
+    /**
+     * Save a harness pipeline review result — returns the saved entity so callers
+     * can retrieve the generated ID (e.g., for linking batch history to review history).
+     */
+    public ReviewHistory saveHarness(String originalCode, String response, String language, String improvedCode) {
         long inputTok  = claudeClient.getLastInputTokens();
         long outputTok = claudeClient.getLastOutputTokens();
         String title = buildTitle(originalCode);
@@ -69,12 +73,13 @@ public class ReviewHistoryService {
         h.setOriginalCode(originalCode);
         h.setImprovedCode(improvedCode);
         h.setAnalysisLanguage(language);
-        repository.save(h);
+        ReviewHistory saved = repository.save(h);
         while (repository.count() > MAX_HISTORY) {
             ReviewHistory oldest = repository.findTopByOrderByCreatedAtAsc();
             if (oldest != null) repository.delete(oldest);
             else break;
         }
+        return saved;
     }
 
     /** Return all history entries (most recent first, max MAX_HISTORY). */

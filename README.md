@@ -157,19 +157,22 @@ Java 코드 또는 SQL을 입력하거나 **파일 브라우저·DB 오브젝트
 | **복사 / MD 저장** | 원본 복사, 개선 코드 복사, 전체 결과 `.md` 저장 |
 | **이력 저장 + 재분석** ⭐ NEW | 분석 결과 자동 저장 (`HARNESS_REVIEW`). 히스토리에서 원본 코드 재로드 가능 |
 
-#### 3-4. 배치 분석 — `/harness/batch` ⭐ NEW (v1.7.0)
+#### 3-4. 배치 분석 — `/harness/batch` ⭐ UPDATED (v1.7.0)
 
 여러 Java 파일 또는 SQL 오브젝트를 한 번에 하네스 파이프라인으로 순차 분석합니다.
 
 | 기능 | 설명 |
 |------|------|
+| **소스 선택** | 항목별 Java 파일 브라우저 / DB 오브젝트 검색으로 코드 직접 로드 |
 | **다중 항목 관리** | 라벨·코드·언어 설정으로 분석 항목을 동적으로 추가/제거 |
 | **백그라운드 실행** | 모든 항목을 순차적으로 비동기 처리 |
 | **진행률 표시** | 실시간 진행률 바 (완료 n / 전체 n) |
 | **결과 테이블** | 성공/실패 여부, 분석 요약 미리보기 |
-| **상세 모달** | 각 항목의 전체 분석 결과 팝업 |
-| **이메일 알림** ⭐ NEW | 배치 완료 시 지정 이메일로 자동 발송 (SMTP 설정 필요) |
-| **이력 자동 저장** | 각 항목이 `HARNESS_REVIEW` 이력에 자동 저장 |
+| **상세 모달 → 분석 결과 열기** | 배치 이력 상세에서 각 항목 row 클릭 → 분석 결과 / 원본 코드 전체 확인 |
+| **다중 이메일 알림** | 배치 완료 시 여러 수신자에게 항목별 요약 이메일 자동 발송 (SMTP 필요) |
+| **배치 이력 영구 저장** | `batch_history` H2 테이블에 배치 결과 저장. 서버 재시작 후에도 이력 유지 |
+| **이력 하이라이트** | 이메일 링크(`?highlight=uuid`) 클릭 시 해당 배치 행 자동 스크롤·강조 |
+| **이력 자동 저장** | 각 항목이 `HARNESS_REVIEW` 이력에도 자동 저장 (`ReviewHistory`) |
 
 #### 3-5. DB 오브젝트 의존성 분석 — `/harness/dependency` ⭐ NEW (v1.7.0)
 
@@ -751,7 +754,9 @@ Service Layer
     │  ReviewHistoryService       — H2 파일 DB 영속화 이력 관리 (JPA, 20가지 유형)
     │  ReviewHistoryRepository    — Spring Data JPA Repository (H2 파일 DB)
     │  HarnessReviewService       — Analyst·Builder·Reviewer + 템플릿·품질점수   ★ UPDATED
-    │  HarnessBatchService        — 배치 비동기 분석 + BatchItem/BatchStatus     ★ NEW
+    │  HarnessBatchService        — 배치 비동기 분석 + H2 이력 저장 + 다중 이메일  ★ UPDATED
+    │  BatchHistory               — JPA 엔티티 (batch_history 테이블)            ★ NEW
+    │  BatchHistoryRepository     — Spring Data JPA Repository (배치 이력)       ★ NEW
     │  HarnessCacheService        — DB 오브젝트 캐시 + cron 자동 갱신            ★ UPDATED
     │  HarnessHistoryCleanup      — 앱 시작 시 1회 정리 (marker 파일 가드)       ★ NEW
     │  FavoriteService            — 즐겨찾기 관리 (JPA 영속화)                   ★ UPDATED
@@ -883,7 +888,7 @@ claude-java-toolkit/
             ├── explain/index.html
             ├── explain/compare.html                # Before/After 비교                          ★ NEW (v0.9)
             ├── harness/index.html                  # 템플릿 선택·품질점수탭·HTML내보내기 추가    ★ UPDATED
-            ├── harness/batch.html                  # 배치 분석 UI (진행률·결과·상세모달)        ★ NEW
+            ├── harness/batch.html                  # 배치 분석 + 이력 테이블 + 항목별 결과 모달  ★ UPDATED
             ├── harness/dependency.html             # 의존성 분석 + 소스 선택 패널               ★ NEW
             ├── harness/dashboard.html              # 품질 대시보드 (Chart.js 3종 차트)          ★ NEW
             ├── history/index.html                  # 재실행 버튼 + 하네스 재분석 버튼           ★ UPDATED
@@ -1137,7 +1142,7 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 **📊 분석 품질 강화**
 - [x] **코드 품질 점수** — 하네스 Reviewer가 가독성·성능·유지보수성·보안 항목별 X/10 점수 + 종합 판정 산출. 전용 "품질 점수" 탭 제공
-- [x] **배치 분석** `/harness/batch` — 여러 Java 파일 / SQL 오브젝트를 동적 목록에 추가 후 순차 비동기 분석. 진행률 바·결과 테이블·상세 모달 제공. 완료 후 이메일 알림 자동 발송
+- [x] **배치 분석** `/harness/batch` — 여러 Java 파일 / SQL 오브젝트를 동적 목록에 추가 후 순차 비동기 분석. 진행률 바·결과 테이블·상세 모달 제공. 완료 후 다중 이메일 알림 자동 발송. 배치 이력 H2 DB 영구 저장 (`batch_history`) + 이력 상세에서 항목별 분석 결과 직접 확인
 - [x] **하네스 분석 템플릿** — 일반·성능 최적화·보안 취약점·리팩터링·Oracle SQL 성능·가독성 6가지 프리셋 선택. Analyst 시스템 프롬프트에 목적별 집중 지시 추가
 
 **🗄️ Oracle / DB 특화**
