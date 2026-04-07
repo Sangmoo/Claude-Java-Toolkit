@@ -114,6 +114,7 @@ public class SseStreamController {
                         harnessService.analyzeStream(
                                 input.input,
                                 input.sourceType,  // sourceType에 language("java"/"sql")가 담김
+                                input.input2,      // input2에 templateHint가 담김
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
                                         try { emitter.send(SseEmitter.event().data(chunk)); }

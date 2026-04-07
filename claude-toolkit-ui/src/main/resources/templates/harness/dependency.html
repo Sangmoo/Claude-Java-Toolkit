@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>의존성 분석 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .lang-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:5px 18px; border-radius:20px; cursor:pointer; font-size:.82rem; transition:all .15s; }
+        .lang-tab.active { background:rgba(139,92,246,.15); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+        .section-content { padding:10px 2px; line-height:1.75; font-size:.88rem; }
+        .section-content h2,.section-content h3 { font-size:.95rem; font-weight:700; margin:12px 0 5px; color:var(--text-primary); }
+        .section-content ul { padding-left:18px; margin:5px 0; }
+        .section-content li { margin-bottom:3px; }
+        .section-content code { background:var(--code-bg,rgba(0,0,0,.25)); padding:1px 5px; border-radius:4px; font-size:.81em; }
+        .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
+        .copy-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin .8s linear infinite; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-project-diagram me-2" style="color:#8b5cf6"></i>의존성 분석
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:#8b5cf6;"></div>
+                <div class="spinner-msg">의존성 분석 중...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Java 클래스 또는 SQL/PL-SQL 소스를 입력하면 호출 관계 · 테이블 의존성 · 설계 위험을 분석합니다.</p>
+
+            <div class="row g-3">
+                <!-- ── 입력 패널 ── -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="lang-tab active" id="langJava" onclick="setLanguage('java')">
+                                <i class="fab fa-java me-1"></i>Java
+                            </button>
+                            <button type="button" class="lang-tab" id="langSql" onclick="setLanguage('sql')">
+                                <i class="fas fa-database me-1"></i>SQL
+                            </button>
+                        </div>
+
+                        <label class="form-label" style="font-size:.82rem;">소스 코드 입력</label>
+                        <textarea id="codeInput" class="form-control" rows="20"
+                                  style="font-family:'JetBrains Mono',monospace;font-size:.79rem;resize:vertical;"
+                                  placeholder="Java 클래스 또는 SQL/PL-SQL 소스를 입력하세요."></textarea>
+
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn-accent" id="analyzeBtn" onclick="runAnalysis()">
+                                <i class="fas fa-search me-1"></i>의존성 분석
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAll()">
+                                <i class="fas fa-trash me-1"></i>초기화
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── 결과 패널 ── -->
+                <div class="col-lg-7">
+                    <!-- Empty state -->
+                    <div id="emptyState" class="panel p-4 text-center"
+                         style="min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+                        <div style="font-size:2.6rem;opacity:.2;"><i class="fas fa-project-diagram"></i></div>
+                        <div style="color:var(--text-muted);font-size:.88rem;">
+                            코드를 입력한 뒤 의존성 분석을 실행하면<br>호출 관계와 테이블 의존성이 여기 표시됩니다.
+                        </div>
+                    </div>
+
+                    <!-- Result panel -->
+                    <div id="resultPanel" class="panel p-3" style="display:none;">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="copy-btn" onclick="copyResult()">
+                                <i class="fas fa-copy me-1"></i>결과 복사
+                            </button>
+                        </div>
+                        <div class="section-content" id="resultContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+var currentLang = 'java';
+var currentResp = '';
+
+function setLanguage(lang) {
+    currentLang = lang;
+    document.getElementById('langJava').classList.toggle('active', lang === 'java');
+    document.getElementById('langSql').classList.toggle('active',  lang === 'sql');
+}
+
+function runAnalysis() {
+    var code = document.getElementById('codeInput').value.trim();
+    if (!code) { alert('코드를 입력해주세요.'); return; }
+
+    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('resultPanel').style.display = 'none';
+    showSpinner();
+    document.getElementById('analyzeBtn').disabled = true;
+
+    var fd = new FormData();
+    fd.append('code',     code);
+    fd.append('language', currentLang);
+
+    fetch('/harness/dependency/analyze', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            hideSpinner();
+            document.getElementById('analyzeBtn').disabled = false;
+            if (!data.success) {
+                alert('오류: ' + (data.error || '알 수 없는 오류'));
+                document.getElementById('emptyState').style.display = '';
+                return;
+            }
+            currentResp = data.response || '';
+            document.getElementById('resultContent').innerHTML = renderMd(currentResp);
+            document.getElementById('resultPanel').style.display = '';
+        })
+        .catch(function(e) {
+            hideSpinner();
+            document.getElementById('analyzeBtn').disabled = false;
+            alert('요청 실패: ' + e.message);
+            document.getElementById('emptyState').style.display = '';
+        });
+}
+
+function clearAll() {
+    document.getElementById('codeInput').value = '';
+    document.getElementById('emptyState').style.display  = '';
+    document.getElementById('resultPanel').style.display = 'none';
+    currentResp = '';
+}
+
+function copyResult() {
+    if (!currentResp) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(currentResp);
+}
+
+function renderMd(text) {
+    if (!text) return '<span style="color:var(--text-muted)">내용 없음</span>';
+    var h = escHtml(text);
+    h = h.replace(/\*\*(.+?)\*\*/g,  '<strong>$1</strong>');
+    h = h.replace(/`([^`]+)`/g,       '<code>$1</code>');
+    h = h.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
+    h = h.replace(/^### (.+)$/gm,     '<h3>$1</h3>');
+    h = h.replace(/^## (.+)$/gm,      '<h2>$1</h2>');
+    h = h.replace(/^- (.+)$/gm,       '<li>$1</li>');
+    h = h.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>');
+    h = h.replace(/\n\n/g,            '<br><br>');
+    h = h.replace(/\n/g,              '<br>');
+    return h;
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showSpinner() {
+    var el = document.getElementById('spinner');
+    if (el) el.style.display = '';
+}
+function hideSpinner() {
+    var el = document.getElementById('spinner');
+    if (el) el.style.display = 'none';
+}
+</script>
+</body>
+</html>

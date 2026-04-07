@@ -254,6 +254,31 @@
                     </div>
                 </div>
 
+                <!-- DB 캐시 자동 갱신 스케줄 -->
+                <div class="panel p-4 mb-4">
+                    <h5 class="section-title">
+                        <i class="fas fa-clock me-2" style="color:#f97316"></i>DB 캐시 자동 갱신 스케줄
+                        <span th:if="${settings.cacheRefreshCronSet}" class="status-badge status-ok ms-2" style="font-size:0.7rem;"><i class="fas fa-check" style="font-size:.5rem;"></i>설정됨</span>
+                    </h5>
+                    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">
+                        <i class="fas fa-info-circle me-1" style="color:#f97316"></i>
+                        지정한 Cron 스케줄마다 Java 파일 · DB 오브젝트 캐시를 자동으로 갱신합니다. 비워두면 자동 갱신 비활성입니다.
+                    </p>
+                    <div class="mb-2">
+                        <label class="form-label">Cron 표현식 <span style="color:var(--text-muted);font-weight:400;">(선택 사항 · Spring 6-field)</span></label>
+                        <input type="text" class="form-control" name="cacheRefreshCron"
+                               placeholder="예: 0 0 8 * * * (매일 오전 8시)"
+                               th:value="${settings.cacheRefreshCron}">
+                        <div class="form-text">형식: <code>초 분 시 일 월 요일</code> &nbsp;·&nbsp; 예) <code>0 0 9 * * MON-FRI</code> = 평일 오전 9시</div>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn-test" onclick="setCronPreset('0 0 8 * * *')">매일 08시</button>
+                        <button type="button" class="btn-test" onclick="setCronPreset('0 0 9 * * MON-FRI')">평일 09시</button>
+                        <button type="button" class="btn-test" onclick="setCronPreset('0 30 8 * * *')">매일 08:30</button>
+                        <button type="button" class="btn-test" onclick="setCronPreset('')">비활성</button>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2 align-items-center">
                     <button type="submit" class="btn-save">
                         <i class="fas fa-save me-2"></i>저장
@@ -348,6 +373,10 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
         var color = document.getElementById('accentColorPicker').value;
         if (color) localStorage.setItem('toolkit_accent_v1', color);
     });
+
+    function setCronPreset(cron) {
+        document.querySelector('input[name="cacheRefreshCron"]').value = cron;
+    }
 </script>
 </body>
 </html>

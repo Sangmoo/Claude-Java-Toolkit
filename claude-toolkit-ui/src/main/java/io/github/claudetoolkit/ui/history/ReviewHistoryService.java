@@ -57,6 +57,26 @@ public class ReviewHistoryService {
         }
     }
 
+    /**
+     * Save a harness pipeline review result — includes original/improved code and language.
+     */
+    public void saveHarness(String originalCode, String response, String language, String improvedCode) {
+        long inputTok  = claudeClient.getLastInputTokens();
+        long outputTok = claudeClient.getLastOutputTokens();
+        String title = buildTitle(originalCode);
+        ReviewHistory h = new ReviewHistory("HARNESS_REVIEW", title, originalCode, response,
+                null, inputTok > 0 ? inputTok : null, outputTok > 0 ? outputTok : null);
+        h.setOriginalCode(originalCode);
+        h.setImprovedCode(improvedCode);
+        h.setAnalysisLanguage(language);
+        repository.save(h);
+        while (repository.count() > MAX_HISTORY) {
+            ReviewHistory oldest = repository.findTopByOrderByCreatedAtAsc();
+            if (oldest != null) repository.delete(oldest);
+            else break;
+        }
+    }
+
     /** Return all history entries (most recent first, max MAX_HISTORY). */
     @Transactional(readOnly = true)
     public List<ReviewHistory> findAll() {

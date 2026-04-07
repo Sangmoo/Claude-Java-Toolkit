@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.harness;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -72,6 +73,35 @@ public class HarnessCacheService {
         t.setDaemon(true);
         t.setName("harness-cache-init");
         t.start();
+    }
+
+    /**
+     * Checks every minute whether the configured cron expression matches the current time.
+     * If so, triggers a full cache refresh in the background.
+     */
+    @Scheduled(fixedRate = 60_000)
+    public void scheduledCronRefresh() {
+        String cron = settings.getCacheRefreshCron();
+        if (cron == null || cron.trim().isEmpty()) return;
+        try {
+            org.springframework.scheduling.support.CronExpression expr =
+                    org.springframework.scheduling.support.CronExpression.parse(cron.trim());
+            java.time.LocalDateTime now  = java.time.LocalDateTime.now();
+            java.time.LocalDateTime prev = expr.next(now.minusMinutes(1));
+            if (prev != null && !prev.isAfter(now)) {
+                Thread t = new Thread(new Runnable() {
+                    public void run() {
+                        refreshFileCache();
+                        refreshDbCache();
+                    }
+                });
+                t.setDaemon(true);
+                t.setName("harness-cache-cron");
+                t.start();
+            }
+        } catch (Exception ignored) {
+            // invalid cron expression — silently skip
+        }
     }
 
     // ── Public refresh methods ────────────────────────────────────────────────

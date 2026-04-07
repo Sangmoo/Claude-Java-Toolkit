@@ -73,6 +73,7 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String emailPassword,
             @RequestParam(required = false, defaultValue = "") String emailFrom,
             @RequestParam(required = false, defaultValue = "true") String emailTls,
+            @RequestParam(required = false, defaultValue = "") String cacheRefreshCron,
             Model model) {
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -88,6 +89,7 @@ public class SettingsController {
         if (!emailPassword.isEmpty()) settings.getEmail().setPassword(emailPassword.trim());
         settings.getEmail().setFrom(emailFrom.trim());
         settings.getEmail().setTls(!"false".equals(emailTls));
+        settings.setCacheRefreshCron(cacheRefreshCron);
 
         // API 키가 입력된 경우 즉시 적용
         if (claudeApiKey != null && !claudeApiKey.trim().isEmpty()) {

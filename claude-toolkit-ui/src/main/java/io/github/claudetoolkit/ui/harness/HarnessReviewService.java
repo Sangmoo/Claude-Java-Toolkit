@@ -33,8 +33,8 @@ public class HarnessReviewService {
     private static final int TOKENS_ANALYST        = 2048;
     /** Builder: 전체 개선 코드를 출력하므로 가장 큰 예산이 필요합니다. */
     private static final int TOKENS_BUILDER        = 8192;
-    /** Reviewer: 변경 내역·기대 효과·최종 판정 3개 섹션. */
-    private static final int TOKENS_REVIEWER       = 3072;
+    /** Reviewer: 변경 내역·기대 효과·품질 점수·최종 판정 4개 섹션. */
+    private static final int TOKENS_REVIEWER       = 4096;
     /**
      * Builder 단계 이어쓰기 최대 횟수.
      * 1회 추가 = 최대 16,384 토큰, 2회 = 24,576 토큰, 3회 = 32,768 토큰 출력 가능.
@@ -56,13 +56,17 @@ public class HarnessReviewService {
      * 3단계 파이프라인을 순차 실행하고, UI가 기대하는 ## 섹션 형식으로 조립한 결과를 반환합니다.
      */
     public String analyze(String code, String language) {
+        return analyze(code, language, "");
+    }
+
+    public String analyze(String code, String language, String templateHint) {
         boolean isSql    = "sql".equalsIgnoreCase(language);
         String codeBlock = isSql ? "sql" : "java";
         String memo      = settings.getProjectContext();
 
         // 1단계: Analyst — 문제점 분석
         String analysis = claudeClient.chat(
-                withMemo(buildAnalystSystem(language), memo),
+                applyTemplateHint(withMemo(buildAnalystSystem(language), memo), templateHint),
                 buildAnalystUser(code, language),
                 TOKENS_ANALYST);
 
@@ -97,6 +101,11 @@ public class HarnessReviewService {
      */
     public void analyzeStream(String code, String language,
                               Consumer<String> onChunk) throws IOException {
+        analyzeStream(code, language, "", onChunk);
+    }
+
+    public void analyzeStream(String code, String language, String templateHint,
+                              Consumer<String> onChunk) throws IOException {
         boolean isSql    = "sql".equalsIgnoreCase(language);
         String codeBlock = isSql ? "sql" : "java";
         String memo      = settings.getProjectContext();
@@ -105,7 +114,7 @@ public class HarnessReviewService {
         onChunk.accept("## 📋 분석 요약\n");
         final StringBuilder analysisBuf = new StringBuilder();
         claudeClient.chatStream(
-                withMemo(buildAnalystSystem(language), memo),
+                applyTemplateHint(withMemo(buildAnalystSystem(language), memo), templateHint),
                 buildAnalystUser(code, language),
                 TOKENS_ANALYST,
                 new Consumer<String>() {
@@ -193,14 +202,30 @@ public class HarnessReviewService {
         String langName = isSql ? "Oracle SQL" : "Java/Spring";
         return "당신은 " + langName + " 코드 검토자(Reviewer)입니다.\n"
              + "원본 코드, 분석 결과, 개선된 코드를 비교하여 변경 내역을 검증하고 최종 판정을 내립니다.\n"
-             + "반드시 아래 3개 섹션 형식으로만 응답하세요:\n\n"
+             + "반드시 아래 4개 섹션 형식으로만 응답하세요:\n\n"
              + "## 📝 변경 내역\n"
              + "[각 변경 사항과 이유를 항목 목록(- )으로]\n\n"
              + "## 📈 기대 효과\n"
              + "[성능·가독성·유지보수성·보안 측면 개선 효과를 항목 목록(- )으로]\n\n"
+             + "## 📊 품질 점수\n"
+             + "[가독성: X/10, 성능: X/10, 유지보수성: X/10, 보안: X/10, 종합: X/10]\n"
+             + "각 항목에 대한 1줄 평가를 제공하세요.\n\n"
              + "## ✅ 최종 검토 의견\n"
              + "[종합 판정(APPROVED / NEEDS_REVISION), 심각도, 주의 사항]\n\n"
              + "응답은 한국어로 작성하세요.";
+    }
+
+    private String applyTemplateHint(String systemPrompt, String templateHint) {
+        if (templateHint == null || templateHint.trim().isEmpty()) return systemPrompt;
+        String hint;
+        if ("performance".equals(templateHint))      hint = "특히 성능 최적화(인덱스, 쿼리 튜닝, 알고리즘 복잡도, 캐싱)에 집중하세요.";
+        else if ("security".equals(templateHint))    hint = "특히 보안 취약점(SQL 인젝션, XSS, 인증·인가, 민감정보 노출)에 집중하세요.";
+        else if ("refactoring".equals(templateHint)) hint = "특히 리팩터링(중복 코드 제거, 단일 책임 원칙, 디자인 패턴 적용)에 집중하세요.";
+        else if ("sql_performance".equals(templateHint)) hint = "특히 Oracle SQL 성능(실행계획, 인덱스 활용, Full Table Scan 제거, 힌트)에 집중하세요.";
+        else if ("readability".equals(templateHint)) hint = "특히 가독성·유지보수성(명확한 변수명, 주석, 함수 분리, 일관성)에 집중하세요.";
+        else hint = "";
+        if (hint.isEmpty()) return systemPrompt;
+        return systemPrompt + "\n\n[분석 템플릿 집중 영역]\n" + hint;
     }
 
     // ── 사용자 메시지 ─────────────────────────────────────────────────────────

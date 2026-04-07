@@ -91,7 +91,8 @@ public class SettingsPersistenceService {
                "  \"emailUsername\": "  + quoted(s.getEmail().getUsername())    + ",\n" +
                "  \"emailPassword\": "  + quoted(s.getEmail().getPassword())    + ",\n" +
                "  \"emailFrom\": "      + quoted(s.getEmail().getFrom())        + ",\n" +
-               "  \"emailTls\": "       + s.getEmail().isTls()                 + "\n" +
+               "  \"emailTls\": "            + s.getEmail().isTls()                 + ",\n" +
+               "  \"cacheRefreshCron\": "    + quoted(s.getCacheRefreshCron())       + "\n" +
                "}";
     }
 
@@ -129,6 +130,8 @@ public class SettingsPersistenceService {
         if (emailFrom != null) s.getEmail().setFrom(emailFrom);
         String emailTls = extractRawField(json, "emailTls");
         if (emailTls != null) s.getEmail().setTls(!"false".equals(emailTls.trim()));
+        String cacheRefreshCron = extractField(json, "cacheRefreshCron");
+        if (cacheRefreshCron != null) s.setCacheRefreshCron(cacheRefreshCron);
     }
 
     /** Extract a raw (unquoted) JSON field value — used for numbers and booleans. */

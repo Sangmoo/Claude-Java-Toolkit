@@ -61,14 +61,15 @@ public class HarnessController {
     @PostMapping("/analyze")
     @ResponseBody
     public Map<String, Object> analyze(
-            @RequestParam("code")                                    String code,
-            @RequestParam(value = "language", defaultValue = "java") String language) {
+            @RequestParam("code")                                        String code,
+            @RequestParam(value = "language",     defaultValue = "java") String language,
+            @RequestParam(value = "templateHint", defaultValue = "")     String templateHint) {
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         try {
-            String response     = harnessService.analyze(code, language);
+            String response     = harnessService.analyze(code, language, templateHint);
             String improvedCode = harnessService.extractImprovedCode(response, language);
-            historyService.save("HARNESS_REVIEW", code, response);
+            historyService.saveHarness(code, response, language, improvedCode);
 
             result.put("success",      true);
             result.put("originalCode", code);
@@ -90,13 +91,14 @@ public class HarnessController {
     @PostMapping("/stream-init")
     @ResponseBody
     public Map<String, Object> streamInit(
-            @RequestParam("code")                                    String code,
-            @RequestParam(value = "language", defaultValue = "java") String language) {
+            @RequestParam("code")                                        String code,
+            @RequestParam(value = "language",     defaultValue = "java") String language,
+            @RequestParam(value = "templateHint", defaultValue = "")     String templateHint) {
 
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         try {
             String streamId = sseStreamController.registerStream(
-                    "harness_review", code, "", language);
+                    "harness_review", code, templateHint, language);
             result.put("success",  true);
             result.put("streamId", streamId);
         } catch (Exception e) {
@@ -240,6 +242,45 @@ public class HarnessController {
             result.put("type",    type);
         }
         return result;
+    }
+
+    /**
+     * Exports the full harness analysis result as a self-contained HTML file.
+     */
+    @PostMapping("/export-html")
+    public void exportHtml(
+            @RequestParam("code")        String code,
+            @RequestParam("improved")    String improved,
+            @RequestParam("response")    String response,
+            @RequestParam(value = "language", defaultValue = "java") String language,
+            javax.servlet.http.HttpServletResponse httpResp) throws Exception {
+        httpResp.setContentType("text/html; charset=UTF-8");
+        httpResp.setHeader("Content-Disposition",
+                "attachment; filename=\"harness-review-" + java.time.LocalDate.now() + ".html\"");
+        java.io.PrintWriter out = httpResp.getWriter();
+        out.println("<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'>");
+        out.println("<title>하네스 리뷰 결과</title>");
+        out.println("<style>body{font-family:sans-serif;margin:32px;line-height:1.7;color:#1e293b;}");
+        out.println("h1{color:#8b5cf6;}h2{color:#6d28d9;border-bottom:1px solid #ddd;padding-bottom:4px;}");
+        out.println("pre{background:#f1f5f9;padding:12px;border-radius:8px;overflow-x:auto;font-size:.83rem;}");
+        out.println(".diff{display:grid;grid-template-columns:1fr 1fr;gap:12px;}");
+        out.println(".orig{border-left:4px solid #f87171;padding:0 12px;}.impr{border-left:4px solid #34d399;padding:0 12px;}");
+        out.println("</style></head><body>");
+        out.println("<h1>하네스 코드 리뷰 결과</h1>");
+        out.println("<p><strong>분석 언어:</strong> " + escapeHtml(language.toUpperCase())
+                  + " &nbsp;·&nbsp; <strong>분석 일시:</strong> " + java.time.LocalDateTime.now() + "</p>");
+        out.println("<div class='diff'>");
+        out.println("<div class='orig'><h2>원본 코드</h2><pre>" + escapeHtml(code) + "</pre></div>");
+        out.println("<div class='impr'><h2>개선된 코드</h2><pre>" + escapeHtml(improved) + "</pre></div>");
+        out.println("</div>");
+        out.println("<h2>분석 결과</h2><pre>" + escapeHtml(response) + "</pre>");
+        out.println("</body></html>");
+        out.flush();
+    }
+
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;");
     }
 
     /**

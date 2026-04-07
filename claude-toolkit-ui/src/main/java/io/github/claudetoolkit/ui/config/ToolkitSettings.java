@@ -22,6 +22,8 @@ public class ToolkitSettings {
     private String  claudeModel    = ""; // 빈 문자열이면 application.yml 기본값 사용
     /** Optional accent color override (hex, e.g. "#f97316"). Empty means use default. */
     private String  accentColor    = "";
+    /** Cron expression for automatic DB cache refresh (Spring cron, 6-field). Empty = disabled. */
+    private String cacheRefreshCron = "";
 
     public Db getDb()             { return db; }
     public void setDb(Db db)      { this.db = db; }
@@ -46,6 +48,10 @@ public class ToolkitSettings {
     public String getAccentColor()                  { return accentColor != null ? accentColor : ""; }
     public void setAccentColor(String c)            { this.accentColor = c == null ? "" : c; }
     public boolean isAccentColorSet()               { return isNotBlank(accentColor); }
+
+    public String getCacheRefreshCron()               { return cacheRefreshCron != null ? cacheRefreshCron : ""; }
+    public void setCacheRefreshCron(String c)         { this.cacheRefreshCron = c == null ? "" : c; }
+    public boolean isCacheRefreshCronSet()            { return isNotBlank(cacheRefreshCron); }
 
     /** Returns true only when all three DB fields are non-empty. */
     public boolean isDbConfigured() {

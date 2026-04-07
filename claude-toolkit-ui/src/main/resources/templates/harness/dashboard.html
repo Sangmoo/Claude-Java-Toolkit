@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>품질 대시보드 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .stat-card { background:var(--bg-secondary); border:1px solid var(--border-color);
+                     border-radius:12px; padding:20px; text-align:center; }
+        .stat-card .stat-value { font-size:2rem; font-weight:700; color:#8b5cf6; }
+        .stat-card .stat-label { font-size:.82rem; color:var(--text-muted); margin-top:4px; }
+        .stat-card .stat-pct   { font-size:1rem; font-weight:600; }
+        .chart-panel { background:var(--bg-secondary); border:1px solid var(--border-color);
+                       border-radius:12px; padding:20px; }
+        .timeline-table { font-size:.82rem; }
+        .timeline-table th { color:var(--text-muted); font-weight:500; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin .8s linear infinite; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-chart-line me-2" style="color:#8b5cf6"></i>품질 대시보드
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">하네스 파이프라인의 누적 분석 통계를 시각화합니다.</p>
+
+            <!-- 로딩 상태 -->
+            <div id="loadingEl" class="text-center py-5">
+                <i class="fas fa-circle-notch spin-icon fa-2x mb-3" style="color:#8b5cf6"></i>
+                <p style="color:var(--text-muted);">통계 로딩 중...</p>
+            </div>
+
+            <!-- 대시보드 컨텐츠 -->
+            <div id="dashContent" style="display:none;">
+
+                <!-- 통계 카드 -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTotal">0</div>
+                            <div class="stat-label">총 하네스 분석</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value" style="color:#10b981;" id="statApprovedPct">0%</div>
+                            <div class="stat-label">APPROVED 비율</div>
+                            <div class="stat-pct" id="statApprovedCnt" style="color:#10b981;"></div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value" style="color:#f59e0b;" id="statRevisionPct">0%</div>
+                            <div class="stat-label">NEEDS_REVISION 비율</div>
+                            <div class="stat-pct" id="statRevisionCnt" style="color:#f59e0b;"></div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTotalHistory">0</div>
+                            <div class="stat-label">전체 분석 이력</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 차트 행 -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="chart-panel">
+                            <h6 style="color:var(--text-primary);margin-bottom:14px;">
+                                <i class="fas fa-check-circle me-2" style="color:#10b981"></i>최종 판정 분포
+                            </h6>
+                            <canvas id="verdictChart" height="200"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="chart-panel">
+                            <h6 style="color:var(--text-primary);margin-bottom:14px;">
+                                <i class="fas fa-code me-2" style="color:#3b82f6"></i>언어별 분석 수
+                            </h6>
+                            <canvas id="langChart" height="200"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="chart-panel">
+                            <h6 style="color:var(--text-primary);margin-bottom:14px;">
+                                <i class="fas fa-chart-bar me-2" style="color:#8b5cf6"></i>최근 품질 점수 추이
+                            </h6>
+                            <canvas id="scoreChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 최근 분석 타임라인 -->
+                <div class="panel p-4">
+                    <h6 class="section-title mb-3">
+                        <i class="fas fa-clock me-2" style="color:#8b5cf6"></i>최근 분석 타임라인
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm timeline-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px;">일시</th>
+                                    <th>제목</th>
+                                    <th style="width:60px;">언어</th>
+                                    <th style="width:80px;">품질 점수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timelineTable"></tbody>
+                        </table>
+                    </div>
+                    <div id="emptyTimeline" style="display:none;text-align:center;padding:24px;color:var(--text-muted);font-size:.85rem;">
+                        아직 하네스 분석 이력이 없습니다.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250329')}"></script>
+<script>
+var verdictChartInst = null;
+var langChartInst    = null;
+var scoreChartInst   = null;
+
+function loadStats() {
+    fetch('/harness/dashboard/stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('loadingEl').style.display  = 'none';
+            document.getElementById('dashContent').style.display = '';
+
+            var total     = data.totalHarness || 0;
+            var approved  = data.approved     || 0;
+            var revision  = data.needsRevision || 0;
+            var other     = total - approved - revision;
+            var java      = data.javaCount    || 0;
+            var sql       = data.sqlCount     || 0;
+
+            document.getElementById('statTotal').textContent        = total;
+            document.getElementById('statTotalHistory').textContent = data.totalHistory || 0;
+            document.getElementById('statApprovedPct').textContent  = total > 0 ? Math.round(approved / total * 100) + '%' : '0%';
+            document.getElementById('statApprovedCnt').textContent  = approved + '건';
+            document.getElementById('statRevisionPct').textContent  = total > 0 ? Math.round(revision / total * 100) + '%' : '0%';
+            document.getElementById('statRevisionCnt').textContent  = revision + '건';
+
+            // Verdict doughnut chart
+            if (verdictChartInst) { verdictChartInst.destroy(); }
+            var ctxV = document.getElementById('verdictChart').getContext('2d');
+            verdictChartInst = new Chart(ctxV, {
+                type: 'doughnut',
+                data: {
+                    labels: ['APPROVED', 'NEEDS_REVISION', '기타'],
+                    datasets: [{ data: [approved, revision, other],
+                                 backgroundColor: ['#10b981','#f59e0b','#94a3b8'],
+                                 borderWidth: 0 }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } } }
+            });
+
+            // Language bar chart
+            if (langChartInst) { langChartInst.destroy(); }
+            var ctxL = document.getElementById('langChart').getContext('2d');
+            langChartInst = new Chart(ctxL, {
+                type: 'bar',
+                data: {
+                    labels: ['Java', 'SQL'],
+                    datasets: [{ label: '분석 수', data: [java, sql],
+                                 backgroundColor: ['#f97316','#3b82f6'], borderWidth: 0 }]
+                },
+                options: { plugins: { legend: { display: false } },
+                           scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,.2)' } },
+                                     x: { ticks: { color: '#94a3b8' }, grid: { display: false } } } }
+            });
+
+            // Score line chart
+            var timeline = data.timeline || [];
+            var labels   = [];
+            var scores   = [];
+            for (var i = 0; i < timeline.length; i++) {
+                labels.push(timeline[i].date || '');
+                scores.push(timeline[i].score || 0);
+            }
+
+            if (scoreChartInst) { scoreChartInst.destroy(); }
+            var ctxS = document.getElementById('scoreChart').getContext('2d');
+            scoreChartInst = new Chart(ctxS, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: '종합 점수', data: scores,
+                                 borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,.15)',
+                                 fill: true, tension: 0.4, pointRadius: 3 }]
+                },
+                options: { plugins: { legend: { display: false } },
+                           scales: { y: { min: 0, max: 10, ticks: { color: '#94a3b8' },
+                                          grid: { color: 'rgba(148,163,184,.2)' } },
+                                     x: { ticks: { color: '#94a3b8', font: { size: 10 } },
+                                          grid: { display: false } } } }
+            });
+
+            // Timeline table
+            if (!timeline.length) {
+                document.getElementById('emptyTimeline').style.display = '';
+            } else {
+                var html = '';
+                for (var j = 0; j < timeline.length; j++) {
+                    var t = timeline[j];
+                    var scoreStr = t.score > 0 ? t.score + '/10' : '-';
+                    var scoreColor = t.score >= 8 ? '#10b981' : t.score >= 6 ? '#f59e0b' : '#ef4444';
+                    html += '<tr>'
+                          + '<td style="color:var(--text-muted);">' + escHtml(t.date || '') + '</td>'
+                          + '<td>' + escHtml((t.title || '').substring(0, 50)) + '</td>'
+                          + '<td><span style="font-size:.7rem;">' + escHtml(t.lang || '') + '</span></td>'
+                          + '<td style="color:' + (t.score > 0 ? scoreColor : 'var(--text-muted)') + ';font-weight:600;">' + scoreStr + '</td>'
+                          + '</tr>';
+                }
+                document.getElementById('timelineTable').innerHTML = html;
+            }
+        })
+        .catch(function(e) {
+            document.getElementById('loadingEl').innerHTML =
+                '<p style="color:#ef4444;">통계 로딩 실패: ' + e.message + '</p>';
+        });
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadStats();
+</script>
+</body>
+</html>

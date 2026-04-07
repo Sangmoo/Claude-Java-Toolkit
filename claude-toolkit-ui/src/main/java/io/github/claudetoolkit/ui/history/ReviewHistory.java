@@ -45,6 +45,20 @@ public class ReviewHistory {
     @Column(nullable = true)
     private Long outputTokens;
 
+    /** Original source code submitted to harness pipeline (nullable — only for HARNESS_REVIEW) */
+    @Lob
+    @Column(nullable = true)
+    private String originalCode;
+
+    /** Improved code produced by the Builder step (nullable — only for HARNESS_REVIEW) */
+    @Lob
+    @Column(nullable = true)
+    private String improvedCode;
+
+    /** Language used in harness analysis: "java" or "sql" (nullable — only for HARNESS_REVIEW) */
+    @Column(nullable = true, length = 20)
+    private String analysisLanguage;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -80,6 +94,13 @@ public class ReviewHistory {
     public void setInputTokens(Long t) { this.inputTokens = t; }
     public Long getOutputTokens()    { return outputTokens; }
     public void setOutputTokens(Long t) { this.outputTokens = t; }
+
+    public String getOriginalCode()            { return originalCode; }
+    public void setOriginalCode(String c)      { this.originalCode = c; }
+    public String getImprovedCode()            { return improvedCode; }
+    public void setImprovedCode(String c)      { this.improvedCode = c; }
+    public String getAnalysisLanguage()        { return analysisLanguage; }
+    public void setAnalysisLanguage(String l)  { this.analysisLanguage = l; }
 
     public long getTotalTokens() {
         long i = inputTokens  != null ? inputTokens  : 0;
@@ -117,6 +138,7 @@ public class ReviewHistory {
         if ("ERD_DDL".equals(type))         return "DDL 생성";
         if ("EXPLAIN_PLAN".equals(type))    return "실행계획";
         if ("SQL_BATCH".equals(type))       return "SQL 배치";
+        if ("HARNESS_REVIEW".equals(type))  return "하네스 리뷰";
         return type;
     }
 
@@ -145,6 +167,7 @@ public class ReviewHistory {
         if ("ERD_DDL".equals(type))         return "#14b8a6";
         if ("EXPLAIN_PLAN".equals(type))    return "#3b82f6";
         if ("SQL_BATCH".equals(type))       return "#f97316";
+        if ("HARNESS_REVIEW".equals(type))  return "#8b5cf6";
         return "#64748b";
     }
 

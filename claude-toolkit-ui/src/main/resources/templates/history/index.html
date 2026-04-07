@@ -218,6 +218,10 @@
                 <button class="btn btn-accent btn-sm" id="rerunBtn" onclick="rerunHistory()" style="display:none;">
                     <i class="fas fa-redo me-1"></i>재실행
                 </button>
+                <button type="button" class="btn btn-outline-tk btn-sm" id="reloadHarnessBtn" style="display:none;"
+                        onclick="reloadInHarness()">
+                    <i class="fas fa-redo me-1"></i>하네스 재분석
+                </button>
                 <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
@@ -263,11 +267,16 @@
             .then(function(data) {
                 if (data.error) return;
                 _currentDetail = data;
+                currentDetailInput = data.input || null;
                 document.getElementById('modalTitle').textContent = data.title;
                 document.getElementById('modalMeta').textContent  = data.type + '  ·  ' + data.date;
                 var rerunBtn = document.getElementById('rerunBtn');
                 if (rerunBtn) {
                     rerunBtn.style.display = RERUN_MAP[data.typeCode] ? '' : 'none';
+                }
+                var harnessBtn = document.getElementById('reloadHarnessBtn');
+                if (harnessBtn) {
+                    harnessBtn.style.display = (data.typeCode === 'HARNESS_REVIEW') ? '' : 'none';
                 }
                 switchTab('output');
                 new bootstrap.Modal(document.getElementById('detailModal')).show();
@@ -295,6 +304,14 @@
         document.getElementById('modalContent').textContent = content;
         document.getElementById('tabInput').className  = 'tab-btn' + (tab === 'input'  ? ' active' : '');
         document.getElementById('tabOutput').className = 'tab-btn' + (tab === 'output' ? ' active' : '');
+    }
+
+    var currentDetailInput = null;
+    function reloadInHarness() {
+        if (currentDetailInput) {
+            try { localStorage.setItem('harness_input_v1', currentDetailInput); } catch(e) {}
+        }
+        window.location.href = '/harness';
     }
 
     function copyModalContent() {
