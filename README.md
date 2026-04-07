@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-1.6.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-1.7.0-brightgreen.svg)](#)
 
 ---
 
@@ -1079,11 +1079,47 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔜 v1.7.0 (예정)
+### 🔜 v1.7.0 (진행 중)
 
-**보안 강화**
+**🔐 보안 강화**
 - [ ] **REST API 키 인증** — REST API 호출 시 `X-API-Key` 헤더 인증 (`/settings`에서 키 발급·관리)
 - [ ] **Settings 비밀번호 잠금** — 설정 페이지 접근 시 PIN 또는 비밀번호 입력 요구
+
+**📊 분석 품질 강화**
+- [ ] **코드 품질 점수** — 하네스 분석 후 성능·가독성·보안·유지보수 항목별 1~10점 산출. 개선 전/후 점수 비교 차트 제공
+- [ ] **배치 분석** — Java 파일 / DB 오브젝트 다중 선택 → 순차 분석 → 결과 목록 요약. 완료 후 Excel/CSV 내보내기
+- [ ] **하네스 분석 템플릿** — "성능 집중", "보안 집중", "리팩터링 집중" 등 분석 목적별 프롬프트 프리셋 저장·선택
+
+**🗄️ Oracle / DB 특화**
+- [ ] **DB 오브젝트 의존성 분석** — `ALL_DEPENDENCIES` 기반으로 SP/함수가 참조하는 테이블·뷰·다른 SP를 트리로 시각화
+- [ ] **DB 캐시 자동 갱신 스케줄** — Settings에서 갱신 주기 설정(예: 매일 오전 9시). WAS 재기동 없이 최신 오브젝트 목록 유지
+
+**📤 내보내기 / 리포팅**
+- [ ] **분석 결과 내보내기** — 하네스 결과(분석 요약 + Diff + 변경 내역)를 PDF 또는 Word(.docx)로 내보내기. 코드리뷰 문서화 지원
+- [ ] **품질 대시보드** — 누적 분석 이력 기반으로 "가장 많이 분석된 파일", "평균 개선률", "주간 분석 건수" 통계 메인 화면 제공
+
+**⚡ UX / 운영 편의**
+- [ ] **하네스 히스토리 재로드** — 히스토리 목록에서 과거 분석 결과의 원본·개선 코드·Diff를 다시 렌더링하여 재확인 가능
+- [ ] **분석 알림** — 오래 걸리는 배치 분석 완료 시 브라우저 토스트 알림 + 기존 이메일 설정 연동 자동 발송
+
+---
+
+### 🔮 v1.8.0 (예정)
+
+**🔗 외부 연동 확장**
+- [ ] **Slack / Teams 웹훅 알림** — 분석 완료·배치 완료 시 채널에 자동 메시지 발송 (결과 요약 포함)
+- [ ] **Git 연동** — 로컬 Git 레포지토리에서 커밋 간 diff를 직접 선택해 하네스 분석 실행
+- [ ] **분석 결과 공유 링크** — 분석 결과를 단축 URL로 공유 (만료 시간 설정 가능)
+
+**🧩 확장성**
+- [ ] **즐겨찾기 코드 스니펫** — 자주 사용하는 코드 패턴·SQL을 스니펫으로 저장 → 하네스 입력창에 원클릭 로드
+- [ ] **멀티 언어 지원 확장** — Python, JavaScript, TypeScript 코드 분석 지원 (현재 Java/SQL 전용)
+- [ ] **AI 모델 비교 분석** — 동일 코드를 Claude Sonnet / Opus 등 복수 모델로 동시 분석 후 결과 비교
+- [ ] **실행 계획 히스토리 비교** — 동일 SQL의 과거 EXPLAIN PLAN 결과를 타임라인으로 누적해 Cost 추이 비교 뷰 제공
+
+**🛠️ DX / 개발자 경험**
+- [ ] **IDE 연동** — IntelliJ IDEA 플러그인으로 에디터에서 선택한 코드를 바로 하네스 분석으로 전송
+- [ ] **API 사용량 대시보드** — Claude API 호출 건수·입력/출력 토큰 누적량·월별 예상 비용 시각화
 
 ---
 
