@@ -67,6 +67,13 @@
         /* ── Log modal table ── */
         #logModal .status-ok   { color:#10b981; font-weight:600; }
         #logModal .status-fail { color:#ef4444; font-weight:600; }
+
+        /* ── Batch history section ── */
+        .history-row-highlight { background:rgba(139,92,246,.12) !important; }
+        .verdict-approved      { color:#10b981; font-weight:600; font-size:.75rem; }
+        .verdict-revision      { color:#f59e0b; font-weight:600; font-size:.75rem; }
+        .verdict-unknown       { color:var(--text-muted); font-size:.75rem; }
+        .verdict-failed        { color:#ef4444; font-weight:600; font-size:.75rem; }
     </style>
 </head>
 <body>
@@ -163,8 +170,50 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ══════════════════════════════════════
+                 지난 배치 내역 (H2 DB 영구 저장)
+                 ══════════════════════════════════════ -->
+            <div class="row g-3 mt-2" id="historySection">
+                <div class="col-12">
+                    <div class="panel p-4" id="historyPanel">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="section-title mb-0">
+                                <i class="fas fa-history me-2" style="color:#8b5cf6"></i>지난 배치 내역
+                            </h6>
+                            <button class="copy-btn" onclick="loadHistory()">
+                                <i class="fas fa-sync-alt me-1"></i>새로고침
+                            </button>
+                        </div>
+                        <div id="historyTableWrap">
+                            <div class="text-center py-4" style="color:var(--text-muted);font-size:.85rem;">
+                                <i class="fas fa-circle-notch spin-icon me-2"></i>이력 로딩 중...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
+</div>
+
+<!-- 배치 이력 상세 모달 -->
+<div class="modal fade" id="batchHistDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;">
+            <div class="modal-header" style="border-bottom:1px solid var(--border-color);">
+                <h5 class="modal-title" style="color:var(--text-primary);font-size:.95rem;">
+                    <i class="fas fa-history me-2" style="color:#8b5cf6"></i>배치 이력 상세
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="batchHistDetailBody">
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ════════════════════ 상세 결과 모달 ════════════════════ -->
@@ -845,6 +894,113 @@ function escHtml(s) {
 // 페이지 로드 시 기본 항목 1개, 이메일 입력 1개 추가
 addItem();
 addEmail();
+
+/* ════════════════════════════════════════
+   배치 이력 (DB 영구 저장)
+   ════════════════════════════════════════ */
+var batchHistoryData = [];
+
+function loadHistory() {
+    fetch('/harness/batch/history')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            batchHistoryData = data;
+            renderHistory(data);
+            // Check ?highlight= param
+            var params = new URLSearchParams(window.location.search);
+            var hl = params.get('highlight');
+            if (hl) highlightHistoryRow(hl);
+        })
+        .catch(function() {
+            document.getElementById('historyTableWrap').innerHTML =
+                '<div class="text-center py-3" style="color:var(--text-muted);font-size:.83rem;">이력을 불러올 수 없습니다.</div>';
+        });
+}
+
+function renderHistory(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('historyTableWrap').innerHTML =
+            '<div class="text-center py-4" style="color:var(--text-muted);font-size:.85rem;">' +
+            '<i class="fas fa-inbox me-2"></i>저장된 배치 이력이 없습니다.</div>';
+        return;
+    }
+    var html = '<div class="table-responsive"><table class="table table-sm" style="font-size:.82rem;">'
+             + '<thead><tr><th>#</th><th>시작 일시</th><th>완료 일시</th><th style="width:50px">총</th>'
+             + '<th style="width:50px">성공</th><th style="width:50px">실패</th><th style="width:80px">상세</th>'
+             + '<th style="width:40px"></th></tr></thead><tbody>';
+    for (var i = 0; i < data.length; i++) {
+        var h = data[i];
+        html += '<tr id="histRow_' + escHtml(h.batchUuid) + '">'
+              + '<td>' + (i + 1) + '</td>'
+              + '<td>' + escHtml(h.startedAt) + '</td>'
+              + '<td>' + escHtml(h.finishedAt) + '</td>'
+              + '<td>' + h.totalCount + '</td>'
+              + '<td class="result-row-ok">' + h.successCount + '</td>'
+              + '<td class="' + (h.failedCount > 0 ? 'result-row-fail' : '') + '">' + h.failedCount + '</td>'
+              + '<td><button class="copy-btn" onclick="showHistDetail(' + i + ')">상세 보기</button></td>'
+              + '<td><button class="copy-btn" style="color:#ef4444;" onclick="deleteHistory(' + h.id + ')" title="삭제">'
+              + '<i class="fas fa-trash"></i></button></td>'
+              + '</tr>';
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('historyTableWrap').innerHTML = html;
+}
+
+function highlightHistoryRow(uuid) {
+    setTimeout(function() {
+        var row = document.getElementById('histRow_' + uuid);
+        if (row) {
+            row.classList.add('history-row-highlight');
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(function() { row.classList.remove('history-row-highlight'); }, 3000);
+        }
+    }, 300);
+}
+
+function showHistDetail(idx) {
+    var h = batchHistoryData[idx];
+    if (!h) return;
+    var items = [];
+    try { items = JSON.parse(h.itemsSummaryJson || '[]'); } catch(e) { items = []; }
+
+    var html = '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px;">'
+             + '시작: ' + escHtml(h.startedAt) + ' &nbsp; 완료: ' + escHtml(h.finishedAt)
+             + ' &nbsp; 총 ' + h.totalCount + '건 / 성공 ' + h.successCount + '건 / 실패 ' + h.failedCount + '건'
+             + '</div>';
+    html += '<div class="table-responsive"><table class="table table-sm" style="font-size:.8rem;">'
+          + '<thead><tr><th>#</th><th>레이블</th><th>언어</th><th>판정</th><th>시작</th><th>완료</th></tr></thead><tbody>';
+    for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var verdictClass = it.verdict === 'APPROVED' ? 'verdict-approved'
+                         : it.verdict === 'NEEDS_REVISION' ? 'verdict-revision'
+                         : it.status === 'failed' ? 'verdict-failed' : 'verdict-unknown';
+        html += '<tr>'
+              + '<td>' + (i+1) + '</td>'
+              + '<td title="' + escHtml(it.label || '') + '">' + escHtml((it.label||'').substring(0,28)) + '</td>'
+              + '<td>' + escHtml(it.language || '') + '</td>'
+              + '<td class="' + verdictClass + '">' + escHtml(it.verdict || it.status || '-') + '</td>'
+              + '<td>' + escHtml(it.startedAt || '-') + '</td>'
+              + '<td>' + escHtml(it.finishedAt || '-') + '</td>'
+              + '</tr>';
+        if (it.error) {
+            html += '<tr><td colspan="6" style="color:#ef4444;font-size:.75rem;padding-left:24px;">오류: '
+                  + escHtml(it.error) + '</td></tr>';
+        }
+    }
+    html += '</tbody></table></div>';
+
+    document.getElementById('batchHistDetailBody').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('batchHistDetailModal')).show();
+}
+
+function deleteHistory(id) {
+    if (!confirm('이 배치 이력을 삭제하시겠습니까?')) return;
+    fetch('/harness/batch/history/' + id, { method: 'DELETE' })
+        .then(function() { loadHistory(); });
+}
+
+// Load history on page load
+document.addEventListener('DOMContentLoaded', function() { loadHistory(); });
 </script>
 </body>
 </html>

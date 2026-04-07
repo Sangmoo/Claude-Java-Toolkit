@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.controller;
 
+import io.github.claudetoolkit.ui.harness.BatchHistory;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchItem;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchStatus;
@@ -52,7 +53,7 @@ public class HarnessBatchController {
             List<?> rawList = (List<?>) itemsRaw;
             for (Object rawItem : rawList) {
                 if (!(rawItem instanceof Map)) continue;
-                Map<?,?> m = (Map<?,?>) rawItem;
+                Map<?, ?> m = (Map<?, ?>) rawItem;
                 BatchItem item = new BatchItem();
                 item.label    = m.get("label")    != null ? m.get("label").toString()    : "";
                 item.code     = m.get("code")     != null ? m.get("code").toString()     : "";
@@ -135,6 +136,37 @@ public class HarnessBatchController {
     @ResponseBody
     public Map<String, Object> clear(@PathVariable String batchId) {
         batchService.clearStatus(batchId);
+        Map<String, Object> r = new LinkedHashMap<String, Object>();
+        r.put("success", true);
+        return r;
+    }
+
+    /** GET /harness/batch/history — returns list of recent batch history records */
+    @GetMapping("/history")
+    @ResponseBody
+    public List<Map<String, Object>> history() {
+        List<BatchHistory> list = batchService.getRecentHistory();
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (BatchHistory h : list) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("id",               h.getId());
+            m.put("batchUuid",        h.getBatchUuid());
+            m.put("startedAt",        h.getFormattedStartedAt());
+            m.put("finishedAt",       h.getFormattedFinishedAt());
+            m.put("totalCount",       h.getTotalCount());
+            m.put("successCount",     h.getSuccessCount());
+            m.put("failedCount",      h.getFailedCount());
+            m.put("itemsSummaryJson", h.getItemsSummaryJson());
+            result.add(m);
+        }
+        return result;
+    }
+
+    /** DELETE /harness/batch/history/{id} — delete a single history record */
+    @DeleteMapping("/history/{id}")
+    @ResponseBody
+    public Map<String, Object> deleteHistory(@PathVariable long id) {
+        batchService.deleteHistory(id);
         Map<String, Object> r = new LinkedHashMap<String, Object>();
         r.put("success", true);
         return r;
