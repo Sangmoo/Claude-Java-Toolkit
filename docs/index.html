@@ -437,7 +437,7 @@ footer{
   <div class="container">
     <div class="hero-badge">
       <span class="hero-badge-dot"></span>
-      <span data-i18n="hero.badge">Claude AI 기반 개발 도구 · v1.5.0</span>
+      <span data-i18n="hero.badge">Claude AI 기반 개발 도구 · v1.7.0</span>
     </div>
     <h1>
       <span data-i18n="hero.title1">Oracle SQL · Java 코드를</span><br>
@@ -560,26 +560,26 @@ footer{
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">🔬</div>
-        <div class="feat-title">코드 리뷰 하네스 (v1.6)</div>
-        <div class="feat-desc">Analyst → Builder → Reviewer 3단계 AI 파이프라인으로 코드를 분석·개선하고, 변경 전/후를 LCS Diff로 시각화합니다</div>
+        <div class="feat-title" data-i18n="feat.harness.title">코드 리뷰 하네스 (v1.7)</div>
+        <div class="feat-desc" data-i18n="feat.harness.desc">Analyst → Builder → Reviewer 3단계 AI 파이프라인 + 분석 템플릿·품질 점수·배치 분석·의존성 분석·품질 대시보드까지 하네스 전 기능을 제공합니다</div>
         <div class="feat-tags">
           <span class="tag">3단계 파이프라인</span>
-          <span class="tag">Diff 뷰</span>
+          <span class="tag">품질 점수</span>
+          <span class="tag">배치 분석</span>
+          <span class="tag">의존성 분석</span>
+          <span class="tag">📈 대시보드</span>
           <span class="tag">⚡ 스트리밍</span>
-          <span class="tag">Java / SQL</span>
         </div>
       </div>
       <div class="feat-card reveal">
-        <div class="feat-icon" style="background:rgba(251,191,36,.12);color:#fbbf24;">🚀</div>
-        <div class="feat-title">v1.7.0 — 분석 고도화 (진행 중)</div>
-        <div class="feat-desc">코드 품질 점수, 배치 분석, DB 의존성 트리, 결과 PDF 내보내기, 품질 대시보드, 보안 강화 등 실무 생산성 기능을 추가합니다</div>
+        <div class="feat-icon" style="background:rgba(251,191,36,.12);color:#fbbf24;">🔮</div>
+        <div class="feat-title" data-i18n="feat.next.title">v1.8.0 — 외부 연동 확장 (예정)</div>
+        <div class="feat-desc" data-i18n="feat.next.desc">Slack/Teams 웹훅 알림, Git 연동 하네스 분석, REST API 키 인증, Settings 비밀번호 잠금, AI 모델 비교 분석 등을 추가할 예정입니다</div>
         <div class="feat-tags">
-          <span class="tag">🔐 보안 강화</span>
-          <span class="tag">📊 품질 점수</span>
-          <span class="tag">📦 배치 분석</span>
-          <span class="tag">🗄️ DB 의존성</span>
-          <span class="tag">📄 PDF 내보내기</span>
-          <span class="tag">📈 대시보드</span>
+          <span class="tag">🔐 API 키 인증</span>
+          <span class="tag">💬 Slack 알림</span>
+          <span class="tag">🔗 Git 연동</span>
+          <span class="tag">🤖 모델 비교</span>
         </div>
       </div>
     </div>
@@ -872,6 +872,10 @@ var i18n={
     'feat.doc.desc':'소스코드를 분석해 Markdown·Typst 형식의 기술 문서를 즉시 생성하고, ERD 다이어그램도 자동으로 만들어냅니다',
     'feat.api.title':'REST API 연동',
     'feat.api.desc':'모든 기능을 JSON API로 호출할 수 있어 CI/CD 파이프라인, GitHub Actions, Postman 등 외부 도구와 바로 연동됩니다',
+    'feat.harness.title':'코드 리뷰 하네스 (v1.7)',
+    'feat.harness.desc':'Analyst → Builder → Reviewer 3단계 AI 파이프라인 + 분석 템플릿·품질 점수·배치 분석·의존성 분석·품질 대시보드까지 하네스 전 기능을 제공합니다',
+    'feat.next.title':'v1.8.0 — 외부 연동 확장 (예정)',
+    'feat.next.desc':'Slack/Teams 웹훅 알림, Git 연동 하네스 분석, REST API 키 인증, Settings 비밀번호 잠금, AI 모델 비교 분석 등을 추가할 예정입니다',
     'tab.sql':'SQL 분석','tab.code':'코드 분석','tab.doc':'문서 생성','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL 전방위 분석',
     'tab.sql.p':'실행계획(EXPLAIN PLAN) 트리 시각화, <strong>⚡ SSE 스트리밍 실시간 분석</strong>(v1.5 NEW), Before/After 비교, 성능 히스토리 대시보드(Cost 추이 차트), <strong>AI 제안 SQL Diff 뷰</strong>(v1.5 NEW), 배치 SQL 분석(최대 30개 일괄 리뷰, CSV 업로드), cron 스케줄 자동 실행, SQL Injection 보안 검사까지 SQL 개발의 모든 단계를 지원합니다.',
@@ -926,6 +930,10 @@ var i18n={
     'feat.doc.desc':'Instantly generate Markdown & Typst technical documents and Mermaid ERD diagrams from source code',
     'feat.api.title':'REST API Integration',
     'feat.api.desc':'Call all features as JSON APIs to integrate directly with CI/CD pipelines, GitHub Actions, or Postman',
+    'feat.harness.title':'Code Review Harness (v1.7)',
+    'feat.harness.desc':'Full harness suite: 3-stage AI pipeline (Analyst→Builder→Reviewer), analysis templates, quality scores, batch analysis, dependency analysis, and quality dashboard',
+    'feat.next.title':'v1.8.0 — External Integration (Planned)',
+    'feat.next.desc':'Slack/Teams webhook alerts, Git-integrated harness analysis, REST API key auth, Settings password lock, and multi-model comparison analysis',
     'tab.sql':'SQL Analysis','tab.code':'Code Analysis','tab.doc':'Doc Generation','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL Comprehensive Analysis',
     'tab.sql.p':'Supports all stages of SQL development: EXPLAIN PLAN tree visualization, <strong>⚡ SSE real-time streaming analysis</strong> (v1.5 NEW), Before/After comparison, performance history dashboard (Cost trend chart), <strong>AI-suggested SQL Diff view</strong> (v1.5 NEW), batch SQL analysis (up to 30 queries at once, CSV upload), cron-based scheduled auto-review, and SQL Injection security checks.',

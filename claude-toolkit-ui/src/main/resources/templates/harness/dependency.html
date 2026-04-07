@@ -9,14 +9,67 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
     <style>
+        /* ── Language tabs ── */
         .lang-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                     padding:5px 18px; border-radius:20px; cursor:pointer; font-size:.82rem; transition:all .15s; }
         .lang-tab.active { background:rgba(139,92,246,.15); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
+        /* ── Source selector ── */
+        .src-toggle-btn {
+            background:none; border:1px solid var(--border-color); color:var(--text-sub);
+            padding:5px 14px; border-radius:8px; font-size:.8rem; cursor:pointer;
+            display:flex; align-items:center; gap:6px; transition:all .15s;
+        }
+        .src-toggle-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
+        .src-toggle-btn.open  { border-color:#8b5cf6; color:#8b5cf6; background:rgba(139,92,246,.07); }
+
+        .source-panel {
+            border:1px solid var(--border-color); border-radius:10px;
+            overflow:hidden; margin-bottom:10px;
+            background:var(--surface-color);
+        }
+        .source-panel-header {
+            padding:8px 14px; background:var(--surface-color);
+            border-bottom:1px solid var(--border-color);
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .src-tab { background:none; border:none; color:var(--text-muted);
+                   padding:5px 14px; border-radius:20px; cursor:pointer;
+                   font-size:.78rem; font-weight:500; transition:all .15s; }
+        .src-tab.active { background:rgba(139,92,246,.12); color:#8b5cf6; font-weight:600; }
+
+        .source-list {
+            max-height:220px; overflow-y:auto;
+            background:var(--surface-color);
+        }
+        .source-item {
+            display:flex; align-items:center; gap:8px;
+            padding:7px 14px; cursor:pointer; font-size:.8rem;
+            border-bottom:1px solid var(--border-color);
+            transition:background .12s;
+        }
+        .source-item:last-child { border-bottom:none; }
+        .source-item:hover    { background:rgba(139,92,246,.08); }
+        .source-item.selected { background:rgba(139,92,246,.18); border-left:3px solid #8b5cf6; }
+        .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+        .source-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; flex-shrink:0; }
+        .source-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .source-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .source-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .source-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
+                      border-bottom:1px solid var(--border-color);
+                      display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+        /* ── Result ── */
         .section-content { padding:10px 2px; line-height:1.75; font-size:.88rem; }
         .section-content h2,.section-content h3 { font-size:.95rem; font-weight:700; margin:12px 0 5px; color:var(--text-primary); }
         .section-content ul { padding-left:18px; margin:5px 0; }
         .section-content li { margin-bottom:3px; }
         .section-content code { background:var(--code-bg,rgba(0,0,0,.25)); padding:1px 5px; border-radius:4px; font-size:.81em; }
+        .section-content pre  { background:var(--code-bg,rgba(0,0,0,.25)); padding:9px 12px; border-radius:7px; overflow-x:auto; font-size:.78rem; }
         .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                     padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
         .copy-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
@@ -47,12 +100,14 @@
         </div>
 
         <div class="main-content">
-            <p class="page-subtitle">Java 클래스 또는 SQL/PL-SQL 소스를 입력하면 호출 관계 · 테이블 의존성 · 설계 위험을 분석합니다.</p>
+            <p class="page-subtitle">Java 클래스 또는 SQL/PL-SQL 소스를 입력하거나 파일·DB 오브젝트에서 선택하면 호출 관계 · 테이블 의존성 · 설계 위험을 분석합니다.</p>
 
             <div class="row g-3">
-                <!-- ── 입력 패널 ── -->
+                <!-- ════════════ 입력 패널 ════════════ -->
                 <div class="col-lg-5">
                     <div class="panel p-3">
+
+                        <!-- Language tabs -->
                         <div class="d-flex gap-2 mb-2">
                             <button type="button" class="lang-tab active" id="langJava" onclick="setLanguage('java')">
                                 <i class="fab fa-java me-1"></i>Java
@@ -62,10 +117,88 @@
                             </button>
                         </div>
 
+                        <!-- ── Source Selector ── -->
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <button type="button" class="src-toggle-btn" id="srcToggleBtn" onclick="toggleSourcePanel()">
+                                    <i class="fas fa-folder-open"></i>
+                                    소스 선택하기
+                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;"></i>
+                                </button>
+                                <button type="button" class="copy-btn" onclick="refreshCache()" title="파일·DB 캐시 갱신">
+                                    <i class="fas fa-sync-alt me-1"></i>캐시 갱신
+                                </button>
+                            </div>
+
+                            <!-- Source selector panel -->
+                            <div id="sourcePanel" class="source-panel" style="display:none;">
+                                <div class="source-panel-header">
+                                    <div class="d-flex gap-1">
+                                        <button class="src-tab active" id="srcTabFiles" onclick="switchSrcTab('files')">
+                                            <i class="fab fa-java me-1"></i>Java 파일
+                                        </button>
+                                        <button class="src-tab" id="srcTabDb" onclick="switchSrcTab('db')">
+                                            <i class="fas fa-database me-1"></i>DB 오브젝트
+                                        </button>
+                                    </div>
+                                    <button type="button" onclick="toggleSourcePanel()"
+                                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;">
+                                        <i class="fas fa-times" style="font-size:.75rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Java Files Tab -->
+                                <div id="srcPanelFiles">
+                                    <div class="p-2">
+                                        <input type="text" id="fileSearchInput" class="form-control form-control-sm"
+                                               placeholder="클래스명·경로 검색..." oninput="onFileSearch(this.value)"
+                                               autocomplete="off">
+                                    </div>
+                                    <div class="src-status" id="fileStatus">
+                                        <span id="fileStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="fileCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="fileList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>파일 목록 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- DB Objects Tab -->
+                                <div id="srcPanelDb" style="display:none;">
+                                    <div class="p-2 d-flex gap-2">
+                                        <input type="text" id="dbSearchInput" class="form-control form-control-sm"
+                                               placeholder="오브젝트명 검색..." oninput="onDbSearch(this.value)"
+                                               autocomplete="off" style="flex:1;">
+                                        <select id="dbTypeFilter" class="form-select form-select-sm"
+                                                style="width:130px;flex-shrink:0;"
+                                                onchange="onDbSearch(document.getElementById('dbSearchInput').value)">
+                                            <option value="">전체 유형</option>
+                                            <option value="PROCEDURE">PROCEDURE</option>
+                                            <option value="FUNCTION">FUNCTION</option>
+                                            <option value="PACKAGE">PACKAGE</option>
+                                            <option value="TRIGGER">TRIGGER</option>
+                                        </select>
+                                    </div>
+                                    <div class="src-status" id="dbStatus">
+                                        <span id="dbStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="dbCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="dbList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>DB 오브젝트 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- ── / Source Selector ── -->
+
                         <label class="form-label" style="font-size:.82rem;">소스 코드 입력</label>
-                        <textarea id="codeInput" class="form-control" rows="20"
+                        <textarea id="codeInput" class="form-control" rows="18"
                                   style="font-family:'JetBrains Mono',monospace;font-size:.79rem;resize:vertical;"
-                                  placeholder="Java 클래스 또는 SQL/PL-SQL 소스를 입력하세요."></textarea>
+                                  placeholder="Java 클래스 또는 SQL/PL-SQL 소스를 입력하거나, 위 '소스 선택하기'에서 파일을 고르세요."></textarea>
 
                         <div class="d-flex gap-2 mt-2">
                             <button type="button" class="btn-accent" id="analyzeBtn" onclick="runAnalysis()">
@@ -78,14 +211,21 @@
                     </div>
                 </div>
 
-                <!-- ── 결과 패널 ── -->
+                <!-- ════════════ 결과 패널 ════════════ -->
                 <div class="col-lg-7">
                     <!-- Empty state -->
                     <div id="emptyState" class="panel p-4 text-center"
                          style="min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
                         <div style="font-size:2.6rem;opacity:.2;"><i class="fas fa-project-diagram"></i></div>
                         <div style="color:var(--text-muted);font-size:.88rem;">
-                            코드를 입력한 뒤 의존성 분석을 실행하면<br>호출 관계와 테이블 의존성이 여기 표시됩니다.
+                            코드를 입력하거나 파일·DB 오브젝트를 선택한 뒤<br>의존성 분석을 실행하면 결과가 여기 표시됩니다.
+                        </div>
+                        <div class="d-flex gap-2 mt-1" style="font-size:.75rem;color:var(--text-muted);opacity:.7;flex-wrap:wrap;justify-content:center;">
+                            <span><i class="fas fa-table me-1"></i>테이블/뷰 의존성</span>
+                            <span>·</span>
+                            <span><i class="fas fa-link me-1"></i>호출 관계</span>
+                            <span>·</span>
+                            <span><i class="fas fa-exclamation-triangle me-1"></i>설계 위험</span>
                         </div>
                     </div>
 
@@ -107,15 +247,276 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250329')}"></script>
 <script>
-var currentLang = 'java';
-var currentResp = '';
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+var currentLang    = 'java';
+var currentResp    = '';
+var srcTab         = 'files';
+var fileDataLoaded = false;
+var dbDataLoaded   = false;
 
+/* ═══════════════════════════════════════════════════════════════
+   Language selector
+   ═══════════════════════════════════════════════════════════════ */
 function setLanguage(lang) {
     currentLang = lang;
     document.getElementById('langJava').classList.toggle('active', lang === 'java');
     document.getElementById('langSql').classList.toggle('active',  lang === 'sql');
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Source Selector: toggle / tab switch
+   ═══════════════════════════════════════════════════════════════ */
+function toggleSourcePanel() {
+    var panel   = document.getElementById('sourcePanel');
+    var btn     = document.getElementById('srcToggleBtn');
+    var chevron = document.getElementById('srcChevron');
+    var isOpen  = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : '';
+    btn.classList.toggle('open', !isOpen);
+    chevron.className   = isOpen ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+    chevron.style.fontSize = '.65rem';
+    if (!isOpen) {
+        if (!fileDataLoaded && srcTab === 'files') loadFiles('');
+        if (!dbDataLoaded   && srcTab === 'db')    loadDbObjects('');
+        if (srcTab === 'files') setLanguage('java');
+        if (srcTab === 'db')    setLanguage('sql');
+    }
+}
+
+function switchSrcTab(tab) {
+    srcTab = tab;
+    document.getElementById('srcTabFiles').classList.toggle('active', tab === 'files');
+    document.getElementById('srcTabDb').classList.toggle('active',    tab === 'db');
+    document.getElementById('srcPanelFiles').style.display = tab === 'files' ? '' : 'none';
+    document.getElementById('srcPanelDb').style.display    = tab === 'db'    ? '' : 'none';
+    if (tab === 'files' && !fileDataLoaded) loadFiles('');
+    if (tab === 'db'    && !dbDataLoaded)   loadDbObjects('');
+    if (tab === 'files') setLanguage('java');
+    if (tab === 'db')    setLanguage('sql');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Java file list
+   ═══════════════════════════════════════════════════════════════ */
+var _fileTimer;
+function onFileSearch(q) {
+    clearTimeout(_fileTimer);
+    _fileTimer = setTimeout(function() { loadFiles(q); }, 280);
+}
+
+function loadFiles(q) {
+    document.getElementById('fileStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    fetch('/harness/cache/files?q=' + encodeURIComponent(q || ''))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            fileDataLoaded = data.loaded;
+            var countEl  = document.getElementById('fileCount');
+            var statusEl = document.getElementById('fileStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… Settings에서 프로젝트 경로 설정 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = q ? '검색 결과' : '전체 파일';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderFileList(data.files || []);
+        })
+        .catch(function() {
+            document.getElementById('fileStatusText').textContent = '오류: 파일 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderFileList(files) {
+    var list = document.getElementById('fileList');
+    if (!files.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">파일 없음</div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        html += '<div class="source-item" data-abs="' + escHtml(f.absolutePath) + '" data-rel="' + escHtml(f.relativePath) + '" onclick="handleFileClick(this)">'
+              + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316"></i></span>'
+              + '<span class="source-item-name">' + escHtml(f.fileName) + '</span>'
+              + '<span class="source-item-path">' + escHtml(f.relativePath) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function handleFileClick(el) {
+    var abs = el.getAttribute('data-abs');
+    var rel = el.getAttribute('data-rel');
+    loadFileContent(abs, rel);
+}
+
+function loadFileContent(absolutePath, relativePath) {
+    var statusEl = document.getElementById('fileStatusText');
+    var origHtml = statusEl.innerHTML;
+    statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>'
+                       + escHtml(relativePath || absolutePath) + ' 읽는 중...';
+    fetch('/harness/cache/file-content?path=' + encodeURIComponent(absolutePath))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.innerHTML = origHtml;
+            if (!data.success) {
+                alert('파일 읽기 실패: ' + (data.error || '알 수 없는 오류'));
+                return;
+            }
+            document.getElementById('codeInput').value = data.content;
+            setLanguage('java');
+            highlightSelectedItem(findItemByAttr('fileList', 'data-abs', absolutePath));
+        })
+        .catch(function(e) {
+            statusEl.innerHTML = origHtml;
+            alert('파일 불러오기 실패: ' + e.message);
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DB object list
+   ═══════════════════════════════════════════════════════════════ */
+var _dbTimer;
+function onDbSearch(q) {
+    clearTimeout(_dbTimer);
+    _dbTimer = setTimeout(function() { loadDbObjects(q); }, 280);
+}
+
+function loadDbObjects(q) {
+    var typeFilter = document.getElementById('dbTypeFilter').value;
+    document.getElementById('dbStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    var url = '/harness/cache/db-objects?q=' + encodeURIComponent(q || '')
+            + '&type=' + encodeURIComponent(typeFilter);
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            dbDataLoaded = data.loaded;
+            var countEl  = document.getElementById('dbCount');
+            var statusEl = document.getElementById('dbStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… 잠시 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else if (!data.configured) {
+                statusEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1" style="color:#f59e0b"></i>'
+                    + 'Settings에서 DB URL·Username·Password를 설정하고 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.dbError) {
+                statusEl.innerHTML = '<i class="fas fa-times-circle me-1" style="color:#ef4444"></i>'
+                    + 'DB 연결 오류: ' + escHtml(data.dbError);
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = (typeFilter || q) ? '검색 결과' : '전체 오브젝트';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderDbList(data.objects || []);
+        })
+        .catch(function() {
+            document.getElementById('dbStatusText').textContent = '오류: DB 오브젝트 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderDbList(objects) {
+    var list = document.getElementById('dbList');
+    if (!objects.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">오브젝트 없음</div>';
+        return;
+    }
+    var typeIcons = { PROCEDURE:'🔧', FUNCTION:'⚙️', PACKAGE:'📦', TRIGGER:'⚡' };
+    var html = '';
+    for (var i = 0; i < objects.length; i++) {
+        var o = objects[i];
+        var icon = typeIcons[o.type] || '📄';
+        var badgeClass = 'source-badge source-badge-' + o.type.toLowerCase();
+        html += '<div class="source-item" data-name="' + escHtml(o.name) + '" data-type="' + escHtml(o.type) + '" onclick="handleDbClick(this)">'
+              + '<span class="source-item-icon">' + icon + '</span>'
+              + '<span class="source-item-name">' + escHtml(o.name) + '</span>'
+              + '<span class="source-item-path">' + escHtml(o.owner) + '</span>'
+              + '<span class="' + badgeClass + '">' + escHtml(o.type) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function handleDbClick(el) {
+    var name = el.getAttribute('data-name');
+    var type = el.getAttribute('data-type');
+    loadDbSource(name, type);
+}
+
+function loadDbSource(name, type) {
+    var statusEl = document.getElementById('dbStatusText');
+    var origHtml = statusEl.innerHTML;
+    statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>'
+                       + escHtml(name) + ' 소스 불러오는 중...';
+    fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.innerHTML = origHtml;
+            if (!data.success) {
+                alert('소스 로드 실패: ' + (data.error || '알 수 없는 오류'));
+                return;
+            }
+            document.getElementById('codeInput').value = data.source;
+            setLanguage('sql');
+            highlightSelectedItem(findItemByAttr('dbList', 'data-name', name));
+        })
+        .catch(function(e) {
+            statusEl.innerHTML = origHtml;
+            alert('소스 불러오기 실패: ' + e.message);
+        });
+}
+
+/* ── Cache refresh ─────────────────────────────────────────── */
+function refreshCache() {
+    fetch('/harness/cache/refresh', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            fileDataLoaded = false;
+            dbDataLoaded   = false;
+            if (srcTab === 'files') {
+                setTimeout(function() { loadFiles(''); }, 1500);
+            } else {
+                setTimeout(function() { loadDbObjects(''); }, 1500);
+            }
+            showToast('캐시 갱신 시작 — 약 2~5초 후 목록이 업데이트됩니다.');
+        });
+}
+
+/* ── 선택 항목 하이라이트 ──────────────────────────────────────── */
+function findItemByAttr(listId, attrName, value) {
+    var list  = document.getElementById(listId);
+    if (!list) return null;
+    var items = list.querySelectorAll('.source-item');
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].getAttribute(attrName) === value) return items[i];
+    }
+    return null;
+}
+
+function highlightSelectedItem(el) {
+    if (!el) return;
+    var parent = el.parentNode;
+    if (parent) {
+        var prev = parent.querySelectorAll('.source-item.selected');
+        for (var i = 0; i < prev.length; i++) { prev[i].classList.remove('selected'); }
+    }
+    el.classList.add('selected');
+    el.scrollIntoView({ block: 'nearest' });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Analysis
+   ═══════════════════════════════════════════════════════════════ */
 function runAnalysis() {
     var code = document.getElementById('codeInput').value.trim();
     if (!code) { alert('코드를 입력해주세요.'); return; }
@@ -156,13 +557,25 @@ function clearAll() {
     document.getElementById('emptyState').style.display  = '';
     document.getElementById('resultPanel').style.display = 'none';
     currentResp = '';
+    // Reset source panel
+    document.getElementById('sourcePanel').style.display = 'none';
+    document.getElementById('srcToggleBtn').classList.remove('open');
+    document.getElementById('srcChevron').className = 'fas fa-chevron-down';
+    document.getElementById('srcChevron').style.fontSize = '.65rem';
 }
 
 function copyResult() {
     if (!currentResp) return;
-    if (navigator.clipboard) navigator.clipboard.writeText(currentResp);
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(currentResp).then(function() {
+            showToast('결과가 클립보드에 복사되었습니다.');
+        });
+    }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Utilities
+   ═══════════════════════════════════════════════════════════════ */
 function renderMd(text) {
     if (!text) return '<span style="color:var(--text-muted)">내용 없음</span>';
     var h = escHtml(text);
@@ -181,6 +594,15 @@ function renderMd(text) {
 function escHtml(s) {
     if (!s) return '';
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;'
+                    + 'padding:8px 16px;border-radius:8px;font-size:.8rem;z-index:9999;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function() { t.remove(); }, 2800);
 }
 
 function showSpinner() {

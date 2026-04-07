@@ -105,6 +105,26 @@ public class ReviewHistoryService {
         repository.deleteAll();
     }
 
+    /**
+     * Deletes the N most recent history entries of the given type.
+     *
+     * @param type  history type key (e.g. "HARNESS_REVIEW")
+     * @param count number of recent entries to delete
+     * @return number of entries actually deleted
+     */
+    public int deleteRecentByType(String type, int count) {
+        List<ReviewHistory> all = findAll(); // already sorted most-recent first
+        int deleted = 0;
+        for (ReviewHistory h : all) {
+            if (deleted >= count) break;
+            if (type.equals(h.getType())) {
+                repository.delete(h);
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
     /** Total entry count. */
     @Transactional(readOnly = true)
     public int count() {

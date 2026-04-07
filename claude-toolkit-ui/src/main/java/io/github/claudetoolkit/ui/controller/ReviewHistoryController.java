@@ -67,6 +67,22 @@ public class ReviewHistoryController {
         return "redirect:/history";
     }
 
+    /**
+     * Deletes the N most recent entries of a given type.
+     * Usage: POST /history/purge?type=HARNESS_REVIEW&amp;count=5
+     */
+    @PostMapping("/purge")
+    @ResponseBody
+    public java.util.Map<String, Object> purge(
+            @RequestParam(defaultValue = "HARNESS_REVIEW") String type,
+            @RequestParam(defaultValue = "5")              int    count) {
+        int deleted = historyService.deleteRecentByType(type, count);
+        java.util.Map<String, Object> r = new java.util.LinkedHashMap<String, Object>();
+        r.put("deleted", deleted);
+        r.put("type",    type);
+        return r;
+    }
+
     /** Export all history as CSV (UTF-8 BOM for Excel compatibility) */
     @GetMapping("/export/csv")
     public ResponseEntity<byte[]> exportCsv() {

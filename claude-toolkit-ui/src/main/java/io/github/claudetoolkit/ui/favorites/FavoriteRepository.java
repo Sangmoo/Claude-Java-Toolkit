@@ -21,7 +21,7 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
 
     /** Entries of a specific type, most recent first */
     @Query("SELECT f FROM Favorite f WHERE f.type = :type ORDER BY f.createdAt DESC")
-    List<Favorite> findByType(String type, Pageable pageable);
+    List<Favorite> findByType(@org.springframework.data.repository.query.Param("type") String type, Pageable pageable);
 
     /** Full-text search across title and inputContent */
     @Query("SELECT f FROM Favorite f WHERE LOWER(f.title) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(f.inputContent) LIKE LOWER(CONCAT('%',:q,'%')) ORDER BY f.createdAt DESC")
