@@ -63,6 +63,10 @@
                       border-bottom:1px solid var(--border-color);
                       display:flex; align-items:center; justify-content:space-between; gap:8px; }
 
+        /* ── Inline progress ── */
+        .dep-step { font-size:.8rem; color:var(--text-muted); padding:4px 8px; border-radius:16px; border:1px solid var(--border-color); }
+        .dep-step.active { background:rgba(139,92,246,.12); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
         /* ── Result ── */
         .section-content { padding:10px 2px; line-height:1.75; font-size:.88rem; }
         .section-content h2,.section-content h3 { font-size:.95rem; font-weight:700; margin:12px 0 5px; color:var(--text-primary); }
@@ -89,14 +93,6 @@
             <button id="themeToggle" onclick="toggleTheme()">
                 <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
             </button>
-        </div>
-
-        <!-- Spinner -->
-        <div class="spinner-overlay" id="spinner">
-            <div class="text-center">
-                <div class="spinner-border mb-3" style="width:3rem;height:3rem;color:#8b5cf6;"></div>
-                <div class="spinner-msg">의존성 분석 중...</div>
-            </div>
         </div>
 
         <div class="main-content">
@@ -213,6 +209,25 @@
 
                 <!-- ════════════ 결과 패널 ════════════ -->
                 <div class="col-lg-7">
+
+                    <!-- Inline progress section -->
+                    <div id="depProgressSection" style="display:none;" class="panel p-3 mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="fas fa-circle-notch spin-icon" style="color:#8b5cf6;"></i>
+                            <span style="font-size:.85rem;font-weight:600;color:var(--text-primary);">의존성 분석 중...</span>
+                        </div>
+                        <!-- Step labels -->
+                        <div class="d-flex gap-2 flex-wrap mb-2">
+                            <span class="dep-step active" id="depStep1">① 소스 파싱 중...</span>
+                            <span class="dep-step" id="depStep2">② Claude AI 분석 요청 중...</span>
+                            <span class="dep-step" id="depStep3">③ 결과 처리 중...</span>
+                        </div>
+                        <!-- Progress bar -->
+                        <div style="background:var(--border-color);border-radius:5px;height:8px;overflow:hidden;">
+                            <div id="depProgressBar" style="width:0%;height:100%;background:#8b5cf6;border-radius:5px;transition:width .3s;"></div>
+                        </div>
+                    </div>
+
                     <!-- Empty state -->
                     <div id="emptyState" class="panel p-4 text-center"
                          style="min-height:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
@@ -236,7 +251,8 @@
                                 <i class="fas fa-copy me-1"></i>결과 복사
                             </button>
                         </div>
-                        <div class="section-content" id="resultContent"></div>
+                        <div id="resultContent" class="section-content"
+                             style="max-height:calc(100vh - 260px);overflow-y:auto;padding-right:4px;"></div>
                     </div>
                 </div>
             </div>
@@ -523,7 +539,7 @@ function runAnalysis() {
 
     document.getElementById('emptyState').style.display  = 'none';
     document.getElementById('resultPanel').style.display = 'none';
-    showSpinner();
+    startDepProgress();
     document.getElementById('analyzeBtn').disabled = true;
 
     var fd = new FormData();
@@ -533,7 +549,7 @@ function runAnalysis() {
     fetch('/harness/dependency/analyze', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            hideSpinner();
+            stopDepProgress();
             document.getElementById('analyzeBtn').disabled = false;
             if (!data.success) {
                 alert('오류: ' + (data.error || '알 수 없는 오류'));
@@ -545,7 +561,7 @@ function runAnalysis() {
             document.getElementById('resultPanel').style.display = '';
         })
         .catch(function(e) {
-            hideSpinner();
+            stopDepProgress();
             document.getElementById('analyzeBtn').disabled = false;
             alert('요청 실패: ' + e.message);
             document.getElementById('emptyState').style.display = '';
@@ -571,6 +587,43 @@ function copyResult() {
             showToast('결과가 클립보드에 복사되었습니다.');
         });
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Inline progress bar
+   ═══════════════════════════════════════════════════════════════ */
+var _depProgressTimer = null;
+var _depPctTimer = null;
+
+function startDepProgress() {
+    document.getElementById('depProgressSection').style.display = '';
+    document.getElementById('emptyState').style.display = 'none';
+    // advance step every 4 seconds
+    var step = 0;
+    var steps = ['depStep1','depStep2','depStep3'];
+    steps.forEach(function(s){ document.getElementById(s).className='dep-step'; });
+    document.getElementById(steps[0]).className='dep-step active';
+    _depProgressTimer = setInterval(function(){
+        step++;
+        if(step < steps.length){
+            steps.forEach(function(s){ document.getElementById(s).className='dep-step'; });
+            document.getElementById(steps[step]).className='dep-step active';
+        }
+    }, 4000);
+    // animate progress bar 0→95% over 12 seconds
+    var pct = 0;
+    var bar = document.getElementById('depProgressBar');
+    bar.style.width = '0%';
+    _depPctTimer = setInterval(function(){
+        if(pct < 95){ pct += 1; bar.style.width = pct + '%'; }
+    }, 120);
+}
+
+function stopDepProgress() {
+    clearInterval(_depProgressTimer); _depProgressTimer = null;
+    clearInterval(_depPctTimer);      _depPctTimer = null;
+    document.getElementById('depProgressBar').style.width = '100%';
+    setTimeout(function(){ document.getElementById('depProgressSection').style.display='none'; }, 400);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -603,15 +656,6 @@ function showToast(msg) {
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(function() { t.remove(); }, 2800);
-}
-
-function showSpinner() {
-    var el = document.getElementById('spinner');
-    if (el) el.style.display = '';
-}
-function hideSpinner() {
-    var el = document.getElementById('spinner');
-    if (el) el.style.display = 'none';
 }
 </script>
 </body>

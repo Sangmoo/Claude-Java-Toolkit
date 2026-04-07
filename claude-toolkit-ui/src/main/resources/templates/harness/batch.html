@@ -21,6 +21,52 @@
         .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                     padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
         .copy-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin .8s linear infinite; }
+
+        /* ── Language tabs ── */
+        .lang-tab-sm { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                       padding:3px 12px; border-radius:20px; cursor:pointer; font-size:.75rem; transition:all .15s; }
+        .lang-tab-sm.active { background:rgba(139,92,246,.15); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
+        /* ── Source selector modal ── */
+        .src-tab { background:none; border:none; color:var(--text-muted);
+                   padding:5px 14px; border-radius:20px; cursor:pointer;
+                   font-size:.78rem; font-weight:500; transition:all .15s; }
+        .src-tab.active { background:rgba(139,92,246,.12); color:#8b5cf6; font-weight:600; }
+        .source-list { max-height:300px; overflow-y:auto; background:var(--surface-color); }
+        .source-item {
+            display:flex; align-items:center; gap:8px;
+            padding:7px 14px; cursor:pointer; font-size:.8rem;
+            border-bottom:1px solid var(--border-color); transition:background .12s;
+        }
+        .source-item:last-child { border-bottom:none; }
+        .source-item:hover    { background:rgba(139,92,246,.08); }
+        .source-item.selected { background:rgba(139,92,246,.18); border-left:3px solid #8b5cf6; }
+        .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0; max-width:180px;
+                            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1;
+                            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+        .source-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; flex-shrink:0; }
+        .source-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .source-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .source-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .source-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
+                      border-bottom:1px solid var(--border-color);
+                      display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+        /* ── Email rows ── */
+        .email-row { display:flex; gap:6px; align-items:center; margin-bottom:5px; }
+        .email-row input { flex:1; }
+        .email-row .remove-email-btn { background:none; border:none; color:var(--text-muted);
+            cursor:pointer; font-size:.85rem; padding:2px 6px; }
+        .email-row .remove-email-btn:hover { color:#ef4444; }
+
+        /* ── Log modal table ── */
+        #logModal .status-ok   { color:#10b981; font-weight:600; }
+        #logModal .status-fail { color:#ef4444; font-weight:600; }
     </style>
 </head>
 <body>
@@ -54,10 +100,13 @@
 
                         <hr class="my-3">
 
+                        <!-- Multiple email recipients -->
                         <div class="mb-3">
                             <label class="form-label" style="font-size:.82rem;">완료 시 이메일 알림 (선택 사항)</label>
-                            <input type="email" id="notifyEmail" class="form-control form-control-sm"
-                                   placeholder="user@example.com">
+                            <div id="emailList"></div>
+                            <button onclick="addEmail()" class="btn btn-outline-tk btn-sm mt-1" type="button">
+                                <i class="fas fa-plus me-1"></i>이메일 추가
+                            </button>
                         </div>
 
                         <div class="d-flex gap-2">
@@ -87,7 +136,14 @@
                     <div id="resultsPanel" class="panel p-4" style="display:none;">
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <h6 class="section-title mb-0"><i class="fas fa-check-circle me-2" style="color:#10b981"></i>분석 완료</h6>
-                            <button class="copy-btn" onclick="clearResults()"><i class="fas fa-trash me-1"></i>결과 초기화</button>
+                            <div class="d-flex gap-2">
+                                <button class="copy-btn" id="logBtn" onclick="showLog()" style="display:none;">
+                                    <i class="fas fa-list-alt me-1"></i>배치 로그
+                                </button>
+                                <button class="copy-btn" onclick="clearResults()">
+                                    <i class="fas fa-trash me-1"></i>결과 초기화
+                                </button>
+                            </div>
                         </div>
                         <div id="summaryBar" class="mb-3" style="font-size:.82rem;color:var(--text-muted);"></div>
                         <div class="table-responsive">
@@ -111,7 +167,7 @@
     </main>
 </div>
 
-<!-- 상세 결과 모달 -->
+<!-- ════════════════════ 상세 결과 모달 ════════════════════ -->
 <div class="modal fade" id="detailModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;">
@@ -136,16 +192,146 @@
     </div>
 </div>
 
+<!-- ════════════════════ 소스 선택 모달 ════════════════════ -->
+<div class="modal fade" id="srcModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;">
+            <div class="modal-header" style="border-bottom:1px solid var(--border-color);">
+                <h5 class="modal-title" style="color:var(--text-primary);font-size:.92rem;">
+                    <i class="fas fa-folder-open me-2" style="color:#8b5cf6"></i>소스 선택
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Tabs -->
+                <div style="padding:10px 14px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between;">
+                    <div class="d-flex gap-1">
+                        <button class="src-tab active" id="srcModalTabFiles" onclick="switchSrcModalTab('files')">
+                            <i class="fab fa-java me-1"></i>Java 파일
+                        </button>
+                        <button class="src-tab" id="srcModalTabDb" onclick="switchSrcModalTab('db')">
+                            <i class="fas fa-database me-1"></i>DB 오브젝트
+                        </button>
+                    </div>
+                    <button type="button" class="copy-btn" onclick="refreshModalCache()">
+                        <i class="fas fa-sync-alt me-1"></i>캐시 갱신
+                    </button>
+                </div>
+
+                <!-- Java Files -->
+                <div id="srcModalPanelFiles">
+                    <div class="p-2">
+                        <input type="text" id="modalFileSearch" class="form-control form-control-sm"
+                               placeholder="클래스명·경로 검색..." oninput="onModalFileSearch(this.value)"
+                               autocomplete="off">
+                    </div>
+                    <div class="src-status" id="modalFileStatus">
+                        <span id="modalFileStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                        <span id="modalFileCount" style="font-weight:600;"></span>
+                    </div>
+                    <div class="source-list" id="modalFileList">
+                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                            <i class="fas fa-circle-notch spin-icon me-2"></i>파일 목록 로딩 중...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DB Objects -->
+                <div id="srcModalPanelDb" style="display:none;">
+                    <div class="p-2 d-flex gap-2">
+                        <input type="text" id="modalDbSearch" class="form-control form-control-sm"
+                               placeholder="오브젝트명 검색..." oninput="onModalDbSearch(this.value)"
+                               autocomplete="off" style="flex:1;">
+                        <select id="modalDbTypeFilter" class="form-select form-select-sm"
+                                style="width:130px;flex-shrink:0;"
+                                onchange="onModalDbSearch(document.getElementById('modalDbSearch').value)">
+                            <option value="">전체 유형</option>
+                            <option value="PROCEDURE">PROCEDURE</option>
+                            <option value="FUNCTION">FUNCTION</option>
+                            <option value="PACKAGE">PACKAGE</option>
+                            <option value="TRIGGER">TRIGGER</option>
+                        </select>
+                    </div>
+                    <div class="src-status" id="modalDbStatus">
+                        <span id="modalDbStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                        <span id="modalDbCount" style="font-weight:600;"></span>
+                    </div>
+                    <div class="source-list" id="modalDbList">
+                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                            <i class="fas fa-circle-notch spin-icon me-2"></i>DB 오브젝트 로딩 중...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════ 배치 로그 모달 ════════════════════ -->
+<div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;">
+            <div class="modal-header" style="border-bottom:1px solid var(--border-color);">
+                <h5 class="modal-title" style="color:var(--text-primary);font-size:.92rem;">
+                    <i class="fas fa-list-alt me-2" style="color:#8b5cf6"></i>배치 실행 로그
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Overall timing -->
+                <div id="logTiming" class="mb-3" style="font-size:.82rem;color:var(--text-muted);
+                     padding:8px 12px;background:var(--input-bg);border-radius:8px;border:1px solid var(--border-color);">
+                </div>
+                <!-- Log table -->
+                <div class="table-responsive">
+                    <table class="table table-sm" style="font-size:.8rem;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;">#</th>
+                                <th>레이블</th>
+                                <th style="width:55px;">언어</th>
+                                <th style="width:70px;">상태</th>
+                                <th style="width:75px;">시작</th>
+                                <th style="width:75px;">완료</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTable"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250329')}"></script>
 <script>
-var itemCount  = 0;
-var batchId    = null;
-var pollTimer  = null;
-var detailData = null;
-var detailTab  = 'response';
+/* ══════════════════════════════════════════════════════════
+   State
+   ══════════════════════════════════════════════════════════ */
+var itemCount      = 0;
+var emailCount     = 0;
+var batchId        = null;
+var pollTimer      = null;
+var detailData     = null;
+var detailTab      = 'response';
+var lastStatus     = null;   // most recent finished status for log modal
 
-/* ── 항목 관리 ── */
+// Source modal state
+var targetBatchIdx = null;
+var srcModalTab    = 'files';
+var modalFileDataLoaded = false;
+var modalDbDataLoaded   = false;
+
+/* ══════════════════════════════════════════════════════════
+   항목 관리
+   ══════════════════════════════════════════════════════════ */
 function addItem() {
     itemCount++;
     var idx = itemCount;
@@ -155,25 +341,21 @@ function addItem() {
     div.innerHTML =
         '<button class="remove-btn" onclick="removeItem(' + idx + ')" title="삭제"><i class="fas fa-times"></i></button>'
       + '<div class="mb-2">'
-      + '<input type="text" class="form-control form-control-sm mb-1" id="label' + idx + '" placeholder="항목 레이블 (예: UserService.java)">'
-      + '<div class="d-flex gap-2 mb-1">'
-      + '<button type="button" class="lang-tab-sm active" id="langJava' + idx + '" onclick="setItemLang(' + idx + ',\'java\')">Java</button>'
-      + '<button type="button" class="lang-tab-sm" id="langSql' + idx + '" onclick="setItemLang(' + idx + ',\'sql\')">SQL</button>'
+      + '<input type="text" class="form-control form-control-sm mb-1" id="label' + idx
+      +     '" placeholder="항목 레이블 (예: UserService.java)">'
+      + '<div class="d-flex gap-2 mb-1 align-items-center">'
+      + '<button type="button" class="lang-tab-sm active" id="langJava' + idx
+      +     '" onclick="setItemLang(' + idx + ',\'java\')">Java</button>'
+      + '<button type="button" class="lang-tab-sm" id="langSql' + idx
+      +     '" onclick="setItemLang(' + idx + ',\'sql\')">SQL</button>'
+      + '<button type="button" class="copy-btn ms-auto" style="font-size:.72rem;padding:2px 8px;"'
+      +     ' onclick="openSrcModal(' + idx + ')">'
+      +     '<i class="fas fa-folder-open me-1"></i>소스 선택</button>'
       + '</div>'
       + '<textarea class="form-control" id="code' + idx + '" rows="6" placeholder="코드를 입력하세요..." '
       + 'style="font-family:Consolas,monospace;font-size:.78rem;"></textarea>'
       + '</div>';
     document.getElementById('batchItems').appendChild(div);
-
-    // Add mini lang-tab style
-    var style = document.createElement('style');
-    style.textContent = '.lang-tab-sm{background:none;border:1px solid var(--border-color);color:var(--text-muted);'
-        + 'padding:3px 12px;border-radius:20px;cursor:pointer;font-size:.75rem;transition:all .15s;}'
-        + '.lang-tab-sm.active{background:rgba(139,92,246,.15);border-color:#8b5cf6;color:#8b5cf6;font-weight:600;}';
-    if (!document.getElementById('langTabSmStyle')) {
-        style.id = 'langTabSmStyle';
-        document.head.appendChild(style);
-    }
 }
 
 function removeItem(idx) {
@@ -215,8 +397,9 @@ function clearAll() {
     document.getElementById('resultsPanel').style.display  = 'none';
     document.getElementById('resultsTable').innerHTML = '';
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    batchId = null;
-    itemCount = 0;
+    batchId    = null;
+    itemCount  = 0;
+    lastStatus = null;
 }
 
 function clearResults() {
@@ -226,9 +409,264 @@ function clearResults() {
         fetch('/harness/batch/status/' + batchId, { method: 'DELETE' });
         batchId = null;
     }
+    lastStatus = null;
+    document.getElementById('logBtn').style.display = 'none';
 }
 
-/* ── 배치 시작 ── */
+/* ══════════════════════════════════════════════════════════
+   이메일 관리
+   ══════════════════════════════════════════════════════════ */
+function addEmail() {
+    emailCount++;
+    var ec = emailCount;
+    var row = document.createElement('div');
+    row.className = 'email-row';
+    row.id = 'emailRow' + ec;
+    row.innerHTML =
+        '<input type="email" class="form-control form-control-sm" id="emailInput' + ec
+      + '" placeholder="user@example.com">'
+      + '<button type="button" class="remove-email-btn" onclick="removeEmail(' + ec + ')">'
+      + '<i class="fas fa-times"></i></button>';
+    document.getElementById('emailList').appendChild(row);
+}
+
+function removeEmail(ec) {
+    var el = document.getElementById('emailRow' + ec);
+    if (el) el.remove();
+}
+
+function collectEmails() {
+    var emails = [];
+    var rows = document.querySelectorAll('.email-row');
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var id  = row.id.replace('emailRow', '');
+        var inp = document.getElementById('emailInput' + id);
+        if (inp && inp.value.trim()) {
+            emails.push(inp.value.trim());
+        }
+    }
+    return emails;
+}
+
+/* ══════════════════════════════════════════════════════════
+   소스 선택 모달
+   ══════════════════════════════════════════════════════════ */
+function openSrcModal(idx) {
+    targetBatchIdx = idx;
+    var modal = new bootstrap.Modal(document.getElementById('srcModal'));
+    modal.show();
+    // Load files on first open
+    if (!modalFileDataLoaded && srcModalTab === 'files') {
+        loadModalFiles('');
+    }
+}
+
+function switchSrcModalTab(tab) {
+    srcModalTab = tab;
+    document.getElementById('srcModalTabFiles').classList.toggle('active', tab === 'files');
+    document.getElementById('srcModalTabDb').classList.toggle('active',    tab === 'db');
+    document.getElementById('srcModalPanelFiles').style.display = tab === 'files' ? '' : 'none';
+    document.getElementById('srcModalPanelDb').style.display    = tab === 'db'    ? '' : 'none';
+    if (tab === 'files' && !modalFileDataLoaded) loadModalFiles('');
+    if (tab === 'db'    && !modalDbDataLoaded)   loadModalDbObjects('');
+}
+
+function refreshModalCache() {
+    fetch('/harness/cache/refresh', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            modalFileDataLoaded = false;
+            modalDbDataLoaded   = false;
+            if (srcModalTab === 'files') {
+                setTimeout(function() { loadModalFiles(''); }, 1500);
+            } else {
+                setTimeout(function() { loadModalDbObjects(''); }, 1500);
+            }
+        });
+}
+
+/* ── Modal: Java files ── */
+var _modalFileTimer;
+function onModalFileSearch(q) {
+    clearTimeout(_modalFileTimer);
+    _modalFileTimer = setTimeout(function() { loadModalFiles(q); }, 280);
+}
+
+function loadModalFiles(q) {
+    document.getElementById('modalFileStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    fetch('/harness/cache/files?q=' + encodeURIComponent(q || ''))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            modalFileDataLoaded = data.loaded;
+            var countEl  = document.getElementById('modalFileCount');
+            var statusEl = document.getElementById('modalFileStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>Settings에서 프로젝트 경로 설정 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = q ? '검색 결과' : '전체 파일';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderModalFileList(data.files || []);
+        })
+        .catch(function() {
+            document.getElementById('modalFileStatusText').textContent = '오류: 파일 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderModalFileList(files) {
+    var list = document.getElementById('modalFileList');
+    if (!files.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">파일 없음</div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        html += '<div class="source-item" data-abs="' + escHtml(f.absolutePath)
+              + '" data-rel="' + escHtml(f.relativePath)
+              + '" data-name="' + escHtml(f.fileName)
+              + '" onclick="handleModalFileClick(this)">'
+              + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316"></i></span>'
+              + '<span class="source-item-name">' + escHtml(f.fileName) + '</span>'
+              + '<span class="source-item-path">' + escHtml(f.relativePath) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function handleModalFileClick(el) {
+    var abs      = el.getAttribute('data-abs');
+    var rel      = el.getAttribute('data-rel');
+    var fileName = el.getAttribute('data-name');
+    var statusEl = document.getElementById('modalFileStatusText');
+    var origHtml = statusEl.innerHTML;
+    statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>' + escHtml(rel || abs) + ' 읽는 중...';
+    fetch('/harness/cache/file-content?path=' + encodeURIComponent(abs))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.innerHTML = origHtml;
+            if (!data.success) { alert('파일 읽기 실패: ' + (data.error || '알 수 없는 오류')); return; }
+            // Fill target batch item
+            if (targetBatchIdx !== null) {
+                var codeEl  = document.getElementById('code'  + targetBatchIdx);
+                var labelEl = document.getElementById('label' + targetBatchIdx);
+                if (codeEl)  codeEl.value  = data.content;
+                if (labelEl && !labelEl.value.trim()) labelEl.value = fileName;
+                // Set language to java
+                setItemLang(targetBatchIdx, 'java');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('srcModal')).hide();
+        })
+        .catch(function(e) {
+            statusEl.innerHTML = origHtml;
+            alert('파일 불러오기 실패: ' + e.message);
+        });
+}
+
+/* ── Modal: DB objects ── */
+var _modalDbTimer;
+function onModalDbSearch(q) {
+    clearTimeout(_modalDbTimer);
+    _modalDbTimer = setTimeout(function() { loadModalDbObjects(q); }, 280);
+}
+
+function loadModalDbObjects(q) {
+    var typeFilter = document.getElementById('modalDbTypeFilter').value;
+    document.getElementById('modalDbStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    var url = '/harness/cache/db-objects?q=' + encodeURIComponent(q || '')
+            + '&type=' + encodeURIComponent(typeFilter);
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            modalDbDataLoaded = data.loaded;
+            var countEl  = document.getElementById('modalDbCount');
+            var statusEl = document.getElementById('modalDbStatusText');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… 잠시 후 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+                countEl.textContent = '';
+            } else if (!data.configured) {
+                statusEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1" style="color:#f59e0b"></i>'
+                    + 'Settings에서 DB URL·Username·Password를 설정하고 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.dbError) {
+                statusEl.innerHTML = '<i class="fas fa-times-circle me-1" style="color:#ef4444"></i>'
+                    + 'DB 연결 오류: ' + escHtml(data.dbError);
+                countEl.textContent = '';
+            } else {
+                statusEl.textContent = (typeFilter || q) ? '검색 결과' : '전체 오브젝트';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderModalDbList(data.objects || []);
+        })
+        .catch(function() {
+            document.getElementById('modalDbStatusText').textContent = '오류: DB 오브젝트 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderModalDbList(objects) {
+    var list = document.getElementById('modalDbList');
+    if (!objects.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">오브젝트 없음</div>';
+        return;
+    }
+    var typeIcons = { PROCEDURE:'🔧', FUNCTION:'⚙️', PACKAGE:'📦', TRIGGER:'⚡' };
+    var html = '';
+    for (var i = 0; i < objects.length; i++) {
+        var o = objects[i];
+        var icon = typeIcons[o.type] || '📄';
+        var badgeClass = 'source-badge source-badge-' + o.type.toLowerCase();
+        html += '<div class="source-item" data-name="' + escHtml(o.name)
+              + '" data-type="' + escHtml(o.type)
+              + '" onclick="handleModalDbClick(this)">'
+              + '<span class="source-item-icon">' + icon + '</span>'
+              + '<span class="source-item-name">' + escHtml(o.name) + '</span>'
+              + '<span class="source-item-path">' + escHtml(o.owner) + '</span>'
+              + '<span class="' + badgeClass + '">' + escHtml(o.type) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function handleModalDbClick(el) {
+    var name = el.getAttribute('data-name');
+    var type = el.getAttribute('data-type');
+    var statusEl = document.getElementById('modalDbStatusText');
+    var origHtml = statusEl.innerHTML;
+    statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>' + escHtml(name) + ' 소스 불러오는 중...';
+    fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.innerHTML = origHtml;
+            if (!data.success) { alert('소스 로드 실패: ' + (data.error || '알 수 없는 오류')); return; }
+            if (targetBatchIdx !== null) {
+                var codeEl  = document.getElementById('code'  + targetBatchIdx);
+                var labelEl = document.getElementById('label' + targetBatchIdx);
+                if (codeEl)  codeEl.value  = data.source;
+                if (labelEl && !labelEl.value.trim()) labelEl.value = name;
+                // Set language to sql
+                setItemLang(targetBatchIdx, 'sql');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('srcModal')).hide();
+        })
+        .catch(function(e) {
+            statusEl.innerHTML = origHtml;
+            alert('소스 불러오기 실패: ' + e.message);
+        });
+}
+
+/* ══════════════════════════════════════════════════════════
+   배치 시작
+   ══════════════════════════════════════════════════════════ */
 function startBatch() {
     var items = collectItems();
     if (!items.length) { alert('분석할 코드 항목을 추가해주세요.'); return; }
@@ -236,14 +674,16 @@ function startBatch() {
     document.getElementById('startBtn').disabled = true;
     document.getElementById('progressPanel').style.display = '';
     document.getElementById('resultsPanel').style.display  = 'none';
+    document.getElementById('logBtn').style.display = 'none';
     updateProgress(0, items.length);
+    lastStatus = null;
 
-    var notifyEmail = document.getElementById('notifyEmail').value.trim();
+    var notifyEmails = collectEmails();
 
     fetch('/harness/batch/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items, notifyEmail: notifyEmail })
+        body: JSON.stringify({ items: items, notifyEmails: notifyEmails })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -273,10 +713,12 @@ function pollStatus(total) {
             }
             updateProgress(data.done, data.total || total);
             if (data.finished) {
+                lastStatus = data;
                 clearInterval(pollTimer); pollTimer = null;
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('progressPanel').style.display = 'none';
                 renderResults(data.results || []);
+                document.getElementById('logBtn').style.display = '';
             }
         })
         .catch(function() {});
@@ -289,7 +731,9 @@ function updateProgress(done, total) {
     document.getElementById('progressBar').style.width   = pct + '%';
 }
 
-/* ── 결과 렌더링 ── */
+/* ══════════════════════════════════════════════════════════
+   결과 렌더링
+   ══════════════════════════════════════════════════════════ */
 var allResults = [];
 
 function renderResults(results) {
@@ -306,13 +750,6 @@ function renderResults(results) {
     var html = '';
     for (var j = 0; j < results.length; j++) {
         var r = results[j];
-        var preview = '';
-        if (r.success && r.response) {
-            preview = r.response.replace(/[\r\n]+/g, ' ').replace(/[#*`]/g, '').substring(0, 80);
-            if (r.response.length > 80) preview += '...';
-        } else if (!r.success) {
-            preview = r.error || '오류';
-        }
         html += '<tr>'
               + '<td>' + (j+1) + '</td>'
               + '<td title="' + escHtml(r.label || '') + '">' + escHtml((r.label || '').substring(0,30)) + '</td>'
@@ -356,13 +793,58 @@ function copyDetail() {
     }
 }
 
+/* ══════════════════════════════════════════════════════════
+   배치 로그 모달
+   ══════════════════════════════════════════════════════════ */
+function showLog() {
+    if (!lastStatus) return;
+
+    // Overall timing
+    var timingHtml = '<strong>시작:</strong> ' + (lastStatus.startedAt || '-')
+                   + '&nbsp;&nbsp;<strong>완료:</strong> ' + (lastStatus.finishedAt || '-');
+    document.getElementById('logTiming').innerHTML = timingHtml;
+
+    // Log table
+    var log = lastStatus.log || [];
+    if (!log.length) {
+        document.getElementById('logTable').innerHTML =
+            '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">로그 없음</td></tr>';
+    } else {
+        var html = '';
+        for (var i = 0; i < log.length; i++) {
+            var e = log[i];
+            var statusClass = e.status === 'success' ? 'status-ok' : 'status-fail';
+            var statusText  = e.status === 'success' ? '성공' : '실패';
+            html += '<tr>'
+                  + '<td>' + (e.seq || (i+1)) + '</td>'
+                  + '<td title="' + escHtml(e.label || '') + '">' + escHtml((e.label || '').substring(0,28)) + '</td>'
+                  + '<td>' + escHtml(e.language || '') + '</td>'
+                  + '<td class="' + statusClass + '">' + statusText + '</td>'
+                  + '<td>' + escHtml(e.startedAt || '-') + '</td>'
+                  + '<td>' + escHtml(e.finishedAt || '-') + '</td>'
+                  + '</tr>';
+            if (e.error) {
+                html += '<tr><td></td><td colspan="5" style="color:#ef4444;font-size:.75rem;">'
+                      + escHtml(e.error) + '</td></tr>';
+            }
+        }
+        document.getElementById('logTable').innerHTML = html;
+    }
+
+    new bootstrap.Modal(document.getElementById('logModal')).show();
+}
+
+/* ══════════════════════════════════════════════════════════
+   Utilities
+   ══════════════════════════════════════════════════════════ */
 function escHtml(s) {
     if (!s) return '';
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// 페이지 로드 시 기본 항목 1개 추가
+// 페이지 로드 시 기본 항목 1개, 이메일 입력 1개 추가
 addItem();
+addEmail();
 </script>
 </body>
 </html>

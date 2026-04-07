@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchItem;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchStatus;
+import io.github.claudetoolkit.ui.harness.HarnessBatchService.LogEntry;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,9 @@ public class HarnessBatchController {
 
     /**
      * Start a batch analysis job.
-     * Accepts JSON body: { items: [{label, code, language}], notifyEmail: "..." }
+     * Accepts JSON body:
+     *   { items: [{label, code, language}], notifyEmails: ["a@b.com","c@d.com"] }
+     * Backward-compat: also accepts notifyEmail (single string).
      */
     @PostMapping("/start")
     @ResponseBody
@@ -61,8 +64,26 @@ public class HarnessBatchController {
                 result.put("error", "분석할 코드가 없습니다.");
                 return result;
             }
-            String notifyEmail = body.get("notifyEmail") != null ? body.get("notifyEmail").toString() : "";
-            String batchId = batchService.startBatch(items, notifyEmail);
+
+            // Parse notifyEmails — support array or fall back to single string
+            List<String> notifyEmails = new ArrayList<String>();
+            Object emailsRaw = body.get("notifyEmails");
+            if (emailsRaw instanceof List) {
+                List<?> emailList = (List<?>) emailsRaw;
+                for (Object e : emailList) {
+                    if (e != null && !e.toString().trim().isEmpty()) {
+                        notifyEmails.add(e.toString().trim());
+                    }
+                }
+            } else {
+                // Backward-compat: single notifyEmail string
+                Object singleEmail = body.get("notifyEmail");
+                if (singleEmail != null && !singleEmail.toString().trim().isEmpty()) {
+                    notifyEmails.add(singleEmail.toString().trim());
+                }
+            }
+
+            String batchId = batchService.startBatch(items, notifyEmails);
             result.put("success", true);
             result.put("batchId", batchId);
         } catch (Exception e) {
@@ -82,12 +103,30 @@ public class HarnessBatchController {
             result.put("found", false);
             return result;
         }
-        result.put("found",    true);
-        result.put("total",    s.total);
-        result.put("done",     s.done);
-        result.put("running",  s.running);
-        result.put("finished", s.finished);
-        result.put("results",  s.results);
+        result.put("found",     true);
+        result.put("total",     s.total);
+        result.put("done",      s.done);
+        result.put("running",   s.running);
+        result.put("finished",  s.finished);
+        result.put("startedAt", s.startedAt);
+        result.put("finishedAt",s.finishedAt);
+        result.put("results",   s.results);
+
+        // Build log list for JSON serialization
+        List<Map<String, Object>> logList = new ArrayList<Map<String, Object>>();
+        for (LogEntry entry : s.log) {
+            Map<String, Object> logEntry = new LinkedHashMap<String, Object>();
+            logEntry.put("seq",        entry.seq);
+            logEntry.put("label",      entry.label);
+            logEntry.put("language",   entry.language);
+            logEntry.put("startedAt",  entry.startedAt);
+            logEntry.put("finishedAt", entry.finishedAt);
+            logEntry.put("status",     entry.status);
+            logEntry.put("error",      entry.error);
+            logList.add(logEntry);
+        }
+        result.put("log", logList);
+
         return result;
     }
 
