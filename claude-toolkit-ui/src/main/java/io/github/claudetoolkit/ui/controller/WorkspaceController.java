@@ -61,6 +61,21 @@ public class WorkspaceController {
     private final ConcurrentHashMap<String, String>           models   =
             new ConcurrentHashMap<String, String>();
 
+    /**
+     * SSE 멀티라인 안전 전송.
+     * Spring SseEmitter.data(text)는 줄바꿈을 SSE data: 라인으로 분할하지 않아
+     * 텍스트 내 \n\n 이 이벤트 종결자로 오인되어 데이터가 손실됨.
+     * 각 줄을 별도 data() 호출로 분할하여 올바른 SSE 형식을 보장함.
+     */
+    private static void sendSseData(SseEmitter emitter, String chunk) throws IOException {
+        SseEmitter.SseEventBuilder builder = SseEmitter.event();
+        String[] lines = chunk.split("\n", -1);
+        for (String line : lines) {
+            builder.data(line);
+        }
+        emitter.send(builder);
+    }
+
     public WorkspaceController(AnalysisServiceRegistry registry,
                                PromptService promptService,
                                ClaudeClient claudeClient,
@@ -244,7 +259,7 @@ public class WorkspaceController {
                     claudeClient.chatStream(sysPrompt, userMsg, maxTokens,
                             new Consumer<String>() {
                                 public void accept(String chunk) {
-                                    try { emitter.send(SseEmitter.event().data(chunk)); }
+                                    try { sendSseData(emitter, chunk); }
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
@@ -413,7 +428,7 @@ public class WorkspaceController {
                     claudeClient.chatStream(sysPrompt, userMsg, maxTokens,
                             new Consumer<String>() {
                                 public void accept(String chunk) {
-                                    try { emitter.send(SseEmitter.event().data(chunk)); }
+                                    try { sendSseData(emitter, chunk); }
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });

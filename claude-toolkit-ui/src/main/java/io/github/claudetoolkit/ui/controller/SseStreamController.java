@@ -31,6 +31,20 @@ import java.util.function.Consumer;
 @RequestMapping("/stream")
 public class SseStreamController {
 
+    /**
+     * SSE 멀티라인 안전 전송.
+     * Spring SseEmitter.data(text)는 줄바꿈을 SSE data: 라인으로 분할하지 않아
+     * 텍스트 내 \n\n 이 이벤트 종결자로 오인되어 데이터가 손실됨.
+     */
+    static void sendSseData(SseEmitter emitter, String chunk) throws IOException {
+        SseEmitter.SseEventBuilder builder = SseEmitter.event();
+        String[] lines = chunk.split("\n", -1);
+        for (String line : lines) {
+            builder.data(line);
+        }
+        emitter.send(builder);
+    }
+
     /** Pending inputs awaiting streaming — keyed by UUID. Auto-expire in 5 min. */
     private final ConcurrentHashMap<String, StreamInput> pending =
             new ConcurrentHashMap<String, StreamInput>();
@@ -121,7 +135,7 @@ public class SseStreamController {
                                 input.input2,      // input2에 templateHint가 담김
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
-                                        try { emitter.send(SseEmitter.event().data(chunk)); }
+                                        try { sendSseData(emitter, chunk); }
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
@@ -145,7 +159,7 @@ public class SseStreamController {
                                 claudeClient.getProperties().getMaxTokens(),
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
-                                        try { emitter.send(SseEmitter.event().data(chunk)); }
+                                        try { sendSseData(emitter, chunk); }
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
@@ -166,7 +180,7 @@ public class SseStreamController {
                             claudeClient.getProperties().getMaxTokens(),
                             new Consumer<String>() {
                                 public void accept(String chunk) {
-                                    try { emitter.send(SseEmitter.event().data(chunk)); }
+                                    try { sendSseData(emitter, chunk); }
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
