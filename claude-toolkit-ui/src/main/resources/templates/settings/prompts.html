@@ -48,7 +48,8 @@
                         <div th:each="info : ${typeInfoList}"
                              class="type-card"
                              th:data-type="${info.type}"
-                             th:onclick="|selectType('${info.type}', '${info.displayName}')|">
+                             th:data-displayname="${info.displayName}"
+                             onclick="selectTypeFromEl(this)">
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="fw-500" th:text="${info.displayName}"></span>
                                 <span class="badge-custom" th:if="${info.hasCustom}">커스텀</span>
@@ -129,6 +130,10 @@
 <script>
 var currentType = null;
 var defaultPromptText = '';
+
+function selectTypeFromEl(el) {
+    selectType(el.dataset.type, el.dataset.displayname);
+}
 
 function selectType(type, displayName) {
     currentType = type;

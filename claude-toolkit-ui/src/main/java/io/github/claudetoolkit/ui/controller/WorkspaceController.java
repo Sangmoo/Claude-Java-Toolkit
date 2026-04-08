@@ -7,7 +7,10 @@ import io.github.claudetoolkit.ui.prompt.PromptService;
 import io.github.claudetoolkit.ui.workspace.AnalysisService;
 import io.github.claudetoolkit.ui.workspace.AnalysisServiceRegistry;
 import io.github.claudetoolkit.ui.workspace.AnalysisType;
+import io.github.claudetoolkit.ui.workspace.WorkspaceHistory;
+import io.github.claudetoolkit.ui.workspace.WorkspaceHistoryRepository;
 import io.github.claudetoolkit.ui.workspace.WorkspaceRequest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -37,11 +40,12 @@ public class WorkspaceController {
 
     private static final int SSE_TIMEOUT_MS = 180_000;
 
-    private final AnalysisServiceRegistry  registry;
-    private final PromptService            promptService;
-    private final ClaudeClient             claudeClient;
-    private final ToolkitSettings          settings;
-    private final EmailService             emailService;
+    private final AnalysisServiceRegistry       registry;
+    private final PromptService                 promptService;
+    private final ClaudeClient                  claudeClient;
+    private final ToolkitSettings               settings;
+    private final EmailService                  emailService;
+    private final WorkspaceHistoryRepository    historyRepo;
 
     /** streamId → SseEmitter (GET /workspace/stream/{id} 대기용) */
     private final ConcurrentHashMap<String, SseEmitter>       emitters =
@@ -57,12 +61,14 @@ public class WorkspaceController {
                                PromptService promptService,
                                ClaudeClient claudeClient,
                                ToolkitSettings settings,
-                               EmailService emailService) {
+                               EmailService emailService,
+                               WorkspaceHistoryRepository historyRepo) {
         this.registry      = registry;
         this.promptService = promptService;
         this.claudeClient  = claudeClient;
         this.settings      = settings;
         this.emailService  = emailService;
+        this.historyRepo   = historyRepo;
     }
 
     // ── 페이지 ─────────────────────────────────────────────────────────────────
@@ -106,7 +112,8 @@ public class WorkspaceController {
             @RequestParam("code")                                  String code,
             @RequestParam("language")                              String language,
             @RequestParam(value = "selectedTypes", required = false) List<String> selectedTypes,
-            @RequestParam(value = "projectContext", defaultValue = "") String projectContext) {
+            @RequestParam(value = "projectContext", defaultValue = "") String projectContext,
+            @RequestParam(value = "sourceName",    defaultValue = "") String sourceName) {
 
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         if (selectedTypes == null || selectedTypes.isEmpty()) {
@@ -132,9 +139,38 @@ public class WorkspaceController {
             streamIds.put(typeName, streamId);
         }
 
+        if (!streamIds.isEmpty()) {
+            String snippet = code.length() > 500 ? code.substring(0, 500) : code;
+            String types   = String.join(",", streamIds.keySet());
+            String src     = sourceName.trim().isEmpty() ? null : sourceName.trim();
+            try { historyRepo.save(new WorkspaceHistory(language, types, snippet, src)); }
+            catch (Exception ignored) {}
+        }
+
         resp.put("success",   true);
         resp.put("streamIds", streamIds);
         return ResponseEntity.ok(resp);
+    }
+
+    // ── 분석 이력 조회 ─────────────────────────────────────────────────────────
+
+    @GetMapping("/history")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> history() {
+        List<WorkspaceHistory> rows = historyRepo.findAllByOrderByCreatedAtDesc(
+                PageRequest.of(0, 30));
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+        for (WorkspaceHistory h : rows) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("id",            h.getId());
+            m.put("language",      h.getLanguage());
+            m.put("analysisTypes", h.getAnalysisTypes());
+            m.put("codeSnippet",   h.getCodeSnippet());
+            m.put("sourceName",    h.getSourceName());
+            m.put("createdAt",     h.getCreatedAt().toString());
+            list.add(m);
+        }
+        return ResponseEntity.ok(list);
     }
 
     // ── SSE 스트리밍 ───────────────────────────────────────────────────────────

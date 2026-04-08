@@ -82,8 +82,24 @@
                       display:flex; align-items:center; justify-content:space-between; gap:8px; }
         @keyframes spin-icon { to { transform:rotate(360deg); } }
         .spin-icon { display:inline-block; animation:spin-icon .8s linear infinite; }
+        /* ── 드래그 앤 드롭 ── */
+        #dropOverlay { position:absolute; inset:0; background:rgba(var(--accent-rgb),.12);
+                       border:2px dashed var(--accent); border-radius:8px;
+                       display:flex; align-items:center; justify-content:center;
+                       color:var(--accent); font-weight:600; font-size:.9rem;
+                       pointer-events:none; z-index:10; }
+        #codeInputWrap { position:relative; }
+        /* ── 진행률 바 ── */
+        #progressInfo { font-size:.75rem; color:var(--text-muted); }
+        .progress-badge { background:rgba(var(--accent-rgb),.12); color:var(--accent);
+                          padding:2px 10px; border-radius:10px; font-weight:600; }
         /* ── 이메일 패널 ── */
         .email-panel { border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px; }
+        /* ── 이력 패널 ── */
+        .history-row { padding:7px 10px; border-bottom:1px solid var(--border-color);
+                       font-size:.78rem; cursor:pointer; transition:background .12s; }
+        .history-row:hover { background:rgba(var(--accent-rgb),.06); }
+        .history-row:last-child { border-bottom:none; }
         /* ── copy btn ── */
         .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                     padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
@@ -150,7 +166,6 @@
                                 </button>
                             </div>
 
-                            <!-- Source selector panel -->
                             <div id="sourcePanel" class="source-panel" style="display:none;">
                                 <div class="source-panel-header">
                                     <div class="d-flex gap-1">
@@ -214,17 +229,35 @@
                             </div>
                         </div>
 
-                        <!-- 코드 입력 -->
-                        <div class="section-label mb-1">코드 입력
-                            <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;margin-left:6px;">Ctrl+Enter 실행</span>
+                        <!-- 코드 입력 (drag & drop 지원) -->
+                        <div class="section-label mb-1 d-flex align-items-center justify-content-between">
+                            <span>코드 입력 <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;">Ctrl+Enter 실행</span></span>
+                            <label class="copy-btn" style="cursor:pointer;" title=".java/.sql 파일 업로드">
+                                <i class="fas fa-upload me-1"></i>파일
+                                <input type="file" id="fileUploadInput" accept=".java,.sql,.kt,.py,.js,.ts"
+                                       style="display:none;" onchange="onFileUpload(this)">
+                            </label>
                         </div>
-                        <textarea id="codeInput" class="form-control" rows="13"
-                                  style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"
-                                  placeholder="분석할 코드를 붙여넣거나 위에서 파일·DB 오브젝트를 선택하세요..."
-                                  oninput="onCodeInput()"></textarea>
+                        <div id="codeInputWrap">
+                            <textarea id="codeInput" class="form-control" rows="12"
+                                      style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"
+                                      placeholder="분석할 코드를 붙여넣거나, 위에서 파일·DB 오브젝트를 선택하거나, 파일을 여기에 드래그하세요..."
+                                      oninput="onCodeInput()"></textarea>
+                            <div id="dropOverlay" style="display:none;"><i class="fas fa-file-code me-2"></i>파일을 놓으면 내용이 로드됩니다</div>
+                        </div>
                         <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--text-muted);">
                             <span id="tokenEstimate"></span>
                             <span id="lineCount"></span>
+                        </div>
+
+                        <!-- 프로젝트 컨텍스트 -->
+                        <div class="mt-2">
+                            <label class="section-label" style="font-size:.75rem;">프로젝트 컨텍스트
+                                <span style="font-weight:400;color:var(--text-muted);">(선택)</span>
+                            </label>
+                            <textarea id="projectContext" class="form-control" rows="2"
+                                      style="font-size:.78rem;resize:none;"
+                                      placeholder="예: Spring Boot 2.7, Oracle DB, ERP 주문 모듈 — AI가 더 정확한 분석을 제공합니다"></textarea>
                         </div>
 
                         <!-- 분석 항목 선택 -->
@@ -315,10 +348,27 @@
                         <!-- 탭 헤더 + 액션 -->
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <div id="resultTabs" class="d-flex flex-wrap gap-1"></div>
-                            <div class="d-flex gap-1 align-items-center">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span id="progressInfo" style="display:none;"></span>
+                                <button id="btnHistory" class="copy-btn" onclick="toggleHistoryPanel()" title="분석 이력">
+                                    <i class="fas fa-history me-1"></i>이력
+                                </button>
                                 <button id="btnDownload" class="copy-btn" style="display:none;" onclick="downloadAll()">
                                     <i class="fas fa-download me-1"></i>MD 다운로드
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- 이력 패널 -->
+                        <div id="historyPanel" class="mb-2" style="display:none;">
+                            <div class="panel p-2" style="background:var(--bg-secondary);">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span style="font-size:.78rem;font-weight:600;">최근 분석 이력</span>
+                                    <button class="copy-btn" onclick="loadHistory()"><i class="fas fa-sync-alt"></i></button>
+                                </div>
+                                <div id="historyList" style="max-height:180px;overflow-y:auto;">
+                                    <div class="text-muted" style="font-size:.78rem;padding:8px;">로딩 중...</div>
+                                </div>
                             </div>
                         </div>
 
@@ -333,7 +383,9 @@
                             <div class="d-flex gap-3 justify-content-center mt-2" style="font-size:.75rem;color:var(--text-muted);opacity:.7;">
                                 <span><i class="fas fa-folder-open me-1"></i>ERP 파일 선택</span>
                                 <span>·</span>
-                                <span><i class="fas fa-database me-1"></i>DB 오브젝트 선택</span>
+                                <span><i class="fas fa-database me-1"></i>DB 오브젝트</span>
+                                <span>·</span>
+                                <span><i class="fas fa-file-upload me-1"></i>파일 드래그</span>
                                 <span>·</span>
                                 <span><i class="fas fa-envelope me-1"></i>이메일 발송</span>
                             </div>
@@ -375,6 +427,7 @@ var selectedTypes = {};
 var resultTexts   = {};
 var doneCount     = 0;
 var totalCount    = 0;
+var currentSourceName = '';
 
 /* ═══════════════════════════════════════════════════════════
    테마
@@ -409,10 +462,8 @@ function toggleSourcePanel() {
     panel.style.display = srcPanelOpen ? '' : 'none';
     btn.classList.toggle('open', srcPanelOpen);
     chev.style.transform = srcPanelOpen ? 'rotate(180deg)' : '';
-    if (srcPanelOpen) {
-        if (!fileLoaded) loadFiles();
-        if (!dbLoaded)   loadDbObjects();
-    }
+    if (srcPanelOpen && !fileLoaded) loadFiles();
+    if (srcPanelOpen && !dbLoaded)   loadDbObjects();
 }
 
 function switchSrcTab(tab) {
@@ -424,36 +475,37 @@ function switchSrcTab(tab) {
 }
 
 function refreshCache() {
-    fileLoaded = false;
-    dbLoaded   = false;
-    allFiles   = [];
-    allDbObjs  = [];
-    if (srcPanelOpen) { loadFiles(); loadDbObjects(); }
-    else { loadFiles(); loadDbObjects(); }
+    fileLoaded = false; dbLoaded = false; allFiles = []; allDbObjs = [];
+    loadFiles(); loadDbObjects();
+    showToast('캐시 갱신 중...');
 }
 
 /* ── Java 파일 로딩 ── */
 function loadFiles() {
     fileLoaded = true;
+    document.getElementById('fileStatusText').innerHTML = '<i class="fas fa-spinner spin-icon me-1"></i>로딩 중...';
     fetch('/harness/cache/files?q=')
         .then(function(r){ return r.json(); })
-        .then(function(list){
-            allFiles = list || [];
-            document.getElementById('fileStatusText').textContent = '파일 목록';
+        .then(function(d){
+            allFiles = d.files || [];
+            var loaded = d.loaded;
+            document.getElementById('fileStatusText').textContent = loaded ? '파일 목록' : '캐시 준비 중...';
             document.getElementById('fileCount').textContent = allFiles.length + '개';
             renderFileList(allFiles);
         })
         .catch(function(){
-            document.getElementById('fileStatusText').textContent = '로드 실패 (프로젝트 경로 설정 필요)';
+            document.getElementById('fileStatusText').textContent = '로드 실패 (Settings > 프로젝트 경로 설정 필요)';
             document.getElementById('fileList').innerHTML =
-                '<div class="source-item" style="color:var(--text-muted);justify-content:center;">파일을 불러올 수 없습니다</div>';
+                '<div class="source-item" style="color:var(--text-muted);justify-content:center;padding:12px;">파일을 불러올 수 없습니다</div>';
         });
 }
 
 function onFileSearch(q) {
     var filtered = q.trim()
-        ? allFiles.filter(function(f){ return (f.rel||'').toLowerCase().indexOf(q.toLowerCase()) >= 0
-                                           || (f.name||'').toLowerCase().indexOf(q.toLowerCase()) >= 0; })
+        ? allFiles.filter(function(f){
+            return (f.relativePath||'').toLowerCase().indexOf(q.toLowerCase()) >= 0
+                || (f.fileName||'').toLowerCase().indexOf(q.toLowerCase()) >= 0;
+          })
         : allFiles;
     renderFileList(filtered);
 }
@@ -466,10 +518,10 @@ function renderFileList(list) {
     }
     var html = '';
     list.slice(0, 200).forEach(function(f) {
-        var name = escHtml(f.name || '');
-        var rel  = escHtml(f.rel  || '');
-        var abs  = escHtml(f.abs  || '');
-        html += '<div class="source-item" data-abs="' + abs + '" data-rel="' + rel + '" onclick="selectFile(this)">'
+        var name = escHtml(f.fileName    || '');
+        var rel  = escHtml(f.relativePath || '');
+        var abs  = escHtml(f.absolutePath || '');
+        html += '<div class="source-item" data-abs="' + abs + '" data-name="' + name + '" onclick="selectFile(this)">'
               + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316;"></i></span>'
               + '<span class="source-item-name">' + name + '</span>'
               + '<span class="source-item-path">' + rel + '</span>'
@@ -481,12 +533,15 @@ function renderFileList(list) {
 function selectFile(el) {
     document.querySelectorAll('#fileList .source-item').forEach(function(i){ i.classList.remove('selected'); });
     el.classList.add('selected');
-    var abs = el.getAttribute('data-abs') || '';
+    var abs  = el.getAttribute('data-abs')  || '';
+    var name = el.getAttribute('data-name') || '';
     if (!abs) return;
     fetch('/harness/cache/file-content?path=' + encodeURIComponent(abs))
-        .then(function(r){ return r.text(); })
-        .then(function(text){
-            document.getElementById('codeInput').value = text;
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) { alert(d.error || '파일 내용을 불러올 수 없습니다.'); return; }
+            document.getElementById('codeInput').value = d.content || '';
+            currentSourceName = name;
             setLang('java');
             onCodeInput();
             toggleSourcePanel();
@@ -497,18 +552,24 @@ function selectFile(el) {
 /* ── DB 오브젝트 로딩 ── */
 function loadDbObjects() {
     dbLoaded = true;
+    document.getElementById('dbStatusText').innerHTML = '<i class="fas fa-spinner spin-icon me-1"></i>로딩 중...';
     fetch('/harness/cache/db-objects?q=&type=')
         .then(function(r){ return r.json(); })
-        .then(function(list){
-            allDbObjs = list || [];
-            document.getElementById('dbStatusText').textContent = 'DB 오브젝트';
+        .then(function(d){
+            allDbObjs = d.objects || [];
+            var configured = d.configured;
+            if (!configured) {
+                document.getElementById('dbStatusText').textContent = 'DB 미설정 (Settings > DB 프로필 필요)';
+            } else {
+                document.getElementById('dbStatusText').textContent = 'DB 오브젝트';
+            }
             document.getElementById('dbCount').textContent = allDbObjs.length + '개';
             renderDbList(allDbObjs);
         })
         .catch(function(){
             document.getElementById('dbStatusText').textContent = '로드 실패 (DB 프로필 설정 필요)';
             document.getElementById('dbList').innerHTML =
-                '<div class="source-item" style="color:var(--text-muted);justify-content:center;">DB 오브젝트를 불러올 수 없습니다</div>';
+                '<div class="source-item" style="color:var(--text-muted);justify-content:center;padding:12px;">DB 오브젝트를 불러올 수 없습니다</div>';
         });
 }
 
@@ -549,9 +610,11 @@ function selectDbObj(el) {
     var type = el.getAttribute('data-type') || '';
     if (!name) return;
     fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
-        .then(function(r){ return r.text(); })
-        .then(function(text){
-            document.getElementById('codeInput').value = text;
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) { alert(d.error || 'DB 소스를 불러올 수 없습니다.'); return; }
+            document.getElementById('codeInput').value = d.source || '';
+            currentSourceName = name;
             setLang('sql');
             onCodeInput();
             toggleSourcePanel();
@@ -561,6 +624,51 @@ function selectDbObj(el) {
 
 function escHtml(s) {
     return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   파일 업로드 (버튼 + 드래그 앤 드롭)
+   ═══════════════════════════════════════════════════════════ */
+function onFileUpload(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    readUploadedFile(file);
+    input.value = '';
+}
+
+function readUploadedFile(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('codeInput').value = e.target.result || '';
+        currentSourceName = file.name;
+        var ext = (file.name.split('.').pop() || '').toLowerCase();
+        var langMap = { java:'java', kt:'kotlin', py:'python', js:'javascript', ts:'typescript', sql:'sql' };
+        if (langMap[ext]) setLang(langMap[ext]);
+        onCodeInput();
+        showToast(file.name + ' 로드 완료');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+function initDragDrop() {
+    var wrap    = document.getElementById('codeInputWrap');
+    var overlay = document.getElementById('dropOverlay');
+    var counter = 0;
+
+    wrap.addEventListener('dragenter', function(e) {
+        e.preventDefault(); counter++;
+        overlay.style.display = 'flex';
+    });
+    wrap.addEventListener('dragleave', function() {
+        counter--;
+        if (counter <= 0) { counter = 0; overlay.style.display = 'none'; }
+    });
+    wrap.addEventListener('dragover', function(e) { e.preventDefault(); });
+    wrap.addEventListener('drop', function(e) {
+        e.preventDefault(); counter = 0; overlay.style.display = 'none';
+        var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) readUploadedFile(file);
+    });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -714,16 +822,29 @@ function deleteBundle(name, e) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   진행률 표시
+   ═══════════════════════════════════════════════════════════ */
+function updateProgress() {
+    var el = document.getElementById('progressInfo');
+    if (totalCount === 0) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = '<span class="progress-badge">' + doneCount + '/' + totalCount + ' 완료</span>';
+}
+
+/* ═══════════════════════════════════════════════════════════
    분석 실행
    ═══════════════════════════════════════════════════════════ */
 function runAnalysis() {
     var code  = document.getElementById('codeInput').value.trim();
     var lang  = getLanguage();
     var types = Object.keys(selectedTypes);
+    var ctx   = (document.getElementById('projectContext').value || '').trim();
     if (!code)        { alert('코드를 입력하세요.'); return; }
     if (!types.length){ alert('분석 유형을 선택하세요.'); return; }
 
     resultTexts = {}; doneCount = 0; totalCount = types.length;
+    updateProgress();
+
     document.getElementById('emptyState').style.display    = 'none';
     document.getElementById('compareResult').style.display = 'none';
     document.getElementById('emailPanel').style.display    = 'none';
@@ -735,9 +856,10 @@ function runAnalysis() {
     switchResultTab(types[0]);
 
     var params = new URLSearchParams();
-    params.append('code',     code);
-    params.append('language', lang);
-    params.append('projectContext', '');
+    params.append('code',           code);
+    params.append('language',       lang);
+    params.append('projectContext', ctx);
+    params.append('sourceName',     currentSourceName);
     types.forEach(function(t){ params.append('selectedTypes', t); });
 
     fetch('/workspace/run', { method:'POST', body:params })
@@ -791,6 +913,7 @@ function startStream(typeName, url) {
         var spinner = document.getElementById('spinner-' + typeName);
         if (spinner) spinner.outerHTML = ' <i class="fas fa-check" style="font-size:.65rem;color:#10b981;margin-left:4px;"></i>';
         doneCount++;
+        updateProgress();
         if (doneCount >= totalCount) {
             document.getElementById('btnDownload').style.display = '';
             document.getElementById('emailPanel').style.display  = '';
@@ -802,6 +925,8 @@ function startStream(typeName, url) {
         es.close();
         var el = document.getElementById('result-' + typeName);
         if (el) el.innerHTML += '<div style="color:#ef4444;font-size:.8rem;">⚠ 스트리밍 오류</div>';
+        doneCount++;
+        updateProgress();
     });
 }
 
@@ -825,6 +950,7 @@ function runCompare() {
     var lang      = getLanguage();
     var types     = Object.keys(selectedTypes);
     var modelList = getCheckedModels();
+    var ctx       = (document.getElementById('projectContext').value || '').trim();
     if (!code)            { alert('코드를 입력하세요.'); return; }
     if (types.length !== 1){ alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
     if (modelList.length < 2){ alert('모델을 2개 이상 선택하세요.'); return; }
@@ -850,7 +976,7 @@ function runCompare() {
 
     var params = new URLSearchParams();
     params.append('code', code); params.append('language', lang);
-    params.append('analysisType', types[0]); params.append('projectContext', '');
+    params.append('analysisType', types[0]); params.append('projectContext', ctx);
     modelList.forEach(function(m){ params.append('models', m); });
 
     fetch('/workspace/compare', { method:'POST', body:params })
@@ -872,6 +998,45 @@ function runCompare() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   분석 이력
+   ═══════════════════════════════════════════════════════════ */
+function toggleHistoryPanel() {
+    var panel = document.getElementById('historyPanel');
+    var visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : '';
+    if (!visible) loadHistory();
+}
+
+function loadHistory() {
+    var list = document.getElementById('historyList');
+    list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">로딩 중...</div>';
+    fetch('/workspace/history')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            if (!data || !data.length) {
+                list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">이력이 없습니다.</div>';
+                return;
+            }
+            var html = '';
+            data.forEach(function(h) {
+                var types   = (h.analysisTypes || '').split(',').map(function(t){ return getDisplayName(t.trim()); }).join(', ');
+                var snippet = (h.codeSnippet || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0, 60);
+                var dt      = (h.createdAt || '').replace('T',' ').substring(0, 16);
+                var src     = h.sourceName ? ' · ' + escHtml(h.sourceName) : '';
+                html += '<div class="history-row">'
+                      + '<div style="font-weight:600;color:var(--text-primary);">' + escHtml(h.language||'') + ' — ' + escHtml(types) + src + '</div>'
+                      + '<div style="color:var(--text-muted);font-size:.72rem;">' + snippet + '</div>'
+                      + '<div style="color:var(--text-muted);font-size:.7rem;margin-top:2px;">' + dt + '</div>'
+                      + '</div>';
+            });
+            list.innerHTML = html;
+        })
+        .catch(function(){
+            list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">이력을 불러올 수 없습니다.</div>';
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════
    이메일 발송
    ═══════════════════════════════════════════════════════════ */
 function sendEmail() {
@@ -881,12 +1046,10 @@ function sendEmail() {
 
     var lines = [];
     Object.keys(resultTexts).forEach(function(t){
-        lines.push('=== ' + getDisplayName(t) + ' ===');
-        lines.push('');
+        lines.push('=== ' + getDisplayName(t) + ' ===\n');
         lines.push(resultTexts[t]);
-        lines.push('');
+        lines.push('\n');
     });
-    var body = lines.join('\n');
 
     var btn = document.getElementById('btnSendEmail');
     btn.disabled = true;
@@ -895,7 +1058,7 @@ function sendEmail() {
     var params = new URLSearchParams();
     params.append('to',      to);
     params.append('subject', subject || '워크스페이스 분석 결과');
-    params.append('content', body);
+    params.append('content', lines.join('\n'));
 
     fetch('/workspace/send-email', { method:'POST', body:params })
         .then(function(r){ return r.json(); })
@@ -910,8 +1073,7 @@ function sendEmail() {
         .catch(function(){
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
-            var el = document.getElementById('emailResult');
-            el.style.color = '#ef4444'; el.textContent = '발송 중 오류가 발생했습니다.';
+            document.getElementById('emailResult').textContent = '발송 중 오류가 발생했습니다.';
         });
 }
 
@@ -977,6 +1139,7 @@ window.addEventListener('DOMContentLoaded', function() {
     loadDraft();
     renderBundles();
     updateChipAvailability();
+    initDragDrop();
 
     document.querySelectorAll('[id^="cmp-"]').forEach(function(label) {
         var cb = label.querySelector('input[type=checkbox]');
