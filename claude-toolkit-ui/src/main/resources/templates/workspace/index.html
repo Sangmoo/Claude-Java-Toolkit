@@ -14,21 +14,21 @@
         .lang-label { display:inline-flex; align-items:center; gap:5px; padding:4px 12px;
                       border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
                       font-size:.78rem; color:var(--text-muted); transition:all .15s; }
-        .lang-radio:checked + .lang-label { background:rgba(var(--accent-rgb),.12);
+        .lang-radio:checked + .lang-label { background:var(--accent-subtle);
                                             border-color:var(--accent); color:var(--accent); font-weight:600; }
         /* ── 분석 체크박스 칩 ── */
         .type-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 13px;
                      border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
                      font-size:.78rem; color:var(--text-muted); transition:all .15s; user-select:none; }
         .type-chip:hover:not(.disabled) { border-color:var(--accent); color:var(--accent); }
-        .type-chip.selected { background:rgba(var(--accent-rgb),.12); border-color:var(--accent);
+        .type-chip.selected { background:var(--accent-subtle); border-color:var(--accent);
                               color:var(--accent); font-weight:600; }
         .type-chip.disabled { opacity:.4; cursor:not-allowed; pointer-events:none; }
         /* ── 결과 탭 ── */
         .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                       padding:5px 14px; border-radius:20px; cursor:pointer; font-size:.78rem;
                       transition:all .15s; white-space:nowrap; }
-        .result-tab.active { background:rgba(var(--accent-rgb),.12); border-color:var(--accent);
+        .result-tab.active { background:var(--accent-subtle); border-color:var(--accent);
                              color:var(--accent); font-weight:600; }
         .result-tab .spinner { display:inline-block; width:10px; height:10px;
                                border:2px solid currentColor; border-top-color:transparent;
@@ -51,22 +51,22 @@
                           padding:5px 14px; border-radius:8px; font-size:.8rem; cursor:pointer;
                           display:flex; align-items:center; gap:6px; transition:all .15s; }
         .src-toggle-btn:hover { border-color:var(--accent); color:var(--accent); }
-        .src-toggle-btn.open  { border-color:var(--accent); color:var(--accent); background:rgba(var(--accent-rgb),.07); }
+        .src-toggle-btn.open  { border-color:var(--accent); color:var(--accent); background:var(--accent-subtle); }
         .source-panel { border:1px solid var(--border-color); border-radius:10px;
-                        overflow:hidden; margin-bottom:10px; background:var(--surface-color); }
-        .source-panel-header { padding:8px 14px; background:var(--surface-color);
+                        overflow:hidden; margin-bottom:10px; background:var(--bg-secondary); }
+        .source-panel-header { padding:8px 14px; background:var(--bg-secondary);
                                 border-bottom:1px solid var(--border-color);
                                 display:flex; align-items:center; justify-content:space-between; }
         .src-tab { background:none; border:none; color:var(--text-muted); padding:5px 14px;
                    border-radius:20px; cursor:pointer; font-size:.78rem; font-weight:500; transition:all .15s; }
-        .src-tab.active { background:rgba(var(--accent-rgb),.12); color:var(--accent); font-weight:600; }
-        .source-list { max-height:220px; overflow-y:auto; background:var(--surface-color); }
+        .src-tab.active { background:var(--accent-subtle); color:var(--accent); font-weight:600; }
+        .source-list { max-height:220px; overflow-y:auto; background:var(--bg-secondary); }
         .source-item { display:flex; align-items:center; gap:8px; padding:7px 14px;
                        cursor:pointer; font-size:.8rem; border-bottom:1px solid var(--border-color);
                        transition:background .12s; }
         .source-item:last-child { border-bottom:none; }
-        .source-item:hover    { background:rgba(var(--accent-rgb),.08); }
-        .source-item.selected { background:rgba(var(--accent-rgb),.18); border-left:3px solid var(--accent); }
+        .source-item:hover    { background:var(--accent-subtle); }
+        .source-item.selected { background:var(--accent-subtle); border-left:3px solid var(--accent); font-weight:600; }
         .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0;
                             max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1;
@@ -80,30 +80,35 @@
         .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
                       border-bottom:1px solid var(--border-color);
                       display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        /* ── 선택된 소스 표시 ── */
+        #selectedSourceBar { background:var(--accent-subtle); border:1px solid var(--accent);
+                             border-radius:6px; padding:5px 10px; font-size:.78rem;
+                             color:var(--accent); display:flex; align-items:center; gap:6px; }
         @keyframes spin-icon { to { transform:rotate(360deg); } }
         .spin-icon { display:inline-block; animation:spin-icon .8s linear infinite; }
         /* ── 드래그 앤 드롭 ── */
-        #dropOverlay { position:absolute; inset:0; background:rgba(var(--accent-rgb),.12);
+        #dropOverlay { position:absolute; inset:0; background:var(--accent-subtle);
                        border:2px dashed var(--accent); border-radius:8px;
                        display:flex; align-items:center; justify-content:center;
                        color:var(--accent); font-weight:600; font-size:.9rem;
                        pointer-events:none; z-index:10; }
         #codeInputWrap { position:relative; }
-        /* ── 진행률 바 ── */
-        #progressInfo { font-size:.75rem; color:var(--text-muted); }
-        .progress-badge { background:rgba(var(--accent-rgb),.12); color:var(--accent);
-                          padding:2px 10px; border-radius:10px; font-weight:600; }
+        /* ── 진행률 ── */
+        .progress-badge { background:var(--accent-subtle); color:var(--accent);
+                          padding:2px 10px; border-radius:10px; font-weight:600; font-size:.75rem; }
         /* ── 이메일 패널 ── */
         .email-panel { border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px; }
-        /* ── 이력 패널 ── */
+        /* ── 이력 ── */
         .history-row { padding:7px 10px; border-bottom:1px solid var(--border-color);
-                       font-size:.78rem; cursor:pointer; transition:background .12s; }
-        .history-row:hover { background:rgba(var(--accent-rgb),.06); }
+                       font-size:.78rem; }
         .history-row:last-child { border-bottom:none; }
         /* ── copy btn ── */
         .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                     padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
         .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+        /* ── 모델 비교 안내 ── */
+        .compare-hint { font-size:.72rem; color:var(--text-muted); margin-top:4px; }
+        .compare-hint.ok { color:#10b981; }
         @media (max-width:768px) { .source-item-path { display:none; } }
     </style>
 </head>
@@ -159,13 +164,23 @@
                                 <button type="button" class="src-toggle-btn" id="srcToggleBtn" onclick="toggleSourcePanel()">
                                     <i class="fas fa-folder-open"></i>
                                     소스 선택하기
-                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;"></i>
+                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;transition:transform .15s;"></i>
                                 </button>
                                 <button type="button" class="copy-btn" onclick="refreshCache()" title="파일·DB 캐시 갱신">
-                                    <i class="fas fa-sync-alt me-1"></i>갱신
+                                    <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
 
+                            <!-- 선택된 소스 표시 (선택 후에도 항상 보임) -->
+                            <div id="selectedSourceBar" style="display:none;" class="mb-1">
+                                <i class="fas fa-check-circle"></i>
+                                <span id="selectedSourceName"></span>
+                                <button type="button" onclick="clearSource()" style="background:none;border:none;color:var(--accent);margin-left:auto;cursor:pointer;font-size:.72rem;padding:0;">
+                                    <i class="fas fa-times"></i> 해제
+                                </button>
+                            </div>
+
+                            <!-- Source selector panel (열린 상태 유지) -->
                             <div id="sourcePanel" class="source-panel" style="display:none;">
                                 <div class="source-panel-header">
                                     <div class="d-flex gap-1">
@@ -320,8 +335,11 @@
 
                         <!-- 모델 비교 -->
                         <div class="mt-3 pt-2" style="border-top:1px solid var(--border-color);">
-                            <div class="section-label mb-1" style="font-size:.75rem;">모델 비교 분석 (유형 1개 선택)</div>
-                            <div class="d-flex flex-wrap gap-1 mb-1">
+                            <div class="section-label mb-1" style="font-size:.75rem;">모델 비교 분석</div>
+                            <div class="compare-hint" id="compareHint">
+                                <i class="fas fa-info-circle me-1"></i>분석 항목 1개 선택 후 모델 2개 이상 체크
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mt-1 mb-1">
                                 <label class="type-chip" id="cmp-sonnet">
                                     <input type="checkbox" style="display:none;" value="claude-sonnet-4-5" onchange="updateCompareBtn()">
                                     Sonnet 4.5
@@ -354,7 +372,7 @@
                                     <i class="fas fa-history me-1"></i>이력
                                 </button>
                                 <button id="btnDownload" class="copy-btn" style="display:none;" onclick="downloadAll()">
-                                    <i class="fas fa-download me-1"></i>MD 다운로드
+                                    <i class="fas fa-download me-1"></i>MD
                                 </button>
                             </div>
                         </div>
@@ -423,32 +441,31 @@
 /* ═══════════════════════════════════════════════════════════
    상태
    ═══════════════════════════════════════════════════════════ */
-var selectedTypes = {};
-var resultTexts   = {};
-var doneCount     = 0;
-var totalCount    = 0;
+var selectedTypes     = {};
+var resultTexts       = {};
+var doneCount         = 0;
+var totalCount        = 0;
 var currentSourceName = '';
 
 /* ═══════════════════════════════════════════════════════════
    테마
    ═══════════════════════════════════════════════════════════ */
 function toggleTheme() {
-    var html  = document.documentElement;
-    var isDark = html.getAttribute('data-theme') !== 'light';
-    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
     localStorage.setItem('theme', isDark ? 'light' : 'dark');
     document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
 }
 (function(){
-    var t = localStorage.getItem('theme');
-    document.getElementById('themeLabel').textContent = (t === 'light') ? 'Dark' : 'Light';
+    document.getElementById('themeLabel').textContent =
+        (localStorage.getItem('theme') === 'light') ? 'Dark' : 'Light';
 })();
 
 /* ═══════════════════════════════════════════════════════════
    소스 선택 패널
    ═══════════════════════════════════════════════════════════ */
 var srcPanelOpen = false;
-var srcTab       = 'files';
+var srcTabState  = 'files';
 var allFiles     = [];
 var allDbObjs    = [];
 var fileLoaded   = false;
@@ -456,9 +473,9 @@ var dbLoaded     = false;
 
 function toggleSourcePanel() {
     srcPanelOpen = !srcPanelOpen;
-    var panel  = document.getElementById('sourcePanel');
-    var btn    = document.getElementById('srcToggleBtn');
-    var chev   = document.getElementById('srcChevron');
+    var panel = document.getElementById('sourcePanel');
+    var btn   = document.getElementById('srcToggleBtn');
+    var chev  = document.getElementById('srcChevron');
     panel.style.display = srcPanelOpen ? '' : 'none';
     btn.classList.toggle('open', srcPanelOpen);
     chev.style.transform = srcPanelOpen ? 'rotate(180deg)' : '';
@@ -467,7 +484,7 @@ function toggleSourcePanel() {
 }
 
 function switchSrcTab(tab) {
-    srcTab = tab;
+    srcTabState = tab;
     document.getElementById('srcPanelFiles').style.display = (tab === 'files') ? '' : 'none';
     document.getElementById('srcPanelDb').style.display    = (tab === 'db')    ? '' : 'none';
     document.getElementById('srcTabFiles').classList.toggle('active', tab === 'files');
@@ -476,8 +493,27 @@ function switchSrcTab(tab) {
 
 function refreshCache() {
     fileLoaded = false; dbLoaded = false; allFiles = []; allDbObjs = [];
-    loadFiles(); loadDbObjects();
+    if (srcPanelOpen) { loadFiles(); loadDbObjects(); }
+    else { loadFiles(); loadDbObjects(); }
     showToast('캐시 갱신 중...');
+}
+
+/* ── 선택된 소스 표시/해제 ── */
+function setSelectedSource(name) {
+    currentSourceName = name;
+    if (name) {
+        document.getElementById('selectedSourceName').textContent = name;
+        document.getElementById('selectedSourceBar').style.display = 'flex';
+    } else {
+        document.getElementById('selectedSourceBar').style.display = 'none';
+    }
+}
+
+function clearSource() {
+    setSelectedSource('');
+    document.querySelectorAll('.source-item.selected').forEach(function(el){ el.classList.remove('selected'); });
+    document.getElementById('codeInput').value = '';
+    onCodeInput();
 }
 
 /* ── Java 파일 로딩 ── */
@@ -488,8 +524,7 @@ function loadFiles() {
         .then(function(r){ return r.json(); })
         .then(function(d){
             allFiles = d.files || [];
-            var loaded = d.loaded;
-            document.getElementById('fileStatusText').textContent = loaded ? '파일 목록' : '캐시 준비 중...';
+            document.getElementById('fileStatusText').textContent = d.loaded ? '파일 목록' : '캐시 준비 중...';
             document.getElementById('fileCount').textContent = allFiles.length + '개';
             renderFileList(allFiles);
         })
@@ -508,6 +543,14 @@ function onFileSearch(q) {
           })
         : allFiles;
     renderFileList(filtered);
+    // 검색 후에도 선택 상태 복원
+    if (currentSourceName) {
+        setTimeout(function(){
+            document.querySelectorAll('#fileList .source-item').forEach(function(el){
+                if ((el.getAttribute('data-name')||'') === currentSourceName) el.classList.add('selected');
+            });
+        }, 0);
+    }
 }
 
 function renderFileList(list) {
@@ -521,7 +564,8 @@ function renderFileList(list) {
         var name = escHtml(f.fileName    || '');
         var rel  = escHtml(f.relativePath || '');
         var abs  = escHtml(f.absolutePath || '');
-        html += '<div class="source-item" data-abs="' + abs + '" data-name="' + name + '" onclick="selectFile(this)">'
+        var sel  = (f.fileName === currentSourceName) ? ' selected' : '';
+        html += '<div class="source-item' + sel + '" data-abs="' + abs + '" data-name="' + name + '" onclick="selectFile(this)">'
               + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316;"></i></span>'
               + '<span class="source-item-name">' + name + '</span>'
               + '<span class="source-item-path">' + rel + '</span>'
@@ -531,22 +575,29 @@ function renderFileList(list) {
 }
 
 function selectFile(el) {
+    // 선택 상태 표시 (패널 닫지 않음)
     document.querySelectorAll('#fileList .source-item').forEach(function(i){ i.classList.remove('selected'); });
     el.classList.add('selected');
     var abs  = el.getAttribute('data-abs')  || '';
     var name = el.getAttribute('data-name') || '';
     if (!abs) return;
+    // 로딩 표시
+    el.style.opacity = '0.6';
     fetch('/harness/cache/file-content?path=' + encodeURIComponent(abs))
         .then(function(r){ return r.json(); })
         .then(function(d){
+            el.style.opacity = '';
             if (!d.success) { alert(d.error || '파일 내용을 불러올 수 없습니다.'); return; }
             document.getElementById('codeInput').value = d.content || '';
-            currentSourceName = name;
+            setSelectedSource(name);
             setLang('java');
             onCodeInput();
-            toggleSourcePanel();
+            showToast(name + ' 로드됨');
         })
-        .catch(function(){ alert('파일 내용을 불러올 수 없습니다.'); });
+        .catch(function(){
+            el.style.opacity = '';
+            alert('파일 내용을 불러올 수 없습니다.');
+        });
 }
 
 /* ── DB 오브젝트 로딩 ── */
@@ -557,12 +608,8 @@ function loadDbObjects() {
         .then(function(r){ return r.json(); })
         .then(function(d){
             allDbObjs = d.objects || [];
-            var configured = d.configured;
-            if (!configured) {
-                document.getElementById('dbStatusText').textContent = 'DB 미설정 (Settings > DB 프로필 필요)';
-            } else {
-                document.getElementById('dbStatusText').textContent = 'DB 오브젝트';
-            }
+            document.getElementById('dbStatusText').textContent =
+                d.configured ? 'DB 오브젝트' : 'DB 미설정 (Settings > DB 프로필 필요)';
             document.getElementById('dbCount').textContent = allDbObjs.length + '개';
             renderDbList(allDbObjs);
         })
@@ -575,7 +622,7 @@ function loadDbObjects() {
 
 function onDbSearch(q) {
     var typeFilter = document.getElementById('dbTypeFilter').value;
-    var filtered = allDbObjs.filter(function(o){
+    var filtered   = allDbObjs.filter(function(o){
         var matchQ    = !q.trim() || (o.name||'').toLowerCase().indexOf(q.toLowerCase()) >= 0;
         var matchType = !typeFilter || (o.type||'').toUpperCase() === typeFilter;
         return matchQ && matchType;
@@ -593,11 +640,11 @@ function renderDbList(list) {
     list.slice(0, 200).forEach(function(o) {
         var name = escHtml(o.name || '');
         var type = (o.type || '').toUpperCase();
-        var badgeClass = 'source-badge-' + type.toLowerCase();
-        html += '<div class="source-item" data-name="' + name + '" data-type="' + escHtml(type) + '" onclick="selectDbObj(this)">'
+        var sel  = (o.name === currentSourceName) ? ' selected' : '';
+        html += '<div class="source-item' + sel + '" data-name="' + name + '" data-type="' + escHtml(type) + '" onclick="selectDbObj(this)">'
               + '<span class="source-item-icon"><i class="fas fa-database" style="color:#3b82f6;"></i></span>'
               + '<span class="source-item-name">' + name + '</span>'
-              + '<span class="source-badge ' + badgeClass + '">' + type + '</span>'
+              + '<span class="source-badge source-badge-' + type.toLowerCase() + '">' + type + '</span>'
               + '</div>';
     });
     el.innerHTML = html;
@@ -609,17 +656,22 @@ function selectDbObj(el) {
     var name = el.getAttribute('data-name') || '';
     var type = el.getAttribute('data-type') || '';
     if (!name) return;
+    el.style.opacity = '0.6';
     fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
         .then(function(r){ return r.json(); })
         .then(function(d){
+            el.style.opacity = '';
             if (!d.success) { alert(d.error || 'DB 소스를 불러올 수 없습니다.'); return; }
             document.getElementById('codeInput').value = d.source || '';
-            currentSourceName = name;
+            setSelectedSource(name);
             setLang('sql');
             onCodeInput();
-            toggleSourcePanel();
+            showToast(name + ' 로드됨');
         })
-        .catch(function(){ alert('DB 오브젝트 소스를 불러올 수 없습니다.'); });
+        .catch(function(){
+            el.style.opacity = '';
+            alert('DB 오브젝트 소스를 불러올 수 없습니다.');
+        });
 }
 
 function escHtml(s) {
@@ -640,7 +692,7 @@ function readUploadedFile(file) {
     var reader = new FileReader();
     reader.onload = function(e) {
         document.getElementById('codeInput').value = e.target.result || '';
-        currentSourceName = file.name;
+        setSelectedSource(file.name);
         var ext = (file.name.split('.').pop() || '').toLowerCase();
         var langMap = { java:'java', kt:'kotlin', py:'python', js:'javascript', ts:'typescript', sql:'sql' };
         if (langMap[ext]) setLang(langMap[ext]);
@@ -654,17 +706,10 @@ function initDragDrop() {
     var wrap    = document.getElementById('codeInputWrap');
     var overlay = document.getElementById('dropOverlay');
     var counter = 0;
-
-    wrap.addEventListener('dragenter', function(e) {
-        e.preventDefault(); counter++;
-        overlay.style.display = 'flex';
-    });
-    wrap.addEventListener('dragleave', function() {
-        counter--;
-        if (counter <= 0) { counter = 0; overlay.style.display = 'none'; }
-    });
-    wrap.addEventListener('dragover', function(e) { e.preventDefault(); });
-    wrap.addEventListener('drop', function(e) {
+    wrap.addEventListener('dragenter', function(e){ e.preventDefault(); counter++; overlay.style.display = 'flex'; });
+    wrap.addEventListener('dragleave', function(){ counter--; if (counter <= 0){ counter = 0; overlay.style.display = 'none'; } });
+    wrap.addEventListener('dragover',  function(e){ e.preventDefault(); });
+    wrap.addEventListener('drop',      function(e){
         e.preventDefault(); counter = 0; overlay.style.display = 'none';
         var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
         if (file) readUploadedFile(file);
@@ -693,7 +738,7 @@ function autoDetectLanguage(code) {
     var javaKw = ['import ', 'public class', '@Service', '@Controller', '@Repository', '@Component', 'public void ', 'private '];
     var sqlScore = 0, javaScore = 0;
     for (var i = 0; i < sqlKw.length;  i++) if (upper.indexOf(sqlKw[i].toUpperCase())  >= 0) sqlScore++;
-    for (var j = 0; j < javaKw.length; j++) if (code.indexOf(javaKw[j])               >= 0) javaScore++;
+    for (var j = 0; j < javaKw.length; j++) if (code.indexOf(javaKw[j]) >= 0) javaScore++;
     var badge = document.getElementById('langDetectedBadge');
     if (sqlScore >= 1 && sqlScore > javaScore) {
         setLang('sql'); badge.style.display = ''; badge.textContent = '🔍 SQL 감지';
@@ -714,7 +759,7 @@ function onLangChange() { updateChipAvailability(); updateRunBtn(); }
 function updateStats(code) {
     var lines  = code ? code.split('\n').length : 0;
     var tokens = Math.round((code || '').length / 4);
-    document.getElementById('lineCount').textContent     = lines + '줄';
+    document.getElementById('lineCount').textContent     = lines  + '줄';
     document.getElementById('tokenEstimate').textContent = '~' + tokens.toLocaleString() + ' 토큰';
 }
 
@@ -726,7 +771,7 @@ function toggleChip(el) {
     var type = el.dataset.type;
     if (selectedTypes[type]) { delete selectedTypes[type]; el.classList.remove('selected'); }
     else { selectedTypes[type] = true; el.classList.add('selected'); }
-    updateRunBtn(); showTranslateOptions();
+    updateRunBtn(); showTranslateOptions(); updateCompareBtn();
 }
 
 function updateChipAvailability() {
@@ -740,14 +785,14 @@ function updateChipAvailability() {
             chip.classList.remove('selected');
         }
     });
-    updateRunBtn();
+    updateRunBtn(); updateCompareBtn();
 }
 
 function selectAll() {
     document.querySelectorAll('.type-chip:not(.disabled)').forEach(function(chip){
         selectedTypes[chip.dataset.type] = true; chip.classList.add('selected');
     });
-    updateRunBtn(); showTranslateOptions();
+    updateRunBtn(); showTranslateOptions(); updateCompareBtn();
 }
 
 function clearAll() {
@@ -755,6 +800,7 @@ function clearAll() {
     document.querySelectorAll('.type-chip').forEach(function(c){ c.classList.remove('selected'); });
     updateRunBtn();
     document.getElementById('translateOptions').style.display = 'none';
+    updateCompareBtn();
 }
 
 function showTranslateOptions() {
@@ -763,22 +809,21 @@ function showTranslateOptions() {
 
 function updateRunBtn() {
     var count = Object.keys(selectedTypes).length;
-    var btn   = document.getElementById('btnRun');
-    btn.disabled = count === 0;
+    document.getElementById('btnRun').disabled = count === 0;
     document.getElementById('btnLabel').textContent = count > 0
         ? '선택한 ' + count + '개 분석 실행'
         : '분석 유형을 선택하세요';
 }
 
 /* ═══════════════════════════════════════════════════════════
-   번들 저장/불러오기
+   번들
    ═══════════════════════════════════════════════════════════ */
 var BUNDLE_KEY = 'workspace_bundles_v1';
 function loadBundles() { try { return JSON.parse(localStorage.getItem(BUNDLE_KEY)) || {}; } catch(e) { return {}; } }
 
 function renderBundles() {
     var bundles = loadBundles();
-    var el = document.getElementById('bundleList');
+    var el      = document.getElementById('bundleList');
     el.innerHTML = '';
     Object.keys(bundles).forEach(function(name) {
         var chip = document.createElement('span');
@@ -796,9 +841,8 @@ function saveBundle() {
     var name  = document.getElementById('bundleName').value.trim();
     var types = Object.keys(selectedTypes);
     if (!name || !types.length) return;
-    var bundles = loadBundles();
-    bundles[name] = types;
-    localStorage.setItem(BUNDLE_KEY, JSON.stringify(bundles));
+    var b = loadBundles(); b[name] = types;
+    localStorage.setItem(BUNDLE_KEY, JSON.stringify(b));
     document.getElementById('bundleName').value = '';
     renderBundles();
 }
@@ -810,19 +854,18 @@ function loadBundle(name) {
         var chip = document.querySelector('.type-chip[data-type="' + t + '"]');
         if (chip && !chip.classList.contains('disabled')) { selectedTypes[t] = true; chip.classList.add('selected'); }
     });
-    updateRunBtn(); showTranslateOptions();
+    updateRunBtn(); showTranslateOptions(); updateCompareBtn();
 }
 
 function deleteBundle(name, e) {
     e.stopPropagation();
-    var bundles = loadBundles();
-    delete bundles[name];
-    localStorage.setItem(BUNDLE_KEY, JSON.stringify(bundles));
+    var b = loadBundles(); delete b[name];
+    localStorage.setItem(BUNDLE_KEY, JSON.stringify(b));
     renderBundles();
 }
 
 /* ═══════════════════════════════════════════════════════════
-   진행률 표시
+   진행률
    ═══════════════════════════════════════════════════════════ */
 function updateProgress() {
     var el = document.getElementById('progressInfo');
@@ -839,12 +882,11 @@ function runAnalysis() {
     var lang  = getLanguage();
     var types = Object.keys(selectedTypes);
     var ctx   = (document.getElementById('projectContext').value || '').trim();
-    if (!code)        { alert('코드를 입력하세요.'); return; }
-    if (!types.length){ alert('분석 유형을 선택하세요.'); return; }
+    if (!code)         { alert('코드를 입력하세요.'); return; }
+    if (!types.length) { alert('분석 유형을 선택하세요.'); return; }
 
     resultTexts = {}; doneCount = 0; totalCount = types.length;
     updateProgress();
-
     document.getElementById('emptyState').style.display    = 'none';
     document.getElementById('compareResult').style.display = 'none';
     document.getElementById('emailPanel').style.display    = 'none';
@@ -873,12 +915,11 @@ function runAnalysis() {
 }
 
 function createResultTab(typeName) {
-    var displayName = getDisplayName(typeName);
     var btn = document.createElement('button');
     btn.className = 'result-tab';
     btn.id        = 'tab-btn-' + typeName;
     btn.onclick   = function(){ switchResultTab(typeName); };
-    btn.innerHTML = displayName + '<span class="spinner" id="spinner-' + typeName + '"></span>';
+    btn.innerHTML = getDisplayName(typeName) + '<span class="spinner" id="spinner-' + typeName + '"></span>';
     document.getElementById('resultTabs').appendChild(btn);
 
     var div = document.createElement('div');
@@ -902,13 +943,18 @@ function switchResultTab(typeName) {
 }
 
 function startStream(typeName, url) {
-    var es = new EventSource(url);
+    var es     = new EventSource(url);
+    var isDone = false;   // done 이벤트 후 error 무시
+
     es.onmessage = function(e) {
+        if (isDone) return;
         resultTexts[typeName] = (resultTexts[typeName] || '') + e.data;
         var el = document.getElementById('result-' + typeName);
         if (el) el.innerHTML = marked.parse(resultTexts[typeName]);
     };
+
     es.addEventListener('done', function() {
+        isDone = true;
         es.close();
         var spinner = document.getElementById('spinner-' + typeName);
         if (spinner) spinner.outerHTML = ' <i class="fas fa-check" style="font-size:.65rem;color:#10b981;margin-left:4px;"></i>';
@@ -921,22 +967,59 @@ function startStream(typeName, url) {
             if (subj && !subj.value) subj.value = '워크스페이스 분석 결과 (' + new Date().toLocaleDateString('ko-KR') + ')';
         }
     });
-    es.addEventListener('error', function() {
+
+    es.addEventListener('error', function(e) {
+        // SSE 명명 이벤트 'error' (서버 에러) - MessageEvent이므로 e.data 존재
+        if (isDone) return;
+        isDone = true;
         es.close();
-        var el = document.getElementById('result-' + typeName);
-        if (el) el.innerHTML += '<div style="color:#ef4444;font-size:.8rem;">⚠ 스트리밍 오류</div>';
+        var spinner = document.getElementById('spinner-' + typeName);
+        if (spinner) spinner.outerHTML = ' <i class="fas fa-exclamation-circle" style="font-size:.65rem;color:#ef4444;margin-left:4px;"></i>';
+        var msg = (e instanceof MessageEvent && e.data) ? e.data : '서버 연결 오류';
+        var el  = document.getElementById('result-' + typeName);
+        if (el) el.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:10px;background:rgba(239,68,68,.07);border-radius:6px;">'
+                              + '<i class="fas fa-exclamation-circle me-1"></i>오류: ' + escHtml(msg) + '</div>';
         doneCount++;
         updateProgress();
     });
+
+    // 네이티브 EventSource 연결 오류 (HTTP 에러, 연결 실패)
+    es.onerror = function() {
+        if (isDone) return;
+        isDone = true;
+        es.close();
+        var spinner = document.getElementById('spinner-' + typeName);
+        if (spinner) spinner.outerHTML = ' <i class="fas fa-exclamation-circle" style="font-size:.65rem;color:#ef4444;margin-left:4px;"></i>';
+        var el = document.getElementById('result-' + typeName);
+        if (el) el.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:10px;background:rgba(239,68,68,.07);border-radius:6px;">'
+                              + '<i class="fas fa-exclamation-circle me-1"></i>스트림 연결 오류 (서버 로그 확인 필요)</div>';
+        doneCount++;
+        updateProgress();
+    };
 }
 
 /* ═══════════════════════════════════════════════════════════
    모델 비교
    ═══════════════════════════════════════════════════════════ */
 function updateCompareBtn() {
-    var cbs = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]');
-    var cnt = 0; cbs.forEach(function(cb){ if (cb.checked) cnt++; });
-    document.getElementById('btnCompare').disabled = cnt < 2 || Object.keys(selectedTypes).length !== 1;
+    var cbs   = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]');
+    var cntM  = 0; cbs.forEach(function(cb){ if (cb.checked) cntM++; });
+    var cntT  = Object.keys(selectedTypes).length;
+    var canGo = cntM >= 2 && cntT === 1;
+    document.getElementById('btnCompare').disabled = !canGo;
+
+    var hint = document.getElementById('compareHint');
+    if (canGo) {
+        hint.className = 'compare-hint ok';
+        hint.innerHTML = '<i class="fas fa-check-circle me-1"></i>준비 완료 — 비교 실행 가능';
+    } else {
+        var msgs = [];
+        if (cntT === 0)   msgs.push('분석 항목 1개 선택');
+        if (cntT > 1)     msgs.push('분석 항목을 1개만 선택');
+        if (cntM < 2)     msgs.push('모델 ' + (2 - cntM) + '개 더 체크');
+        hint.className = 'compare-hint';
+        hint.innerHTML = '<i class="fas fa-info-circle me-1"></i>' + msgs.join(' · ');
+    }
 }
 
 function getCheckedModels() {
@@ -951,7 +1034,7 @@ function runCompare() {
     var types     = Object.keys(selectedTypes);
     var modelList = getCheckedModels();
     var ctx       = (document.getElementById('projectContext').value || '').trim();
-    if (!code)            { alert('코드를 입력하세요.'); return; }
+    if (!code)             { alert('코드를 입력하세요.'); return; }
     if (types.length !== 1){ alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
     if (modelList.length < 2){ alert('모델을 2개 이상 선택하세요.'); return; }
 
@@ -986,13 +1069,10 @@ function runCompare() {
             Object.keys(d.streamIds || {}).forEach(function(model) {
                 var key = model.replace(/[^a-z0-9]/gi,'_');
                 var es  = new EventSource('/workspace/compare-stream/' + d.streamIds[model]);
-                var buf = '';
-                es.onmessage = function(e) {
-                    buf += e.data;
-                    var el = document.getElementById('compare-' + key);
-                    if (el) el.innerHTML = marked.parse(buf);
-                };
-                es.addEventListener('done', function(){ es.close(); });
+                var buf = ''; var done = false;
+                es.onmessage = function(e){ if (done) return; buf += e.data; var el = document.getElementById('compare-' + key); if (el) el.innerHTML = marked.parse(buf); };
+                es.addEventListener('done', function(){ done = true; es.close(); });
+                es.onerror = function(){ if (!done) es.close(); };
             });
         });
 }
@@ -1002,9 +1082,9 @@ function runCompare() {
    ═══════════════════════════════════════════════════════════ */
 function toggleHistoryPanel() {
     var panel = document.getElementById('historyPanel');
-    var visible = panel.style.display !== 'none';
-    panel.style.display = visible ? 'none' : '';
-    if (!visible) loadHistory();
+    var vis   = panel.style.display !== 'none';
+    panel.style.display = vis ? 'none' : '';
+    if (!vis) loadHistory();
 }
 
 function loadHistory() {
@@ -1022,10 +1102,11 @@ function loadHistory() {
                 var types   = (h.analysisTypes || '').split(',').map(function(t){ return getDisplayName(t.trim()); }).join(', ');
                 var snippet = (h.codeSnippet || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0, 60);
                 var dt      = (h.createdAt || '').replace('T',' ').substring(0, 16);
-                var src     = h.sourceName ? ' · ' + escHtml(h.sourceName) : '';
+                var src     = h.sourceName ? ' · <b>' + escHtml(h.sourceName) + '</b>' : '';
                 html += '<div class="history-row">'
-                      + '<div style="font-weight:600;color:var(--text-primary);">' + escHtml(h.language||'') + ' — ' + escHtml(types) + src + '</div>'
-                      + '<div style="color:var(--text-muted);font-size:.72rem;">' + snippet + '</div>'
+                      + '<div style="font-weight:600;color:var(--text-primary);">'
+                      + escHtml(h.language||'') + ' — ' + escHtml(types) + src + '</div>'
+                      + '<div style="color:var(--text-muted);font-size:.72rem;font-family:monospace;">' + snippet + '</div>'
                       + '<div style="color:var(--text-muted);font-size:.7rem;margin-top:2px;">' + dt + '</div>'
                       + '</div>';
             });
@@ -1043,36 +1124,25 @@ function sendEmail() {
     var to      = (document.getElementById('emailTo').value || '').trim();
     var subject = (document.getElementById('emailSubject').value || '').trim();
     if (!to) { alert('수신자 이메일을 입력하세요.'); return; }
-
     var lines = [];
-    Object.keys(resultTexts).forEach(function(t){
-        lines.push('=== ' + getDisplayName(t) + ' ===\n');
-        lines.push(resultTexts[t]);
-        lines.push('\n');
-    });
-
+    Object.keys(resultTexts).forEach(function(t){ lines.push('=== ' + getDisplayName(t) + ' ===\n\n' + resultTexts[t] + '\n'); });
     var btn = document.getElementById('btnSendEmail');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>발송 중...';
-
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>발송 중...';
     var params = new URLSearchParams();
     params.append('to',      to);
     params.append('subject', subject || '워크스페이스 분석 결과');
     params.append('content', lines.join('\n'));
-
     fetch('/workspace/send-email', { method:'POST', body:params })
         .then(function(r){ return r.json(); })
         .then(function(d){
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
             var el = document.getElementById('emailResult');
-            if (d.success) { el.style.color = '#10b981'; el.textContent = '✓ 이메일이 발송되었습니다.'; }
-            else            { el.style.color = '#ef4444'; el.textContent = d.error || '발송 실패'; }
+            el.style.color = d.success ? '#10b981' : '#ef4444';
+            el.textContent = d.success ? '✓ 이메일이 발송되었습니다.' : (d.error || '발송 실패');
             setTimeout(function(){ el.textContent = ''; }, 4000);
         })
         .catch(function(){
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
             document.getElementById('emailResult').textContent = '발송 중 오류가 발생했습니다.';
         });
 }
@@ -1100,9 +1170,9 @@ function downloadAll() {
         lines.push(resultTexts[t]); lines.push(''); lines.push('---'); lines.push('');
     });
     var blob = new Blob([lines.join('\n')], { type:'text/markdown;charset=utf-8' });
-    var a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = 'workspace-analysis-' + new Date().toISOString().slice(0,10) + '.md';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'workspace-' + new Date().toISOString().slice(0,10) + '.md';
     a.click(); URL.revokeObjectURL(a.href);
 }
 
@@ -1123,7 +1193,7 @@ function showToast(msg) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   로컬스토리지 임시저장
+   로컬스토리지
    ═══════════════════════════════════════════════════════════ */
 var DRAFT_KEY = 'workspace_draft_v1';
 function saveDraft() { localStorage.setItem(DRAFT_KEY, document.getElementById('codeInput').value || ''); }
@@ -1139,8 +1209,10 @@ window.addEventListener('DOMContentLoaded', function() {
     loadDraft();
     renderBundles();
     updateChipAvailability();
+    updateCompareBtn();
     initDragDrop();
 
+    // 모델 체크박스 클릭 시 칩 스타일 토글
     document.querySelectorAll('[id^="cmp-"]').forEach(function(label) {
         var cb = label.querySelector('input[type=checkbox]');
         label.addEventListener('click', function() {

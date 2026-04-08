@@ -11,11 +11,11 @@
     <style>
         .type-card { border:1px solid var(--border-color); border-radius:10px;
                      padding:14px 18px; cursor:pointer; transition:all .15s;
-                     margin-bottom:8px; }
+                     margin-bottom:8px; background:var(--surface-color,var(--bg-secondary)); }
         .type-card:hover  { border-color:var(--accent); }
-        .type-card.active { border-color:var(--accent); background:rgba(249,115,22,.06); }
-        .type-card .badge-custom { background:rgba(16,185,129,.15); color:#10b981;
-                                   font-size:.7rem; padding:2px 8px; border-radius:10px; }
+        .type-card.active { border-color:var(--accent); background:var(--accent-subtle); }
+        .type-card .badge-custom  { background:rgba(16,185,129,.15); color:#10b981;
+                                    font-size:.7rem; padding:2px 8px; border-radius:10px; }
         .type-card .badge-default { background:rgba(100,116,139,.12); color:var(--text-muted);
                                     font-size:.7rem; padding:2px 8px; border-radius:10px; }
         .prompt-textarea { font-family: 'JetBrains Mono', monospace; font-size:.8rem;
@@ -25,111 +25,132 @@
                       white-space:pre-wrap; line-height:1.7; max-height:260px; overflow-y:auto; }
         .tab-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                    padding:4px 12px; border-radius:20px; cursor:pointer; font-size:.78rem; transition:all .15s; }
-        .tab-btn.active { background:rgba(249,115,22,.12); border-color:var(--accent); color:var(--accent); font-weight:600; }
+        .tab-btn.active { background:var(--accent-subtle); border-color:var(--accent);
+                          color:var(--accent); font-weight:600; }
     </style>
 </head>
 <body>
-<div th:replace="fragments/sidebar :: sidebar"></div>
-<div class="main-content">
-    <div class="content-wrapper" style="max-width:1100px;">
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
 
-        <!-- 헤더 -->
-        <div class="page-header mb-4">
-            <h1 class="page-title"><i class="fas fa-sliders me-2" style="color:var(--accent)"></i>프롬프트 관리</h1>
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-sliders me-2" style="color:var(--accent)"></i>AI 프롬프트 관리
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content">
             <p class="page-subtitle">분석 유형별 시스템 프롬프트를 커스터마이징합니다. 저장된 프롬프트가 기본 내장 프롬프트보다 우선 사용됩니다.</p>
-        </div>
 
-        <div class="row g-3">
-            <!-- 좌: 분석 유형 목록 -->
-            <div class="col-md-4">
-                <div class="panel p-3 h-100">
-                    <div class="section-label mb-2">분석 유형 선택</div>
-                    <div id="typeList">
-                        <div th:each="info : ${typeInfoList}"
-                             class="type-card"
-                             th:data-type="${info.type}"
-                             th:data-displayname="${info.displayName}"
-                             onclick="selectTypeFromEl(this)">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-500" th:text="${info.displayName}"></span>
-                                <span class="badge-custom" th:if="${info.hasCustom}">커스텀</span>
-                                <span class="badge-default" th:unless="${info.hasCustom}">기본</span>
+            <div class="row g-3">
+                <!-- 좌: 분석 유형 목록 -->
+                <div class="col-md-4">
+                    <div class="panel p-3 h-100">
+                        <div class="section-label mb-2">분석 유형 선택</div>
+                        <div id="typeList">
+                            <div th:each="info : ${typeInfoList}"
+                                 class="type-card"
+                                 th:data-type="${info.type}"
+                                 th:data-displayname="${info.displayName}"
+                                 onclick="selectTypeFromEl(this)">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-500" th:text="${info.displayName}"></span>
+                                    <span class="badge-custom"  th:if="${info.hasCustom}">커스텀</span>
+                                    <span class="badge-default" th:unless="${info.hasCustom}">기본</span>
+                                </div>
+                                <div class="text-muted" style="font-size:.74rem;margin-top:3px;" th:text="${info.description}"></div>
                             </div>
-                            <div class="text-muted" style="font-size:.74rem;margin-top:3px;" th:text="${info.description}"></div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 우: 편집 패널 -->
+                <div class="col-md-8">
+                    <div class="panel p-3" id="editPanel" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="section-label" id="editTitle">프롬프트 편집</div>
+                            <div class="d-flex gap-2">
+                                <button class="tab-btn active" id="tabBtnEdit"    onclick="switchEditTab('edit')">
+                                    <i class="fas fa-pencil me-1"></i>편집
+                                </button>
+                                <button class="tab-btn"        id="tabBtnDefault" onclick="switchEditTab('default')">
+                                    <i class="fas fa-code me-1"></i>기본값 보기
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 편집 탭 -->
+                        <div id="tabEdit">
+                            <div class="mb-2">
+                                <label class="form-label text-muted" style="font-size:.8rem;">프롬프트 이름</label>
+                                <input type="text" id="promptName" class="form-control"
+                                       placeholder="커스텀 프롬프트 이름 (선택 사항)" style="font-size:.85rem;">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label text-muted" style="font-size:.8rem;">
+                                    시스템 프롬프트
+                                    <span class="text-muted ms-2" style="font-size:.72rem;" id="charCount"></span>
+                                </label>
+                                <textarea id="promptTextarea" class="form-control prompt-textarea"
+                                          placeholder="시스템 프롬프트를 입력하세요..."
+                                          oninput="updateCharCount()"></textarea>
+                            </div>
+                            <div class="d-flex gap-2 mt-2 flex-wrap">
+                                <button class="btn-accent" onclick="savePrompt()" id="btnSave">
+                                    <i class="fas fa-save me-1"></i>저장 &amp; 활성화
+                                </button>
+                                <button class="btn-outline-tk btn btn-sm" onclick="loadDefault()" id="btnLoadDefault">
+                                    <i class="fas fa-undo me-1"></i>기본값 불러오기
+                                </button>
+                                <button class="btn-outline-tk btn btn-sm" onclick="resetToDefault()" id="btnReset"
+                                        style="color:#ef4444;border-color:#ef4444;">
+                                    <i class="fas fa-trash me-1"></i>초기화
+                                </button>
+                            </div>
+                            <div id="saveResult" class="mt-2" style="font-size:.82rem;"></div>
+                        </div>
+
+                        <!-- 기본값 보기 탭 -->
+                        <div id="tabDefault" style="display:none;">
+                            <div class="section-label mb-1" style="font-size:.78rem;">내장 기본 프롬프트 (읽기 전용)</div>
+                            <div class="diff-panel" id="defaultPromptView"></div>
+                            <button class="btn-outline-tk btn btn-sm mt-2" onclick="copyToEdit()">
+                                <i class="fas fa-copy me-1"></i>편집 창으로 복사
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 미선택 안내 -->
+                    <div class="panel p-4 text-center" id="noSelection">
+                        <i class="fas fa-sliders" style="font-size:2rem;color:var(--text-muted);opacity:.4;"></i>
+                        <p class="text-muted mt-2">좌측에서 분석 유형을 선택하세요</p>
                     </div>
                 </div>
             </div>
-
-            <!-- 우: 편집 패널 -->
-            <div class="col-md-8">
-                <div class="panel p-3" id="editPanel" style="display:none;">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="section-label" id="editTitle">프롬프트 편집</div>
-                        <div class="d-flex gap-2">
-                            <button class="tab-btn active" id="tabBtnEdit" onclick="switchEditTab('edit')">
-                                <i class="fas fa-pencil me-1"></i>편집
-                            </button>
-                            <button class="tab-btn" id="tabBtnDefault" onclick="switchEditTab('default')">
-                                <i class="fas fa-code me-1"></i>기본값 보기
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 편집 탭 -->
-                    <div id="tabEdit">
-                        <div class="mb-2">
-                            <label class="form-label text-muted" style="font-size:.8rem;">프롬프트 이름</label>
-                            <input type="text" id="promptName" class="form-control"
-                                   placeholder="커스텀 프롬프트 이름 (선택 사항)" style="font-size:.85rem;">
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label text-muted" style="font-size:.8rem;">
-                                시스템 프롬프트
-                                <span class="text-muted ms-2" style="font-size:.72rem;" id="charCount"></span>
-                            </label>
-                            <textarea id="promptTextarea" class="form-control prompt-textarea"
-                                      placeholder="시스템 프롬프트를 입력하세요..."
-                                      oninput="updateCharCount()"></textarea>
-                        </div>
-                        <div class="d-flex gap-2 mt-2">
-                            <button class="btn-primary" onclick="savePrompt()" id="btnSave">
-                                <i class="fas fa-save me-1"></i>저장 & 활성화
-                            </button>
-                            <button class="btn-outline" onclick="loadDefault()" id="btnLoadDefault">
-                                <i class="fas fa-undo me-1"></i>기본값 불러오기
-                            </button>
-                            <button class="btn-outline" onclick="resetToDefault()" id="btnReset"
-                                    style="color:#ef4444;border-color:#ef4444;">
-                                <i class="fas fa-trash me-1"></i>초기화
-                            </button>
-                        </div>
-                        <div id="saveResult" class="mt-2" style="font-size:.82rem;"></div>
-                    </div>
-
-                    <!-- 기본값 보기 탭 -->
-                    <div id="tabDefault" style="display:none;">
-                        <div class="section-label mb-1" style="font-size:.78rem;">내장 기본 프롬프트 (읽기 전용)</div>
-                        <div class="diff-panel" id="defaultPromptView"></div>
-                        <button class="btn-outline mt-2" onclick="copyToEdit()">
-                            <i class="fas fa-copy me-1"></i>편집 창으로 복사
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 미선택 안내 -->
-                <div class="panel p-4 text-center" id="noSelection">
-                    <i class="fas fa-sliders" style="font-size:2rem;color:var(--text-muted);"></i>
-                    <p class="text-muted mt-2">좌측에서 분석 유형을 선택하세요</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+        </div><!-- /main-content -->
+    </main>
+</div><!-- /layout -->
 
 <script>
 var currentType = null;
 var defaultPromptText = '';
+
+function toggleTheme() {
+    var html = document.documentElement;
+    var isDark = html.getAttribute('data-theme') !== 'light';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
+}
+(function(){
+    var t = localStorage.getItem('theme');
+    document.getElementById('themeLabel').textContent = (t === 'light') ? 'Dark' : 'Light';
+})();
 
 function selectTypeFromEl(el) {
     selectType(el.dataset.type, el.dataset.displayname);
@@ -139,22 +160,19 @@ function selectType(type, displayName) {
     currentType = type;
     document.getElementById('noSelection').style.display = 'none';
     document.getElementById('editPanel').style.display  = 'block';
-    document.getElementById('editTitle').textContent    = displayName + ' — 프롬프트 편집';
+    document.getElementById('editTitle').textContent    = (displayName || type) + ' — 프롬프트 편집';
     switchEditTab('edit');
 
-    // 타입 카드 활성화
     document.querySelectorAll('.type-card').forEach(function(c) {
         c.classList.toggle('active', c.dataset.type === type);
     });
 
-    // 기본값 + 커스텀 값 로드
     fetch('/settings/prompts/default/' + type)
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (!d.success) return;
             defaultPromptText = d.defaultPrompt || '';
             document.getElementById('defaultPromptView').textContent = defaultPromptText;
-
             if (d.hasCustom) {
                 document.getElementById('promptTextarea').value = d.customPrompt || '';
                 document.getElementById('promptName').value     = d.promptName   || '';
@@ -200,15 +218,15 @@ function savePrompt() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>저장 중...';
 
     var params = new URLSearchParams();
-    params.append('analysisType',  currentType);
-    params.append('promptName',    document.getElementById('promptName').value.trim());
-    params.append('systemPrompt',  systemPrompt);
+    params.append('analysisType', currentType);
+    params.append('promptName',   document.getElementById('promptName').value.trim());
+    params.append('systemPrompt', systemPrompt);
 
     fetch('/settings/prompts/save', { method:'POST', body:params })
         .then(function(r) { return r.json(); })
         .then(function(d) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-save me-1"></i>저장 & 활성화';
+            btn.innerHTML = '<i class="fas fa-save me-1"></i>저장 &amp; 활성화';
             if (d.success) {
                 showResult('success', '✓ 저장되었습니다 (' + (d.promptName || '') + ')');
                 updateTypeBadge(currentType, true);
@@ -218,7 +236,7 @@ function savePrompt() {
         })
         .catch(function() {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-save me-1"></i>저장 & 활성화';
+            btn.innerHTML = '<i class="fas fa-save me-1"></i>저장 &amp; 활성화';
             showResult('error', '저장 중 오류가 발생했습니다.');
         });
 }
