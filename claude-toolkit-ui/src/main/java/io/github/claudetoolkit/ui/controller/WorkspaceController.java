@@ -51,9 +51,6 @@ public class WorkspaceController {
     private final EmailService                  emailService;
     private final WorkspaceHistoryRepository    historyRepo;
 
-    /** streamId → SseEmitter (GET /workspace/stream/{id} 대기용) */
-    private final ConcurrentHashMap<String, SseEmitter>       emitters =
-            new ConcurrentHashMap<String, SseEmitter>();
     /** streamId → 스트리밍 파라미터 (POST /workspace/run 등록 → GET /stream 소비) */
     private final ConcurrentHashMap<String, WorkspaceRequest> pending  =
             new ConcurrentHashMap<String, WorkspaceRequest>();
@@ -202,62 +199,31 @@ public class WorkspaceController {
 
     @GetMapping(value = "/stream/{streamId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@PathVariable String streamId) {
-        SseEmitter emitter = new SseEmitter((long) SSE_TIMEOUT_MS);
+        final SseEmitter emitter = new SseEmitter((long) SSE_TIMEOUT_MS);
 
-        // 연결 종료 시 정리
-        emitter.onCompletion(new Runnable() {
-            public void run() { emitters.remove(streamId); }
-        });
-        emitter.onTimeout(new Runnable() {
-            public void run() {
-                log.warn("[stream] 타임아웃: streamId={}", streamId);
-                emitters.remove(streamId);
-            }
-        });
-        emitters.put(streamId, emitter);
-
-        WorkspaceRequest req = pending.remove(streamId);
+        final WorkspaceRequest req = pending.remove(streamId);
         if (req == null) {
-            try {
-                emitter.send(SseEmitter.event().name("error").data("스트림 정보를 찾을 수 없습니다."));
-                emitter.complete();
-            } catch (IOException ignored) {}
+            try { emitter.send(SseEmitter.event().name("error").data("스트림 정보를 찾을 수 없습니다.")); }
+            catch (IOException ignored) {}
+            emitter.complete();
             return emitter;
         }
 
-        AnalysisService svc = registry.find(req.getAnalysisType());
+        final AnalysisService svc = registry.find(req.getAnalysisType());
         if (svc == null) {
-            log.warn("[stream] 분석 서비스 없음: type={}", req.getAnalysisType());
-            try {
-                emitter.send(SseEmitter.event().name("error").data("분석 서비스를 찾을 수 없습니다."));
-                emitter.complete();
-            } catch (IOException ignored) {}
-            return emitter;
-        }
-
-        // 동기 준비 단계: 예외 발생 시 500이 아닌 SSE error 이벤트로 전달
-        final String sysPrompt;
-        final String userMsg;
-        final int    maxTokens;
-        try {
-            sysPrompt = promptService.resolveSystemPrompt(svc, req);
-            userMsg   = svc.buildUserMessage(req);
-            maxTokens = claudeClient.getProperties().getMaxTokens();
-        } catch (Exception e) {
-            log.error("[stream] 프롬프트 준비 오류: type={}", req.getAnalysisType(), e);
-            try {
-                emitter.send(SseEmitter.event().name("error").data(
-                        e.getMessage() != null ? e.getMessage() : "프롬프트 준비 중 오류 발생"));
-                emitter.complete();
-            } catch (IOException ignored) {}
+            try { emitter.send(SseEmitter.event().name("error").data("분석 서비스를 찾을 수 없습니다.")); }
+            catch (IOException ignored) {}
+            emitter.complete();
             return emitter;
         }
 
         Thread thread = new Thread(new Runnable() {
             public void run() {
-                // Spring이 async response를 설정할 시간 확보
-                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                 try {
+                    String sysPrompt = promptService.resolveSystemPrompt(svc, req);
+                    String userMsg   = svc.buildUserMessage(req);
+                    int    maxTokens = claudeClient.getProperties().getMaxTokens();
+
                     claudeClient.chatStream(sysPrompt, userMsg, maxTokens,
                             new Consumer<String>() {
                                 public void accept(String chunk) {
@@ -276,7 +242,6 @@ public class WorkspaceController {
                                 e.getMessage() != null ? e.getMessage() : "분석 중 오류 발생"));
                         emitter.complete();
                     } catch (Exception ex) {
-                        log.warn("[stream] 오류 이벤트 전송 실패", ex);
                         emitter.completeWithError(ex);
                     }
                 }
@@ -404,31 +369,16 @@ public class WorkspaceController {
             return emitter;
         }
 
-        // 동기 준비 단계: 예외 발생 시 500이 아닌 SSE error 이벤트로 전달
-        final String sysPrompt;
-        final String userMsg;
-        final int    maxTokens;
-        try {
-            sysPrompt  = promptService.resolveSystemPrompt(svc, req);
-            userMsg    = svc.buildUserMessage(req);
-            maxTokens  = claudeClient.getProperties().getMaxTokens();
-        } catch (Exception e) {
-            log.error("[compare-stream] 프롬프트 준비 오류: type={}", req.getAnalysisType(), e);
-            try {
-                emitter.send(SseEmitter.event().name("error").data(
-                        e.getMessage() != null ? e.getMessage() : "프롬프트 준비 중 오류 발생"));
-                emitter.complete();
-            } catch (IOException ignored) {}
-            return emitter;
-        }
-
         final String targetModel = model;
 
         Thread thread = new Thread(new Runnable() {
             public void run() {
-                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                 String prevModel = claudeClient.getModel();
                 try {
+                    String sysPrompt = promptService.resolveSystemPrompt(svc, req);
+                    String userMsg   = svc.buildUserMessage(req);
+                    int    maxTokens = claudeClient.getProperties().getMaxTokens();
+
                     if (targetModel != null && !targetModel.isEmpty()) {
                         claudeClient.setModelOverride(targetModel);
                     }
