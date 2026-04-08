@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>통합 워크스페이스 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250408')}" rel="stylesheet">
+    <style>
+        /* ── 언어 라디오 ── */
+        .lang-radio { display:none; }
+        .lang-label { display:inline-flex; align-items:center; gap:5px; padding:4px 12px;
+                      border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
+                      font-size:.78rem; color:var(--text-muted); transition:all .15s; }
+        .lang-radio:checked + .lang-label { background:rgba(249,115,22,.12);
+                                            border-color:var(--accent); color:var(--accent); font-weight:600; }
+        /* ── 분석 체크박스 칩 ── */
+        .type-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 13px;
+                     border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
+                     font-size:.78rem; color:var(--text-muted); transition:all .15s; user-select:none; }
+        .type-chip:hover:not(.disabled) { border-color:var(--accent); color:var(--accent); }
+        .type-chip.selected { background:rgba(249,115,22,.12); border-color:var(--accent);
+                              color:var(--accent); font-weight:600; }
+        .type-chip.disabled { opacity:.4; cursor:not-allowed; pointer-events:none; }
+        /* ── 결과 탭 ── */
+        .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                      padding:5px 14px; border-radius:20px; cursor:pointer; font-size:.78rem;
+                      transition:all .15s; white-space:nowrap; }
+        .result-tab.active { background:rgba(249,115,22,.12); border-color:var(--accent);
+                             color:var(--accent); font-weight:600; }
+        .result-tab .spinner { display:inline-block; width:10px; height:10px;
+                               border:2px solid currentColor; border-top-color:transparent;
+                               border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; margin-left:4px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        /* ── 결과 패널 ── */
+        .result-content { min-height:200px; }
+        /* ── 번들 칩 ── */
+        .bundle-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px;
+                       border:1px solid var(--border-color); border-radius:14px; font-size:.73rem;
+                       color:var(--text-muted); cursor:pointer; transition:all .15s; }
+        .bundle-chip:hover { border-color:var(--accent); color:var(--accent); }
+        /* ── 언어 뱃지 ── */
+        #langDetectedBadge { font-size:.72rem; padding:2px 10px; border-radius:10px;
+                             background:rgba(16,185,129,.12); color:#10b981; }
+        /* ── 비교 컬럼 ── */
+        .compare-col { border:1px solid var(--border-color); border-radius:8px;
+                       padding:12px; min-height:300px; }
+        .compare-col-header { font-size:.8rem; font-weight:600; margin-bottom:8px;
+                              color:var(--text-muted); }
+    </style>
+</head>
+<body>
+<div th:replace="fragments/sidebar :: sidebar"></div>
+<div class="main-content">
+<div class="content-wrapper" style="max-width:1400px;">
+
+<!-- 헤더 -->
+<div class="page-header mb-3">
+    <h1 class="page-title"><i class="fas fa-layer-group me-2" style="color:var(--accent)"></i>통합 워크스페이스</h1>
+    <p class="page-subtitle">여러 분석을 동시에 실행하고 결과를 탭으로 비교합니다</p>
+</div>
+
+<div class="row g-3">
+    <!-- ══ 입력 패널 ══ -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="panel p-3">
+
+            <!-- 언어 감지 -->
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="section-label">언어 선택</div>
+                <span id="langDetectedBadge" style="display:none;">자동 감지</span>
+            </div>
+            <div class="d-flex flex-wrap gap-1 mb-3">
+                <input type="radio" name="lang" id="l-java"   class="lang-radio" value="java"       onchange="onLangChange()" checked>
+                <label for="l-java"   class="lang-label"><i class="fab fa-java"></i>Java</label>
+
+                <input type="radio" name="lang" id="l-sql"    class="lang-radio" value="sql"        onchange="onLangChange()">
+                <label for="l-sql"    class="lang-label"><i class="fas fa-database me-1"></i>SQL</label>
+
+                <input type="radio" name="lang" id="l-kotlin" class="lang-radio" value="kotlin"     onchange="onLangChange()">
+                <label for="l-kotlin" class="lang-label">Kotlin</label>
+
+                <input type="radio" name="lang" id="l-python" class="lang-radio" value="python"     onchange="onLangChange()">
+                <label for="l-python" class="lang-label">Python</label>
+
+                <input type="radio" name="lang" id="l-js"     class="lang-radio" value="javascript" onchange="onLangChange()">
+                <label for="l-js"     class="lang-label">JavaScript</label>
+
+                <input type="radio" name="lang" id="l-ts"     class="lang-radio" value="typescript" onchange="onLangChange()">
+                <label for="l-ts"     class="lang-label">TypeScript</label>
+            </div>
+
+            <!-- 코드 입력 -->
+            <div class="section-label mb-1">코드 입력</div>
+            <textarea id="codeInput" class="form-control" rows="14"
+                      style="font-family:monospace;font-size:.8rem;resize:vertical;"
+                      placeholder="분석할 코드를 붙여넣으세요..."
+                      oninput="onCodeInput()"></textarea>
+            <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--text-muted);">
+                <span id="tokenEstimate"></span>
+                <span id="lineCount"></span>
+            </div>
+
+            <!-- 분석 유형 선택 -->
+            <div class="d-flex align-items-center justify-content-between mt-3 mb-1">
+                <div class="section-label">분석 항목 선택</div>
+                <div class="d-flex gap-1">
+                    <button class="btn-outline py-0 px-2" style="font-size:.72rem;" onclick="selectAll()">전체 선택</button>
+                    <button class="btn-outline py-0 px-2" style="font-size:.72rem;" onclick="clearAll()">전체 해제</button>
+                </div>
+            </div>
+            <div id="typeChips" class="d-flex flex-wrap gap-1 mb-2">
+                <div th:each="type : ${analysisTypes}"
+                     class="type-chip"
+                     th:data-type="${type.name()}"
+                     th:data-langs="${#strings.arrayJoin(type.supportedLanguages, ',')}"
+                     th:text="${type.displayName}"
+                     onclick="toggleChip(this)">
+                </div>
+            </div>
+
+            <!-- 번들 저장/불러오기 -->
+            <div class="section-label mt-2 mb-1" style="font-size:.75rem;">자주 쓰는 조합 저장</div>
+            <div class="d-flex gap-1 flex-wrap mb-1" id="bundleList"></div>
+            <div class="d-flex gap-1">
+                <input type="text" id="bundleName" class="form-control" style="font-size:.78rem;"
+                       placeholder="번들 이름 입력 후 저장">
+                <button class="btn-outline py-1 px-2" style="font-size:.75rem;" onclick="saveBundle()">
+                    <i class="fas fa-bookmark me-1"></i>저장
+                </button>
+            </div>
+
+            <!-- SQL 번역 옵션 (SQL_TRANSLATE 선택 시 노출) -->
+            <div id="translateOptions" style="display:none;" class="mt-2">
+                <div class="row g-1">
+                    <div class="col-6">
+                        <label class="form-label text-muted" style="font-size:.75rem;">소스 DB</label>
+                        <select id="srcDb" class="form-select" style="font-size:.8rem;">
+                            <option value="oracle">Oracle</option>
+                            <option value="mysql">MySQL</option>
+                            <option value="postgresql">PostgreSQL</option>
+                            <option value="mssql">MS SQL</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted" style="font-size:.75rem;">타겟 DB</label>
+                        <select id="tgtDb" class="form-select" style="font-size:.8rem;">
+                            <option value="mysql">MySQL</option>
+                            <option value="oracle">Oracle</option>
+                            <option value="postgresql">PostgreSQL</option>
+                            <option value="mssql">MS SQL</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 실행 버튼 -->
+            <button class="btn-primary w-100 mt-3" id="btnRun" onclick="runAnalysis()" disabled>
+                <i class="fas fa-play me-1"></i><span id="btnLabel">분석 유형을 선택하세요</span>
+            </button>
+
+            <!-- 모델 비교 섹션 -->
+            <div class="mt-3 pt-2" style="border-top:1px solid var(--border-color);">
+                <div class="section-label mb-1" style="font-size:.75rem;">모델 비교 분석 (선택 1개 유형)</div>
+                <div class="d-flex flex-wrap gap-1 mb-1">
+                    <label class="type-chip" id="cmp-sonnet">
+                        <input type="checkbox" style="display:none;" value="claude-sonnet-4-5" onchange="updateCompareBtn()">
+                        Sonnet 4.5
+                    </label>
+                    <label class="type-chip" id="cmp-opus">
+                        <input type="checkbox" style="display:none;" value="claude-opus-4-5" onchange="updateCompareBtn()">
+                        Opus 4.5
+                    </label>
+                    <label class="type-chip" id="cmp-haiku">
+                        <input type="checkbox" style="display:none;" value="claude-haiku-4-5" onchange="updateCompareBtn()">
+                        Haiku 4.5
+                    </label>
+                </div>
+                <button class="btn-outline w-100" id="btnCompare" onclick="runCompare()" disabled style="font-size:.82rem;">
+                    <i class="fas fa-columns me-1"></i>모델 비교 실행
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ 결과 패널 ══ -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="panel p-3" style="min-height:600px;">
+            <!-- 탭 헤더 -->
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div id="resultTabs" class="d-flex flex-wrap gap-1"></div>
+                <button id="btnDownload" class="btn-outline py-1 px-2" style="font-size:.75rem;display:none;"
+                        onclick="downloadAll()">
+                    <i class="fas fa-download me-1"></i>전체 MD 다운로드
+                </button>
+            </div>
+
+            <!-- 탭 콘텐츠 -->
+            <div id="resultContents"></div>
+
+            <!-- 초기 안내 -->
+            <div id="emptyState" class="text-center py-5">
+                <i class="fas fa-layer-group" style="font-size:2.5rem;color:var(--text-muted);"></i>
+                <p class="text-muted mt-3">분석 항목을 선택하고 실행 버튼을 누르세요</p>
+                <p class="text-muted" style="font-size:.82rem;">여러 분석을 동시에 실행해 탭으로 결과를 비교할 수 있습니다</p>
+            </div>
+
+            <!-- 모델 비교 결과 -->
+            <div id="compareResult" style="display:none;">
+                <div class="section-label mb-2">모델 비교 결과</div>
+                <div class="row g-2" id="compareColumns"></div>
+            </div>
+        </div>
+    </div>
+</div><!-- /row -->
+</div><!-- /content-wrapper -->
+</div><!-- /main-content -->
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   상태
+   ═══════════════════════════════════════════════════════════ */
+var selectedTypes = {};   // typeName → true
+var resultTexts   = {};   // typeName → 누적 텍스트
+var doneCount     = 0;
+var totalCount    = 0;
+
+/* ═══════════════════════════════════════════════════════════
+   언어 / 코드 입력
+   ═══════════════════════════════════════════════════════════ */
+function getLanguage() {
+    var r = document.querySelector('input[name="lang"]:checked');
+    return r ? r.value : 'java';
+}
+
+function onCodeInput() {
+    var code = document.getElementById('codeInput').value;
+    autoDetectLanguage(code);
+    updateStats(code);
+    saveDraft();
+}
+
+function autoDetectLanguage(code) {
+    if (!code || code.length < 20) return;
+    var upper = code.toUpperCase();
+    var sqlKw  = ['SELECT ', 'INSERT ', 'UPDATE ', 'DELETE ', 'CREATE ', 'ALTER ', 'DROP '];
+    var javaKw = ['import ', 'public class', '@Service', '@Controller', '@Repository', '@Component', 'public void ', 'private '];
+
+    var sqlScore  = 0, javaScore = 0;
+    for (var i = 0; i < sqlKw.length;  i++) if (upper.indexOf(sqlKw[i].toUpperCase())  >= 0) sqlScore++;
+    for (var j = 0; j < javaKw.length; j++) if (code.indexOf(javaKw[j])               >= 0) javaScore++;
+
+    var badge = document.getElementById('langDetectedBadge');
+    if (sqlScore >= 1 && sqlScore > javaScore) {
+        setLang('sql');
+        badge.style.display = '';
+        badge.textContent   = '🔍 SQL 감지';
+    } else if (javaScore >= 2) {
+        setLang('java');
+        badge.style.display = '';
+        badge.textContent   = '🔍 Java 감지';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function setLang(lang) {
+    var radio = document.querySelector('input[name="lang"][value="' + lang + '"]');
+    if (radio && !radio.checked) { radio.checked = true; onLangChange(); }
+}
+
+function onLangChange() {
+    updateChipAvailability();
+    updateRunBtn();
+}
+
+function updateStats(code) {
+    var lines  = code ? code.split('\n').length : 0;
+    var tokens = Math.round((code || '').length / 4);
+    document.getElementById('lineCount').textContent    = lines  + '줄';
+    document.getElementById('tokenEstimate').textContent = '~' + tokens.toLocaleString() + ' 토큰 예상';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   체크박스 칩
+   ═══════════════════════════════════════════════════════════ */
+function toggleChip(el) {
+    var type = el.dataset.type;
+    if (el.classList.contains('disabled')) return;
+    if (selectedTypes[type]) {
+        delete selectedTypes[type];
+        el.classList.remove('selected');
+    } else {
+        selectedTypes[type] = true;
+        el.classList.add('selected');
+    }
+    updateRunBtn();
+    showTranslateOptions();
+}
+
+function updateChipAvailability() {
+    var lang = getLanguage();
+    document.querySelectorAll('.type-chip').forEach(function(chip) {
+        var langs = (chip.dataset.langs || '').split(',');
+        var supported = langs.some(function(l) { return l.trim() === lang; });
+        chip.classList.toggle('disabled', !supported);
+        if (!supported && selectedTypes[chip.dataset.type]) {
+            delete selectedTypes[chip.dataset.type];
+            chip.classList.remove('selected');
+        }
+    });
+    updateRunBtn();
+}
+
+function selectAll() {
+    var lang = getLanguage();
+    document.querySelectorAll('.type-chip:not(.disabled)').forEach(function(chip) {
+        selectedTypes[chip.dataset.type] = true;
+        chip.classList.add('selected');
+    });
+    updateRunBtn();
+    showTranslateOptions();
+}
+
+function clearAll() {
+    selectedTypes = {};
+    document.querySelectorAll('.type-chip').forEach(function(c) { c.classList.remove('selected'); });
+    updateRunBtn();
+    document.getElementById('translateOptions').style.display = 'none';
+}
+
+function showTranslateOptions() {
+    var show = !!selectedTypes['SQL_TRANSLATE'];
+    document.getElementById('translateOptions').style.display = show ? '' : 'none';
+}
+
+function updateRunBtn() {
+    var count = Object.keys(selectedTypes).length;
+    var btn   = document.getElementById('btnRun');
+    var label = document.getElementById('btnLabel');
+    btn.disabled = count === 0;
+    label.textContent = count > 0
+        ? '선택한 ' + count + '개 분석 실행'
+        : '분석 유형을 선택하세요';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   번들 저장/불러오기 (localStorage)
+   ═══════════════════════════════════════════════════════════ */
+var BUNDLE_KEY = 'workspace_bundles_v1';
+
+function loadBundles() {
+    try { return JSON.parse(localStorage.getItem(BUNDLE_KEY)) || {}; }
+    catch(e) { return {}; }
+}
+
+function renderBundles() {
+    var bundles = loadBundles();
+    var el = document.getElementById('bundleList');
+    el.innerHTML = '';
+    Object.keys(bundles).forEach(function(name) {
+        var chip = document.createElement('span');
+        chip.className   = 'bundle-chip';
+        chip.title       = bundles[name].join(', ');
+        chip.innerHTML   = '<i class="fas fa-bookmark me-1"></i>' + name
+                         + ' <i class="fas fa-times ms-1" style="font-size:.65rem;" onclick="deleteBundle(\''
+                         + name + '\',event)"></i>';
+        chip.onclick = function() { loadBundle(name); };
+        el.appendChild(chip);
+    });
+}
+
+function saveBundle() {
+    var name = document.getElementById('bundleName').value.trim();
+    if (!name) return;
+    var types = Object.keys(selectedTypes);
+    if (types.length === 0) return;
+    var bundles  = loadBundles();
+    bundles[name] = types;
+    localStorage.setItem(BUNDLE_KEY, JSON.stringify(bundles));
+    document.getElementById('bundleName').value = '';
+    renderBundles();
+}
+
+function loadBundle(name) {
+    clearAll();
+    var bundles = loadBundles();
+    var types   = bundles[name] || [];
+    types.forEach(function(t) {
+        var chip = document.querySelector('.type-chip[data-type="' + t + '"]');
+        if (chip && !chip.classList.contains('disabled')) {
+            selectedTypes[t] = true;
+            chip.classList.add('selected');
+        }
+    });
+    updateRunBtn();
+    showTranslateOptions();
+}
+
+function deleteBundle(name, e) {
+    e.stopPropagation();
+    var bundles = loadBundles();
+    delete bundles[name];
+    localStorage.setItem(BUNDLE_KEY, JSON.stringify(bundles));
+    renderBundles();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   분석 실행
+   ═══════════════════════════════════════════════════════════ */
+function runAnalysis() {
+    var code  = document.getElementById('codeInput').value.trim();
+    var lang  = getLanguage();
+    var types = Object.keys(selectedTypes);
+
+    if (!code)           { alert('코드를 입력하세요.'); return; }
+    if (!types.length)   { alert('분석 유형을 선택하세요.'); return; }
+
+    // 결과 초기화
+    resultTexts = {};
+    doneCount   = 0;
+    totalCount  = types.length;
+
+    document.getElementById('emptyState').style.display    = 'none';
+    document.getElementById('compareResult').style.display = 'none';
+    document.getElementById('resultTabs').innerHTML         = '';
+    document.getElementById('resultContents').innerHTML     = '';
+    document.getElementById('btnDownload').style.display    = 'none';
+
+    // 탭 생성
+    types.forEach(function(t) {
+        createResultTab(t);
+        resultTexts[t] = '';
+    });
+    switchResultTab(types[0]);
+
+    var params = new URLSearchParams();
+    params.append('code',           code);
+    params.append('language',       lang);
+    params.append('projectContext', '');
+    types.forEach(function(t) { params.append('selectedTypes', t); });
+
+    // SQL_TRANSLATE 소스/타겟 DB는 request에 추가 처리 없이 서비스가 기본값 사용
+    // (WorkspaceRequest의 sourceDb/targetDb 는 compare용 확장 필드)
+
+    fetch('/workspace/run', { method:'POST', body:params })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert(d.error || '오류 발생'); return; }
+            var ids = d.streamIds || {};
+            Object.keys(ids).forEach(function(typeName) {
+                var streamId = ids[typeName];
+                startStream(typeName, '/workspace/stream/' + streamId);
+            });
+        });
+}
+
+function createResultTab(typeName) {
+    var displayName = getDisplayName(typeName);
+
+    // 탭 버튼
+    var btn = document.createElement('button');
+    btn.className   = 'result-tab';
+    btn.id          = 'tab-btn-' + typeName;
+    btn.onclick     = function() { switchResultTab(typeName); };
+    btn.innerHTML   = displayName + '<span class="spinner" id="spinner-' + typeName + '"></span>';
+    document.getElementById('resultTabs').appendChild(btn);
+
+    // 콘텐츠 div
+    var div = document.createElement('div');
+    div.id            = 'tab-content-' + typeName;
+    div.style.display = 'none';
+    div.innerHTML     = '<div class="d-flex justify-content-end mb-1">'
+                      + '<button class="btn-outline py-0 px-2" style="font-size:.72rem;" '
+                      + 'onclick="copyResult(\'' + typeName + '\')">'
+                      + '<i class="fas fa-copy me-1"></i>복사</button></div>'
+                      + '<div class="result-content markdown-body" id="result-' + typeName + '">'
+                      + '<div class="text-muted" style="font-size:.82rem;">분석 중...</div></div>';
+    document.getElementById('resultContents').appendChild(div);
+}
+
+function switchResultTab(typeName) {
+    document.querySelectorAll('.result-tab').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('[id^="tab-content-"]').forEach(function(d) { d.style.display = 'none'; });
+    var btn = document.getElementById('tab-btn-' + typeName);
+    var cnt = document.getElementById('tab-content-' + typeName);
+    if (btn) btn.classList.add('active');
+    if (cnt) cnt.style.display = '';
+}
+
+function startStream(typeName, url) {
+    var es = new EventSource(url);
+    es.onmessage = function(e) {
+        resultTexts[typeName] = (resultTexts[typeName] || '') + e.data;
+        var el = document.getElementById('result-' + typeName);
+        if (el) el.innerHTML = marked.parse(resultTexts[typeName]);
+    };
+    es.addEventListener('done', function() {
+        es.close();
+        var spinner = document.getElementById('spinner-' + typeName);
+        if (spinner) {
+            spinner.outerHTML = ' <i class="fas fa-check" style="font-size:.65rem;color:#10b981;margin-left:4px;"></i>';
+        }
+        doneCount++;
+        if (doneCount >= totalCount) {
+            document.getElementById('btnDownload').style.display = '';
+        }
+    });
+    es.addEventListener('error', function(e) {
+        es.close();
+        var el = document.getElementById('result-' + typeName);
+        if (el) el.innerHTML += '<div style="color:#ef4444;font-size:.8rem;">⚠ 스트리밍 오류</div>';
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   모델 비교
+   ═══════════════════════════════════════════════════════════ */
+function updateCompareBtn() {
+    var checked = document.querySelectorAll('#btnCompare ~ * input:checked, .col-xl-4 input[type=checkbox]:checked');
+    // 더 정확하게 쿼리
+    var cbs = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]');
+    var cnt = 0;
+    cbs.forEach(function(cb) { if (cb.checked) cnt++; });
+    var types = Object.keys(selectedTypes);
+    document.getElementById('btnCompare').disabled = cnt < 2 || types.length !== 1;
+}
+
+function getCheckedModels() {
+    var cbs = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]:checked');
+    var models = [];
+    cbs.forEach(function(cb) { models.push(cb.value); });
+    return models;
+}
+
+function runCompare() {
+    var code   = document.getElementById('codeInput').value.trim();
+    var lang   = getLanguage();
+    var types  = Object.keys(selectedTypes);
+    var modelList = getCheckedModels();
+
+    if (!code)         { alert('코드를 입력하세요.'); return; }
+    if (types.length !== 1) { alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
+    if (modelList.length < 2) { alert('모델을 2개 이상 선택하세요.'); return; }
+
+    document.getElementById('emptyState').style.display    = 'none';
+    document.getElementById('resultTabs').innerHTML         = '';
+    document.getElementById('resultContents').innerHTML     = '';
+    document.getElementById('btnDownload').style.display    = 'none';
+    document.getElementById('compareResult').style.display  = '';
+
+    var cols = document.getElementById('compareColumns');
+    cols.innerHTML = '';
+    modelList.forEach(function(m) {
+        var col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = '<div class="compare-col">'
+                      + '<div class="compare-col-header"><i class="fas fa-robot me-1"></i>' + m + '</div>'
+                      + '<div class="markdown-body" id="compare-' + m.replace(/[^a-z0-9]/gi,'_') + '">'
+                      + '<div class="text-muted" style="font-size:.82rem;">분석 중...</div></div></div>';
+        cols.appendChild(col);
+    });
+
+    var params = new URLSearchParams();
+    params.append('code',         code);
+    params.append('language',     lang);
+    params.append('analysisType', types[0]);
+    params.append('projectContext', '');
+    modelList.forEach(function(m) { params.append('models', m); });
+
+    fetch('/workspace/compare', { method:'POST', body:params })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert(d.error || '오류'); return; }
+            var ids = d.streamIds || {};
+            Object.keys(ids).forEach(function(model) {
+                var streamId = ids[model];
+                var key = model.replace(/[^a-z0-9]/gi,'_');
+                var es  = new EventSource('/workspace/compare-stream/' + streamId);
+                var buf = '';
+                es.onmessage = function(e) {
+                    buf += e.data;
+                    var el = document.getElementById('compare-' + key);
+                    if (el) el.innerHTML = marked.parse(buf);
+                };
+                es.addEventListener('done', function() { es.close(); });
+            });
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   유틸
+   ═══════════════════════════════════════════════════════════ */
+function copyResult(typeName) {
+    var text = resultTexts[typeName] || '';
+    if (!text) return;
+    navigator.clipboard.writeText(text)
+        .then(function() { showToast('복사 완료'); })
+        .catch(function() {
+            var el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast('복사 완료');
+        });
+}
+
+function downloadAll() {
+    var lines = [];
+    Object.keys(resultTexts).forEach(function(t) {
+        lines.push('# ' + getDisplayName(t));
+        lines.push('');
+        lines.push(resultTexts[t]);
+        lines.push('');
+        lines.push('---');
+        lines.push('');
+    });
+    var blob = new Blob([lines.join('\n')], { type:'text/markdown;charset=utf-8' });
+    var a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'workspace-analysis-' + new Date().toISOString().slice(0,10) + '.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function getDisplayName(typeName) {
+    var map = {
+        CODE_REVIEW:'코드 리뷰', SECURITY_AUDIT:'보안 감사', TEST_GENERATION:'테스트 생성',
+        JAVADOC:'Javadoc 생성', REFACTOR:'리팩터링', SQL_REVIEW:'SQL 리뷰',
+        SQL_SECURITY:'SQL 보안', SQL_TRANSLATE:'SQL 번역', HARNESS:'하네스 파이프라인'
+    };
+    return map[typeName] || typeName;
+}
+
+function showToast(msg) {
+    if (typeof window.showToast === 'function') { window.showToast(msg); return; }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;'
+                    + 'padding:8px 18px;border-radius:8px;font-size:.82rem;z-index:9999;';
+    document.body.appendChild(t);
+    setTimeout(function() { if (t.parentNode) document.body.removeChild(t); }, 2000);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   로컬스토리지 임시저장
+   ═══════════════════════════════════════════════════════════ */
+var DRAFT_KEY = 'workspace_draft_v1';
+function saveDraft() {
+    localStorage.setItem(DRAFT_KEY, document.getElementById('codeInput').value || '');
+}
+function loadDraft() {
+    var d = localStorage.getItem(DRAFT_KEY);
+    if (d) {
+        document.getElementById('codeInput').value = d;
+        updateStats(d);
+        autoDetectLanguage(d);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   초기화
+   ═══════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', function() {
+    loadDraft();
+    renderBundles();
+    updateChipAvailability();
+
+    // 모델 비교 체크박스 클릭 이벤트 (label 클릭 시 chip 스타일 토글)
+    document.querySelectorAll('[id^="cmp-"]').forEach(function(label) {
+        var cb = label.querySelector('input[type=checkbox]');
+        label.addEventListener('click', function(e) {
+            // label 클릭 → checkbox 상태 반전 후 스타일 처리
+            setTimeout(function() {
+                label.classList.toggle('selected', cb.checked);
+                updateCompareBtn();
+            }, 0);
+        });
+    });
+});
+
+// Ctrl+Enter → 실행
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!document.getElementById('btnRun').disabled) runAnalysis();
+    }
+});
+</script>
+</body>
+</html>

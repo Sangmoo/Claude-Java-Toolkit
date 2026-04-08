@@ -85,6 +85,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/harness/dashboard') ? ' active' : ''}">
                 <i class="fas fa-chart-line" style="color:#8b5cf6"></i><span>품질 대시보드</span>
             </a>
+            <a href="/workspace" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/workspace') ? ' active' : ''}">
+                <i class="fas fa-layer-group" style="color:#f97316"></i><span>통합 워크스페이스</span>
+            </a>
         </div>
 
         <!-- ── 생성 ── -->
@@ -218,6 +222,10 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/prompts') ? ' active' : ''}">
             <i class="fas fa-sliders"></i><span>프롬프트 템플릿</span>
         </a>
+        <a href="/settings/prompts" class="sidebar-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/settings/prompts') ? ' active' : ''}">
+            <i class="fas fa-wand-magic-sparkles" style="color:#f97316"></i><span>AI 프롬프트 관리</span>
+        </a>
         <a href="/db-profiles" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/db-profiles') ? ' active' : ''}">
             <i class="fas fa-server"></i><span>DB 프로필</span>
@@ -288,7 +296,7 @@
 
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
-            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard'],
+            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard', '/sql-translate', '/workspace'],
             generate: ['/docgen', '/testgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
