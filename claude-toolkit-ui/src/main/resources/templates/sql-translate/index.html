@@ -91,12 +91,12 @@
         .diff-added { background:rgba(52,211,153,.1); }
         .diff-added .diff-line-code { color:#34d399; }
 
-        /* ── Stream panel ── */
-        .stream-panel { border:1px solid var(--border-color); border-radius:10px;
-                        background:var(--bg-secondary); overflow:hidden; }
-        .stream-body  { padding:12px 16px; max-height:200px; overflow-y:auto;
-                        font-family:'JetBrains Mono',monospace; font-size:.76rem;
-                        white-space:pre-wrap; word-break:break-word; color:var(--text-sub); }
+        /* ── Progress bar animation ── */
+        @keyframes progress-glow {
+            0%, 100% { box-shadow:0 0 4px rgba(249,115,22,.3); }
+            50%      { box-shadow:0 0 8px rgba(249,115,22,.6); }
+        }
+        #progressBar { animation:progress-glow 1.5s ease-in-out infinite; }
 
         /* ── Section content (markdown) ── */
         .section-content { font-size:.85rem; line-height:1.8; color:var(--text-primary); }
@@ -136,25 +136,26 @@
 
                         <!-- ── DB 선택 행 ── -->
                         <div class="d-flex align-items-end gap-2 mb-3 flex-wrap">
-                            <!-- 소스: Oracle 고정 -->
+                            <!-- 소스 DB -->
                             <div>
                                 <div class="mb-1" style="font-size:.72rem;color:var(--text-muted);">소스 DB</div>
-                                <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;
-                                            background:var(--bg-secondary);border:1px solid var(--border-color);
-                                            border-radius:8px;font-size:.84rem;color:var(--text-sub);">
-                                    <i class="fas fa-database" style="color:#ef4444;font-size:.8rem;"></i>
-                                    <span>Oracle</span>
-                                    <span class="db-badge db-badge-oracle ms-1">고정</span>
-                                </div>
+                                <select id="sourceDb" class="db-select" onchange="updateDbBadge()">
+                                    <option value="ORACLE" selected>Oracle</option>
+                                    <option value="MYSQL">MySQL</option>
+                                    <option value="POSTGRESQL">PostgreSQL</option>
+                                    <option value="MSSQL">MS SQL</option>
+                                </select>
                             </div>
                             <div class="db-arrow"><i class="fas fa-arrow-right"></i></div>
-                            <!-- 대상: 드롭다운 -->
+                            <!-- 대상 DB -->
                             <div>
                                 <div class="mb-1" style="font-size:.72rem;color:var(--text-muted);">대상 DB</div>
                                 <select id="targetDb" class="db-select" onchange="updateDbBadge()">
-                                    <option value="POSTGRESQL">PostgreSQL</option>
-                                    <option value="MYSQL">MySQL 8.0+</option>
-                                    <option value="MARIADB">MariaDB 10.2+</option>
+                                    <option value="POSTGRESQL" selected>PostgreSQL</option>
+                                    <option value="MYSQL">MySQL</option>
+                                    <option value="ORACLE">Oracle</option>
+                                    <option value="MSSQL">MS SQL</option>
+                                    <option value="MARIADB">MariaDB</option>
                                 </select>
                             </div>
                         </div>
@@ -232,17 +233,20 @@
                             <i class="fas fa-keyboard me-1"></i>Ctrl+Enter 단축키 지원
                         </div>
 
-                        <!-- 스트리밍 패널 -->
-                        <div id="streamPanel" class="stream-panel mt-3" style="display:none;">
-                            <div class="result-panel-header">
-                                <span style="font-size:.78rem;font-weight:600;">
-                                    <i class="fas fa-bolt me-1" style="color:#f59e0b"></i>번역 중...
+                        <!-- 번역 진행 바 -->
+                        <div id="progressPanel" class="mt-3" style="display:none;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                                <span style="font-size:.78rem;font-weight:600;color:var(--text-primary);">
+                                    <i class="fas fa-bolt me-1" style="color:#f59e0b"></i>번역 진행 중...
                                 </span>
                                 <button class="copy-btn" onclick="stopStream()">
                                     <i class="fas fa-stop me-1"></i>중지
                                 </button>
                             </div>
-                            <div class="stream-body" id="streamRaw"></div>
+                            <div style="width:100%;height:6px;background:var(--bg-secondary);border-radius:4px;overflow:hidden;border:1px solid var(--border-color);">
+                                <div id="progressBar" style="width:0%;height:100%;background:linear-gradient(90deg,#f97316,#f59e0b);border-radius:4px;transition:width .3s;"></div>
+                            </div>
+                            <div id="progressText" style="font-size:.7rem;color:var(--text-muted);margin-top:4px;text-align:right;">0%</div>
                         </div>
                     </div>
                 </div>
@@ -509,24 +513,32 @@ function startTranslate() {
     var sql = document.getElementById('sqlInput').value.trim();
     if (!sql) { alert('SQL을 입력해주세요.'); return; }
 
+    var srcDb = document.getElementById('sourceDb').value;
+    var tgtDb = document.getElementById('targetDb').value;
+    if (srcDb === tgtDb) {
+        alert('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.');
+        return;
+    }
+
     if (streamEs) { streamEs.close(); streamEs = null; }
     currentSql      = sql;
-    currentTargetDb = document.getElementById('targetDb').value;
+    currentTargetDb = tgtDb;
     streamBuffer    = '';
 
-    document.getElementById('emptyState').style.display  = 'none';
-    document.getElementById('resultPanel').style.display = 'none';
-    document.getElementById('streamPanel').style.display = '';
-    document.getElementById('streamRaw').textContent     = '';
-    document.getElementById('translateBtn').disabled     = true;
+    document.getElementById('emptyState').style.display    = 'none';
+    document.getElementById('resultPanel').style.display   = 'none';
+    document.getElementById('progressPanel').style.display = '';
+    document.getElementById('progressBar').style.width     = '0%';
+    document.getElementById('progressText').textContent    = '0%';
+    document.getElementById('translateBtn').disabled       = true;
 
-    var labels = {POSTGRESQL:'PostgreSQL', MYSQL:'MySQL', MARIADB:'MariaDB'};
+    var labels = {ORACLE:'Oracle', POSTGRESQL:'PostgreSQL', MYSQL:'MySQL', MARIADB:'MariaDB', MSSQL:'MS SQL'};
     document.getElementById('targetDbLabel').textContent = labels[currentTargetDb] || currentTargetDb;
 
     var fd = new FormData();
     fd.append('sql',      sql);
-    fd.append('sourceDb', 'ORACLE');
-    fd.append('targetDb', currentTargetDb);
+    fd.append('sourceDb', srcDb);
+    fd.append('targetDb', tgtDb);
 
     fetch('/sql-translate/init', {method:'POST', body:fd})
         .then(function(r) { return r.json(); })
@@ -539,34 +551,43 @@ function startTranslate() {
 
 function openSse(streamId) {
     streamEs = new EventSource('/stream/' + streamId);
+    var chunkCount = 0;
     streamEs.onmessage = function(e) {
         streamBuffer += e.data;
-        var el = document.getElementById('streamRaw');
-        el.textContent = streamBuffer;
-        el.scrollTop   = el.scrollHeight;
+        chunkCount++;
+        // progress bar 업데이트 (예상 기반 — 청크 수로 추정)
+        var pct = Math.min(95, Math.round(chunkCount / (chunkCount + 8) * 100));
+        document.getElementById('progressBar').style.width  = pct + '%';
+        document.getElementById('progressText').textContent = pct + '%';
     };
     streamEs.addEventListener('done', function() {
         streamEs.close(); streamEs = null;
+        document.getElementById('progressBar').style.width  = '100%';
+        document.getElementById('progressText').textContent = '100%';
         currentFullResp   = streamBuffer;
         currentTranslated = extractTranslatedSql(streamBuffer);
-        document.getElementById('streamPanel').style.display = 'none';
-        renderResult();
-        enableBtn();
+        setTimeout(function() {
+            document.getElementById('progressPanel').style.display = 'none';
+            renderResult();
+            enableBtn();
+        }, 300);
     });
     streamEs.addEventListener('error_msg', function(e) {
         streamEs.close(); streamEs = null;
+        document.getElementById('progressPanel').style.display = 'none';
         alert('스트리밍 오류: ' + e.data);
         enableBtn();
     });
     streamEs.onerror = function() {
         if (streamEs) { streamEs.close(); streamEs = null; }
+        document.getElementById('progressPanel').style.display = 'none';
         enableBtn();
     };
 }
 
 function stopStream() {
     if (streamEs) { streamEs.close(); streamEs = null; }
-    document.getElementById('streamPanel').style.display = 'none';
+    document.getElementById('progressPanel').style.display = 'none';
     if (streamBuffer) {
         currentFullResp   = streamBuffer;
         currentTranslated = extractTranslatedSql(streamBuffer);
@@ -680,7 +701,7 @@ function saveHistory() {
     var fd = new FormData();
     fd.append('sql',      currentSql);
     fd.append('result',   currentFullResp);
-    fd.append('sourceDb', 'ORACLE');
+    fd.append('sourceDb', document.getElementById('sourceDb').value);
     fd.append('targetDb', currentTargetDb);
     fetch('/sql-translate/save', {method:'POST', body:fd})
         .then(function(r) { return r.json(); })
@@ -706,7 +727,6 @@ function clearAll() {
 }
 
 function showToast(msg) {
-    if (typeof window.showToast === 'function') { window.showToast(msg); return; }
     var t = document.createElement('div');
     t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:8px 18px;border-radius:8px;font-size:.82rem;z-index:9999;';

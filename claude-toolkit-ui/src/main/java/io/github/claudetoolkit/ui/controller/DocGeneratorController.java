@@ -73,6 +73,12 @@ public class DocGeneratorController {
             @RequestParam(value = "useProjectContext",defaultValue = "false") boolean useProjectContext,
             RedirectAttributes redirectAttrs) {
 
+        // 빈 입력 방어
+        if (sourceCode == null || sourceCode.trim().isEmpty()) {
+            redirectAttrs.addFlashAttribute("error", "소스 코드를 입력하세요.");
+            return "redirect:/docgen";
+        }
+
         // 공통 설정 속성
         redirectAttrs.addFlashAttribute("projectConfigured",    settings.isProjectConfigured());
         redirectAttrs.addFlashAttribute("currentScanPath",      settings.getProject().getScanPath());

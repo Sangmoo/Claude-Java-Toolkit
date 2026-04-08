@@ -72,7 +72,8 @@
                 <!-- Input Panel -->
                 <div class="col-lg-6">
                     <div class="panel p-4">
-                        <form method="post" action="/docgen/generate" id="genForm">
+                        <form method="post" action="/docgen/generate" id="genForm"
+                              onsubmit="var sc=this.querySelector('[name=sourceCode]'); if(!sc||!sc.value.trim()){alert('소스 코드를 입력하세요.');return false;} showSpinner(['소스 코드 분석 중...','프로젝트 컨텍스트 처리 중...','Claude 문서 작성 중...','마무리 중...'])">
                             <!-- Source type & format row -->
                             <div class="row g-2 mb-3">
                                 <div class="col-7">
@@ -127,10 +128,10 @@
                                 <div id="dSrcPanel" class="src-sel-panel" style="display:none;">
                                     <div class="src-sel-header">
                                         <div class="d-flex gap-1">
-                                            <button class="src-sel-tab active" id="dTabFiles" onclick="dSwitchTab('files')">
+                                            <button type="button" class="src-sel-tab active" id="dTabFiles" onclick="dSwitchTab('files')">
                                                 <i class="fab fa-java me-1"></i>Java 파일
                                             </button>
-                                            <button class="src-sel-tab" id="dTabDb" onclick="dSwitchTab('db')">
+                                            <button type="button" class="src-sel-tab" id="dTabDb" onclick="dSwitchTab('db')">
                                                 <i class="fas fa-database me-1"></i>DB 오브젝트
                                             </button>
                                         </div>
@@ -207,8 +208,7 @@
                             </div>
 
                             <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-accent flex-fill"
-                                        onclick="showSpinner(['소스 코드 분석 중...','프로젝트 컨텍스트 처리 중...','Claude 문서 작성 중...','마무리 중...'])">
+                                <button type="submit" class="btn btn-accent flex-fill">
                                     <i class="fas fa-magic me-2"></i>문서 생성
                                 </button>
                                 <button type="button" class="btn btn-outline-tk btn-sm" onclick="runStream()" id="streamBtn">
@@ -397,7 +397,7 @@
     function dRenderFiles(list) {
         var el = document.getElementById('dFileList');
         if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
-        el.innerHTML = list.slice(0,200).map(function(f){
+        el.innerHTML = list.map(function(f){
             var sel = f.fileName === dCurSource ? ' selected' : '';
             return '<div class="src-sel-item'+sel+'" data-abs="'+dEsc(f.absolutePath||'')+'" data-name="'+dEsc(f.fileName||'')+'" onclick="dSelectFile(this)">'
                  + '<i class="fab fa-java" style="color:#f97316;flex-shrink:0;"></i>'
@@ -441,7 +441,7 @@
     function dRenderDb(list) {
         var el = document.getElementById('dDbList');
         if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
-        el.innerHTML = list.slice(0,200).map(function(o){
+        el.innerHTML = list.map(function(o){
             var t = (o.type||'').toUpperCase(), sel = o.name===dCurSource?' selected':'';
             return '<div class="src-sel-item'+sel+'" data-name="'+dEsc(o.name||'')+'" data-type="'+dEsc(t)+'" onclick="dSelectDb(this)">'
                  + '<i class="fas fa-database" style="color:#3b82f6;flex-shrink:0;"></i>'

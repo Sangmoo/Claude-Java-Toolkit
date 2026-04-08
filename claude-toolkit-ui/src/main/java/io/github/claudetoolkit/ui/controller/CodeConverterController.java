@@ -48,6 +48,12 @@ public class CodeConverterController {
             @RequestParam(value = "targetType", defaultValue = "java") String targetType,
             RedirectAttributes redirectAttrs) {
 
+        // 빈 입력 방어
+        if (sourceCode == null || sourceCode.trim().isEmpty()) {
+            redirectAttrs.addFlashAttribute("error", "소스 코드를 입력하세요.");
+            return "redirect:/converter";
+        }
+
         redirectAttrs.addFlashAttribute("sourceCode", sourceCode);
         redirectAttrs.addFlashAttribute("targetType", targetType);
 

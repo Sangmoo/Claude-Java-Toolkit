@@ -136,14 +136,13 @@ public class HarnessController {
             all = filtered;
         }
 
-        int total      = all.size();
-        List<FileEntry> page = total > 200 ? all.subList(0, 200) : all;
+        int total = all.size();
 
         result.put("loaded",      cacheService.isFileCacheLoaded());
         result.put("refreshing",  cacheService.isFileRefreshing());
         result.put("totalCount",  cacheService.getCachedFiles().size()); // unfiltered total
         result.put("count",       total);
-        result.put("files",       page);
+        result.put("files",       all);
         result.put("lastRefresh", cacheService.getLastFileRefresh());
         return result;
     }
@@ -207,7 +206,6 @@ public class HarnessController {
         }
 
         int total = all.size();
-        List<DbObjectEntry> page = total > 300 ? all.subList(0, 300) : all;
 
         result.put("loaded",      cacheService.isDbCacheLoaded());
         result.put("refreshing",  cacheService.isDbRefreshing());
@@ -215,7 +213,7 @@ public class HarnessController {
         result.put("dbError",     cacheService.getLastDbError());
         result.put("totalCount",  cacheService.getCachedDbObjects().size());
         result.put("count",       total);
-        result.put("objects",     page);
+        result.put("objects",     all);
         result.put("lastRefresh", cacheService.getLastDbRefresh());
         return result;
     }

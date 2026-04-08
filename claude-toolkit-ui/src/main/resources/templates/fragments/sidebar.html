@@ -41,6 +41,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">
                 <i class="fas fa-database" style="color:#3b82f6"></i><span>SQL 리뷰</span>
             </a>
+            <a href="/sql-translate" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/sql-translate') ? ' active' : ''}">
+                <i class="fas fa-language" style="color:#3b82f6"></i><span>SQL DB 번역</span>
+            </a>
             <a href="/sql-batch" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/sql-batch') ? ' active' : ''}">
                 <i class="fas fa-layer-group" style="color:#3b82f6"></i><span>배치 SQL 분석</span>
@@ -276,7 +280,7 @@
 
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
-            analysis: ['/workspace', '/advisor', '/sql-batch', '/erd', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard'],
+            analysis: ['/workspace', '/advisor', '/sql-translate', '/sql-batch', '/erd', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard'],
             generate: ['/docgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/depcheck', '/migrate'],

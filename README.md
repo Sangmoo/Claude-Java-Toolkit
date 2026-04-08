@@ -1234,12 +1234,15 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 > Groups 4~8: 통합 워크스페이스, 멀티유저, 운영/배포, 외부 연동, 모니터링
 
-**🧩 통합 워크스페이스 + 플러그인 아키텍처 (Group 4)**
-- [ ] **AnalysisService 플러그인 인터페이스** — 9가지 분석 유형(CODE_REVIEW·SECURITY_AUDIT·TEST_GENERATION·JAVADOC·REFACTOR·SQL_REVIEW·SQL_SECURITY·SQL_TRANSLATE·HARNESS)을 인터페이스로 추상화. `AnalysisServiceRegistry` Bean 등록
-- [ ] **커스텀 시스템 프롬프트 저장** — `custom_prompt` 엔티티. 분석 유형별 프롬프트 편집·저장·초기화 UI (`/settings/prompts`)
-- [ ] **통합 워크스페이스 `/workspace`** — 복수 분석 유형 동시 선택 → `CompletableFuture` 병렬 실행 → 탭별 SSE 스트리밍 결과. 언어 자동 감지. 번들 저장/불러오기
-- [ ] **AI 모델 비교 분석** — `/workspace/compare`: 동일 코드를 복수 모델로 병렬 분석, 좌우 2컬럼 비교
-- [ ] **멀티 언어 지원 확장** — Python·JavaScript·TypeScript·Kotlin 언어별 Verifier 분기
+**🧩 통합 워크스페이스 + 플러그인 아키텍처 (Group 4)** ✅
+- [x] **AnalysisService 플러그인 인터페이스** — 9가지 분석 유형(CODE_REVIEW·SECURITY_AUDIT·TEST_GENERATION·JAVADOC·REFACTOR·SQL_REVIEW·SQL_SECURITY·SQL_TRANSLATE·HARNESS)을 인터페이스로 추상화. `AnalysisServiceRegistry` Bean 등록
+- [x] **커스텀 시스템 프롬프트 저장** — `custom_prompt` 엔티티. 분석 유형별 프롬프트 편집·저장·초기화 UI (`/settings/prompts`). `PromptService` DB→내장 프롬프트 우선순위 해소
+- [x] **통합 워크스페이스 `/workspace`** — 복수 분석 유형 동시 선택 → `CompletableFuture` 병렬 실행 → 탭별 SSE 스트리밍 결과. 언어 자동 감지. 번들 저장/불러오기. 소스 선택기(Java 파일·DB 오브젝트) 전체 목록 지원. SQL DB 번역 시 소스/타겟 DB 전달. SSE heartbeat + 로깅 강화
+- [x] **AI 모델 비교 분석** — `/workspace/compare`: 동일 코드를 복수 모델로 병렬 분석, 좌우 2컬럼 비교. 런타임 모델 전환(`setModelOverride`) + 원복
+- [x] **멀티 언어 지원 확장** — Python·JavaScript·TypeScript·Kotlin 언어별 AnalysisType 지원. 언어 자동 감지 분기
+- [x] **SQL DB 번역 독립 페이지** — `/sql-translate` 사이드바 "분석" 카테고리 등록. 소스 DB 선택(Oracle/MySQL/PostgreSQL/MS SQL). 소스·타겟 동일 DB 방어. Progress bar UI. DB 오브젝트 소스 로드
+- [x] **소스 선택기 개선** — 파일 수량 제한(Java 200개·DB 300개) 해제 → 전체 목록 표시. 워크스페이스·기술문서·코드변환 3개 페이지 동일 적용
+- [x] **기술문서·코드변환 폼 안전성** — 소스 선택 탭 `type="button"` 누락 수정. 빈 입력 방어(프론트엔드 onsubmit + 백엔드 검증). Spinner 제어 개선
 
 **👥 멀티유저 / 팀 기능 (Group 5)**
 - [ ] **계정 관리 + RBAC** — `app_user` 엔티티. ADMIN / REVIEWER / VIEWER 역할. Spring Security Form 로그인. 최초 실행 시 admin/admin1234 자동 생성
