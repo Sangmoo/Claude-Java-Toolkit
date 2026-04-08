@@ -9,6 +9,39 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .src-toggle-btn { background:none; border:1px solid var(--border-color); color:var(--text-sub);
+                          padding:4px 12px; border-radius:8px; font-size:.78rem; cursor:pointer;
+                          display:inline-flex; align-items:center; gap:5px; transition:all .15s; }
+        .src-toggle-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .src-toggle-btn.open  { border-color:var(--accent); color:var(--accent); background:var(--accent-subtle); }
+        .src-sel-panel { border:1px solid var(--border-color); border-radius:8px; overflow:hidden;
+                         margin-bottom:8px; background:var(--bg-secondary); }
+        .src-sel-header { padding:6px 12px; background:var(--bg-secondary);
+                          border-bottom:1px solid var(--border-color);
+                          display:flex; align-items:center; justify-content:space-between; }
+        .src-sel-tab { background:none; border:none; color:var(--text-muted); padding:4px 12px;
+                       border-radius:16px; cursor:pointer; font-size:.75rem; font-weight:500; transition:all .15s; }
+        .src-sel-tab.active { background:var(--accent-subtle); color:var(--accent); font-weight:600; }
+        .src-sel-list { max-height:180px; overflow-y:auto; }
+        .src-sel-item { display:flex; align-items:center; gap:7px; padding:6px 12px;
+                        cursor:pointer; font-size:.78rem; border-bottom:1px solid var(--border-color); transition:background .1s; }
+        .src-sel-item:last-child { border-bottom:none; }
+        .src-sel-item:hover    { background:var(--accent-subtle); }
+        .src-sel-item.selected { background:var(--accent-subtle); border-left:3px solid var(--accent); font-weight:600; }
+        .src-sel-status { font-size:.7rem; color:var(--text-muted); padding:3px 12px;
+                          border-bottom:1px solid var(--border-color); }
+        .src-sel-bar { background:var(--accent-subtle); border:1px solid var(--accent);
+                       border-radius:6px; padding:4px 10px; font-size:.75rem; color:var(--accent);
+                       display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+        .src-badge { font-size:.62rem; font-weight:700; padding:1px 5px; border-radius:8px; }
+        .src-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .src-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .src-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .src-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        @keyframes spin-s { to { transform:rotate(360deg); } }
+        .spin-s { display:inline-block; animation:spin-s .8s linear infinite; }
+    </style>
 </head>
 <body>
 <div class="layout">
@@ -71,6 +104,73 @@
                                     <option value="ko" th:selected="${outputLang == 'ko' or outputLang == null}">한국어 (Korean)</option>
                                     <option value="en" th:selected="${outputLang == 'en'}">English</option>
                                 </select>
+                            </div>
+
+                            <!-- Source selector -->
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <button type="button" class="src-toggle-btn" id="dSrcToggle" onclick="dToggleSrc()">
+                                        <i class="fas fa-folder-open"></i>소스 선택하기
+                                        <i class="fas fa-chevron-down" id="dSrcChev" style="font-size:.6rem;transition:transform .15s;"></i>
+                                    </button>
+                                    <button type="button" class="src-toggle-btn" onclick="dRefreshCache()" title="캐시 갱신">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                <div id="dSelectedBar" style="display:none;" class="src-sel-bar">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span id="dSelectedName"></span>
+                                    <button type="button" onclick="dClearSrc()" style="background:none;border:none;color:var(--accent);margin-left:auto;cursor:pointer;font-size:.7rem;padding:0;">
+                                        <i class="fas fa-times"></i> 해제
+                                    </button>
+                                </div>
+                                <div id="dSrcPanel" class="src-sel-panel" style="display:none;">
+                                    <div class="src-sel-header">
+                                        <div class="d-flex gap-1">
+                                            <button class="src-sel-tab active" id="dTabFiles" onclick="dSwitchTab('files')">
+                                                <i class="fab fa-java me-1"></i>Java 파일
+                                            </button>
+                                            <button class="src-sel-tab" id="dTabDb" onclick="dSwitchTab('db')">
+                                                <i class="fas fa-database me-1"></i>DB 오브젝트
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="dToggleSrc()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;">
+                                            <i class="fas fa-times" style="font-size:.7rem;"></i>
+                                        </button>
+                                    </div>
+                                    <div id="dPanelFiles">
+                                        <div class="p-2">
+                                            <input type="text" id="dFileSearch" class="form-control form-control-sm"
+                                                   placeholder="클래스명·경로 검색..." oninput="dOnFileSearch(this.value)" autocomplete="off">
+                                        </div>
+                                        <div class="src-sel-status" id="dFileStatus"><i class="fas fa-spinner spin-s me-1"></i>로딩 중...</div>
+                                        <div class="src-sel-list" id="dFileList">
+                                            <div class="src-sel-item" style="justify-content:center;color:var(--text-muted);">
+                                                <i class="fas fa-circle-notch spin-s me-2"></i>파일 목록 로딩 중...
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="dPanelDb" style="display:none;">
+                                        <div class="p-2 d-flex gap-2">
+                                            <input type="text" id="dDbSearch" class="form-control form-control-sm"
+                                                   placeholder="오브젝트명 검색..." oninput="dOnDbSearch(this.value)" autocomplete="off" style="flex:1;">
+                                            <select id="dDbType" class="form-select form-select-sm" style="width:120px;"
+                                                    onchange="dOnDbSearch(document.getElementById('dDbSearch').value)">
+                                                <option value="">전체</option>
+                                                <option value="PROCEDURE">PROCEDURE</option>
+                                                <option value="FUNCTION">FUNCTION</option>
+                                                <option value="PACKAGE">PACKAGE</option>
+                                                <option value="TRIGGER">TRIGGER</option>
+                                            </select>
+                                        </div>
+                                        <div class="src-sel-status" id="dDbStatus"><i class="fas fa-spinner spin-s me-1"></i>로딩 중...</div>
+                                        <div class="src-sel-list" id="dDbList">
+                                            <div class="src-sel-item" style="justify-content:center;color:var(--text-muted);">
+                                                <i class="fas fa-circle-notch spin-s me-2"></i>DB 오브젝트 로딩 중...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Source code -->
@@ -253,6 +353,131 @@
             document.getElementById('streamStatus').textContent = '완료';
         });
     }
+    /* ── 소스 선택기 ── */
+    var dSrcOpen = false, dTabState = 'files';
+    var dAllFiles = [], dAllDbObjs = [], dFileLoaded = false, dDbLoaded = false;
+    var dCurSource = '';
+
+    function dToggleSrc() {
+        dSrcOpen = !dSrcOpen;
+        document.getElementById('dSrcPanel').style.display = dSrcOpen ? '' : 'none';
+        document.getElementById('dSrcToggle').classList.toggle('open', dSrcOpen);
+        document.getElementById('dSrcChev').style.transform = dSrcOpen ? 'rotate(180deg)' : '';
+        if (dSrcOpen && !dFileLoaded) dLoadFiles();
+        if (dSrcOpen && !dDbLoaded)   dLoadDb();
+    }
+    function dRefreshCache() {
+        dFileLoaded = false; dDbLoaded = false; dAllFiles = []; dAllDbObjs = [];
+        dLoadFiles(); dLoadDb();
+    }
+    function dSwitchTab(tab) {
+        dTabState = tab;
+        document.getElementById('dPanelFiles').style.display = tab === 'files' ? '' : 'none';
+        document.getElementById('dPanelDb').style.display    = tab === 'db'    ? '' : 'none';
+        document.getElementById('dTabFiles').classList.toggle('active', tab === 'files');
+        document.getElementById('dTabDb').classList.toggle('active',    tab === 'db');
+    }
+    function dEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function dLoadFiles() {
+        dFileLoaded = true;
+        document.getElementById('dFileStatus').innerHTML = '<i class="fas fa-spinner spin-s me-1"></i>로딩 중...';
+        fetch('/harness/cache/files?q=').then(function(r){return r.json();}).then(function(d){
+            dAllFiles = d.files || [];
+            document.getElementById('dFileStatus').textContent = d.loaded ? '파일 ' + dAllFiles.length + '개' : '캐시 준비 중...';
+            dRenderFiles(dAllFiles);
+        }).catch(function(){
+            document.getElementById('dFileStatus').textContent = '로드 실패 (Settings > 프로젝트 경로 설정)';
+        });
+    }
+    function dOnFileSearch(q) {
+        var f = q.trim() ? dAllFiles.filter(function(f){ return (f.relativePath||'').toLowerCase().indexOf(q.toLowerCase())>=0||(f.fileName||'').toLowerCase().indexOf(q.toLowerCase())>=0; }) : dAllFiles;
+        dRenderFiles(f);
+    }
+    function dRenderFiles(list) {
+        var el = document.getElementById('dFileList');
+        if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
+        el.innerHTML = list.slice(0,200).map(function(f){
+            var sel = f.fileName === dCurSource ? ' selected' : '';
+            return '<div class="src-sel-item'+sel+'" data-abs="'+dEsc(f.absolutePath||'')+'" data-name="'+dEsc(f.fileName||'')+'" onclick="dSelectFile(this)">'
+                 + '<i class="fab fa-java" style="color:#f97316;flex-shrink:0;"></i>'
+                 + '<span style="font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+dEsc(f.fileName||'')+'</span>'
+                 + '<span style="color:var(--text-muted);font-size:.7rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+dEsc(f.relativePath||'')+'</span>'
+                 + '</div>';
+        }).join('');
+    }
+    function dSelectFile(el) {
+        document.querySelectorAll('#dFileList .src-sel-item').forEach(function(i){i.classList.remove('selected');});
+        el.classList.add('selected');
+        var abs = el.getAttribute('data-abs'), name = el.getAttribute('data-name');
+        if (!abs) return;
+        el.style.opacity = '0.6';
+        fetch('/harness/cache/file-content?path='+encodeURIComponent(abs)).then(function(r){return r.json();}).then(function(d){
+            el.style.opacity='';
+            if (!d.success){ alert(d.error||'파일 로드 실패'); return; }
+            document.querySelector('[name=sourceCode]').value = d.content || '';
+            dSetSrc(name);
+        }).catch(function(){ el.style.opacity=''; alert('파일 내용을 불러올 수 없습니다.'); });
+    }
+
+    function dLoadDb() {
+        dDbLoaded = true;
+        document.getElementById('dDbStatus').innerHTML = '<i class="fas fa-spinner spin-s me-1"></i>로딩 중...';
+        fetch('/harness/cache/db-objects?q=&type=').then(function(r){return r.json();}).then(function(d){
+            dAllDbObjs = d.objects || [];
+            document.getElementById('dDbStatus').textContent = d.configured ? 'DB 오브젝트 ' + dAllDbObjs.length + '개' : 'DB 미설정 (Settings > DB 프로필)';
+            dRenderDb(dAllDbObjs);
+        }).catch(function(){
+            document.getElementById('dDbStatus').textContent = '로드 실패';
+        });
+    }
+    function dOnDbSearch(q) {
+        var tf = document.getElementById('dDbType').value;
+        var f  = dAllDbObjs.filter(function(o){
+            return (!q.trim()||(o.name||'').toLowerCase().indexOf(q.toLowerCase())>=0) && (!tf||(o.type||'').toUpperCase()===tf);
+        });
+        dRenderDb(f);
+    }
+    function dRenderDb(list) {
+        var el = document.getElementById('dDbList');
+        if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
+        el.innerHTML = list.slice(0,200).map(function(o){
+            var t = (o.type||'').toUpperCase(), sel = o.name===dCurSource?' selected':'';
+            return '<div class="src-sel-item'+sel+'" data-name="'+dEsc(o.name||'')+'" data-type="'+dEsc(t)+'" onclick="dSelectDb(this)">'
+                 + '<i class="fas fa-database" style="color:#3b82f6;flex-shrink:0;"></i>'
+                 + '<span style="font-weight:500;">'+dEsc(o.name||'')+'</span>'
+                 + '<span class="src-badge src-badge-'+t.toLowerCase()+'">'+t+'</span>'
+                 + '</div>';
+        }).join('');
+    }
+    function dSelectDb(el) {
+        document.querySelectorAll('#dDbList .src-sel-item').forEach(function(i){i.classList.remove('selected');});
+        el.classList.add('selected');
+        var name = el.getAttribute('data-name'), type = el.getAttribute('data-type');
+        if (!name) return;
+        el.style.opacity = '0.6';
+        fetch('/harness/cache/db-source?name='+encodeURIComponent(name)+'&type='+encodeURIComponent(type)).then(function(r){return r.json();}).then(function(d){
+            el.style.opacity='';
+            if (!d.success){ alert(d.error||'DB 소스 로드 실패'); return; }
+            document.querySelector('[name=sourceCode]').value = d.source || '';
+            dSetSrc(name);
+        }).catch(function(){ el.style.opacity=''; alert('DB 오브젝트 소스를 불러올 수 없습니다.'); });
+    }
+    function dSetSrc(name) {
+        dCurSource = name;
+        if (name) {
+            document.getElementById('dSelectedName').textContent = name;
+            document.getElementById('dSelectedBar').style.display = 'flex';
+        } else {
+            document.getElementById('dSelectedBar').style.display = 'none';
+        }
+    }
+    function dClearSrc() {
+        dSetSrc('');
+        document.querySelectorAll('.src-sel-item.selected').forEach(function(el){el.classList.remove('selected');});
+        document.querySelector('[name=sourceCode]').value = '';
+    }
+
     function copyStream() {
         var el = document.getElementById('streamResult');
         if (!el || !el.textContent.trim()) return;

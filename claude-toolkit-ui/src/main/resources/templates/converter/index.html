@@ -9,6 +9,39 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <style>
+        .src-toggle-btn { background:none; border:1px solid var(--border-color); color:var(--text-sub);
+                          padding:4px 12px; border-radius:8px; font-size:.78rem; cursor:pointer;
+                          display:inline-flex; align-items:center; gap:5px; transition:all .15s; }
+        .src-toggle-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .src-toggle-btn.open  { border-color:var(--accent); color:var(--accent); background:var(--accent-subtle); }
+        .src-sel-panel { border:1px solid var(--border-color); border-radius:8px; overflow:hidden;
+                         margin-bottom:8px; background:var(--bg-secondary); }
+        .src-sel-header { padding:6px 12px; background:var(--bg-secondary);
+                          border-bottom:1px solid var(--border-color);
+                          display:flex; align-items:center; justify-content:space-between; }
+        .src-sel-tab { background:none; border:none; color:var(--text-muted); padding:4px 12px;
+                       border-radius:16px; cursor:pointer; font-size:.75rem; font-weight:500; transition:all .15s; }
+        .src-sel-tab.active { background:var(--accent-subtle); color:var(--accent); font-weight:600; }
+        .src-sel-list { max-height:180px; overflow-y:auto; }
+        .src-sel-item { display:flex; align-items:center; gap:7px; padding:6px 12px;
+                        cursor:pointer; font-size:.78rem; border-bottom:1px solid var(--border-color); transition:background .1s; }
+        .src-sel-item:last-child { border-bottom:none; }
+        .src-sel-item:hover    { background:var(--accent-subtle); }
+        .src-sel-item.selected { background:var(--accent-subtle); border-left:3px solid var(--accent); font-weight:600; }
+        .src-sel-status { font-size:.7rem; color:var(--text-muted); padding:3px 12px;
+                          border-bottom:1px solid var(--border-color); }
+        .src-sel-bar { background:var(--accent-subtle); border:1px solid var(--accent);
+                       border-radius:6px; padding:4px 10px; font-size:.75rem; color:var(--accent);
+                       display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+        .src-badge { font-size:.62rem; font-weight:700; padding:1px 5px; border-radius:8px; }
+        .src-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .src-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .src-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .src-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        @keyframes spin-s { to { transform:rotate(360deg); } }
+        .spin-s { display:inline-block; animation:spin-s .8s linear infinite; }
+    </style>
 </head>
 <body>
 <div class="layout">
@@ -50,6 +83,73 @@
                                     <option value="java_to_sp" th:selected="${targetType == 'java_to_sp'}">Java/Spring + MyBatis → Oracle SP</option>
                                 </select>
                             </div>
+                            <!-- Source selector -->
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <button type="button" class="src-toggle-btn" id="cSrcToggle" onclick="cToggleSrc()">
+                                        <i class="fas fa-folder-open"></i>소스 선택하기
+                                        <i class="fas fa-chevron-down" id="cSrcChev" style="font-size:.6rem;transition:transform .15s;"></i>
+                                    </button>
+                                    <button type="button" class="src-toggle-btn" onclick="cRefreshCache()" title="캐시 갱신">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                <div id="cSelectedBar" style="display:none;" class="src-sel-bar">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span id="cSelectedName"></span>
+                                    <button type="button" onclick="cClearSrc()" style="background:none;border:none;color:var(--accent);margin-left:auto;cursor:pointer;font-size:.7rem;padding:0;">
+                                        <i class="fas fa-times"></i> 해제
+                                    </button>
+                                </div>
+                                <div id="cSrcPanel" class="src-sel-panel" style="display:none;">
+                                    <div class="src-sel-header">
+                                        <div class="d-flex gap-1">
+                                            <button class="src-sel-tab active" id="cTabFiles" onclick="cSwitchTab('files')">
+                                                <i class="fab fa-java me-1"></i>Java 파일
+                                            </button>
+                                            <button class="src-sel-tab" id="cTabDb" onclick="cSwitchTab('db')">
+                                                <i class="fas fa-database me-1"></i>DB 오브젝트
+                                            </button>
+                                        </div>
+                                        <button type="button" onclick="cToggleSrc()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;">
+                                            <i class="fas fa-times" style="font-size:.7rem;"></i>
+                                        </button>
+                                    </div>
+                                    <div id="cPanelFiles">
+                                        <div class="p-2">
+                                            <input type="text" id="cFileSearch" class="form-control form-control-sm"
+                                                   placeholder="클래스명·경로 검색..." oninput="cOnFileSearch(this.value)" autocomplete="off">
+                                        </div>
+                                        <div class="src-sel-status" id="cFileStatus"><i class="fas fa-spinner spin-s me-1"></i>로딩 중...</div>
+                                        <div class="src-sel-list" id="cFileList">
+                                            <div class="src-sel-item" style="justify-content:center;color:var(--text-muted);">
+                                                <i class="fas fa-circle-notch spin-s me-2"></i>파일 목록 로딩 중...
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="cPanelDb" style="display:none;">
+                                        <div class="p-2 d-flex gap-2">
+                                            <input type="text" id="cDbSearch" class="form-control form-control-sm"
+                                                   placeholder="오브젝트명 검색..." oninput="cOnDbSearch(this.value)" autocomplete="off" style="flex:1;">
+                                            <select id="cDbType" class="form-select form-select-sm" style="width:120px;"
+                                                    onchange="cOnDbSearch(document.getElementById('cDbSearch').value)">
+                                                <option value="">전체</option>
+                                                <option value="PROCEDURE">PROCEDURE</option>
+                                                <option value="FUNCTION">FUNCTION</option>
+                                                <option value="PACKAGE">PACKAGE</option>
+                                                <option value="TRIGGER">TRIGGER</option>
+                                            </select>
+                                        </div>
+                                        <div class="src-sel-status" id="cDbStatus"><i class="fas fa-spinner spin-s me-1"></i>로딩 중...</div>
+                                        <div class="src-sel-list" id="cDbList">
+                                            <div class="src-sel-item" style="justify-content:center;color:var(--text-muted);">
+                                                <i class="fas fa-circle-notch spin-s me-2"></i>DB 오브젝트 로딩 중...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="mb-3">
                                 <label class="form-label" id="sourceLabel">소스 코드</label>
                                 <textarea class="form-control" name="sourceCode" rows="18"
@@ -134,6 +234,131 @@
 
     // Init on page load
     updateConverterHint();
+
+    /* ── 소스 선택기 ── */
+    var cSrcOpen = false, cTabState = 'files';
+    var cAllFiles = [], cAllDbObjs = [], cFileLoaded = false, cDbLoaded = false;
+    var cCurSource = '';
+
+    function cToggleSrc() {
+        cSrcOpen = !cSrcOpen;
+        document.getElementById('cSrcPanel').style.display = cSrcOpen ? '' : 'none';
+        document.getElementById('cSrcToggle').classList.toggle('open', cSrcOpen);
+        document.getElementById('cSrcChev').style.transform = cSrcOpen ? 'rotate(180deg)' : '';
+        if (cSrcOpen && !cFileLoaded) cLoadFiles();
+        if (cSrcOpen && !cDbLoaded)   cLoadDb();
+    }
+    function cRefreshCache() {
+        cFileLoaded = false; cDbLoaded = false; cAllFiles = []; cAllDbObjs = [];
+        cLoadFiles(); cLoadDb();
+    }
+    function cSwitchTab(tab) {
+        cTabState = tab;
+        document.getElementById('cPanelFiles').style.display = tab === 'files' ? '' : 'none';
+        document.getElementById('cPanelDb').style.display    = tab === 'db'    ? '' : 'none';
+        document.getElementById('cTabFiles').classList.toggle('active', tab === 'files');
+        document.getElementById('cTabDb').classList.toggle('active',    tab === 'db');
+    }
+    function cEsc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function cLoadFiles() {
+        cFileLoaded = true;
+        document.getElementById('cFileStatus').innerHTML = '<i class="fas fa-spinner spin-s me-1"></i>로딩 중...';
+        fetch('/harness/cache/files?q=').then(function(r){return r.json();}).then(function(d){
+            cAllFiles = d.files || [];
+            document.getElementById('cFileStatus').textContent = d.loaded ? '파일 ' + cAllFiles.length + '개' : '캐시 준비 중...';
+            cRenderFiles(cAllFiles);
+        }).catch(function(){
+            document.getElementById('cFileStatus').textContent = '로드 실패 (Settings > 프로젝트 경로 설정)';
+        });
+    }
+    function cOnFileSearch(q) {
+        var f = q.trim() ? cAllFiles.filter(function(f){ return (f.relativePath||'').toLowerCase().indexOf(q.toLowerCase())>=0||(f.fileName||'').toLowerCase().indexOf(q.toLowerCase())>=0; }) : cAllFiles;
+        cRenderFiles(f);
+    }
+    function cRenderFiles(list) {
+        var el = document.getElementById('cFileList');
+        if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
+        el.innerHTML = list.slice(0,200).map(function(f){
+            var sel = f.fileName === cCurSource ? ' selected' : '';
+            return '<div class="src-sel-item'+sel+'" data-abs="'+cEsc(f.absolutePath||'')+'" data-name="'+cEsc(f.fileName||'')+'" onclick="cSelectFile(this)">'
+                 + '<i class="fab fa-java" style="color:#f97316;flex-shrink:0;"></i>'
+                 + '<span style="font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+cEsc(f.fileName||'')+'</span>'
+                 + '<span style="color:var(--text-muted);font-size:.7rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+cEsc(f.relativePath||'')+'</span>'
+                 + '</div>';
+        }).join('');
+    }
+    function cSelectFile(el) {
+        document.querySelectorAll('#cFileList .src-sel-item').forEach(function(i){i.classList.remove('selected');});
+        el.classList.add('selected');
+        var abs = el.getAttribute('data-abs'), name = el.getAttribute('data-name');
+        if (!abs) return;
+        el.style.opacity = '0.6';
+        fetch('/harness/cache/file-content?path='+encodeURIComponent(abs)).then(function(r){return r.json();}).then(function(d){
+            el.style.opacity='';
+            if (!d.success){ alert(d.error||'파일 로드 실패'); return; }
+            document.getElementById('sourceCodeArea').value = d.content || '';
+            cSetSrc(name);
+        }).catch(function(){ el.style.opacity=''; alert('파일 내용을 불러올 수 없습니다.'); });
+    }
+
+    function cLoadDb() {
+        cDbLoaded = true;
+        document.getElementById('cDbStatus').innerHTML = '<i class="fas fa-spinner spin-s me-1"></i>로딩 중...';
+        fetch('/harness/cache/db-objects?q=&type=').then(function(r){return r.json();}).then(function(d){
+            cAllDbObjs = d.objects || [];
+            document.getElementById('cDbStatus').textContent = d.configured ? 'DB 오브젝트 ' + cAllDbObjs.length + '개' : 'DB 미설정 (Settings > DB 프로필)';
+            cRenderDb(cAllDbObjs);
+        }).catch(function(){
+            document.getElementById('cDbStatus').textContent = '로드 실패';
+        });
+    }
+    function cOnDbSearch(q) {
+        var tf = document.getElementById('cDbType').value;
+        var f  = cAllDbObjs.filter(function(o){
+            return (!q.trim()||(o.name||'').toLowerCase().indexOf(q.toLowerCase())>=0) && (!tf||(o.type||'').toUpperCase()===tf);
+        });
+        cRenderDb(f);
+    }
+    function cRenderDb(list) {
+        var el = document.getElementById('cDbList');
+        if (!list || !list.length) { el.innerHTML = '<div class="src-sel-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>'; return; }
+        el.innerHTML = list.slice(0,200).map(function(o){
+            var t = (o.type||'').toUpperCase(), sel = o.name===cCurSource?' selected':'';
+            return '<div class="src-sel-item'+sel+'" data-name="'+cEsc(o.name||'')+'" data-type="'+cEsc(t)+'" onclick="cSelectDb(this)">'
+                 + '<i class="fas fa-database" style="color:#3b82f6;flex-shrink:0;"></i>'
+                 + '<span style="font-weight:500;">'+cEsc(o.name||'')+'</span>'
+                 + '<span class="src-badge src-badge-'+t.toLowerCase()+'">'+t+'</span>'
+                 + '</div>';
+        }).join('');
+    }
+    function cSelectDb(el) {
+        document.querySelectorAll('#cDbList .src-sel-item').forEach(function(i){i.classList.remove('selected');});
+        el.classList.add('selected');
+        var name = el.getAttribute('data-name'), type = el.getAttribute('data-type');
+        if (!name) return;
+        el.style.opacity = '0.6';
+        fetch('/harness/cache/db-source?name='+encodeURIComponent(name)+'&type='+encodeURIComponent(type)).then(function(r){return r.json();}).then(function(d){
+            el.style.opacity='';
+            if (!d.success){ alert(d.error||'DB 소스 로드 실패'); return; }
+            document.getElementById('sourceCodeArea').value = d.source || '';
+            cSetSrc(name);
+        }).catch(function(){ el.style.opacity=''; alert('DB 오브젝트 소스를 불러올 수 없습니다.'); });
+    }
+    function cSetSrc(name) {
+        cCurSource = name;
+        if (name) {
+            document.getElementById('cSelectedName').textContent = name;
+            document.getElementById('cSelectedBar').style.display = 'flex';
+        } else {
+            document.getElementById('cSelectedBar').style.display = 'none';
+        }
+    }
+    function cClearSrc() {
+        cSetSrc('');
+        document.querySelectorAll('.src-sel-item.selected').forEach(function(el){el.classList.remove('selected');});
+        document.getElementById('sourceCodeArea').value = '';
+    }
 </script>
 </body>
 </html>
