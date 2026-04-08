@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
@@ -253,8 +253,10 @@ public class WorkspaceController {
             return emitter;
         }
 
-        CompletableFuture.runAsync(new Runnable() {
+        Thread thread = new Thread(new Runnable() {
             public void run() {
+                // Spring이 async response를 설정할 시간 확보
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                 try {
                     claudeClient.chatStream(sysPrompt, userMsg, maxTokens,
                             new Consumer<String>() {
@@ -264,7 +266,6 @@ public class WorkspaceController {
                                 }
                             });
                     emitter.send(SseEmitter.event().name("done").data("ok"));
-                    // done 이벤트가 브라우저에 도달할 시간 확보 후 연결 종료
                     try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();
                 } catch (Exception e) {
@@ -274,13 +275,15 @@ public class WorkspaceController {
                         emitter.send(SseEmitter.event().name("error").data(
                                 e.getMessage() != null ? e.getMessage() : "분석 중 오류 발생"));
                         emitter.complete();
-                    } catch (IOException ex) {
-                        log.warn("[stream] 오류 이벤트 전송 실패 (클라이언트 연결 끊김)", ex);
+                    } catch (Exception ex) {
+                        log.warn("[stream] 오류 이벤트 전송 실패", ex);
                         emitter.completeWithError(ex);
                     }
                 }
             }
         });
+        thread.setDaemon(true);
+        thread.start();
 
         return emitter;
     }
@@ -421,8 +424,9 @@ public class WorkspaceController {
 
         final String targetModel = model;
 
-        CompletableFuture.runAsync(new Runnable() {
+        Thread thread = new Thread(new Runnable() {
             public void run() {
+                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
                 String prevModel = claudeClient.getModel();
                 try {
                     if (targetModel != null && !targetModel.isEmpty()) {
@@ -444,7 +448,7 @@ public class WorkspaceController {
                         emitter.send(SseEmitter.event().name("error").data(
                                 e.getMessage() != null ? e.getMessage() : "분석 중 오류 발생"));
                         emitter.complete();
-                    } catch (IOException ex) {
+                    } catch (Exception ex) {
                         emitter.completeWithError(ex);
                     }
                 } finally {
@@ -452,6 +456,8 @@ public class WorkspaceController {
                 }
             }
         });
+        thread.setDaemon(true);
+        thread.start();
 
         return emitter;
     }
