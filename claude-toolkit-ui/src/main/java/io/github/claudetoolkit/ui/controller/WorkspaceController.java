@@ -104,7 +104,7 @@ public class WorkspaceController {
             @RequestParam(value = "selectedTypes", required = false) List<String> selectedTypes,
             @RequestParam(value = "projectContext", defaultValue = "") String projectContext) {
 
-        Map<String, Object> resp = new LinkedHashMap<yahttps://String, Object>();
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
         if (selectedTypes == null || selectedTypes.isEmpty()) {
             resp.put("success", false);
             resp.put("error",   "분석 유형을 하나 이상 선택하세요.");
