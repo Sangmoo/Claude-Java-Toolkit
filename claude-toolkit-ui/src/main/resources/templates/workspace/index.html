@@ -377,6 +377,9 @@
                                 <button id="btnDownloadPdf" class="copy-btn" style="display:none;" onclick="downloadPdf()">
                                     <i class="fas fa-file-pdf me-1"></i>PDF
                                 </button>
+                                <button id="btnEmail" class="copy-btn" style="display:none;" onclick="openEmailModal()">
+                                    <i class="fas fa-envelope me-1"></i>이메일
+                                </button>
                             </div>
                         </div>
 
@@ -418,30 +421,61 @@
                             <div class="row g-2" id="compareColumns"></div>
                         </div>
 
-                        <!-- 전체 결과 이메일 일괄 발송 -->
-                        <div class="email-panel" id="emailPanel" style="display:none;">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="section-label" style="font-size:.75rem;margin:0;">
-                                    <i class="fas fa-envelope me-1"></i>전체 결과 이메일 일괄 발송
-                                </span>
-                                <span id="emailScopeInfo" style="font-size:.7rem;color:var(--text-muted);"></span>
-                            </div>
-                            <div class="d-flex gap-2 align-items-center flex-wrap">
-                                <input type="email" id="emailTo" class="form-control" style="font-size:.82rem;max-width:280px;"
-                                       placeholder="수신자 이메일 주소">
-                                <input type="text" id="emailSubject" class="form-control" style="font-size:.82rem;max-width:200px;"
-                                       placeholder="제목 (선택)">
-                                <button class="btn-accent" style="padding:6px 18px;" onclick="sendEmail()" id="btnSendEmail">
-                                    <i class="fas fa-paper-plane me-1"></i>전체 발송
-                                </button>
-                            </div>
-                            <div id="emailResult" style="font-size:.8rem;margin-top:6px;"></div>
-                        </div>
+                        <!-- emailPanel: 이제 모달로 대체, 버튼 표시 제어용 더미 -->
+                        <div id="emailPanel" style="display:none;"></div>
                     </div>
                 </div>
             </div><!-- /row -->
         </div><!-- /main-content -->
     </main>
+<!-- ═══ 이메일 발송 팝업 모달 ═══ -->
+<div id="emailModal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeEmailModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(92vw,540px);
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">
+        <!-- 헤더 -->
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:.95rem;color:var(--text-primary);">
+                <i class="fas fa-envelope me-2" style="color:#f97316"></i>전체 결과 이메일 발송
+            </span>
+            <button onclick="closeEmailModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <!-- 본문 -->
+        <div style="padding:18px;">
+            <!-- 포함 분석 범위 -->
+            <div id="emailModalScope" style="font-size:.75rem;color:var(--text-muted);margin-bottom:12px;"></div>
+
+            <!-- 제목 -->
+            <div class="mb-3">
+                <label style="font-size:.78rem;font-weight:600;color:var(--text-sub);margin-bottom:4px;display:block;">제목</label>
+                <input type="text" id="emailModalSubject" class="form-control" style="font-size:.84rem;"
+                       placeholder="워크스페이스 분석 결과">
+            </div>
+
+            <!-- 수신자 목록 -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label style="font-size:.78rem;font-weight:600;color:var(--text-sub);">수신자</label>
+                    <button type="button" class="copy-btn" onclick="addEmailRecipient()" style="font-size:.72rem;">
+                        <i class="fas fa-plus me-1"></i>추가
+                    </button>
+                </div>
+                <div id="emailRecipientList"></div>
+            </div>
+
+            <!-- 발송 버튼 + 결과 -->
+            <div class="d-flex justify-content-between align-items-center">
+                <div id="emailModalResult" style="font-size:.8rem;flex:1;"></div>
+                <button class="btn-accent" style="padding:8px 24px;flex-shrink:0;" onclick="sendEmailAll()" id="btnSendEmailAll">
+                    <i class="fas fa-paper-plane me-1"></i>전체 발송
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ═══ 이력 상세 팝업 모달 ═══ -->
 <div id="historyModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
      onclick="if(event.target===this)closeHistoryModal()">
@@ -936,10 +970,12 @@ function runAnalysis() {
     updateProgress();
     document.getElementById('emptyState').style.display    = 'none';
     document.getElementById('compareResult').style.display = 'none';
-    document.getElementById('emailPanel').style.display    = 'none';
-    document.getElementById('resultTabs').innerHTML         = '';
-    document.getElementById('resultContents').innerHTML     = '';
-    document.getElementById('btnDownload').style.display    = 'none';
+    document.getElementById('emailPanel').style.display       = 'none';
+    document.getElementById('resultTabs').innerHTML            = '';
+    document.getElementById('resultContents').innerHTML        = '';
+    document.getElementById('btnDownload').style.display       = 'none';
+    document.getElementById('btnDownloadPdf').style.display    = 'none';
+    document.getElementById('btnEmail').style.display          = 'none';
 
     types.forEach(function(t){ createResultTab(t); resultTexts[t] = ''; });
     switchResultTab(types[0]);
@@ -1012,12 +1048,8 @@ function startStream(typeName, url) {
         if (doneCount >= totalCount) {
             document.getElementById('btnDownload').style.display    = '';
             document.getElementById('btnDownloadPdf').style.display = '';
-            document.getElementById('emailPanel').style.display  = '';
-            // 이메일 범위 표시
-            var typeNames = Object.keys(resultTexts).map(function(t){ return getDisplayName(t); });
-            document.getElementById('emailScopeInfo').textContent = '(' + typeNames.length + '개 분석: ' + typeNames.join(', ') + ')';
-            var subj = document.getElementById('emailSubject');
-            if (subj && !subj.value) subj.value = '워크스페이스 분석 결과 (' + new Date().toLocaleDateString('ko-KR') + ')';
+            document.getElementById('btnEmail').style.display      = '';
+            document.getElementById('emailPanel').style.display    = '';
         }
     });
 
@@ -1110,12 +1142,14 @@ function runCompare() {
     if (types.length !== 1){ alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
     if (modelList.length < 2){ alert('모델을 2개 이상 선택하세요.'); return; }
 
-    document.getElementById('emptyState').style.display    = 'none';
-    document.getElementById('resultTabs').innerHTML         = '';
-    document.getElementById('resultContents').innerHTML     = '';
-    document.getElementById('btnDownload').style.display    = 'none';
-    document.getElementById('emailPanel').style.display     = 'none';
-    document.getElementById('compareResult').style.display  = '';
+    document.getElementById('emptyState').style.display       = 'none';
+    document.getElementById('resultTabs').innerHTML            = '';
+    document.getElementById('resultContents').innerHTML        = '';
+    document.getElementById('btnDownload').style.display       = 'none';
+    document.getElementById('btnDownloadPdf').style.display    = 'none';
+    document.getElementById('btnEmail').style.display          = 'none';
+    document.getElementById('emailPanel').style.display        = 'none';
+    document.getElementById('compareResult').style.display     = '';
 
     var cols = document.getElementById('compareColumns');
     cols.innerHTML = '';
@@ -1262,33 +1296,72 @@ function downloadHistoryPdf() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   이메일 발송
+   이메일 발송 모달
    ═══════════════════════════════════════════════════════════ */
-function sendEmail() {
-    var to      = (document.getElementById('emailTo').value || '').trim();
-    var subject = (document.getElementById('emailSubject').value || '').trim();
-    if (!to) { alert('수신자 이메일을 입력하세요.'); return; }
+function openEmailModal() {
+    var typeNames = Object.keys(resultTexts).map(function(t){ return getDisplayName(t); });
+    document.getElementById('emailModalScope').innerHTML =
+        '<i class="fas fa-info-circle me-1"></i>포함 분석: <b>' + typeNames.join(', ') + '</b> (' + typeNames.length + '개)';
+    var subj = document.getElementById('emailModalSubject');
+    if (!subj.value) subj.value = '워크스페이스 분석 결과 (' + new Date().toLocaleDateString('ko-KR') + ')';
+    var list = document.getElementById('emailRecipientList');
+    if (!list.children.length) addEmailRecipient();
+    document.getElementById('emailModalResult').innerHTML = '';
+    document.getElementById('emailModal').style.display = '';
+    document.body.style.overflow = 'hidden';
+}
+function closeEmailModal() {
+    document.getElementById('emailModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+function addEmailRecipient() {
+    var list = document.getElementById('emailRecipientList');
+    var idx  = list.children.length;
+    var row  = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+    row.innerHTML = '<input type="email" class="form-control" style="font-size:.84rem;flex:1;" placeholder="수신자 이메일 주소">'
+        + '<span class="email-rcpt-status" style="font-size:.72rem;min-width:20px;"></span>'
+        + (idx > 0
+           ? '<button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.85rem;padding:2px 6px;" title="삭제"><i class="fas fa-times"></i></button>'
+           : '<span style="width:28px;"></span>');
+    list.appendChild(row);
+    row.querySelector('input').focus();
+}
+function sendEmailAll() {
+    var inputs = document.querySelectorAll('#emailRecipientList input[type=email]');
+    var recipients = [];
+    inputs.forEach(function(inp){ var v = (inp.value||'').trim(); if (v) recipients.push(v); });
+    if (!recipients.length) { alert('수신자를 1명 이상 입력하세요.'); return; }
+    var subject = (document.getElementById('emailModalSubject').value||'').trim() || '워크스페이스 분석 결과';
     var lines = [];
     Object.keys(resultTexts).forEach(function(t){ lines.push('=== ' + getDisplayName(t) + ' ===\n\n' + resultTexts[t] + '\n'); });
-    var btn = document.getElementById('btnSendEmail');
+    var content = lines.join('\n');
+    var btn = document.getElementById('btnSendEmailAll');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>발송 중...';
-    var params = new URLSearchParams();
-    params.append('to',      to);
-    params.append('subject', subject || '워크스페이스 분석 결과');
-    params.append('content', lines.join('\n'));
-    fetch('/workspace/send-email', { method:'POST', body:params })
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
-            var el = document.getElementById('emailResult');
-            el.style.color = d.success ? '#10b981' : '#ef4444';
-            el.textContent = d.success ? '✓ 이메일이 발송되었습니다.' : (d.error || '발송 실패');
-            setTimeout(function(){ el.textContent = ''; }, 4000);
-        })
-        .catch(function(){
-            btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
-            document.getElementById('emailResult').textContent = '발송 중 오류가 발생했습니다.';
-        });
+    document.getElementById('emailModalResult').innerHTML = '';
+    var statusEls = document.querySelectorAll('#emailRecipientList .email-rcpt-status');
+    var sent = 0, failed = 0, total = recipients.length;
+    function sendNext(idx) {
+        if (idx >= total) {
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>전체 발송';
+            document.getElementById('emailModalResult').innerHTML =
+                '<span style="color:#10b981;"><i class="fas fa-check-circle me-1"></i>' + sent + '명 성공'
+                + (failed > 0 ? ' / <span style="color:#ef4444;">' + failed + '명 실패</span>' : '') + '</span>';
+            return;
+        }
+        if (statusEls[idx]) statusEls[idx].innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#f59e0b;"></i>';
+        var params = new URLSearchParams();
+        params.append('to', recipients[idx]); params.append('subject', subject); params.append('content', content);
+        fetch('/workspace/send-email', {method:'POST', body:params})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.success) { sent++; if (statusEls[idx]) statusEls[idx].innerHTML = '<i class="fas fa-check-circle" style="color:#10b981;"></i>'; }
+                else { failed++; if (statusEls[idx]) statusEls[idx].innerHTML = '<i class="fas fa-times-circle" style="color:#ef4444;" title="'+(d.error||'')+'"></i>'; }
+                sendNext(idx+1);
+            })
+            .catch(function(){ failed++; if (statusEls[idx]) statusEls[idx].innerHTML = '<i class="fas fa-times-circle" style="color:#ef4444;"></i>'; sendNext(idx+1); });
+    }
+    sendNext(0);
 }
 
 /* ═══════════════════════════════════════════════════════════
