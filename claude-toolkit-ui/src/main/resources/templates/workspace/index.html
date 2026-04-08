@@ -998,7 +998,9 @@ function startStream(typeName, url) {
         updateProgress();
     });
 
-    // 네이티브 EventSource 연결 오류 (HTTP 에러, 연결 실패, 서버 종료 후 재연결 시도)
+    // 네이티브 EventSource 연결 오류 (서버 연결 종료 후 재연결 시도 시 발생)
+    // done 이벤트 직후 서버가 연결을 닫으면 onerror가 뒤이어 발생할 수 있으므로
+    // 충분한 대기(500ms) 후 isDone 체크로 정상 완료 케이스를 걸러냄
     es.onerror = function() {
         setTimeout(function() {
             if (isDone) return;
@@ -1013,23 +1015,13 @@ function startStream(typeName, url) {
                     + '<div style="color:#ef4444;font-size:.78rem;padding:8px;margin-top:8px;background:rgba(239,68,68,.07);border-radius:6px;">'
                     + '<i class="fas fa-exclamation-circle me-1"></i>스트림이 중단되었습니다 (응답 일부만 수신)</div>';
             } else if (el) {
-                // HTTP 오류 상세 확인을 위해 동일 URL을 fetch로 재요청
-                fetch(url).then(function(r) {
-                    return r.text().then(function(body) {
-                        var detail = 'HTTP ' + r.status;
-                        if (body) detail += ' — ' + body.substring(0, 300);
-                        el.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:10px;background:rgba(239,68,68,.07);border-radius:6px;word-break:break-all;">'
-                            + '<i class="fas fa-exclamation-circle me-1"></i>스트림 연결 오류<br>'
-                            + '<span style="font-size:.75rem;color:var(--text-muted);">' + escHtml(detail) + '</span></div>';
-                    });
-                }).catch(function(e) {
-                    el.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:10px;background:rgba(239,68,68,.07);border-radius:6px;">'
-                        + '<i class="fas fa-exclamation-circle me-1"></i>스트림 연결 오류: ' + escHtml(e.message) + '</div>';
-                });
+                el.innerHTML = '<div style="color:#ef4444;font-size:.82rem;padding:10px;background:rgba(239,68,68,.07);border-radius:6px;">'
+                    + '<i class="fas fa-exclamation-circle me-1"></i>스트림 연결 오류 — 서버와의 SSE 연결이 실패했습니다.<br>'
+                    + '<span style="font-size:.75rem;color:var(--text-muted);">Claude API 키·모델 설정을 확인하거나, 서버 콘솔 로그를 확인하세요.</span></div>';
             }
             doneCount++;
             updateProgress();
-        }, 200);
+        }, 500);
     };
 }
 

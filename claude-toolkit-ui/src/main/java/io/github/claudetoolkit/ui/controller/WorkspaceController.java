@@ -264,9 +264,12 @@ public class WorkspaceController {
                                 }
                             });
                     emitter.send(SseEmitter.event().name("done").data("ok"));
+                    // done 이벤트가 브라우저에 도달할 시간 확보 후 연결 종료
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();
                 } catch (Exception e) {
-                    log.error("[stream] 스트리밍 오류: {}", e.getMessage(), e);
+                    log.error("[stream] 스트리밍 오류: type={}, model={}, error={}",
+                            req.getAnalysisType(), claudeClient.getEffectiveModel(), e.getMessage(), e);
                     try {
                         emitter.send(SseEmitter.event().name("error").data(
                                 e.getMessage() != null ? e.getMessage() : "분석 중 오류 발생"));
@@ -433,6 +436,7 @@ public class WorkspaceController {
                                 }
                             });
                     emitter.send(SseEmitter.event().name("done").data("ok"));
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();
                 } catch (Exception e) {
                     log.error("[compare-stream] 스트리밍 오류: {}", e.getMessage(), e);

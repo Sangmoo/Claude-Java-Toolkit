@@ -140,6 +140,7 @@ public class SseStreamController {
                                     }
                                 });
                         emitter.send(SseEmitter.event().name("done").data("ok"));
+                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                         emitter.complete();
                         return;
                     }
@@ -164,6 +165,7 @@ public class SseStreamController {
                                     }
                                 });
                         emitter.send(SseEmitter.event().name("done").data("ok"));
+                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                         emitter.complete();
                         return;
                     }
@@ -185,6 +187,7 @@ public class SseStreamController {
                                 }
                             });
                     emitter.send(SseEmitter.event().name("done").data("ok"));
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();
                 } catch (Exception e) {
                     try { emitter.send(SseEmitter.event().name("error_msg").data(
