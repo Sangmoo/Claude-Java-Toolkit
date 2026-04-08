@@ -65,6 +65,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/dashboard') ? ' active' : ''}">
                 <i class="fas fa-chart-line" style="color:#10b981"></i><span>성능 히스토리</span>
             </a>
+            <a href="/sql-translate" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/sql-translate') ? ' active' : ''}">
+                <i class="fas fa-language" style="color:#f97316"></i><span>SQL DB 번역</span>
+            </a>
             <a href="/harness" class="sidebar-item"
                th:classappend="${#request.requestURI == '/harness' ? ' active' : ''}">
                 <i class="fas fa-code-compare" style="color:#8b5cf6"></i><span>코드 리뷰 하네스</span>
@@ -155,6 +159,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/usage') ? ' active' : ''}">
                 <i class="fas fa-gauge-high" style="color:#f97316"></i><span>사용량 모니터링</span>
             </a>
+            <a href="/roi-report" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/roi-report') ? ' active' : ''}">
+                <i class="fas fa-chart-pie" style="color:#10b981"></i><span>ROI 리포트</span>
+            </a>
             <a href="/schedule" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/schedule') ? ' active' : ''}">
                 <i class="fas fa-calendar-check" style="color:#10b981"></i><span>분석 스케줄링</span>
@@ -197,6 +205,10 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/maskgen') ? ' active' : ''}">
                 <i class="fas fa-user-shield"></i><span>마스킹 스크립트</span>
             </a>
+            <a href="/input-masking" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/input-masking') ? ' active' : ''}">
+                <i class="fas fa-eye-slash" style="color:#f97316"></i><span>민감정보 마스킹</span>
+            </a>
         </div>
     </div>
 
@@ -214,7 +226,11 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings') ? ' active' : ''}">
             <i class="fas fa-cog"></i><span>Settings</span>
         </a>
-        <div class="sidebar-version">v1.7.0 · JDK 1.8</div>
+        <a href="/security" class="sidebar-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/security') ? ' active' : ''}">
+            <i class="fas fa-shield-halved" style="color:#8b5cf6"></i><span>보안 설정</span>
+        </a>
+        <div class="sidebar-version">v1.9.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -277,7 +293,7 @@
                        '/mockdata', '/migration', '/batch',
                        '/javadoc', '/refactor', '/depcheck', '/migrate'],
             history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles'],
-            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen'],
+            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen', '/input-masking'],
             api:      ['/api-docs']
         };
         var ALL_KEYS = ['analysis', 'generate', 'history', 'tools', 'api'];

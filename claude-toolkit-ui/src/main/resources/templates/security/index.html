@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>보안 설정 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250408')}" rel="stylesheet">
+    <style>
+        /* ── 토글 스위치 ── */
+        .toggle-switch { position:relative; display:inline-block; width:46px; height:24px; flex-shrink:0; }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
+                         background:var(--border-color); transition:.25s; border-radius:24px; }
+        .toggle-slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px;
+                                 background:#fff; transition:.25s; border-radius:50%; }
+        input:checked + .toggle-slider { background:var(--accent); }
+        input:checked + .toggle-slider:before { transform:translateX(22px); }
+
+        /* ── 섹션 카드 ── */
+        .sec-card { border:1px solid var(--border-color); border-radius:12px;
+                    background:var(--bg-secondary); padding:20px 24px; margin-bottom:18px; }
+        .sec-card-title { font-size:.88rem; font-weight:700; color:var(--text-primary);
+                          display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+        .sec-input { background:var(--input-bg) !important; border:1px solid var(--border-color) !important;
+                     color:var(--text-primary) !important; border-radius:6px; padding:6px 12px;
+                     font-size:.84rem; width:100%; }
+        .sec-input:focus { outline:none; border-color:var(--accent) !important;
+                           box-shadow:0 0 0 2px rgba(249,115,22,.15) !important; }
+
+        /* ── 키 표시 박스 ── */
+        .key-reveal { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.3);
+                      border-radius:8px; padding:12px 16px; font-family:'JetBrains Mono',monospace;
+                      font-size:.82rem; color:#10b981; word-break:break-all; }
+
+        /* ── 감사 로그 테이블 ── */
+        .audit-table th { font-size:.72rem; color:var(--text-muted); font-weight:600;
+                          padding:7px 10px; border-bottom:1px solid var(--border-color); white-space:nowrap; }
+        .audit-table td { font-size:.75rem; padding:6px 10px; border-bottom:1px solid var(--border-color); }
+        .audit-table tr:hover td { background:rgba(139,92,246,.04); }
+        .status-badge { font-size:.68rem; font-weight:700; padding:1px 7px; border-radius:10px; }
+
+        /* ── 통계 카드 ── */
+        .stat-card { border:1px solid var(--border-color); border-radius:10px;
+                     background:var(--bg-secondary); padding:14px 18px;
+                     display:flex; align-items:center; gap:14px; }
+        .stat-num  { font-size:1.6rem; font-weight:800; color:var(--accent); line-height:1.1; }
+        .stat-lbl  { font-size:.72rem; color:var(--text-muted); }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-shield-halved me-2" style="color:#8b5cf6"></i>보안 설정
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">REST API 키 인증, Settings 비밀번호 잠금, API 호출 감사 로그를 관리합니다</p>
+
+            <div class="row g-4">
+                <!-- ════ 왼쪽: API키 + Settings잠금 ════ -->
+                <div class="col-lg-5">
+
+                    <!-- ── API 키 인증 ── -->
+                    <div class="sec-card">
+                        <div class="sec-card-title">
+                            <i class="fas fa-key" style="color:#f97316"></i>
+                            REST API 키 인증
+                            <span id="apiKeyBadge"
+                                  th:class="${apiKeyEnabled} ? 'badge bg-success ms-auto' : 'badge bg-secondary ms-auto'"
+                                  th:text="${apiKeyEnabled} ? '활성' : '비활성'"></span>
+                        </div>
+                        <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">
+                            활성화 시 브라우저 외부 API 호출에 <code>X-Api-Key: &lt;key&gt;</code> 헤더가 필요합니다.<br>
+                            HTML 페이지 접근(브라우저)은 면제됩니다.
+                        </p>
+
+                        <!-- 활성화 토글 -->
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="apiKeyToggle"
+                                       th:checked="${apiKeyEnabled}"
+                                       onchange="toggleApiKey(this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span style="font-size:.82rem;color:var(--text-sub);">API 키 인증 활성화</span>
+                            <span id="apiKeySetLabel"
+                                  th:style="${apiKeySet} ? 'display:inline-flex' : 'display:none'"
+                                  style="font-size:.72rem;color:#10b981;display:none;align-items:center;gap:4px;">
+                                <i class="fas fa-check-circle"></i>키 설정됨
+                            </span>
+                        </div>
+
+                        <!-- API 키 생성 / 삭제 -->
+                        <div class="d-flex gap-2 mb-3 flex-wrap">
+                            <button type="button" class="btn-accent" onclick="generateApiKey()" style="font-size:.82rem;padding:7px 16px;">
+                                <i class="fas fa-rotate me-1"></i>새 API 키 생성
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deleteApiKey()"
+                                    th:disabled="${!apiKeySet}">
+                                <i class="fas fa-trash me-1"></i>삭제
+                            </button>
+                        </div>
+
+                        <!-- 생성된 키 표시 (한 번만) -->
+                        <div id="keyRevealBox" style="display:none;">
+                            <div class="mb-1" style="font-size:.75rem;color:#f59e0b;font-weight:600;">
+                                <i class="fas fa-exclamation-triangle me-1"></i>이 키는 지금만 확인할 수 있습니다. 반드시 복사해두세요.
+                            </div>
+                            <div class="key-reveal" id="rawKeyDisplay"></div>
+                            <button type="button" class="btn btn-outline-tk btn-sm mt-2" onclick="copyRawKey()">
+                                <i class="fas fa-copy me-1"></i>클립보드 복사
+                            </button>
+                        </div>
+
+                        <div style="font-size:.74rem;color:var(--text-muted);margin-top:8px;">
+                            <i class="fas fa-info-circle me-1"></i>
+                            사용 예: <code>curl -H "X-Api-Key: &lt;key&gt;" http://localhost:8027/sql-review/analyze</code>
+                        </div>
+                    </div>
+
+                    <!-- ── Settings 비밀번호 잠금 ── -->
+                    <div class="sec-card">
+                        <div class="sec-card-title">
+                            <i class="fas fa-lock" style="color:#8b5cf6"></i>
+                            Settings 비밀번호 잠금
+                            <span id="settingsLockBadge"
+                                  th:class="${settingsLockEnabled} ? 'badge bg-success ms-auto' : 'badge bg-secondary ms-auto'"
+                                  th:text="${settingsLockEnabled} ? '활성' : '비활성'"></span>
+                        </div>
+                        <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">
+                            활성화 시 /settings 접근에 비밀번호가 필요합니다. 세션 기반으로 한 번 인증하면 브라우저를 닫을 때까지 유지됩니다.
+                        </p>
+
+                        <!-- 활성화 토글 -->
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="settingsLockToggle"
+                                       th:checked="${settingsLockEnabled}"
+                                       onchange="toggleSettingsLock(this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span style="font-size:.82rem;color:var(--text-sub);">Settings 잠금 활성화</span>
+                            <span id="settingsPwdSetLabel"
+                                  th:style="${settingsPasswordSet} ? 'display:inline-flex' : 'display:none'"
+                                  style="font-size:.72rem;color:#10b981;display:none;align-items:center;gap:4px;">
+                                <i class="fas fa-check-circle"></i>비밀번호 설정됨
+                            </span>
+                        </div>
+
+                        <!-- 비밀번호 설정 -->
+                        <div class="mb-2" style="font-size:.78rem;color:var(--text-muted);">새 비밀번호 설정 (4자 이상)</div>
+                        <div class="d-flex gap-2 mb-3">
+                            <input type="password" id="settingsPwdInput" class="sec-input"
+                                   placeholder="비밀번호 입력..." style="max-width:220px;"
+                                   onkeydown="if(event.key==='Enter') setSettingsPassword()">
+                            <button type="button" class="btn-accent" onclick="setSettingsPassword()" style="font-size:.82rem;padding:7px 16px;white-space:nowrap;">
+                                <i class="fas fa-save me-1"></i>설정
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deleteSettingsPassword()">
+                            <i class="fas fa-trash me-1"></i>비밀번호 삭제 및 잠금 해제
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ════ 오른쪽: 감사 로그 ════ -->
+                <div class="col-lg-7">
+                    <div class="panel p-3">
+                        <!-- 통계 -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="stat-card">
+                                    <div><div class="stat-num" th:text="${todayCount}">0</div>
+                                         <div class="stat-lbl">오늘 요청 수</div></div>
+                                    <i class="fas fa-calendar-day" style="font-size:1.4rem;color:var(--accent);opacity:.5;margin-left:auto;"></i>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-card">
+                                    <div><div class="stat-num" th:text="${hourCount}">0</div>
+                                         <div class="stat-lbl">최근 1시간 요청</div></div>
+                                    <i class="fas fa-clock" style="font-size:1.4rem;color:#8b5cf6;opacity:.5;margin-left:auto;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 로그 테이블 -->
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span style="font-size:.82rem;font-weight:600;">
+                                <i class="fas fa-list-ul me-1" style="color:#10b981"></i>최근 감사 로그 (최대 300건)
+                            </span>
+                            <button type="button" class="btn btn-outline-tk btn-sm" onclick="loadAuditLog()">
+                                <i class="fas fa-sync-alt me-1"></i>새로고침
+                            </button>
+                        </div>
+                        <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
+                            <table class="audit-table w-100">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>메서드</th>
+                                        <th>엔드포인트</th>
+                                        <th>IP</th>
+                                        <th>상태</th>
+                                        <th>API키</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="auditTableBody">
+                                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">
+                                        <i class="fas fa-circle-notch fa-spin me-1"></i>로딩 중...
+                                    </td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /row -->
+        </div><!-- /main-content -->
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script th:src="@{/js/toolkit.js}"></script>
+<script>
+var _rawKey = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAuditLog();
+});
+
+/* ═══ API 키 관리 ══════════════════════════════════════════════════════════ */
+function generateApiKey() {
+    if (!confirm('새 API 키를 생성하면 기존 키는 즉시 무효화됩니다. 계속하시겠습니까?')) return;
+    fetch('/security/api-key/generate', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert('생성 실패: ' + (d.error||'')); return; }
+            _rawKey = d.rawKey;
+            document.getElementById('rawKeyDisplay').textContent = d.rawKey;
+            document.getElementById('keyRevealBox').style.display  = '';
+            document.getElementById('apiKeySetLabel').style.display= 'inline-flex';
+            document.getElementById('apiKeyToggle').checked = true;
+            updateBadge('apiKeyBadge', true);
+            showToast('API 키가 생성되었습니다. 반드시 복사해두세요!');
+        });
+}
+
+function toggleApiKey(enabled) {
+    var fd = new FormData();
+    fd.append('enabled', enabled);
+    fetch('/security/api-key/toggle', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) {
+                alert(d.error||'오류');
+                document.getElementById('apiKeyToggle').checked = !enabled;
+                return;
+            }
+            updateBadge('apiKeyBadge', enabled);
+            showToast('API 키 인증이 ' + (enabled ? '활성화' : '비활성화') + '되었습니다.');
+        });
+}
+
+function deleteApiKey() {
+    if (!confirm('API 키를 삭제하시겠습니까? 인증도 함께 비활성화됩니다.')) return;
+    fetch('/security/api-key/delete', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert(d.error||'오류'); return; }
+            document.getElementById('apiKeyToggle').checked  = false;
+            document.getElementById('apiKeySetLabel').style.display = 'none';
+            document.getElementById('keyRevealBox').style.display   = 'none';
+            updateBadge('apiKeyBadge', false);
+            showToast('API 키가 삭제되었습니다.');
+        });
+}
+
+function copyRawKey() {
+    if (!_rawKey) return;
+    navigator.clipboard.writeText(_rawKey).then(function() {
+        showToast('API 키가 클립보드에 복사되었습니다.');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = _rawKey; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        showToast('복사되었습니다.');
+    });
+}
+
+/* ═══ Settings 비밀번호 관리 ════════════════════════════════════════════════ */
+function setSettingsPassword() {
+    var pwd = document.getElementById('settingsPwdInput').value;
+    if (!pwd || pwd.length < 4) { alert('비밀번호는 4자 이상이어야 합니다.'); return; }
+    var fd = new FormData();
+    fd.append('password', pwd);
+    fetch('/security/settings-password/set', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert(d.error||'오류'); return; }
+            document.getElementById('settingsPwdInput').value = '';
+            document.getElementById('settingsPwdSetLabel').style.display = 'inline-flex';
+            document.getElementById('settingsLockToggle').checked = true;
+            updateBadge('settingsLockBadge', true);
+            showToast('비밀번호가 설정되었습니다. Settings 잠금이 활성화됩니다.');
+        });
+}
+
+function toggleSettingsLock(enabled) {
+    var fd = new FormData();
+    fd.append('enabled', enabled);
+    fetch('/security/settings-password/toggle', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) {
+                alert(d.error||'오류');
+                document.getElementById('settingsLockToggle').checked = !enabled;
+                return;
+            }
+            updateBadge('settingsLockBadge', enabled);
+            showToast('Settings 잠금이 ' + (enabled ? '활성화' : '비활성화') + '되었습니다.');
+        });
+}
+
+function deleteSettingsPassword() {
+    if (!confirm('비밀번호를 삭제하면 Settings 잠금이 해제됩니다. 계속하시겠습니까?')) return;
+    fetch('/security/settings-password/delete', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (!d.success) { alert(d.error||'오류'); return; }
+            document.getElementById('settingsLockToggle').checked    = false;
+            document.getElementById('settingsPwdSetLabel').style.display = 'none';
+            updateBadge('settingsLockBadge', false);
+            showToast('비밀번호가 삭제되었습니다.');
+        });
+}
+
+/* ═══ 감사 로그 테이블 ════════════════════════════════════════════════════ */
+function loadAuditLog() {
+    fetch('/security/audit-log')
+        .then(function(r) { return r.json(); })
+        .then(function(logs) {
+            var tbody = document.getElementById('auditTableBody');
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < logs.length; i++) {
+                var l = logs[i];
+                var statusStyle = 'background:' + (l.statusColor||'#64748b') + '20;color:' + (l.statusColor||'#64748b') + ';';
+                html += '<tr>'
+                      + '<td style="white-space:nowrap;">' + escHtml(l.formattedDate||'') + '</td>'
+                      + '<td><code style="font-size:.7rem;">' + escHtml(l.method||'') + '</code></td>'
+                      + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(l.endpoint||'') + '">'
+                      + escHtml(l.endpoint||'') + '</td>'
+                      + '<td style="font-size:.72rem;">' + escHtml(l.ip||'-') + '</td>'
+                      + '<td><span class="status-badge" style="' + statusStyle + '">' + (l.statusCode||'-') + '</span></td>'
+                      + '<td style="text-align:center;">' + (l.apiKeyUsed ? '<i class="fas fa-key" style="color:#f97316;font-size:.7rem;" title="API 키 사용"></i>' : '-') + '</td>'
+                      + '</tr>';
+            }
+            tbody.innerHTML = html;
+        })
+        .catch(function() {
+            document.getElementById('auditTableBody').innerHTML =
+                '<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
+        });
+}
+
+/* ═══ 유틸 ══════════════════════════════════════════════════════════════════ */
+function updateBadge(id, active) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.className = active ? 'badge bg-success ms-auto' : 'badge bg-secondary ms-auto';
+    el.textContent = active ? '활성' : '비활성';
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg) {
+    if (typeof window.showToast === 'function') { window.showToast(msg); return; }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:8px 18px;border-radius:8px;font-size:.82rem;z-index:9999;';
+    document.body.appendChild(t);
+    setTimeout(function() { if (t.parentNode) document.body.removeChild(t); }, 3000);
+}
+</script>
+</body>
+</html>

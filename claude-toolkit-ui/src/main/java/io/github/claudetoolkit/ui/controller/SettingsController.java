@@ -7,10 +7,12 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.starter.properties.ClaudeProperties;
 import io.github.claudetoolkit.ui.config.SettingsPersistenceService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.security.SecuritySettings;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.List;
 
@@ -43,7 +45,15 @@ public class SettingsController {
     }
 
     @GetMapping
-    public String showSettings(Model model) {
+    public String showSettings(Model model, HttpSession session) {
+        // Settings 비밀번호 잠금 확인
+        SecuritySettings sec = SecuritySettings.load();
+        if (sec.isSettingsLockEnabled() && sec.getSettingsPasswordHash() != null) {
+            Boolean unlocked = (Boolean) session.getAttribute("settingsUnlocked");
+            if (!Boolean.TRUE.equals(unlocked)) {
+                return "redirect:/security/settings-unlock?redirect=/settings";
+            }
+        }
         model.addAttribute("settings", settings);
         model.addAttribute("currentApiKeyMasked", maskApiKey(claudeProperties.getApiKey()));
         java.util.List<String> availableModels = new java.util.ArrayList<String>();

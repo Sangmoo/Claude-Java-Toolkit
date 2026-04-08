@@ -181,6 +181,10 @@
                 <div class="pipeline-step" id="stepReviewer">
                     <i class="fas fa-check-circle"></i> 검토자 (Reviewer)
                 </div>
+                <span class="pipeline-arrow">→</span>
+                <div class="pipeline-step" id="stepVerifier">
+                    <i class="fas fa-shield-halved"></i> 검증자 (Verifier)
+                </div>
             </div>
 
             <div class="row g-3">
@@ -374,6 +378,9 @@
                             <button class="result-tab" id="rtQuality"    onclick="switchResultTab('quality')">
                                 <i class="fas fa-chart-bar me-1"></i>품질 점수
                             </button>
+                            <button class="result-tab" id="rtVerify"    onclick="switchResultTab('verify')">
+                                <i class="fas fa-shield-halved me-1"></i>검증 결과
+                            </button>
                             <button class="result-tab" id="rtRaw"       onclick="switchResultTab('raw')">
                                 <i class="fas fa-file-lines me-1"></i>원문
                             </button>
@@ -425,6 +432,12 @@
                             <div class="section-content" id="qualityContent"></div>
                         </div>
 
+                        <!-- Verify tab -->
+                        <div id="tabVerify" class="panel p-3" style="display:none;">
+                            <div id="verifyVerdictBadge" style="margin-bottom:10px;"></div>
+                            <div class="section-content" id="verifyContent"></div>
+                        </div>
+
                         <!-- Raw tab -->
                         <div id="tabRaw" class="panel p-3" style="display:none;">
                             <div class="d-flex justify-content-end mb-2">
@@ -473,21 +486,21 @@ function setLanguage(lang) {
    Pipeline step indicator
    ═══════════════════════════════════════════════════════════════ */
 function resetSteps() {
-    ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
+    ['stepAnalyst','stepBuilder','stepReviewer','stepVerifier'].forEach(function(id) {
         document.getElementById(id).className = 'pipeline-step';
     });
 }
 function setStep(step) {
-    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
+    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer', verifier:'stepVerifier'};
     resetSteps();
     if (map[step]) document.getElementById(map[step]).className = 'pipeline-step active';
 }
 function doneStep(step) {
-    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer'};
+    var map = {analyst:'stepAnalyst', builder:'stepBuilder', reviewer:'stepReviewer', verifier:'stepVerifier'};
     if (map[step]) document.getElementById(map[step]).className = 'pipeline-step done';
 }
 function allStepsDone() {
-    ['stepAnalyst','stepBuilder','stepReviewer'].forEach(function(id) {
+    ['stepAnalyst','stepBuilder','stepReviewer','stepVerifier'].forEach(function(id) {
         document.getElementById(id).className = 'pipeline-step done';
     });
 }
@@ -843,7 +856,8 @@ function runStream() {
     document.getElementById('streamSteps').innerHTML =
         mkStepRow(true,  '분석가(Analyst) 실행 중...')
       + mkStepRow(false, '개선가(Builder) 대기 중', 'streamStepBuilder')
-      + mkStepRow(false, '검토자(Reviewer) 대기 중', 'streamStepReviewer');
+      + mkStepRow(false, '검토자(Reviewer) 대기 중', 'streamStepReviewer')
+      + mkStepRow(false, '검증자(Verifier) 대기 중', 'streamStepVerifier');
 
     document.getElementById('streamPanel').style.display = '';
     document.getElementById('streamBtn').disabled = true;
@@ -895,6 +909,12 @@ function openSse(streamId) {
             var r = document.getElementById('streamStepReviewer');
             if (r) { r.style.opacity = '1'; r.innerHTML = '<span style="width:18px;text-align:center;"><i class="fas fa-circle-notch spin-icon"></i></span>검토자(Reviewer) 검증 중...'; }
         }
+        if (streamBuffer.indexOf('🛠') !== -1 || streamBuffer.indexOf('컴파일 가능성') !== -1 || streamBuffer.indexOf('SQL 문법 검증') !== -1) {
+            doneStep('reviewer');
+            setStep('verifier');
+            var v = document.getElementById('streamStepVerifier');
+            if (v) { v.style.opacity = '1'; v.innerHTML = '<span style="width:18px;text-align:center;"><i class="fas fa-circle-notch spin-icon"></i></span>검증자(Verifier) 검증 중...'; }
+        }
     };
 
     streamEs.addEventListener('done', function() {
@@ -942,11 +962,50 @@ function renderResult() {
         extractSection(currentFullResp, ['📈 기대 효과', '✅ 최종 검토 의견', '기대 효과', '최종 검토']));
     document.getElementById('qualityContent').innerHTML  = renderMd(
         extractSection(currentFullResp, ['📊 품질 점수', '품질 점수']));
+    // Verifier 섹션 — 🛠 마커부터 끝까지 추출
+    var verifyText = extractVerifierBlock(currentFullResp);
+    document.getElementById('verifyContent').innerHTML   = renderMd(verifyText);
+    renderVerifyVerdictBadge(verifyText);
     document.getElementById('rawContent').textContent    = currentFullResp;
 }
 
+function extractVerifierBlock(text) {
+    if (!text) return '';
+    var markers = ['## 🛠 컴파일 가능성', '## 🛠 SQL 문법 검증'];
+    for (var i = 0; i < markers.length; i++) {
+        var idx = text.indexOf(markers[i]);
+        if (idx >= 0) return text.substring(idx).trim();
+    }
+    // fallback: 최종 검증 판정 섹션만이라도 찾기
+    var fb = text.indexOf('## 🏁 최종 검증 판정');
+    if (fb >= 0) return text.substring(fb).trim();
+    return '';
+}
+
+function renderVerifyVerdictBadge(verifyText) {
+    var el = document.getElementById('verifyVerdictBadge');
+    if (!verifyText) { el.innerHTML = ''; return; }
+    var verdict = '';
+    if (verifyText.indexOf('VERIFIED') !== -1 && verifyText.indexOf('WARNINGS') === -1 && verifyText.indexOf('FAILED') === -1) {
+        verdict = 'VERIFIED';
+    } else if (verifyText.indexOf('FAILED') !== -1) {
+        verdict = 'FAILED';
+    } else if (verifyText.indexOf('WARNINGS') !== -1) {
+        verdict = 'WARNINGS';
+    }
+    if (!verdict) { el.innerHTML = ''; return; }
+    var color  = verdict === 'VERIFIED' ? '#10b981' : verdict === 'WARNINGS' ? '#f59e0b' : '#ef4444';
+    var bgColor= verdict === 'VERIFIED' ? 'rgba(16,185,129,.12)' : verdict === 'WARNINGS' ? 'rgba(245,158,11,.12)' : 'rgba(239,68,68,.12)';
+    var icon   = verdict === 'VERIFIED' ? 'fa-shield-check' : verdict === 'WARNINGS' ? 'fa-triangle-exclamation' : 'fa-xmark-circle';
+    var label  = verdict === 'VERIFIED' ? '검증 통과 (VERIFIED)' : verdict === 'WARNINGS' ? '주의 필요 (WARNINGS)' : '검증 실패 (FAILED)';
+    el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:7px;padding:6px 16px;border-radius:20px;'
+                 + 'border:1.5px solid ' + color + ';background:' + bgColor + ';color:' + color + ';'
+                 + 'font-size:.82rem;font-weight:700;">'
+                 + '<i class="fas ' + icon + '"></i>' + label + '</span>';
+}
+
 function switchResultTab(tab) {
-    var tabs = ['diff','analysis','changes','review','quality','raw'];
+    var tabs = ['diff','analysis','changes','review','quality','verify','raw'];
     tabs.forEach(function(t) {
         var cap  = t.charAt(0).toUpperCase() + t.slice(1);
         var btn  = document.getElementById('rt' + cap);
@@ -1071,6 +1130,12 @@ function renderMd(text) {
     h = h.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre>$1</pre>');
     h = h.replace(/APPROVED/g,        '<span class="verdict-approved">✅ APPROVED</span>');
     h = h.replace(/NEEDS_REVISION/g,  '<span class="verdict-revision">⚠️ NEEDS_REVISION</span>');
+    h = h.replace(/\bVERIFIED\b/g,    '<span style="color:#10b981;font-weight:700;">✅ VERIFIED</span>');
+    h = h.replace(/\bWARNINGS\b/g,    '<span style="color:#f59e0b;font-weight:700;">⚠️ WARNINGS</span>');
+    h = h.replace(/\bFAILED\b/g,      '<span style="color:#ef4444;font-weight:700;">❌ FAILED</span>');
+    h = h.replace(/\bHIGH\b/g,        '<span style="color:#ef4444;font-weight:600;">HIGH</span>');
+    h = h.replace(/\bMEDIUM\b/g,      '<span style="color:#f59e0b;font-weight:600;">MEDIUM</span>');
+    h = h.replace(/\bLOW\b/g,         '<span style="color:#10b981;font-weight:600;">LOW</span>');
     h = h.replace(/^### (.+)$/gm,     '<h3>$1</h3>');
     h = h.replace(/^## (.+)$/gm,      '<h2>$1</h2>');
     h = h.replace(/^- (.+)$/gm,       '<li>$1</li>');

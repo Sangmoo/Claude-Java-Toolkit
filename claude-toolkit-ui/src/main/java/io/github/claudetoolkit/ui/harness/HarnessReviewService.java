@@ -25,6 +25,10 @@ import java.util.function.Consumer;
  * <p>Builder 단계는 {@link io.github.claudetoolkit.starter.client.ClaudeClient#chatWithContinuation}
  * / {@code chatStreamWithContinuation}을 사용하므로, 8192 토큰을 초과하는 대형 SP도
  * 이어쓰기(continuation)로 완전하게 출력됩니다 (최대 3회 추가 호출 = 약 32,768 토큰).
+ *
+ * <p>4단계 Verifier는 개선된 코드가 실제로 사용 가능한지를 정적 분석 관점에서 검증합니다:
+ * Java — 컴파일 가능성·Spring/JPA 호환성·위험 변경 감지,
+ * SQL  — SQL 문법 오류·Oracle 의존성 깨짐·위험 변경 감지(DROP/TRUNCATE/DELETE without WHERE).
  */
 @Service
 public class HarnessReviewService {
@@ -35,6 +39,8 @@ public class HarnessReviewService {
     private static final int TOKENS_BUILDER        = 8192;
     /** Reviewer: 변경 내역·기대 효과·품질 점수·최종 판정 4개 섹션. */
     private static final int TOKENS_REVIEWER       = 4096;
+    /** Verifier: 컴파일·문법·위험·의존성 4개 섹션 + 검증 판정. */
+    private static final int TOKENS_VERIFIER       = 2048;
     /**
      * Builder 단계 이어쓰기 최대 횟수.
      * 1회 추가 = 최대 16,384 토큰, 2회 = 24,576 토큰, 3회 = 32,768 토큰 출력 가능.
@@ -83,10 +89,17 @@ public class HarnessReviewService {
                 buildReviewerUser(code, improved, analysis.trim(), language),
                 TOKENS_REVIEWER);
 
+        // 4단계: Verifier — 컴파일·문법·위험·의존성 검증
+        String verifyResult = claudeClient.chat(
+                withMemo(buildVerifierSystem(language), memo),
+                buildVerifierUser(code, improved, analysis.trim(), language),
+                TOKENS_VERIFIER);
+
         // UI extractSection() 이 기대하는 ## 섹션 형식으로 조립
         return "## 📋 분석 요약\n" + analysis.trim()
              + "\n\n## 🔧 개선된 코드\n```" + codeBlock + "\n" + improved + "\n```"
-             + "\n\n" + reviewSections.trim();
+             + "\n\n" + reviewSections.trim()
+             + "\n\n" + verifyResult.trim();
     }
 
     // ── 파이프라인: SSE 스트리밍 ──────────────────────────────────────────────
@@ -147,6 +160,14 @@ public class HarnessReviewService {
                 withMemo(buildReviewerSystem(language), memo),
                 buildReviewerUser(code, improved, analysis, language),
                 TOKENS_REVIEWER,
+                onChunk);
+
+        // ── 4단계: Verifier ───────────────────────────────────────────────────
+        onChunk.accept("\n\n");
+        claudeClient.chatStream(
+                withMemo(buildVerifierSystem(language), memo),
+                buildVerifierUser(code, improved, analysis, language),
+                TOKENS_VERIFIER,
                 onChunk);
     }
 
@@ -213,6 +234,58 @@ public class HarnessReviewService {
              + "## ✅ 최종 검토 의견\n"
              + "[종합 판정(APPROVED / NEEDS_REVISION), 심각도, 주의 사항]\n\n"
              + "응답은 한국어로 작성하세요.";
+    }
+
+    private String buildVerifierSystem(String language) {
+        boolean isSql = "sql".equalsIgnoreCase(language);
+        if (isSql) {
+            return "당신은 Oracle SQL 코드 검증 전문가(Verifier)입니다.\n"
+                 + "개선된 SQL 코드가 실제 운영 환경에서 사용 가능한지를 정적 분석 관점에서 검증하세요.\n"
+                 + "반드시 아래 4개 섹션 형식으로만 응답하세요:\n\n"
+                 + "## 🛠 SQL 문법 검증\n"
+                 + "[Oracle SQL 문법 오류, 잘못된 키워드 사용, 괄호·따옴표 불일치 등을 항목(- )으로 나열.\n"
+                 + " 문제 없으면 '- 문법 오류 없음'으로 표기]\n\n"
+                 + "## 🚨 위험 변경 감지\n"
+                 + "[DROP TABLE/INDEX, TRUNCATE, WHERE 없는 DELETE/UPDATE, DDL 혼용 등을 항목(- )으로 나열.\n"
+                 + " 발견된 경우 심각도(HIGH/MEDIUM/LOW) 표기. 없으면 '- 위험 변경 없음'으로 표기]\n\n"
+                 + "## 🔗 Oracle 의존성 검증\n"
+                 + "[Oracle 전용 함수·패키지(DBMS_*)·힌트·파티션 구문·시퀀스 등의 의존성을 항목(- )으로 나열.\n"
+                 + " 의존성이 있으면 해당 항목이 개선 코드에서도 올바르게 유지되는지 확인]\n\n"
+                 + "## 🏁 최종 검증 판정\n"
+                 + "[한 줄 요약 후 반드시 아래 중 하나를 명시]\n"
+                 + "**판정**: VERIFIED (문제 없음) | WARNINGS (주의 필요) | FAILED (심각한 문제)\n\n"
+                 + "응답은 한국어로 작성하세요.";
+        } else {
+            return "당신은 Java/Spring 코드 검증 전문가(Verifier)입니다.\n"
+                 + "개선된 Java 코드가 실제 운영 환경에서 컴파일·실행 가능한지를 정적 분석 관점에서 검증하세요.\n"
+                 + "반드시 아래 4개 섹션 형식으로만 응답하세요:\n\n"
+                 + "## 🛠 컴파일 가능성\n"
+                 + "[import 누락, 타입 불일치, 미사용 변수, 접근 제어자 오류, 문법 오류 등을 항목(- )으로 나열.\n"
+                 + " 문제 없으면 '- 컴파일 오류 없음'으로 표기]\n\n"
+                 + "## 🚨 위험 변경 감지\n"
+                 + "[메서드 시그니처 변경(하위 호환 깨짐), public API 제거, @Transactional 범위 축소,\n"
+                 + " NullPointerException 위험 추가, 리소스 누수(Connection/Stream 미닫힘) 등을 항목(- )으로 나열.\n"
+                 + " 발견된 경우 심각도(HIGH/MEDIUM/LOW) 표기. 없으면 '- 위험 변경 없음'으로 표기]\n\n"
+                 + "## 🔗 Spring/JPA 호환성\n"
+                 + "[Spring Bean 주입 방식, @Autowired 순환 의존, JPA N+1 쿼리 위험, Lazy 로딩 예외(LazyInitializationException),\n"
+                 + " @Transactional 미적용 등 Spring/JPA 관련 호환성 문제를 항목(- )으로 나열.\n"
+                 + " 없으면 '- 호환성 문제 없음'으로 표기]\n\n"
+                 + "## 🏁 최종 검증 판정\n"
+                 + "[한 줄 요약 후 반드시 아래 중 하나를 명시]\n"
+                 + "**판정**: VERIFIED (문제 없음) | WARNINGS (주의 필요) | FAILED (심각한 문제)\n\n"
+                 + "응답은 한국어로 작성하세요.";
+        }
+    }
+
+    private String buildVerifierUser(String originalCode, String improvedCode,
+                                     String analysis, String language) {
+        boolean isSql    = "sql".equalsIgnoreCase(language);
+        String langLabel = isSql ? "SQL"  : "Java";
+        String codeBlock = isSql ? "sql"  : "java";
+        return "다음 " + langLabel + " 코드 개선 결과를 검증하세요.\n\n"
+             + "원본 코드:\n```" + codeBlock + "\n" + originalCode + "\n```\n\n"
+             + "분석 결과 요약:\n" + analysis + "\n\n"
+             + "개선된 코드:\n```" + codeBlock + "\n" + improvedCode + "\n```";
     }
 
     private String applyTemplateHint(String systemPrompt, String templateHint) {

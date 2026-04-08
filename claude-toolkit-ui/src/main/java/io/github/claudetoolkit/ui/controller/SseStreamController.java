@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
+import io.github.claudetoolkit.ui.translate.SqlTranslateService;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -34,16 +35,19 @@ public class SseStreamController {
     private final ConcurrentHashMap<String, StreamInput> pending =
             new ConcurrentHashMap<String, StreamInput>();
 
-    private final ClaudeClient        claudeClient;
-    private final ToolkitSettings     settings;
+    private final ClaudeClient         claudeClient;
+    private final ToolkitSettings      settings;
     private final HarnessReviewService harnessService;
+    private final SqlTranslateService  translateService;
 
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
-                               HarnessReviewService harnessService) {
-        this.claudeClient   = claudeClient;
-        this.settings       = settings;
-        this.harnessService = harnessService;
+                               HarnessReviewService harnessService,
+                               SqlTranslateService translateService) {
+        this.claudeClient     = claudeClient;
+        this.settings         = settings;
+        this.harnessService   = harnessService;
+        this.translateService = translateService;
     }
 
     // ── Direct registration (for internal use, no HTTP round-trip) ──────────
@@ -115,6 +119,30 @@ public class SseStreamController {
                                 input.input,
                                 input.sourceType,  // sourceType에 language("java"/"sql")가 담김
                                 input.input2,      // input2에 templateHint가 담김
+                                new Consumer<String>() {
+                                    public void accept(String chunk) {
+                                        try { emitter.send(SseEmitter.event().data(chunk)); }
+                                        catch (IOException e) { emitter.completeWithError(e); }
+                                    }
+                                });
+                        emitter.send(SseEmitter.event().name("done").data(""));
+                        emitter.complete();
+                        return;
+                    }
+
+                    // ── SQL 번역: sourceType=sourceDb, input2=targetDb ─────────────────
+                    if ("sql_translate".equals(input.feature)) {
+                        // input2 = sourceDb, sourceType = targetDb (SqlTranslateController에서 매핑)
+                        String sourceDb = input.input2;
+                        String targetDb = input.sourceType;
+                        String sysPrompt = translateService.buildSystemPrompt(sourceDb, targetDb);
+                        String memo = settings.getProjectContext();
+                        if (memo != null && !memo.trim().isEmpty()) {
+                            sysPrompt = sysPrompt + "\n\n[프로젝트 컨텍스트]\n" + memo;
+                        }
+                        String userMsg = translateService.buildUserMessage(input.input, sourceDb, targetDb);
+                        claudeClient.chatStream(sysPrompt, userMsg,
+                                claudeClient.getProperties().getMaxTokens(),
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
                                         try { emitter.send(SseEmitter.event().data(chunk)); }

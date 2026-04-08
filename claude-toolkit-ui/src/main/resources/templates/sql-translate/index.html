@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>SQL DB 번역 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250408')}" rel="stylesheet">
+    <style>
+        /* ── DB source badge ── */
+        .db-arrow { font-size:1.2rem; color:var(--text-muted); display:flex; align-items:center;
+                    justify-content:center; padding:0 6px; align-self:flex-end; padding-bottom:6px; }
+        .db-select { background:var(--input-bg) !important; border:1px solid var(--border-color) !important;
+                     color:var(--text-primary) !important; border-radius:8px; padding:6px 12px;
+                     font-size:.84rem; min-width:150px; }
+        .db-select:focus { outline:none; border-color:var(--accent) !important;
+                           box-shadow:0 0 0 2px rgba(249,115,22,.15) !important; }
+        .db-badge { font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:10px; }
+        .db-badge-oracle     { background:rgba(239,68,68,.12);  color:#ef4444; }
+        .db-badge-postgresql { background:rgba(52,211,153,.12); color:#10b981; }
+        .db-badge-mysql      { background:rgba(249,115,22,.12); color:#f97316; }
+        .db-badge-mariadb    { background:rgba(139,92,246,.12); color:#8b5cf6; }
+
+        /* ── DB Object source selector (from harness) ── */
+        .src-toggle-btn { background:none; border:1px solid var(--border-color); color:var(--text-sub);
+                          padding:5px 14px; border-radius:8px; font-size:.8rem; cursor:pointer;
+                          display:flex; align-items:center; gap:6px; transition:all .15s; }
+        .src-toggle-btn:hover  { border-color:var(--accent); color:var(--accent); }
+        .src-toggle-btn.open   { border-color:var(--accent); color:var(--accent); background:rgba(249,115,22,.07); }
+        .source-panel { border:1px solid var(--border-color); border-radius:10px;
+                        overflow:hidden; margin-bottom:10px; background:var(--bg-secondary); }
+        .source-panel-header { padding:8px 14px; background:var(--bg-secondary);
+                               border-bottom:1px solid var(--border-color);
+                               display:flex; align-items:center; justify-content:space-between; }
+        .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
+                      border-bottom:1px solid var(--border-color);
+                      display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .source-list { max-height:220px; overflow-y:auto; background:var(--bg-secondary); }
+        .source-item { display:flex; align-items:center; gap:8px; padding:7px 14px;
+                       cursor:pointer; font-size:.8rem; border-bottom:1px solid var(--border-color);
+                       transition:background .12s; }
+        .source-item:last-child { border-bottom:none; }
+        .source-item:hover    { background:rgba(249,115,22,.08); }
+        .source-item.selected { background:rgba(249,115,22,.18); border-left:3px solid var(--accent); }
+        .source-item-icon  { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+        .source-item-name  { font-weight:500; color:var(--text-primary); flex-shrink:0;
+                             max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-owner { color:var(--text-muted); font-size:.72rem; flex:1;
+                             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; flex-shrink:0; }
+        .source-badge-procedure { background:rgba(249,115,22,.15);  color:#f97316; }
+        .source-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .source-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .source-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin .8s linear infinite; }
+
+        /* ── Copy / action buttons ── */
+        .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
+        .copy-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
+
+        /* ── Result panel ── */
+        .result-panel { border:1px solid var(--border-color); border-radius:10px;
+                        background:var(--bg-secondary); overflow:hidden; }
+        .result-panel-header { padding:9px 14px; background:var(--bg-secondary);
+                               border-bottom:1px solid var(--border-color);
+                               display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+        .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                      padding:4px 12px; border-radius:20px; cursor:pointer; font-size:.78rem; transition:all .15s; }
+        .result-tab.active { background:rgba(139,92,246,.12); border-color:#8b5cf6; color:#8b5cf6; font-weight:600; }
+
+        /* ── Diff view ── */
+        .diff-container { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .diff-panel { border:1px solid var(--border-color); border-radius:8px; overflow:hidden; }
+        .diff-panel-header { padding:6px 12px; font-size:.75rem; font-weight:600;
+                             background:var(--bg-secondary); border-bottom:1px solid var(--border-color); }
+        .diff-original-header  { color:#f87171; }
+        .diff-translated-header { color:#34d399; }
+        .diff-body { overflow-x:auto; max-height:460px; overflow-y:auto; }
+        .diff-line { display:flex; font-family:'JetBrains Mono',monospace;
+                     font-size:.75rem; line-height:1.7; white-space:pre; }
+        .diff-line-num  { min-width:36px; padding:0 6px; text-align:right; user-select:none;
+                          color:var(--text-muted); font-size:.68rem;
+                          border-right:1px solid var(--border-color); background:var(--bg-secondary); }
+        .diff-line-code { padding:0 8px; flex:1; }
+        .diff-removed { background:rgba(248,113,113,.1); }
+        .diff-removed .diff-line-code { color:#f87171; text-decoration:line-through; }
+        .diff-added { background:rgba(52,211,153,.1); }
+        .diff-added .diff-line-code { color:#34d399; }
+
+        /* ── Stream panel ── */
+        .stream-panel { border:1px solid var(--border-color); border-radius:10px;
+                        background:var(--bg-secondary); overflow:hidden; }
+        .stream-body  { padding:12px 16px; max-height:200px; overflow-y:auto;
+                        font-family:'JetBrains Mono',monospace; font-size:.76rem;
+                        white-space:pre-wrap; word-break:break-word; color:var(--text-sub); }
+
+        /* ── Section content (markdown) ── */
+        .section-content { font-size:.85rem; line-height:1.8; color:var(--text-primary); }
+        .section-content h2 { font-size:.95rem; font-weight:700; margin:16px 0 8px;
+                              padding-bottom:4px; border-bottom:1px solid var(--border-color); }
+        .section-content ul  { margin:0; padding-left:18px; }
+        .section-content li  { margin-bottom:4px; }
+        .section-content code { background:var(--bg-secondary); padding:1px 5px; border-radius:4px; font-size:.78rem; }
+        .section-content pre  { background:var(--bg-secondary); padding:10px 14px; border-radius:8px;
+                                overflow-x:auto; font-size:.76rem; border:1px solid var(--border-color); }
+
+        @media (max-width:768px) { .diff-container { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-language me-2" style="color:#f97316"></i>SQL DB 번역
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">Oracle DB 오브젝트를 선택하거나 SQL을 직접 입력하여 PostgreSQL / MySQL / MariaDB 쿼리로 자동 변환</p>
+
+            <div class="row g-3">
+                <!-- ════════════════════════ 입력 패널 ════════════════════════ -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+
+                        <!-- ── DB 선택 행 ── -->
+                        <div class="d-flex align-items-end gap-2 mb-3 flex-wrap">
+                            <!-- 소스: Oracle 고정 -->
+                            <div>
+                                <div class="mb-1" style="font-size:.72rem;color:var(--text-muted);">소스 DB</div>
+                                <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;
+                                            background:var(--bg-secondary);border:1px solid var(--border-color);
+                                            border-radius:8px;font-size:.84rem;color:var(--text-sub);">
+                                    <i class="fas fa-database" style="color:#ef4444;font-size:.8rem;"></i>
+                                    <span>Oracle</span>
+                                    <span class="db-badge db-badge-oracle ms-1">고정</span>
+                                </div>
+                            </div>
+                            <div class="db-arrow"><i class="fas fa-arrow-right"></i></div>
+                            <!-- 대상: 드롭다운 -->
+                            <div>
+                                <div class="mb-1" style="font-size:.72rem;color:var(--text-muted);">대상 DB</div>
+                                <select id="targetDb" class="db-select" onchange="updateDbBadge()">
+                                    <option value="POSTGRESQL">PostgreSQL</option>
+                                    <option value="MYSQL">MySQL 8.0+</option>
+                                    <option value="MARIADB">MariaDB 10.2+</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-3 align-items-center" id="dbBadges"></div>
+
+                        <!-- ── DB 오브젝트 선택 ── -->
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <button type="button" class="src-toggle-btn" id="srcToggleBtn" onclick="toggleSourcePanel()">
+                                    <i class="fas fa-database"></i>
+                                    DB 오브젝트 선택
+                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;"></i>
+                                </button>
+                                <button type="button" class="copy-btn" onclick="refreshDbCache()" title="DB 캐시 갱신">
+                                    <i class="fas fa-sync-alt me-1"></i>캐시 갱신
+                                </button>
+                            </div>
+
+                            <!-- DB 오브젝트 패널 -->
+                            <div id="sourcePanel" class="source-panel" style="display:none;">
+                                <div class="source-panel-header">
+                                    <div class="d-flex gap-2 align-items-center" style="flex:1;">
+                                        <input type="text" id="dbSearchInput" class="form-control form-control-sm"
+                                               placeholder="오브젝트명 검색..." oninput="onDbSearch(this.value)"
+                                               autocomplete="off" style="flex:1;max-width:200px;">
+                                        <select id="dbTypeFilter" class="form-select form-select-sm"
+                                                style="width:130px;flex-shrink:0;"
+                                                onchange="onDbSearch(document.getElementById('dbSearchInput').value)">
+                                            <option value="">전체 유형</option>
+                                            <option value="PROCEDURE">PROCEDURE</option>
+                                            <option value="FUNCTION">FUNCTION</option>
+                                            <option value="PACKAGE">PACKAGE</option>
+                                            <option value="TRIGGER">TRIGGER</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" onclick="toggleSourcePanel()"
+                                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;">
+                                        <i class="fas fa-times" style="font-size:.75rem;"></i>
+                                    </button>
+                                </div>
+                                <div class="src-status" id="dbStatus">
+                                    <span id="dbStatusText">
+                                        <i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...
+                                    </span>
+                                    <span id="dbCount" style="font-weight:600;"></span>
+                                </div>
+                                <div class="source-list" id="dbList">
+                                    <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                        <i class="fas fa-circle-notch spin-icon me-2"></i>DB 오브젝트 로딩 중...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SQL 입력 -->
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label mb-0" style="font-size:.82rem;">변환할 SQL</label>
+                            <span id="tokenEstimate" style="font-size:.7rem;color:var(--text-muted);"></span>
+                        </div>
+                        <textarea id="sqlInput" class="form-control" rows="16"
+                                  placeholder="변환할 Oracle SQL을 붙여넣거나, 위에서 DB 오브젝트를 선택하세요..."
+                                  oninput="onSqlInput()"
+                                  style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"></textarea>
+
+                        <!-- 실행 버튼 -->
+                        <div class="d-flex gap-2 mt-2 flex-wrap align-items-center">
+                            <button type="button" class="btn-accent" id="translateBtn" onclick="startTranslate()" style="flex:1;">
+                                <i class="fas fa-language me-1"></i>번역 실행
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAll()" title="초기화">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="mt-1" style="font-size:.72rem;color:var(--text-muted);">
+                            <i class="fas fa-keyboard me-1"></i>Ctrl+Enter 단축키 지원
+                        </div>
+
+                        <!-- 스트리밍 패널 -->
+                        <div id="streamPanel" class="stream-panel mt-3" style="display:none;">
+                            <div class="result-panel-header">
+                                <span style="font-size:.78rem;font-weight:600;">
+                                    <i class="fas fa-bolt me-1" style="color:#f59e0b"></i>번역 중...
+                                </span>
+                                <button class="copy-btn" onclick="stopStream()">
+                                    <i class="fas fa-stop me-1"></i>중지
+                                </button>
+                            </div>
+                            <div class="stream-body" id="streamRaw"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════════════════════ 결과 패널 ════════════════════════ -->
+                <div class="col-lg-7">
+
+                    <!-- 빈 상태 -->
+                    <div id="emptyState" class="panel p-4 text-center"
+                         style="min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+                        <div style="font-size:2.6rem;opacity:.2;"><i class="fas fa-language"></i></div>
+                        <div style="color:var(--text-muted);font-size:.88rem;">
+                            Oracle SQL을 입력하거나 DB 오브젝트를 선택한 뒤<br>"번역 실행"을 클릭하세요
+                        </div>
+                        <div class="d-flex gap-2 mt-1" style="font-size:.75rem;color:var(--text-muted);opacity:.7;flex-wrap:wrap;justify-content:center;">
+                            <span><i class="fas fa-columns me-1"></i>Diff 뷰</span>
+                            <span>·</span>
+                            <span><i class="fas fa-code me-1"></i>변환된 SQL</span>
+                            <span>·</span>
+                            <span><i class="fas fa-list-check me-1"></i>변경 내역</span>
+                            <span>·</span>
+                            <span><i class="fas fa-triangle-exclamation me-1"></i>수동 검토</span>
+                        </div>
+                    </div>
+
+                    <!-- 결과 영역 -->
+                    <div id="resultPanel" style="display:none;">
+                        <div class="result-panel">
+                            <div class="result-panel-header">
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="result-tab active" id="rtDiff"       onclick="switchTab('diff')">
+                                        <i class="fas fa-columns me-1"></i>Diff 뷰
+                                    </button>
+                                    <button class="result-tab"        id="rtTranslated" onclick="switchTab('translated')">
+                                        <i class="fas fa-code me-1"></i>변환된 SQL
+                                    </button>
+                                    <button class="result-tab"        id="rtChanges"    onclick="switchTab('changes')">
+                                        <i class="fas fa-list-check me-1"></i>변경 내역
+                                    </button>
+                                    <button class="result-tab"        id="rtWarnings"   onclick="switchTab('warnings')">
+                                        <i class="fas fa-triangle-exclamation me-1"></i>수동 검토
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="copy-btn" onclick="copyTranslated()" title="변환된 SQL 복사">
+                                        <i class="fas fa-copy me-1"></i>복사
+                                    </button>
+                                    <button class="copy-btn" onclick="saveHistory()" id="saveBtn" title="이력 저장">
+                                        <i class="fas fa-save me-1"></i>저장
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Diff tab -->
+                            <div id="tabDiff" class="p-3">
+                                <div class="diff-container">
+                                    <div class="diff-panel">
+                                        <div class="diff-panel-header diff-original-header">
+                                            <i class="fas fa-file-code me-1"></i>원본 (Oracle)
+                                        </div>
+                                        <div class="diff-body" id="diffOriginal"></div>
+                                    </div>
+                                    <div class="diff-panel">
+                                        <div class="diff-panel-header diff-translated-header">
+                                            <i class="fas fa-file-code me-1"></i>변환 (<span id="targetDbLabel"></span>)
+                                        </div>
+                                        <div class="diff-body" id="diffTranslated"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Translated SQL tab -->
+                            <div id="tabTranslated" class="p-3" style="display:none;">
+                                <pre id="translatedSqlContent"
+                                     style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;
+                                            padding:12px;font-size:.78rem;overflow-x:auto;max-height:520px;
+                                            overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin:0;"></pre>
+                            </div>
+
+                            <!-- Changes tab -->
+                            <div id="tabChanges" class="p-3" style="display:none;">
+                                <div class="section-content" id="changesContent"></div>
+                            </div>
+
+                            <!-- Warnings tab -->
+                            <div id="tabWarnings" class="p-3" style="display:none;">
+                                <div class="section-content" id="warningsContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /row -->
+        </div><!-- /main-content -->
+    </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script th:src="@{/js/toolkit.js}"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+var currentSql         = '';
+var currentTranslated  = '';
+var currentFullResp    = '';
+var currentTargetDb    = 'POSTGRESQL';
+var streamEs           = null;
+var streamBuffer       = '';
+var sourcePanelOpen    = false;
+var selectedDbItem     = null;
+var _dbSearchTimer     = null;
+
+/* ═══════════════════════════════════════════════════════════════
+   Init
+   ═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+    updateDbBadge();
+    var saved = localStorage.getItem('sql_translate_input');
+    if (saved) document.getElementById('sqlInput').value = saved;
+    onSqlInput();
+});
+
+function onSqlInput() {
+    var v = document.getElementById('sqlInput').value;
+    var est = Math.round(v.length / 4);
+    document.getElementById('tokenEstimate').textContent = est > 0 ? '약 ' + est.toLocaleString() + ' 토큰' : '';
+    localStorage.setItem('sql_translate_input', v);
+}
+
+function updateDbBadge() {
+    currentTargetDb = document.getElementById('targetDb').value;
+    var labels = {POSTGRESQL:'PostgreSQL', MYSQL:'MySQL', MARIADB:'MariaDB'};
+    var cls    = {POSTGRESQL:'db-badge-postgresql', MYSQL:'db-badge-mysql', MARIADB:'db-badge-mariadb'};
+    document.getElementById('dbBadges').innerHTML =
+        '<span class="db-badge db-badge-oracle">Oracle</span>'
+      + '<i class="fas fa-arrow-right" style="color:var(--text-muted);font-size:.75rem;"></i>'
+      + '<span class="db-badge ' + (cls[currentTargetDb]||'') + '">' + (labels[currentTargetDb]||currentTargetDb) + '</span>';
+    document.getElementById('targetDbLabel').textContent = labels[currentTargetDb] || currentTargetDb;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DB 오브젝트 선택 패널
+   ═══════════════════════════════════════════════════════════════ */
+function toggleSourcePanel() {
+    sourcePanelOpen = !sourcePanelOpen;
+    var panel  = document.getElementById('sourcePanel');
+    var btn    = document.getElementById('srcToggleBtn');
+    var chev   = document.getElementById('srcChevron');
+    panel.style.display = sourcePanelOpen ? '' : 'none';
+    btn.className = 'src-toggle-btn' + (sourcePanelOpen ? ' open' : '');
+    chev.style.transform = sourcePanelOpen ? 'rotate(180deg)' : '';
+    if (sourcePanelOpen) loadDbObjects('');
+}
+
+function onDbSearch(q) {
+    clearTimeout(_dbSearchTimer);
+    _dbSearchTimer = setTimeout(function() { loadDbObjects(q); }, 280);
+}
+
+function loadDbObjects(q) {
+    var typeFilter = document.getElementById('dbTypeFilter').value;
+    document.getElementById('dbStatusText').innerHTML =
+        '<i class="fas fa-circle-notch spin-icon me-1"></i>로딩 중...';
+    document.getElementById('dbCount').textContent = '';
+    var url = '/harness/cache/db-objects?q=' + encodeURIComponent(q || '')
+            + '&type=' + encodeURIComponent(typeFilter);
+    fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var statusEl = document.getElementById('dbStatusText');
+            var countEl  = document.getElementById('dbCount');
+            if (!data.loaded) {
+                statusEl.innerHTML = '<i class="fas fa-info-circle me-1"></i>캐시 로딩 중… 캐시 갱신을 눌러주세요.';
+                countEl.textContent = '';
+            } else if (data.refreshing) {
+                statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>캐시 갱신 중...';
+            } else if (!data.configured) {
+                statusEl.innerHTML = '<i class="fas fa-exclamation-triangle me-1" style="color:#f59e0b"></i>'
+                    + 'Settings에서 DB URL·Username·Password를 설정하고 캐시 갱신을 눌러주세요.';
+            } else if (data.dbError) {
+                statusEl.innerHTML = '<i class="fas fa-times-circle me-1" style="color:#ef4444"></i>'
+                    + 'DB 연결 오류: ' + escHtml(data.dbError);
+            } else {
+                statusEl.textContent = (typeFilter || q) ? '검색 결과' : '전체 오브젝트';
+                countEl.textContent  = data.count + '개' + (data.count < data.totalCount ? ' / ' + data.totalCount + '개' : '');
+            }
+            renderDbList(data.objects || []);
+        })
+        .catch(function() {
+            document.getElementById('dbStatusText').textContent = '오류: DB 오브젝트 목록을 불러올 수 없습니다.';
+        });
+}
+
+function renderDbList(objects) {
+    var list = document.getElementById('dbList');
+    if (!objects.length) {
+        list.innerHTML = '<div class="source-item" style="justify-content:center;color:var(--text-muted);">오브젝트 없음</div>';
+        return;
+    }
+    var typeIcons = {PROCEDURE:'🔧', FUNCTION:'⚙️', PACKAGE:'📦', TRIGGER:'⚡'};
+    var html = '';
+    for (var i = 0; i < objects.length; i++) {
+        var o    = objects[i];
+        var icon = typeIcons[o.type] || '📄';
+        var bc   = 'source-badge source-badge-' + o.type.toLowerCase();
+        html += '<div class="source-item" data-name="' + escHtml(o.name) + '" data-type="' + escHtml(o.type) + '" onclick="handleDbClick(this)">'
+              + '<span class="source-item-icon">' + icon + '</span>'
+              + '<span class="source-item-name">' + escHtml(o.name) + '</span>'
+              + '<span class="source-item-owner">' + escHtml(o.owner || '') + '</span>'
+              + '<span class="' + bc + '">' + escHtml(o.type) + '</span>'
+              + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function handleDbClick(el) {
+    var name = el.getAttribute('data-name');
+    var type = el.getAttribute('data-type');
+    // 하이라이트
+    var items = document.querySelectorAll('#dbList .source-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('selected');
+    el.classList.add('selected');
+    selectedDbItem = {name: name, type: type};
+    loadDbSource(name, type);
+}
+
+function loadDbSource(name, type) {
+    var statusEl = document.getElementById('dbStatusText');
+    var origHtml = statusEl.innerHTML;
+    statusEl.innerHTML = '<i class="fas fa-circle-notch spin-icon me-1"></i>' + escHtml(name) + ' 소스 불러오는 중...';
+    fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            statusEl.innerHTML = origHtml;
+            if (!data.success) { alert('소스 로드 실패: ' + (data.error || '')); return; }
+            document.getElementById('sqlInput').value = data.source;
+            onSqlInput();
+            showToast(name + ' 소스 코드가 로드되었습니다.');
+        })
+        .catch(function(e) {
+            statusEl.innerHTML = origHtml;
+            alert('소스 불러오기 실패: ' + e.message);
+        });
+}
+
+function refreshDbCache() {
+    showToast('DB 캐시 갱신을 시작합니다...');
+    fetch('/harness/cache/refresh?target=db', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                showToast('DB 캐시 갱신이 시작되었습니다. 잠시 후 다시 검색해주세요.');
+                if (sourcePanelOpen) setTimeout(function() { loadDbObjects(''); }, 2000);
+            }
+        })
+        .catch(function() { alert('캐시 갱신 요청 실패'); });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   번역 실행
+   ═══════════════════════════════════════════════════════════════ */
+function startTranslate() {
+    var sql = document.getElementById('sqlInput').value.trim();
+    if (!sql) { alert('SQL을 입력해주세요.'); return; }
+
+    if (streamEs) { streamEs.close(); streamEs = null; }
+    currentSql      = sql;
+    currentTargetDb = document.getElementById('targetDb').value;
+    streamBuffer    = '';
+
+    document.getElementById('emptyState').style.display  = 'none';
+    document.getElementById('resultPanel').style.display = 'none';
+    document.getElementById('streamPanel').style.display = '';
+    document.getElementById('streamRaw').textContent     = '';
+    document.getElementById('translateBtn').disabled     = true;
+
+    var labels = {POSTGRESQL:'PostgreSQL', MYSQL:'MySQL', MARIADB:'MariaDB'};
+    document.getElementById('targetDbLabel').textContent = labels[currentTargetDb] || currentTargetDb;
+
+    var fd = new FormData();
+    fd.append('sql',      sql);
+    fd.append('sourceDb', 'ORACLE');
+    fd.append('targetDb', currentTargetDb);
+
+    fetch('/sql-translate/init', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) { alert('초기화 실패: ' + (data.error||'')); enableBtn(); return; }
+            openSse(data.streamId);
+        })
+        .catch(function(e) { alert('요청 실패: ' + e.message); enableBtn(); });
+}
+
+function openSse(streamId) {
+    streamEs = new EventSource('/stream/' + streamId);
+    streamEs.onmessage = function(e) {
+        streamBuffer += e.data;
+        var el = document.getElementById('streamRaw');
+        el.textContent = streamBuffer;
+        el.scrollTop   = el.scrollHeight;
+    };
+    streamEs.addEventListener('done', function() {
+        streamEs.close(); streamEs = null;
+        currentFullResp   = streamBuffer;
+        currentTranslated = extractTranslatedSql(streamBuffer);
+        document.getElementById('streamPanel').style.display = 'none';
+        renderResult();
+        enableBtn();
+    });
+    streamEs.addEventListener('error_msg', function(e) {
+        streamEs.close(); streamEs = null;
+        alert('스트리밍 오류: ' + e.data);
+        enableBtn();
+    });
+    streamEs.onerror = function() {
+        if (streamEs) { streamEs.close(); streamEs = null; }
+        enableBtn();
+    };
+}
+
+function stopStream() {
+    if (streamEs) { streamEs.close(); streamEs = null; }
+    document.getElementById('streamPanel').style.display = 'none';
+    if (streamBuffer) {
+        currentFullResp   = streamBuffer;
+        currentTranslated = extractTranslatedSql(streamBuffer);
+        renderResult();
+    }
+    enableBtn();
+}
+
+function enableBtn() { document.getElementById('translateBtn').disabled = false; }
+
+/* ═══════════════════════════════════════════════════════════════
+   결과 렌더링
+   ═══════════════════════════════════════════════════════════════ */
+function renderResult() {
+    document.getElementById('resultPanel').style.display = '';
+    switchTab('diff');
+    buildDiffView(currentSql, currentTranslated);
+    document.getElementById('translatedSqlContent').textContent = currentTranslated || '(변환된 SQL 없음)';
+    document.getElementById('changesContent').innerHTML  = renderMd(extractSection(currentFullResp, '## 2. 주요 변경 사항'));
+    document.getElementById('warningsContent').innerHTML = renderMd(extractSection(currentFullResp, '## 3. 수동 검토 필요 항목'));
+}
+
+function extractTranslatedSql(text) {
+    if (!text) return '';
+    var marker = '## 1. 변환된 SQL';
+    var idx    = text.indexOf(marker);
+    var search = idx >= 0 ? text.substring(idx) : text;
+    var start  = search.indexOf('```sql');
+    if (start === -1) start = search.indexOf('```');
+    if (start === -1) return '';
+    var codeStart = search.indexOf('\n', start) + 1;
+    var end = search.indexOf('```', codeStart);
+    return end === -1 ? search.substring(codeStart).trim() : search.substring(codeStart, end).trim();
+}
+
+function extractSection(text, heading) {
+    if (!text) return '';
+    var idx = text.indexOf(heading);
+    if (idx < 0) return '';
+    var cs   = idx + heading.length;
+    var next = text.indexOf('\n## ', cs);
+    return (next >= 0 ? text.substring(cs, next) : text.substring(cs)).trim();
+}
+
+function renderMd(text) {
+    if (!text) return '<span style="color:var(--text-muted)">내용 없음</span>';
+    if (typeof marked !== 'undefined') return marked.parse(text);
+    var h = escHtml(text);
+    h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
+    h = h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+    h = h.replace(/^- (.+)$/gm,'<li>$1</li>');
+    h = h.replace(/\n\n/g,'<br><br>');
+    return h;
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Diff 뷰
+   ═══════════════════════════════════════════════════════════════ */
+function buildDiffView(origSql, transSql) {
+    document.getElementById('diffOriginal').innerHTML   = buildDiffHtml((origSql  || '').split('\n'));
+    document.getElementById('diffTranslated').innerHTML = buildDiffHtml((transSql || '').split('\n'));
+}
+
+function buildDiffHtml(lines) {
+    var html = '';
+    for (var i = 0; i < lines.length; i++) {
+        html += '<div class="diff-line">'
+              + '<div class="diff-line-num">' + (i + 1) + '</div>'
+              + '<div class="diff-line-code">' + escHtml(lines[i]) + '</div>'
+              + '</div>';
+    }
+    return html || '<div style="color:var(--text-muted);padding:8px;">내용 없음</div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   탭 전환
+   ═══════════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+    ['diff','translated','changes','warnings'].forEach(function(t) {
+        var cap  = t.charAt(0).toUpperCase() + t.slice(1);
+        var pane = document.getElementById('tab' + cap);
+        var btn  = document.getElementById('rt'  + cap);
+        if (pane) pane.style.display = (t === tab) ? '' : 'none';
+        if (btn)  btn.className = 'result-tab' + (t === tab ? ' active' : '');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   액션
+   ═══════════════════════════════════════════════════════════════ */
+function copyTranslated() {
+    if (!currentTranslated) { alert('복사할 변환 SQL이 없습니다.'); return; }
+    navigator.clipboard.writeText(currentTranslated).then(function() {
+        showToast('변환된 SQL이 클립보드에 복사되었습니다.');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = currentTranslated; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        showToast('복사되었습니다.');
+    });
+}
+
+function saveHistory() {
+    if (!currentSql || !currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
+    var fd = new FormData();
+    fd.append('sql',      currentSql);
+    fd.append('result',   currentFullResp);
+    fd.append('sourceDb', 'ORACLE');
+    fd.append('targetDb', currentTargetDb);
+    fetch('/sql-translate/save', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) showToast('이력에 저장되었습니다.');
+            else alert('저장 실패: ' + (d.error||''));
+        });
+}
+
+function clearAll() {
+    document.getElementById('sqlInput').value = '';
+    document.getElementById('emptyState').style.display  = '';
+    document.getElementById('resultPanel').style.display = 'none';
+    document.getElementById('streamPanel').style.display = 'none';
+    currentSql = ''; currentTranslated = ''; currentFullResp = ''; streamBuffer = '';
+    localStorage.removeItem('sql_translate_input');
+    onSqlInput();
+    if (selectedDbItem) {
+        var items = document.querySelectorAll('#dbList .source-item');
+        for (var i = 0; i < items.length; i++) items[i].classList.remove('selected');
+        selectedDbItem = null;
+    }
+}
+
+function showToast(msg) {
+    if (typeof window.showToast === 'function') { window.showToast(msg); return; }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:8px 18px;border-radius:8px;font-size:.82rem;z-index:9999;';
+    document.body.appendChild(t);
+    setTimeout(function() { if (t.parentNode) document.body.removeChild(t); }, 2500);
+}
+
+// Ctrl+Enter
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); startTranslate(); }
+});
+</script>
+</body>
+</html>

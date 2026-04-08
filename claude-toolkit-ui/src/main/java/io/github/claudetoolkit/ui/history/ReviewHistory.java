@@ -138,6 +138,7 @@ public class ReviewHistory {
         if ("ERD_DDL".equals(type))         return "DDL 생성";
         if ("EXPLAIN_PLAN".equals(type))    return "실행계획";
         if ("SQL_BATCH".equals(type))       return "SQL 배치";
+        if ("SQL_TRANSLATE".equals(type))   return "SQL 번역";
         if ("HARNESS_REVIEW".equals(type))  return "하네스 리뷰";
         return type;
     }
@@ -167,6 +168,7 @@ public class ReviewHistory {
         if ("ERD_DDL".equals(type))         return "#14b8a6";
         if ("EXPLAIN_PLAN".equals(type))    return "#3b82f6";
         if ("SQL_BATCH".equals(type))       return "#f97316";
+        if ("SQL_TRANSLATE".equals(type))   return "#f97316";
         if ("HARNESS_REVIEW".equals(type))  return "#8b5cf6";
         return "#64748b";
     }
