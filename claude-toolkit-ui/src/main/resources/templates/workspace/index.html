@@ -374,6 +374,9 @@
                                 <button id="btnDownload" class="copy-btn" style="display:none;" onclick="downloadAll()">
                                     <i class="fas fa-download me-1"></i>MD
                                 </button>
+                                <button id="btnDownloadPdf" class="copy-btn" style="display:none;" onclick="downloadPdf()">
+                                    <i class="fas fa-file-pdf me-1"></i>PDF
+                                </button>
                             </div>
                         </div>
 
@@ -415,16 +418,21 @@
                             <div class="row g-2" id="compareColumns"></div>
                         </div>
 
-                        <!-- 이메일 발송 패널 -->
+                        <!-- 전체 결과 이메일 일괄 발송 -->
                         <div class="email-panel" id="emailPanel" style="display:none;">
-                            <div class="section-label mb-1" style="font-size:.75rem;"><i class="fas fa-envelope me-1"></i>결과 이메일 발송</div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="section-label" style="font-size:.75rem;margin:0;">
+                                    <i class="fas fa-envelope me-1"></i>전체 결과 이메일 일괄 발송
+                                </span>
+                                <span id="emailScopeInfo" style="font-size:.7rem;color:var(--text-muted);"></span>
+                            </div>
                             <div class="d-flex gap-2 align-items-center flex-wrap">
                                 <input type="email" id="emailTo" class="form-control" style="font-size:.82rem;max-width:280px;"
                                        placeholder="수신자 이메일 주소">
                                 <input type="text" id="emailSubject" class="form-control" style="font-size:.82rem;max-width:200px;"
                                        placeholder="제목 (선택)">
                                 <button class="btn-accent" style="padding:6px 18px;" onclick="sendEmail()" id="btnSendEmail">
-                                    <i class="fas fa-paper-plane me-1"></i>발송
+                                    <i class="fas fa-paper-plane me-1"></i>전체 발송
                                 </button>
                             </div>
                             <div id="emailResult" style="font-size:.8rem;margin-top:6px;"></div>
@@ -434,6 +442,34 @@
             </div><!-- /row -->
         </div><!-- /main-content -->
     </main>
+<!-- ═══ 이력 상세 팝업 모달 ═══ -->
+<div id="historyModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeHistoryModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(90vw,900px);max-height:85vh;
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;
+                display:flex;flex-direction:column;">
+        <!-- 헤더 -->
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <span style="font-weight:700;font-size:.95rem;color:var(--text-primary);">
+                    <i class="fas fa-history me-2" style="color:#8b5cf6"></i>분석 이력 상세
+                </span>
+                <span id="modalHistoryMeta" style="font-size:.72rem;color:var(--text-muted);margin-left:8px;"></span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <button class="copy-btn" onclick="downloadHistoryMd()"><i class="fas fa-download me-1"></i>MD</button>
+                <button class="copy-btn" onclick="downloadHistoryPdf()"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+                <button class="copy-btn" onclick="copyHistoryContent()"><i class="fas fa-copy me-1"></i>복사</button>
+                <button onclick="closeHistoryModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <!-- 본문 -->
+        <div id="modalHistoryBody" style="flex:1;overflow-y:auto;padding:18px;font-size:.84rem;"></div>
+    </div>
+</div>
+
 </div><!-- /layout -->
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -974,8 +1010,12 @@ function startStream(typeName, url) {
         doneCount++;
         updateProgress();
         if (doneCount >= totalCount) {
-            document.getElementById('btnDownload').style.display = '';
+            document.getElementById('btnDownload').style.display    = '';
+            document.getElementById('btnDownloadPdf').style.display = '';
             document.getElementById('emailPanel').style.display  = '';
+            // 이메일 범위 표시
+            var typeNames = Object.keys(resultTexts).map(function(t){ return getDisplayName(t); });
+            document.getElementById('emailScopeInfo').textContent = '(' + typeNames.length + '개 분석: ' + typeNames.join(', ') + ')';
             var subj = document.getElementById('emailSubject');
             if (subj && !subj.value) subj.value = '워크스페이스 분석 결과 (' + new Date().toLocaleDateString('ko-KR') + ')';
         }
@@ -1119,27 +1159,32 @@ function toggleHistoryPanel() {
     if (!vis) loadHistory();
 }
 
+var historyCache = [];
 function loadHistory() {
     var list = document.getElementById('historyList');
     list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">로딩 중...</div>';
     fetch('/workspace/history')
         .then(function(r){ return r.json(); })
         .then(function(data){
+            historyCache = data || [];
             if (!data || !data.length) {
                 list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">이력이 없습니다.</div>';
                 return;
             }
             var html = '';
-            data.forEach(function(h) {
+            data.forEach(function(h, idx) {
                 var types   = (h.analysisTypes || '').split(',').map(function(t){ return getDisplayName(t.trim()); }).join(', ');
                 var snippet = (h.codeSnippet || '').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0, 60);
                 var dt      = (h.createdAt || '').replace('T',' ').substring(0, 16);
                 var src     = h.sourceName ? ' · <b>' + escHtml(h.sourceName) + '</b>' : '';
-                html += '<div class="history-row">'
-                      + '<div style="font-weight:600;color:var(--text-primary);">'
-                      + escHtml(h.language||'') + ' — ' + escHtml(types) + src + '</div>'
-                      + '<div style="color:var(--text-muted);font-size:.72rem;font-family:monospace;">' + snippet + '</div>'
-                      + '<div style="color:var(--text-muted);font-size:.7rem;margin-top:2px;">' + dt + '</div>'
+                html += '<div class="history-row" style="cursor:pointer;" onclick="openHistoryModal(' + idx + ')">'
+                      + '<div style="display:flex;align-items:center;gap:6px;">'
+                      + '<span style="font-size:.68rem;background:rgba(139,92,246,.12);color:#8b5cf6;padding:1px 6px;border-radius:8px;flex-shrink:0;">#' + (h.id || (idx+1)) + '</span>'
+                      + '<span style="font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+                      + escHtml(h.language||'').toUpperCase() + ' — ' + escHtml(types) + src + '</span></div>'
+                      + '<div style="color:var(--text-muted);font-size:.72rem;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + snippet + '</div>'
+                      + '<div style="color:var(--text-muted);font-size:.7rem;margin-top:2px;">' + dt
+                      + ' <i class="fas fa-external-link-alt" style="font-size:.6rem;margin-left:4px;color:#8b5cf6;"></i></div>'
                       + '</div>';
             });
             list.innerHTML = html;
@@ -1147,6 +1192,73 @@ function loadHistory() {
         .catch(function(){
             list.innerHTML = '<div class="text-muted" style="font-size:.78rem;padding:8px;">이력을 불러올 수 없습니다.</div>';
         });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   이력 상세 팝업 모달
+   ═══════════════════════════════════════════════════════════ */
+var currentHistoryContent = '';
+
+function openHistoryModal(idx) {
+    var h = historyCache[idx];
+    if (!h) return;
+    var types = (h.analysisTypes || '').split(',').map(function(t){ return getDisplayName(t.trim()); }).join(', ');
+    var dt    = (h.createdAt || '').replace('T',' ').substring(0, 19);
+
+    document.getElementById('modalHistoryMeta').textContent =
+        '#' + (h.id || (idx+1)) + ' · ' + (h.language||'').toUpperCase() + ' · ' + types + ' · ' + dt;
+
+    var body = '# 워크스페이스 분석 이력 #' + (h.id || (idx+1)) + '\n\n';
+    body += '| 항목 | 값 |\n|---|---|\n';
+    body += '| 일시 | ' + dt + ' |\n';
+    body += '| 언어 | ' + (h.language||'') + ' |\n';
+    body += '| 분석 유형 | ' + types + ' |\n';
+    if (h.sourceName) body += '| 소스 | ' + h.sourceName + ' |\n';
+    body += '\n---\n\n';
+    body += '## 입력 코드\n\n```\n' + (h.codeSnippet || '') + '\n```\n';
+
+    currentHistoryContent = body;
+    document.getElementById('modalHistoryBody').innerHTML =
+        '<div class="markdown-body">' + marked.parse(body) + '</div>';
+
+    document.getElementById('historyModal').style.display = '';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeHistoryModal() {
+    document.getElementById('historyModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function copyHistoryContent() {
+    navigator.clipboard.writeText(currentHistoryContent)
+        .then(function(){ showToast('클립보드에 복사되었습니다.'); });
+}
+
+function downloadHistoryMd() {
+    var blob = new Blob([currentHistoryContent], { type:'text/markdown;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'workspace-history-' + new Date().toISOString().slice(0,10) + '.md';
+    a.click(); URL.revokeObjectURL(a.href);
+}
+
+function downloadHistoryPdf() {
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        + '<title>워크스페이스 분석 이력</title>'
+        + '<style>body{font-family:"Malgun Gothic",sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:13px;}'
+        + 'pre{background:#f4f4f4;padding:14px;border-radius:6px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;}'
+        + 'code{background:#f0f0f0;padding:2px 5px;border-radius:3px;}'
+        + 'h1{font-size:18px;}h2{font-size:15px;border-bottom:1px solid #ddd;padding-bottom:4px;}'
+        + 'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ddd;padding:6px 10px;font-size:12px;}'
+        + 'th{background:#f8f8f8;}'
+        + '</style></head><body>'
+        + marked.parse(currentHistoryContent)
+        + '<script>window.onload=function(){window.print();}<\/script>'
+        + '</body></html>';
+    var w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1195,17 +1307,40 @@ function copyResult(typeName) {
         });
 }
 
-function downloadAll() {
+function buildAllResultsMd() {
     var lines = [];
     Object.keys(resultTexts).forEach(function(t){
         lines.push('# ' + getDisplayName(t)); lines.push('');
         lines.push(resultTexts[t]); lines.push(''); lines.push('---'); lines.push('');
     });
-    var blob = new Blob([lines.join('\n')], { type:'text/markdown;charset=utf-8' });
+    return lines.join('\n');
+}
+
+function downloadAll() {
+    var blob = new Blob([buildAllResultsMd()], { type:'text/markdown;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'workspace-' + new Date().toISOString().slice(0,10) + '.md';
     a.click(); URL.revokeObjectURL(a.href);
+}
+
+function downloadPdf() {
+    var md = buildAllResultsMd();
+    var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        + '<title>워크스페이스 분석 결과</title>'
+        + '<style>body{font-family:"Malgun Gothic",sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:13px;}'
+        + 'pre{background:#f4f4f4;padding:14px;border-radius:6px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;}'
+        + 'code{background:#f0f0f0;padding:2px 5px;border-radius:3px;}'
+        + 'h1{font-size:18px;margin-top:30px;}h2{font-size:15px;border-bottom:1px solid #ddd;padding-bottom:4px;}'
+        + 'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ddd;padding:6px 10px;font-size:12px;}'
+        + 'hr{border:none;border-top:1px solid #ddd;margin:20px 0;}'
+        + '</style></head><body>'
+        + marked.parse(md)
+        + '<script>window.onload=function(){window.print();}<\/script>'
+        + '</body></html>';
+    var w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
 }
 
 function getDisplayName(typeName) {
