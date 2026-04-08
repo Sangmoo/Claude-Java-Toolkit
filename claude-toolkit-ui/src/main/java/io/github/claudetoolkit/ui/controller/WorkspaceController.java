@@ -238,14 +238,6 @@ public class WorkspaceController {
             return emitter;
         }
 
-        // SSE 초기 연결 확인용 heartbeat — 브라우저가 연결을 확정하도록 빈 코멘트 전송
-        try {
-            emitter.send(SseEmitter.event().comment("connected"));
-        } catch (IOException e) {
-            log.error("[stream] SSE 초기 연결 실패: type={}", req.getAnalysisType(), e);
-            return emitter;
-        }
-
         CompletableFuture.runAsync(new Runnable() {
             public void run() {
                 try {
@@ -406,14 +398,6 @@ public class WorkspaceController {
                         e.getMessage() != null ? e.getMessage() : "프롬프트 준비 중 오류 발생"));
                 emitter.complete();
             } catch (IOException ignored) {}
-            return emitter;
-        }
-
-        // SSE 초기 연결 확인용 heartbeat
-        try {
-            emitter.send(SseEmitter.event().comment("connected"));
-        } catch (IOException e) {
-            log.error("[compare-stream] SSE 초기 연결 실패", e);
             return emitter;
         }
 

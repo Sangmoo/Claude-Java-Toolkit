@@ -564,8 +564,11 @@ function openSse(streamId) {
         streamEs.close(); streamEs = null;
         document.getElementById('progressBar').style.width  = '100%';
         document.getElementById('progressText').textContent = '100%';
+        console.log('[sql-translate] streamBuffer length:', streamBuffer.length);
+        console.log('[sql-translate] streamBuffer preview:', streamBuffer.substring(0, 500));
         currentFullResp   = streamBuffer;
         currentTranslated = extractTranslatedSql(streamBuffer);
+        console.log('[sql-translate] extractedSql length:', currentTranslated.length);
         setTimeout(function() {
             document.getElementById('progressPanel').style.display = 'none';
             renderResult();
@@ -579,9 +582,19 @@ function openSse(streamId) {
         enableBtn();
     });
     streamEs.onerror = function() {
-        if (streamEs) { streamEs.close(); streamEs = null; }
-        document.getElementById('progressPanel').style.display = 'none';
-        enableBtn();
+        setTimeout(function() {
+            if (!streamEs) return; // done에서 이미 처리됨
+            streamEs.close(); streamEs = null;
+            document.getElementById('progressPanel').style.display = 'none';
+            // 부분 데이터가 있으면 결과로 표시
+            if (streamBuffer) {
+                console.log('[sql-translate] onerror with partial data:', streamBuffer.length);
+                currentFullResp   = streamBuffer;
+                currentTranslated = extractTranslatedSql(streamBuffer);
+                renderResult();
+            }
+            enableBtn();
+        }, 200);
     };
 }
 
@@ -605,17 +618,33 @@ function renderResult() {
     document.getElementById('resultPanel').style.display = '';
     switchTab('diff');
     buildDiffView(currentSql, currentTranslated);
-    document.getElementById('translatedSqlContent').textContent = currentTranslated || '(변환된 SQL 없음)';
-    document.getElementById('changesContent').innerHTML  = renderMd(extractSection(currentFullResp, '## 2. 주요 변경 사항'));
-    document.getElementById('warningsContent').innerHTML = renderMd(extractSection(currentFullResp, '## 3. 수동 검토 필요 항목'));
+    if (currentTranslated) {
+        document.getElementById('translatedSqlContent').textContent = currentTranslated;
+    } else {
+        // 파싱 실패 시 원본 응답 표시 (디버깅 + 사용성)
+        document.getElementById('translatedSqlContent').innerHTML =
+            '<div style="color:#ef4444;font-size:.8rem;margin-bottom:8px;">'
+          + '<i class="fas fa-exclamation-triangle me-1"></i>변환된 SQL 자동 추출 실패 — 아래 원본 응답을 확인하세요</div>'
+          + '<pre style="white-space:pre-wrap;word-break:break-word;font-size:.76rem;color:var(--text-sub);">'
+          + escHtml(currentFullResp || '(응답 없음)') + '</pre>';
+        switchTab('translated');
+    }
+    document.getElementById('changesContent').innerHTML  = renderMd(extractSection(currentFullResp, '주요 변경'));
+    document.getElementById('warningsContent').innerHTML = renderMd(extractSection(currentFullResp, '수동 검토'));
 }
 
 function extractTranslatedSql(text) {
     if (!text) return '';
-    var marker = '## 1. 변환된 SQL';
-    var idx    = text.indexOf(marker);
-    var search = idx >= 0 ? text.substring(idx) : text;
-    var start  = search.indexOf('```sql');
+    // 유연한 섹션 매칭: "## 1. 변환된 SQL", "## 변환된 SQL", "## 1) 변환된 SQL" 등
+    var patterns = ['변환된 SQL', '변환 결과', 'Converted SQL', 'Translated SQL'];
+    var search = text;
+    for (var i = 0; i < patterns.length; i++) {
+        var idx = text.indexOf(patterns[i]);
+        if (idx >= 0) { search = text.substring(idx); break; }
+    }
+    var start = search.indexOf('```sql');
+    if (start === -1) start = search.indexOf('```plpgsql');
+    if (start === -1) start = search.indexOf('```pgsql');
     if (start === -1) start = search.indexOf('```');
     if (start === -1) return '';
     var codeStart = search.indexOf('\n', start) + 1;
@@ -625,9 +654,31 @@ function extractTranslatedSql(text) {
 
 function extractSection(text, heading) {
     if (!text) return '';
-    var idx = text.indexOf(heading);
-    if (idx < 0) return '';
-    var cs   = idx + heading.length;
+    // heading에서 핵심 키워드 추출하여 유연하게 매칭
+    var keywords = {
+        '주요 변경': ['주요 변경', '변경 사항', '변경사항', '변경 내역', 'Key Changes', 'Changes'],
+        '수동 검토': ['수동 검토', '검토 필요', '주의 사항', '주의사항', 'Manual Review', 'Warnings']
+    };
+    var key = null;
+    for (var k in keywords) {
+        if (heading.indexOf(k) >= 0) { key = k; break; }
+    }
+    var idx = -1;
+    if (key && keywords[key]) {
+        for (var i = 0; i < keywords[key].length; i++) {
+            idx = text.indexOf(keywords[key][i]);
+            if (idx >= 0) break;
+        }
+    }
+    if (idx < 0) {
+        idx = text.indexOf(heading);
+        if (idx < 0) return '';
+    }
+    // 해당 줄 끝으로 이동
+    var lineEnd = text.indexOf('\n', idx);
+    if (lineEnd < 0) return '';
+    var cs = lineEnd + 1;
+    // 다음 ## 섹션까지
     var next = text.indexOf('\n## ', cs);
     return (next >= 0 ? text.substring(cs, next) : text.substring(cs)).trim();
 }

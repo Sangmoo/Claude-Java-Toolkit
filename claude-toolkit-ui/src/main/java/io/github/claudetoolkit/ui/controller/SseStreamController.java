@@ -125,7 +125,7 @@ public class SseStreamController {
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
-                        emitter.send(SseEmitter.event().name("done").data(""));
+                        emitter.send(SseEmitter.event().name("done").data("ok"));
                         emitter.complete();
                         return;
                     }
@@ -149,7 +149,7 @@ public class SseStreamController {
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
-                        emitter.send(SseEmitter.event().name("done").data(""));
+                        emitter.send(SseEmitter.event().name("done").data("ok"));
                         emitter.complete();
                         return;
                     }
@@ -170,7 +170,7 @@ public class SseStreamController {
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
-                    emitter.send(SseEmitter.event().name("done").data(""));
+                    emitter.send(SseEmitter.event().name("done").data("ok"));
                     emitter.complete();
                 } catch (Exception e) {
                     try { emitter.send(SseEmitter.event().name("error_msg").data(
