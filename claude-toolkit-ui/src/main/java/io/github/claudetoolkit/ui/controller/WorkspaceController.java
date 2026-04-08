@@ -212,7 +212,8 @@ public class WorkspaceController {
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
-                    emitter.send(SseEmitter.event().name("done").data(""));
+                    // SSE 스펙: data("")는 브라우저가 이벤트를 디스패치하지 않으므로 비어있지 않은 값 필수
+                    emitter.send(SseEmitter.event().name("done").data("ok"));
                     emitter.complete();
                 } catch (Exception e) {
                     try {
@@ -361,7 +362,7 @@ public class WorkspaceController {
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
-                    emitter.send(SseEmitter.event().name("done").data(""));
+                    emitter.send(SseEmitter.event().name("done").data("ok"));
                     emitter.complete();
                 } catch (Exception e) {
                     try {

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,10 +22,9 @@ import java.util.List;
 /**
  * Web controller for Doc Generator feature (/docgen).
  *
- * Improvements:
- * - HTML output format added
- * - Output language selection
- * - Review history auto-save
+ * Post-Redirect-Get 패턴 적용:
+ * - POST /docgen/generate → 생성 후 redirect:/docgen (F5 재실행 방지)
+ * - 결과는 flash attributes로 전달 (1회 세션 저장 후 GET 시 소비)
  */
 @Controller
 @RequestMapping("/docgen")
@@ -48,14 +48,21 @@ public class DocGeneratorController {
         this.promptTemplateService = promptTemplateService;
     }
 
+    /** GET /docgen — 폼 표시. flash attributes에 이전 결과가 있으면 함께 표시 */
     @GetMapping
     public String showForm(Model model) {
-        model.addAttribute("projectConfigured",    settings.isProjectConfigured());
-        model.addAttribute("currentScanPath",      settings.getProject().getScanPath());
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
+        // flash attributes(result, sourceCode 등)는 Spring이 model에 자동 병합.
+        // settings 값만 추가 (덮어쓰기 방지: containsAttribute 체크)
+        if (!model.containsAttribute("projectConfigured"))
+            model.addAttribute("projectConfigured", settings.isProjectConfigured());
+        if (!model.containsAttribute("currentScanPath"))
+            model.addAttribute("currentScanPath", settings.getProject().getScanPath());
+        if (!model.containsAttribute("projectContextActive"))
+            model.addAttribute("projectContextActive", settings.isProjectContextSet());
         return "docgen/index";
     }
 
+    /** POST /docgen/generate — PRG: 생성 후 redirect */
     @PostMapping("/generate")
     public String generate(
             @RequestParam("sourceCode") String sourceCode,
@@ -64,44 +71,47 @@ public class DocGeneratorController {
             @RequestParam(value = "outputLang",       defaultValue = "ko")    String outputLang,
             @RequestParam(value = "scanPath",         defaultValue = "")      String scanPath,
             @RequestParam(value = "useProjectContext",defaultValue = "false") boolean useProjectContext,
-            Model model) {
+            RedirectAttributes redirectAttrs) {
+
+        // 공통 설정 속성
+        redirectAttrs.addFlashAttribute("projectConfigured",    settings.isProjectConfigured());
+        redirectAttrs.addFlashAttribute("currentScanPath",      settings.getProject().getScanPath());
+        redirectAttrs.addFlashAttribute("projectContextActive", settings.isProjectContextSet());
+        // 폼 상태 복원용
+        redirectAttrs.addFlashAttribute("sourceCode",           sourceCode);
+        redirectAttrs.addFlashAttribute("sourceType",           sourceType);
+        redirectAttrs.addFlashAttribute("format",               format);
+        redirectAttrs.addFlashAttribute("outputLang",           outputLang);
+        redirectAttrs.addFlashAttribute("scanPath",             scanPath);
+        redirectAttrs.addFlashAttribute("useProjectContext",    useProjectContext);
 
         try {
-            String scanContext  = buildProjectContext(scanPath, useProjectContext, model);
+            ScanContext sc = buildScanContext(scanPath, useProjectContext);
+            if (sc.summary   != null) redirectAttrs.addFlashAttribute("scanSummary",        sc.summary);
+            if (sc.contextUsed)       redirectAttrs.addFlashAttribute("projectContextUsed", true);
+
             String memoContext  = settings.getProjectContext();
             String projectContext;
-            if (!scanContext.isEmpty() && !memoContext.isEmpty()) {
-                projectContext = scanContext + "\n\n" + memoContext;
-            } else if (!scanContext.isEmpty()) {
-                projectContext = scanContext;
+            if (!sc.context.isEmpty() && !memoContext.isEmpty()) {
+                projectContext = sc.context + "\n\n" + memoContext;
+            } else if (!sc.context.isEmpty()) {
+                projectContext = sc.context;
             } else {
                 projectContext = memoContext;
             }
+
             String result = generateDoc(sourceCode, sourceType, format, outputLang, projectContext);
-
             historyService.save("DOC_GEN", sourceCode, result);
-
-            model.addAttribute("result",               result);
-            model.addAttribute("sourceCode",           sourceCode);
-            model.addAttribute("sourceType",           sourceType);
-            model.addAttribute("format",               format);
-            model.addAttribute("outputLang",           outputLang);
-            model.addAttribute("scanPath",             scanPath);
-            model.addAttribute("useProjectContext",    useProjectContext);
-            model.addAttribute("projectContextActive", settings.isProjectContextSet());
+            redirectAttrs.addFlashAttribute("result", result);
 
         } catch (Exception e) {
-            model.addAttribute("error",                "Generation failed: " + e.getMessage());
-            model.addAttribute("sourceCode",           sourceCode);
-            model.addAttribute("projectContextActive", settings.isProjectContextSet());
+            redirectAttrs.addFlashAttribute("error", "Generation failed: " + e.getMessage());
         }
 
-        model.addAttribute("projectConfigured",    settings.isProjectConfigured());
-        model.addAttribute("currentScanPath",      settings.getProject().getScanPath());
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "docgen/index";
+        return "redirect:/docgen";
     }
 
+    /** POST /docgen/generate/file — 파일 업로드 후 PRG */
     @PostMapping("/generate/file")
     public String generateFromFile(
             @RequestParam("file") MultipartFile file,
@@ -109,11 +119,11 @@ public class DocGeneratorController {
             @RequestParam(value = "outputLang",       defaultValue = "ko")    String outputLang,
             @RequestParam(value = "scanPath",         defaultValue = "")      String scanPath,
             @RequestParam(value = "useProjectContext",defaultValue = "false") boolean useProjectContext,
-            Model model) throws IOException {
+            RedirectAttributes redirectAttrs) throws IOException {
 
         String sourceCode = new String(file.getBytes(), StandardCharsets.UTF_8);
         String sourceType = detectType(file.getOriginalFilename());
-        return generate(sourceCode, sourceType, format, outputLang, scanPath, useProjectContext, model);
+        return generate(sourceCode, sourceType, format, outputLang, scanPath, useProjectContext, redirectAttrs);
     }
 
     @PostMapping("/download")
@@ -122,7 +132,7 @@ public class DocGeneratorController {
             @RequestParam(value = "sourceType", defaultValue = "Oracle Stored Procedure") String sourceType,
             @RequestParam(value = "format",     defaultValue = "md")         String format) {
 
-        String result = generateDoc(sourceCode, sourceType, format, "ko", settings.getProjectContext());
+        String result   = generateDoc(sourceCode, sourceType, format, "ko", settings.getProjectContext());
         String filename = "documentation." + ("html".equals(format) ? "html" : format.equals("typst") ? "typ" : "md");
 
         return ResponseEntity.ok()
@@ -135,7 +145,6 @@ public class DocGeneratorController {
 
     private String generateDoc(String sourceCode, String sourceType, String format,
                                String outputLang, String projectContext) {
-        // Prepend language instruction to context
         String langHint = "en".equals(outputLang)
                 ? "\n\n[INSTRUCTION: Write the documentation in English.]\n\n"
                 : "";
@@ -150,6 +159,41 @@ public class DocGeneratorController {
             return wrapInHtml(md, sourceType);
         }
         return docGeneratorService.generateMarkdownWithContext(sourceCode, sourceType, ctx, docPrompt);
+    }
+
+    /** 스캔 컨텍스트 빌드 결과 DTO */
+    private static class ScanContext {
+        final String  context;
+        final String  summary;
+        final boolean contextUsed;
+        final String  scanWarning;
+
+        ScanContext(String context, String summary, boolean contextUsed, String scanWarning) {
+            this.context     = context;
+            this.summary     = summary;
+            this.contextUsed = contextUsed;
+            this.scanWarning = scanWarning;
+        }
+    }
+
+    private ScanContext buildScanContext(String scanPath, boolean useProjectContext) {
+        if (!useProjectContext) return new ScanContext("", null, false, null);
+
+        String effectivePath = (scanPath != null && !scanPath.trim().isEmpty())
+                ? scanPath.trim()
+                : settings.getProject().getScanPath();
+
+        if (effectivePath.isEmpty()) return new ScanContext("", null, false, null);
+
+        try {
+            List<ScannedFile> files = projectScannerService.scanProject(effectivePath);
+            String summary          = projectScannerService.getScanSummary(files);
+            String context          = projectScannerService.buildContext(files);
+            return new ScanContext(context, summary, true, null);
+        } catch (IOException e) {
+            String warn = "프로젝트 스캔 실패 (문서 생성은 계속 진행): " + e.getMessage();
+            return new ScanContext("", null, false, warn);
+        }
     }
 
     private String wrapInHtml(String markdownContent, String title) {
@@ -171,28 +215,6 @@ public class DocGeneratorController {
 
     private String escapeHtml(String s) {
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-    }
-
-    private String buildProjectContext(String scanPath, boolean useProjectContext, Model model) {
-        if (!useProjectContext) return "";
-
-        String effectivePath = (scanPath != null && !scanPath.trim().isEmpty())
-                ? scanPath.trim()
-                : settings.getProject().getScanPath();
-
-        if (effectivePath.isEmpty()) return "";
-
-        try {
-            List<ScannedFile> files  = projectScannerService.scanProject(effectivePath);
-            String summary           = projectScannerService.getScanSummary(files);
-            model.addAttribute("scanSummary", summary);
-            model.addAttribute("projectContextUsed", true);
-            return projectScannerService.buildContext(files);
-        } catch (IOException e) {
-            model.addAttribute("scanWarning",
-                    "프로젝트 스캔 실패 (문서 생성은 계속 진행): " + e.getMessage());
-            return "";
-        }
     }
 
     private String detectType(String filename) {

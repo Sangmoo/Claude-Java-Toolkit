@@ -35,23 +35,23 @@
         <div class="sidebar-group-items" id="group-analysis">
             <a href="/workspace" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/workspace') ? ' active' : ''}">
-                <i class="fas fa-layer-group" style="color:var(--accent)"></i><span>통합 워크스페이스</span>
+                <i class="fas fa-layer-group" style="color:#f97316"></i><span>통합 워크스페이스</span>
             </a>
             <a href="/advisor" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">
-                <i class="fas fa-database"></i><span>SQL 리뷰</span>
+                <i class="fas fa-database" style="color:#3b82f6"></i><span>SQL 리뷰</span>
             </a>
             <a href="/sql-batch" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/sql-batch') ? ' active' : ''}">
-                <i class="fas fa-layer-group" style="color:#f97316"></i><span>배치 SQL 분석</span>
+                <i class="fas fa-layer-group" style="color:#3b82f6"></i><span>배치 SQL 분석</span>
             </a>
             <a href="/erd" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/erd') ? ' active' : ''}">
-                <i class="fas fa-project-diagram"></i><span>ERD 분석</span>
+                <i class="fas fa-project-diagram" style="color:#3b82f6"></i><span>ERD 분석</span>
             </a>
             <a href="/complexity" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/complexity') ? ' active' : ''}">
-                <i class="fas fa-chart-bar"></i><span>복잡도 분석</span>
+                <i class="fas fa-chart-bar" style="color:#3b82f6"></i><span>복잡도 분석</span>
             </a>
             <a href="/explain" class="sidebar-item"
                th:classappend="${#request.requestURI == '/explain' || #request.requestURI == '/explain/analyze' ? ' active' : ''}">
@@ -59,11 +59,11 @@
             </a>
             <a href="/explain/compare" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/compare') ? ' active' : ''}">
-                <i class="fas fa-columns" style="color:#8b5cf6"></i><span>실행계획 비교</span>
+                <i class="fas fa-columns" style="color:#3b82f6"></i><span>실행계획 비교</span>
             </a>
             <a href="/explain/dashboard" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/dashboard') ? ' active' : ''}">
-                <i class="fas fa-chart-line" style="color:#10b981"></i><span>성능 히스토리</span>
+                <i class="fas fa-chart-line" style="color:#3b82f6"></i><span>성능 히스토리</span>
             </a>
             <a href="/harness" class="sidebar-item"
                th:classappend="${#request.requestURI == '/harness' ? ' active' : ''}">
@@ -92,35 +92,35 @@
         <div class="sidebar-group-items" id="group-generate">
             <a href="/docgen" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/docgen') ? ' active' : ''}">
-                <i class="fas fa-file-alt"></i><span>기술 문서</span>
+                <i class="fas fa-file-alt" style="color:#10b981"></i><span>기술 문서</span>
             </a>
             <a href="/apispec" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/apispec') ? ' active' : ''}">
-                <i class="fas fa-code"></i><span>API 명세</span>
+                <i class="fas fa-code" style="color:#10b981"></i><span>API 명세</span>
             </a>
             <a href="/converter" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/converter') ? ' active' : ''}">
-                <i class="fas fa-exchange-alt"></i><span>코드 변환</span>
+                <i class="fas fa-exchange-alt" style="color:#10b981"></i><span>코드 변환</span>
             </a>
             <a href="/mockdata" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/mockdata') ? ' active' : ''}">
-                <i class="fas fa-table"></i><span>Mock 데이터</span>
+                <i class="fas fa-table" style="color:#10b981"></i><span>Mock 데이터</span>
             </a>
             <a href="/migration" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/migration') ? ' active' : ''}">
-                <i class="fas fa-random"></i><span>DB 마이그레이션</span>
+                <i class="fas fa-random" style="color:#10b981"></i><span>DB 마이그레이션</span>
             </a>
             <a href="/batch" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/batch') ? ' active' : ''}">
-                <i class="fas fa-layer-group"></i><span>Batch 처리</span>
+                <i class="fas fa-layer-group" style="color:#10b981"></i><span>Batch 처리</span>
             </a>
             <a href="/depcheck" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/depcheck') ? ' active' : ''}">
-                <i class="fas fa-cubes"></i><span>의존성 분석</span>
+                <i class="fas fa-cubes" style="color:#10b981"></i><span>의존성 분석</span>
             </a>
             <a href="/migrate" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/migrate') ? ' active' : ''}">
-                <i class="fas fa-rocket"></i><span>Spring 마이그레이션</span>
+                <i class="fas fa-rocket" style="color:#10b981"></i><span>Spring 마이그레이션</span>
             </a>
         </div>
 
@@ -133,23 +133,23 @@
         <div class="sidebar-group-items" id="group-history">
             <a href="/history" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/history') ? ' active' : ''}">
-                <i class="fas fa-history"></i><span>리뷰 이력</span>
+                <i class="fas fa-history" style="color:#f59e0b"></i><span>리뷰 이력</span>
             </a>
             <a href="/favorites" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/favorites') ? ' active' : ''}">
-                <i class="fas fa-star"></i><span>즐겨찾기</span>
+                <i class="fas fa-star" style="color:#f59e0b"></i><span>즐겨찾기</span>
             </a>
             <a href="/usage" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/usage') ? ' active' : ''}">
-                <i class="fas fa-gauge-high" style="color:#f97316"></i><span>사용량 모니터링</span>
+                <i class="fas fa-gauge-high" style="color:#f59e0b"></i><span>사용량 모니터링</span>
             </a>
             <a href="/roi-report" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/roi-report') ? ' active' : ''}">
-                <i class="fas fa-chart-pie" style="color:#10b981"></i><span>ROI 리포트</span>
+                <i class="fas fa-chart-pie" style="color:#f59e0b"></i><span>ROI 리포트</span>
             </a>
             <a href="/schedule" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/schedule') ? ' active' : ''}">
-                <i class="fas fa-calendar-check" style="color:#10b981"></i><span>분석 스케줄링</span>
+                <i class="fas fa-calendar-check" style="color:#f59e0b"></i><span>분석 스케줄링</span>
             </a>
         </div>
 
@@ -162,7 +162,7 @@
         <div class="sidebar-group-items" id="group-api">
             <a href="/api-docs" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/api-docs') ? ' active' : ''}">
-                <i class="fas fa-plug"></i><span>API Playground</span>
+                <i class="fas fa-plug" style="color:#3b82f6"></i><span>API Playground</span>
             </a>
         </div>
 
@@ -175,23 +175,23 @@
         <div class="sidebar-group-items" id="group-tools">
             <a href="/loganalyzer" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/loganalyzer') ? ' active' : ''}">
-                <i class="fas fa-bug"></i><span>로그 분석기</span>
+                <i class="fas fa-bug" style="color:#06b6d4"></i><span>로그 분석기</span>
             </a>
             <a href="/regex" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/regex') ? ' active' : ''}">
-                <i class="fas fa-code"></i><span>정규식 생성기</span>
+                <i class="fas fa-code" style="color:#06b6d4"></i><span>정규식 생성기</span>
             </a>
             <a href="/commitmsg" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/commitmsg') ? ' active' : ''}">
-                <i class="fas fa-code-branch"></i><span>커밋 메시지</span>
+                <i class="fas fa-code-branch" style="color:#06b6d4"></i><span>커밋 메시지</span>
             </a>
             <a href="/maskgen" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/maskgen') ? ' active' : ''}">
-                <i class="fas fa-user-shield"></i><span>마스킹 스크립트</span>
+                <i class="fas fa-user-shield" style="color:#06b6d4"></i><span>마스킹 스크립트</span>
             </a>
             <a href="/input-masking" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/input-masking') ? ' active' : ''}">
-                <i class="fas fa-eye-slash" style="color:#f97316"></i><span>민감정보 마스킹</span>
+                <i class="fas fa-eye-slash" style="color:#06b6d4"></i><span>민감정보 마스킹</span>
             </a>
         </div>
     </div>
@@ -200,7 +200,7 @@
     <div class="sidebar-footer">
         <a href="/prompts" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/prompts') ? ' active' : ''}">
-            <i class="fas fa-sliders"></i><span>프롬프트 템플릿</span>
+            <i class="fas fa-sliders" style="color:#f97316"></i><span>프롬프트 템플릿</span>
         </a>
         <a href="/settings/prompts" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings/prompts') ? ' active' : ''}">
@@ -208,11 +208,11 @@
         </a>
         <a href="/db-profiles" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/db-profiles') ? ' active' : ''}">
-            <i class="fas fa-server"></i><span>DB 프로필</span>
+            <i class="fas fa-server" style="color:#3b82f6"></i><span>DB 프로필</span>
         </a>
         <a href="/settings" class="sidebar-item"
            th:classappend="${#request.requestURI == '/settings' ? ' active' : ''}">
-            <i class="fas fa-cog"></i><span>Settings</span>
+            <i class="fas fa-cog" style="color:#64748b"></i><span>Settings</span>
         </a>
         <a href="/security" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/security') ? ' active' : ''}">

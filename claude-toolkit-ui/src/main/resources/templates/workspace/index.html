@@ -886,6 +886,16 @@ function runAnalysis() {
     if (!code)         { alert('코드를 입력하세요.'); return; }
     if (!types.length) { alert('분석 유형을 선택하세요.'); return; }
 
+    // SQL DB 번역 소스/타겟 동일 체크
+    if (selectedTypes['SQL_TRANSLATE']) {
+        var srcDb = document.getElementById('srcDb').value;
+        var tgtDb = document.getElementById('tgtDb').value;
+        if (srcDb === tgtDb) {
+            alert('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.');
+            return;
+        }
+    }
+
     resultTexts = {}; doneCount = 0; totalCount = types.length;
     updateProgress();
     document.getElementById('emptyState').style.display    = 'none';

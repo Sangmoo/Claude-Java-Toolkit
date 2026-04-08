@@ -9,6 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,6 +17,9 @@ import java.nio.charset.StandardCharsets;
 /**
  * Web controller for Code Converter feature (/converter).
  * Converts Oracle SP → Java/Spring+MyBatis, or SQL → MyBatis XML.
+ *
+ * Post-Redirect-Get 패턴 적용:
+ * - POST /converter/convert → 변환 후 redirect:/converter (F5 재실행 방지)
  */
 @Controller
 @RequestMapping("/converter")
@@ -30,40 +34,42 @@ public class CodeConverterController {
         this.historyService   = historyService;
     }
 
+    /** GET /converter — 폼 표시. flash attributes에 이전 결과가 있으면 함께 표시 */
     @GetMapping
     public String showForm(Model model) {
+        // flash attributes(result, sourceCode, targetType 등)는 Spring이 model에 자동 병합
         return "converter/index";
     }
 
+    /** POST /converter/convert — PRG: 변환 후 redirect */
     @PostMapping("/convert")
     public String convert(
             @RequestParam("sourceCode")                              String sourceCode,
             @RequestParam(value = "targetType", defaultValue = "java") String targetType,
-            Model model) {
+            RedirectAttributes redirectAttrs) {
+
+        redirectAttrs.addFlashAttribute("sourceCode", sourceCode);
+        redirectAttrs.addFlashAttribute("targetType", targetType);
 
         try {
             String result = converterService.convert(sourceCode, targetType);
             historyService.save("CODE_CONVERT", sourceCode, result);
-
-            model.addAttribute("result",     result);
-            model.addAttribute("sourceCode", sourceCode);
-            model.addAttribute("targetType", targetType);
+            redirectAttrs.addFlashAttribute("result", result);
         } catch (Exception e) {
-            model.addAttribute("error",      "변환 실패: " + e.getMessage());
-            model.addAttribute("sourceCode", sourceCode);
-            model.addAttribute("targetType", targetType);
+            redirectAttrs.addFlashAttribute("error", "변환 실패: " + e.getMessage());
         }
-        return "converter/index";
+        return "redirect:/converter";
     }
 
+    /** POST /converter/convert/file — 파일 업로드 후 PRG */
     @PostMapping("/convert/file")
     public String convertFromFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "targetType", defaultValue = "java") String targetType,
-            Model model) throws IOException {
+            RedirectAttributes redirectAttrs) throws IOException {
 
         String sourceCode = new String(file.getBytes(), StandardCharsets.UTF_8);
-        return convert(sourceCode, targetType, model);
+        return convert(sourceCode, targetType, redirectAttrs);
     }
 
     @PostMapping("/download")
