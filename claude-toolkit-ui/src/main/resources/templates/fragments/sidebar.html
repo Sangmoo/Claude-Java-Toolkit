@@ -33,6 +33,10 @@
             <i class="fas fa-chevron-down sidebar-chevron" id="chevron-analysis"></i>
         </button>
         <div class="sidebar-group-items" id="group-analysis">
+            <a href="/workspace" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/workspace') ? ' active' : ''}">
+                <i class="fas fa-layer-group" style="color:var(--accent)"></i><span>통합 워크스페이스</span>
+            </a>
             <a href="/advisor" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">
                 <i class="fas fa-database"></i><span>SQL 리뷰</span>
@@ -44,10 +48,6 @@
             <a href="/erd" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/erd') ? ' active' : ''}">
                 <i class="fas fa-project-diagram"></i><span>ERD 분석</span>
-            </a>
-            <a href="/codereview" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/codereview') ? ' active' : ''}">
-                <i class="fas fa-search-plus"></i><span>코드 리뷰</span>
             </a>
             <a href="/complexity" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/complexity') ? ' active' : ''}">
@@ -65,10 +65,6 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/explain/dashboard') ? ' active' : ''}">
                 <i class="fas fa-chart-line" style="color:#10b981"></i><span>성능 히스토리</span>
             </a>
-            <a href="/sql-translate" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/sql-translate') ? ' active' : ''}">
-                <i class="fas fa-language" style="color:#f97316"></i><span>SQL DB 번역</span>
-            </a>
             <a href="/harness" class="sidebar-item"
                th:classappend="${#request.requestURI == '/harness' ? ' active' : ''}">
                 <i class="fas fa-code-compare" style="color:#8b5cf6"></i><span>코드 리뷰 하네스</span>
@@ -85,10 +81,6 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/harness/dashboard') ? ' active' : ''}">
                 <i class="fas fa-chart-line" style="color:#8b5cf6"></i><span>품질 대시보드</span>
             </a>
-            <a href="/workspace" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/workspace') ? ' active' : ''}">
-                <i class="fas fa-layer-group" style="color:#f97316"></i><span>통합 워크스페이스</span>
-            </a>
         </div>
 
         <!-- ── 생성 ── -->
@@ -101,10 +93,6 @@
             <a href="/docgen" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/docgen') ? ' active' : ''}">
                 <i class="fas fa-file-alt"></i><span>기술 문서</span>
-            </a>
-            <a href="/testgen" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/testgen') ? ' active' : ''}">
-                <i class="fas fa-vial"></i><span>테스트 코드</span>
             </a>
             <a href="/apispec" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/apispec') ? ' active' : ''}">
@@ -125,14 +113,6 @@
             <a href="/batch" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/batch') ? ' active' : ''}">
                 <i class="fas fa-layer-group"></i><span>Batch 처리</span>
-            </a>
-            <a href="/javadoc" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/javadoc') ? ' active' : ''}">
-                <i class="fas fa-file-code"></i><span>Javadoc 생성</span>
-            </a>
-            <a href="/refactor" class="sidebar-item"
-               th:classappend="${#strings.startsWith(#request.requestURI, '/refactor') ? ' active' : ''}">
-                <i class="fas fa-magic"></i><span>리팩터링 제안</span>
             </a>
             <a href="/depcheck" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/depcheck') ? ' active' : ''}">
@@ -296,10 +276,10 @@
 
         /* ─── 개별 섹션 접기 / 펼치기 ─── */
         var SECTION_PATHS = {
-            analysis: ['/advisor', '/sql-batch', '/erd', '/codereview', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard', '/sql-translate', '/workspace'],
-            generate: ['/docgen', '/testgen', '/apispec', '/converter',
+            analysis: ['/workspace', '/advisor', '/sql-batch', '/erd', '/complexity', '/explain', '/explain/compare', '/explain/dashboard', '/harness', '/harness/batch', '/harness/dependency', '/harness/dashboard'],
+            generate: ['/docgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
-                       '/javadoc', '/refactor', '/depcheck', '/migrate'],
+                       '/depcheck', '/migrate'],
             history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles'],
             tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen', '/input-masking'],
             api:      ['/api-docs']

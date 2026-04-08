@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.email.EmailService;
 import io.github.claudetoolkit.ui.prompt.PromptService;
 import io.github.claudetoolkit.ui.workspace.AnalysisService;
 import io.github.claudetoolkit.ui.workspace.AnalysisServiceRegistry;
@@ -40,6 +41,7 @@ public class WorkspaceController {
     private final PromptService            promptService;
     private final ClaudeClient             claudeClient;
     private final ToolkitSettings          settings;
+    private final EmailService             emailService;
 
     /** streamId → SseEmitter (GET /workspace/stream/{id} 대기용) */
     private final ConcurrentHashMap<String, SseEmitter>       emitters =
@@ -54,11 +56,13 @@ public class WorkspaceController {
     public WorkspaceController(AnalysisServiceRegistry registry,
                                PromptService promptService,
                                ClaudeClient claudeClient,
-                               ToolkitSettings settings) {
+                               ToolkitSettings settings,
+                               EmailService emailService) {
         this.registry      = registry;
         this.promptService = promptService;
         this.claudeClient  = claudeClient;
         this.settings      = settings;
+        this.emailService  = emailService;
     }
 
     // ── 페이지 ─────────────────────────────────────────────────────────────────
@@ -242,6 +246,38 @@ public class WorkspaceController {
 
         resp.put("success",   true);
         resp.put("streamIds", streamIds);
+        return ResponseEntity.ok(resp);
+    }
+
+    // ── 이메일 발송 ───────────────────────────────────────────────────────────────
+
+    @PostMapping("/send-email")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> sendEmail(
+            @RequestParam("to")                                   String to,
+            @RequestParam(value = "subject", defaultValue = "")   String subject,
+            @RequestParam("content")                              String content) {
+
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (to == null || to.trim().isEmpty()) {
+            resp.put("success", false);
+            resp.put("error",   "수신자 이메일을 입력하세요.");
+            return ResponseEntity.ok(resp);
+        }
+        if (!settings.isEmailConfigured()) {
+            resp.put("success", false);
+            resp.put("error",   "이메일 설정이 구성되지 않았습니다. Settings > Email 을 확인하세요.");
+            return ResponseEntity.ok(resp);
+        }
+        String subj = (subject == null || subject.trim().isEmpty())
+                ? "워크스페이스 분석 결과" : subject.trim();
+        try {
+            emailService.sendJobResult(to.trim(), subj, content);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   e.getMessage() != null ? e.getMessage() : "이메일 발송 실패");
+        }
         return ResponseEntity.ok(resp);
     }
 

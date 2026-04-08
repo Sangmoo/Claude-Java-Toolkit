@@ -9,33 +9,31 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250408')}" rel="stylesheet">
     <style>
-        /* ── 언어 라디오 ── */
+        /* ── 언어 라디오 칩 ── */
         .lang-radio { display:none; }
         .lang-label { display:inline-flex; align-items:center; gap:5px; padding:4px 12px;
                       border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
                       font-size:.78rem; color:var(--text-muted); transition:all .15s; }
-        .lang-radio:checked + .lang-label { background:rgba(249,115,22,.12);
+        .lang-radio:checked + .lang-label { background:rgba(var(--accent-rgb),.12);
                                             border-color:var(--accent); color:var(--accent); font-weight:600; }
         /* ── 분석 체크박스 칩 ── */
         .type-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 13px;
                      border:1px solid var(--border-color); border-radius:20px; cursor:pointer;
                      font-size:.78rem; color:var(--text-muted); transition:all .15s; user-select:none; }
         .type-chip:hover:not(.disabled) { border-color:var(--accent); color:var(--accent); }
-        .type-chip.selected { background:rgba(249,115,22,.12); border-color:var(--accent);
+        .type-chip.selected { background:rgba(var(--accent-rgb),.12); border-color:var(--accent);
                               color:var(--accent); font-weight:600; }
         .type-chip.disabled { opacity:.4; cursor:not-allowed; pointer-events:none; }
         /* ── 결과 탭 ── */
         .result-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
                       padding:5px 14px; border-radius:20px; cursor:pointer; font-size:.78rem;
                       transition:all .15s; white-space:nowrap; }
-        .result-tab.active { background:rgba(249,115,22,.12); border-color:var(--accent);
+        .result-tab.active { background:rgba(var(--accent-rgb),.12); border-color:var(--accent);
                              color:var(--accent); font-weight:600; }
         .result-tab .spinner { display:inline-block; width:10px; height:10px;
                                border:2px solid currentColor; border-top-color:transparent;
                                border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; margin-left:4px; }
         @keyframes spin { to { transform:rotate(360deg); } }
-        /* ── 결과 패널 ── */
-        .result-content { min-height:200px; }
         /* ── 번들 칩 ── */
         .bundle-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px;
                        border:1px solid var(--border-color); border-radius:14px; font-size:.73rem;
@@ -47,186 +45,523 @@
         /* ── 비교 컬럼 ── */
         .compare-col { border:1px solid var(--border-color); border-radius:8px;
                        padding:12px; min-height:300px; }
-        .compare-col-header { font-size:.8rem; font-weight:600; margin-bottom:8px;
-                              color:var(--text-muted); }
+        .compare-col-header { font-size:.8rem; font-weight:600; margin-bottom:8px; color:var(--text-muted); }
+        /* ── 소스 선택 패널 ── */
+        .src-toggle-btn { background:none; border:1px solid var(--border-color); color:var(--text-sub);
+                          padding:5px 14px; border-radius:8px; font-size:.8rem; cursor:pointer;
+                          display:flex; align-items:center; gap:6px; transition:all .15s; }
+        .src-toggle-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .src-toggle-btn.open  { border-color:var(--accent); color:var(--accent); background:rgba(var(--accent-rgb),.07); }
+        .source-panel { border:1px solid var(--border-color); border-radius:10px;
+                        overflow:hidden; margin-bottom:10px; background:var(--surface-color); }
+        .source-panel-header { padding:8px 14px; background:var(--surface-color);
+                                border-bottom:1px solid var(--border-color);
+                                display:flex; align-items:center; justify-content:space-between; }
+        .src-tab { background:none; border:none; color:var(--text-muted); padding:5px 14px;
+                   border-radius:20px; cursor:pointer; font-size:.78rem; font-weight:500; transition:all .15s; }
+        .src-tab.active { background:rgba(var(--accent-rgb),.12); color:var(--accent); font-weight:600; }
+        .source-list { max-height:220px; overflow-y:auto; background:var(--surface-color); }
+        .source-item { display:flex; align-items:center; gap:8px; padding:7px 14px;
+                       cursor:pointer; font-size:.8rem; border-bottom:1px solid var(--border-color);
+                       transition:background .12s; }
+        .source-item:last-child { border-bottom:none; }
+        .source-item:hover    { background:rgba(var(--accent-rgb),.08); }
+        .source-item.selected { background:rgba(var(--accent-rgb),.18); border-left:3px solid var(--accent); }
+        .source-item-name { font-weight:500; color:var(--text-primary); flex-shrink:0;
+                            max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-path { color:var(--text-muted); font-size:.72rem; flex:1;
+                            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .source-item-icon { font-size:.85rem; flex-shrink:0; width:18px; text-align:center; }
+        .source-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; flex-shrink:0; }
+        .source-badge-procedure { background:rgba(249,115,22,.15); color:#f97316; }
+        .source-badge-function  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+        .source-badge-package   { background:rgba(139,92,246,.15);  color:#8b5cf6; }
+        .source-badge-trigger   { background:rgba(239,68,68,.15);   color:#ef4444; }
+        .src-status { font-size:.7rem; color:var(--text-muted); padding:4px 14px;
+                      border-bottom:1px solid var(--border-color);
+                      display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        @keyframes spin-icon { to { transform:rotate(360deg); } }
+        .spin-icon { display:inline-block; animation:spin-icon .8s linear infinite; }
+        /* ── 이메일 패널 ── */
+        .email-panel { border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px; }
+        /* ── copy btn ── */
+        .copy-btn { background:none; border:1px solid var(--border-color); color:var(--text-muted);
+                    padding:3px 10px; border-radius:6px; font-size:.74rem; cursor:pointer; transition:all .15s; }
+        .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
+        @media (max-width:768px) { .source-item-path { display:none; } }
     </style>
 </head>
 <body>
-<div th:replace="fragments/sidebar :: sidebar"></div>
-<div class="main-content">
-<div class="content-wrapper" style="max-width:1400px;">
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
 
-<!-- 헤더 -->
-<div class="page-header mb-3">
-    <h1 class="page-title"><i class="fas fa-layer-group me-2" style="color:var(--accent)"></i>통합 워크스페이스</h1>
-    <p class="page-subtitle">여러 분석을 동시에 실행하고 결과를 탭으로 비교합니다</p>
-</div>
-
-<div class="row g-3">
-    <!-- ══ 입력 패널 ══ -->
-    <div class="col-xl-4 col-lg-5">
-        <div class="panel p-3">
-
-            <!-- 언어 감지 -->
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="section-label">언어 선택</div>
-                <span id="langDetectedBadge" style="display:none;">자동 감지</span>
-            </div>
-            <div class="d-flex flex-wrap gap-1 mb-3">
-                <input type="radio" name="lang" id="l-java"   class="lang-radio" value="java"       onchange="onLangChange()" checked>
-                <label for="l-java"   class="lang-label"><i class="fab fa-java"></i>Java</label>
-
-                <input type="radio" name="lang" id="l-sql"    class="lang-radio" value="sql"        onchange="onLangChange()">
-                <label for="l-sql"    class="lang-label"><i class="fas fa-database me-1"></i>SQL</label>
-
-                <input type="radio" name="lang" id="l-kotlin" class="lang-radio" value="kotlin"     onchange="onLangChange()">
-                <label for="l-kotlin" class="lang-label">Kotlin</label>
-
-                <input type="radio" name="lang" id="l-python" class="lang-radio" value="python"     onchange="onLangChange()">
-                <label for="l-python" class="lang-label">Python</label>
-
-                <input type="radio" name="lang" id="l-js"     class="lang-radio" value="javascript" onchange="onLangChange()">
-                <label for="l-js"     class="lang-label">JavaScript</label>
-
-                <input type="radio" name="lang" id="l-ts"     class="lang-radio" value="typescript" onchange="onLangChange()">
-                <label for="l-ts"     class="lang-label">TypeScript</label>
-            </div>
-
-            <!-- 코드 입력 -->
-            <div class="section-label mb-1">코드 입력</div>
-            <textarea id="codeInput" class="form-control" rows="14"
-                      style="font-family:monospace;font-size:.8rem;resize:vertical;"
-                      placeholder="분석할 코드를 붙여넣으세요..."
-                      oninput="onCodeInput()"></textarea>
-            <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--text-muted);">
-                <span id="tokenEstimate"></span>
-                <span id="lineCount"></span>
-            </div>
-
-            <!-- 분석 유형 선택 -->
-            <div class="d-flex align-items-center justify-content-between mt-3 mb-1">
-                <div class="section-label">분석 항목 선택</div>
-                <div class="d-flex gap-1">
-                    <button class="btn-outline py-0 px-2" style="font-size:.72rem;" onclick="selectAll()">전체 선택</button>
-                    <button class="btn-outline py-0 px-2" style="font-size:.72rem;" onclick="clearAll()">전체 해제</button>
-                </div>
-            </div>
-            <div id="typeChips" class="d-flex flex-wrap gap-1 mb-2">
-                <div th:each="type : ${analysisTypes}"
-                     class="type-chip"
-                     th:data-type="${type.name()}"
-                     th:data-langs="${#strings.arrayJoin(type.supportedLanguages, ',')}"
-                     th:text="${type.displayName}"
-                     onclick="toggleChip(this)">
-                </div>
-            </div>
-
-            <!-- 번들 저장/불러오기 -->
-            <div class="section-label mt-2 mb-1" style="font-size:.75rem;">자주 쓰는 조합 저장</div>
-            <div class="d-flex gap-1 flex-wrap mb-1" id="bundleList"></div>
-            <div class="d-flex gap-1">
-                <input type="text" id="bundleName" class="form-control" style="font-size:.78rem;"
-                       placeholder="번들 이름 입력 후 저장">
-                <button class="btn-outline py-1 px-2" style="font-size:.75rem;" onclick="saveBundle()">
-                    <i class="fas fa-bookmark me-1"></i>저장
-                </button>
-            </div>
-
-            <!-- SQL 번역 옵션 (SQL_TRANSLATE 선택 시 노출) -->
-            <div id="translateOptions" style="display:none;" class="mt-2">
-                <div class="row g-1">
-                    <div class="col-6">
-                        <label class="form-label text-muted" style="font-size:.75rem;">소스 DB</label>
-                        <select id="srcDb" class="form-select" style="font-size:.8rem;">
-                            <option value="oracle">Oracle</option>
-                            <option value="mysql">MySQL</option>
-                            <option value="postgresql">PostgreSQL</option>
-                            <option value="mssql">MS SQL</option>
-                        </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="form-label text-muted" style="font-size:.75rem;">타겟 DB</label>
-                        <select id="tgtDb" class="form-select" style="font-size:.8rem;">
-                            <option value="mysql">MySQL</option>
-                            <option value="oracle">Oracle</option>
-                            <option value="postgresql">PostgreSQL</option>
-                            <option value="mssql">MS SQL</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 실행 버튼 -->
-            <button class="btn-primary w-100 mt-3" id="btnRun" onclick="runAnalysis()" disabled>
-                <i class="fas fa-play me-1"></i><span id="btnLabel">분석 유형을 선택하세요</span>
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <i class="fas fa-layer-group me-2" style="color:var(--accent)"></i>통합 워크스페이스
+            </span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
             </button>
+        </div>
 
-            <!-- 모델 비교 섹션 -->
-            <div class="mt-3 pt-2" style="border-top:1px solid var(--border-color);">
-                <div class="section-label mb-1" style="font-size:.75rem;">모델 비교 분석 (선택 1개 유형)</div>
-                <div class="d-flex flex-wrap gap-1 mb-1">
-                    <label class="type-chip" id="cmp-sonnet">
-                        <input type="checkbox" style="display:none;" value="claude-sonnet-4-5" onchange="updateCompareBtn()">
-                        Sonnet 4.5
-                    </label>
-                    <label class="type-chip" id="cmp-opus">
-                        <input type="checkbox" style="display:none;" value="claude-opus-4-5" onchange="updateCompareBtn()">
-                        Opus 4.5
-                    </label>
-                    <label class="type-chip" id="cmp-haiku">
-                        <input type="checkbox" style="display:none;" value="claude-haiku-4-5" onchange="updateCompareBtn()">
-                        Haiku 4.5
-                    </label>
+        <div class="main-content">
+            <p class="page-subtitle">
+                여러 분석을 동시에 실행하고 결과를 탭으로 비교합니다.
+                Java 파일 또는 DB 오브젝트를 선택하거나 직접 붙여넣어 사용하세요.
+            </p>
+
+            <div class="row g-3">
+                <!-- ══ 입력 패널 ══ -->
+                <div class="col-xl-4 col-lg-5">
+                    <div class="panel p-3">
+
+                        <!-- 언어 선택 -->
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="section-label">언어 선택</div>
+                            <span id="langDetectedBadge" style="display:none;">자동 감지</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            <input type="radio" name="lang" id="l-java"   class="lang-radio" value="java"       onchange="onLangChange()" checked>
+                            <label for="l-java"   class="lang-label"><i class="fab fa-java"></i>Java</label>
+                            <input type="radio" name="lang" id="l-sql"    class="lang-radio" value="sql"        onchange="onLangChange()">
+                            <label for="l-sql"    class="lang-label"><i class="fas fa-database me-1"></i>SQL</label>
+                            <input type="radio" name="lang" id="l-kotlin" class="lang-radio" value="kotlin"     onchange="onLangChange()">
+                            <label for="l-kotlin" class="lang-label">Kotlin</label>
+                            <input type="radio" name="lang" id="l-python" class="lang-radio" value="python"     onchange="onLangChange()">
+                            <label for="l-python" class="lang-label">Python</label>
+                            <input type="radio" name="lang" id="l-js"     class="lang-radio" value="javascript" onchange="onLangChange()">
+                            <label for="l-js"     class="lang-label">JavaScript</label>
+                            <input type="radio" name="lang" id="l-ts"     class="lang-radio" value="typescript" onchange="onLangChange()">
+                            <label for="l-ts"     class="lang-label">TypeScript</label>
+                        </div>
+
+                        <!-- 소스 선택하기 -->
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <button type="button" class="src-toggle-btn" id="srcToggleBtn" onclick="toggleSourcePanel()">
+                                    <i class="fas fa-folder-open"></i>
+                                    소스 선택하기
+                                    <i class="fas fa-chevron-down" id="srcChevron" style="font-size:.65rem;"></i>
+                                </button>
+                                <button type="button" class="copy-btn" onclick="refreshCache()" title="파일·DB 캐시 갱신">
+                                    <i class="fas fa-sync-alt me-1"></i>갱신
+                                </button>
+                            </div>
+
+                            <!-- Source selector panel -->
+                            <div id="sourcePanel" class="source-panel" style="display:none;">
+                                <div class="source-panel-header">
+                                    <div class="d-flex gap-1">
+                                        <button class="src-tab active" id="srcTabFiles" onclick="switchSrcTab('files')">
+                                            <i class="fab fa-java me-1"></i>Java 파일
+                                        </button>
+                                        <button class="src-tab" id="srcTabDb" onclick="switchSrcTab('db')">
+                                            <i class="fas fa-database me-1"></i>DB 오브젝트
+                                        </button>
+                                    </div>
+                                    <button type="button" onclick="toggleSourcePanel()"
+                                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;">
+                                        <i class="fas fa-times" style="font-size:.75rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Java Files Tab -->
+                                <div id="srcPanelFiles">
+                                    <div class="p-2">
+                                        <input type="text" id="fileSearchInput" class="form-control form-control-sm"
+                                               placeholder="클래스명·경로 검색..." oninput="onFileSearch(this.value)"
+                                               autocomplete="off">
+                                    </div>
+                                    <div class="src-status" id="fileStatus">
+                                        <span id="fileStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="fileCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="fileList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>파일 목록 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- DB Objects Tab -->
+                                <div id="srcPanelDb" style="display:none;">
+                                    <div class="p-2 d-flex gap-2">
+                                        <input type="text" id="dbSearchInput" class="form-control form-control-sm"
+                                               placeholder="오브젝트명 검색..." oninput="onDbSearch(this.value)"
+                                               autocomplete="off" style="flex:1;">
+                                        <select id="dbTypeFilter" class="form-select form-select-sm"
+                                                style="width:130px;flex-shrink:0;"
+                                                onchange="onDbSearch(document.getElementById('dbSearchInput').value)">
+                                            <option value="">전체 유형</option>
+                                            <option value="PROCEDURE">PROCEDURE</option>
+                                            <option value="FUNCTION">FUNCTION</option>
+                                            <option value="PACKAGE">PACKAGE</option>
+                                            <option value="TRIGGER">TRIGGER</option>
+                                        </select>
+                                    </div>
+                                    <div class="src-status" id="dbStatus">
+                                        <span id="dbStatusText"><i class="fas fa-spinner spin-icon me-1"></i>로딩 중...</span>
+                                        <span id="dbCount" style="font-weight:600;"></span>
+                                    </div>
+                                    <div class="source-list" id="dbList">
+                                        <div class="source-item" style="justify-content:center;color:var(--text-muted);">
+                                            <i class="fas fa-circle-notch spin-icon me-2"></i>DB 오브젝트 로딩 중...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 코드 입력 -->
+                        <div class="section-label mb-1">코드 입력
+                            <span style="font-size:.7rem;color:var(--text-muted);font-weight:400;margin-left:6px;">Ctrl+Enter 실행</span>
+                        </div>
+                        <textarea id="codeInput" class="form-control" rows="13"
+                                  style="font-family:'JetBrains Mono',monospace;font-size:.8rem;resize:vertical;"
+                                  placeholder="분석할 코드를 붙여넣거나 위에서 파일·DB 오브젝트를 선택하세요..."
+                                  oninput="onCodeInput()"></textarea>
+                        <div class="d-flex justify-content-between mt-1" style="font-size:.72rem;color:var(--text-muted);">
+                            <span id="tokenEstimate"></span>
+                            <span id="lineCount"></span>
+                        </div>
+
+                        <!-- 분석 항목 선택 -->
+                        <div class="d-flex align-items-center justify-content-between mt-3 mb-1">
+                            <div class="section-label">분석 항목 선택</div>
+                            <div class="d-flex gap-1">
+                                <button class="btn-outline-tk btn btn-sm py-0 px-2" style="font-size:.72rem;" onclick="selectAll()">전체</button>
+                                <button class="btn-outline-tk btn btn-sm py-0 px-2" style="font-size:.72rem;" onclick="clearAll()">해제</button>
+                            </div>
+                        </div>
+                        <div id="typeChips" class="d-flex flex-wrap gap-1 mb-2">
+                            <div th:each="type : ${analysisTypes}"
+                                 class="type-chip"
+                                 th:data-type="${type.name()}"
+                                 th:data-langs="${#strings.arrayJoin(type.supportedLanguages, ',')}"
+                                 th:text="${type.displayName}"
+                                 onclick="toggleChip(this)">
+                            </div>
+                        </div>
+
+                        <!-- 번들 저장/불러오기 -->
+                        <div class="section-label mt-2 mb-1" style="font-size:.75rem;">자주 쓰는 조합 저장</div>
+                        <div class="d-flex gap-1 flex-wrap mb-1" id="bundleList"></div>
+                        <div class="d-flex gap-1">
+                            <input type="text" id="bundleName" class="form-control" style="font-size:.78rem;"
+                                   placeholder="번들 이름 입력 후 저장">
+                            <button class="btn-outline-tk btn btn-sm py-1 px-2" style="font-size:.75rem;" onclick="saveBundle()">
+                                <i class="fas fa-bookmark me-1"></i>저장
+                            </button>
+                        </div>
+
+                        <!-- SQL 번역 옵션 -->
+                        <div id="translateOptions" style="display:none;" class="mt-2">
+                            <div class="row g-1">
+                                <div class="col-6">
+                                    <label class="form-label text-muted" style="font-size:.75rem;">소스 DB</label>
+                                    <select id="srcDb" class="form-select" style="font-size:.8rem;">
+                                        <option value="oracle">Oracle</option>
+                                        <option value="mysql">MySQL</option>
+                                        <option value="postgresql">PostgreSQL</option>
+                                        <option value="mssql">MS SQL</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-muted" style="font-size:.75rem;">타겟 DB</label>
+                                    <select id="tgtDb" class="form-select" style="font-size:.8rem;">
+                                        <option value="mysql">MySQL</option>
+                                        <option value="oracle">Oracle</option>
+                                        <option value="postgresql">PostgreSQL</option>
+                                        <option value="mssql">MS SQL</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 실행 버튼 -->
+                        <button class="btn-accent w-100 mt-3" id="btnRun" onclick="runAnalysis()" disabled>
+                            <i class="fas fa-play me-1"></i><span id="btnLabel">분석 유형을 선택하세요</span>
+                        </button>
+
+                        <!-- 모델 비교 -->
+                        <div class="mt-3 pt-2" style="border-top:1px solid var(--border-color);">
+                            <div class="section-label mb-1" style="font-size:.75rem;">모델 비교 분석 (유형 1개 선택)</div>
+                            <div class="d-flex flex-wrap gap-1 mb-1">
+                                <label class="type-chip" id="cmp-sonnet">
+                                    <input type="checkbox" style="display:none;" value="claude-sonnet-4-5" onchange="updateCompareBtn()">
+                                    Sonnet 4.5
+                                </label>
+                                <label class="type-chip" id="cmp-opus">
+                                    <input type="checkbox" style="display:none;" value="claude-opus-4-5" onchange="updateCompareBtn()">
+                                    Opus 4.5
+                                </label>
+                                <label class="type-chip" id="cmp-haiku">
+                                    <input type="checkbox" style="display:none;" value="claude-haiku-4-5" onchange="updateCompareBtn()">
+                                    Haiku 4.5
+                                </label>
+                            </div>
+                            <button class="btn-outline-tk btn w-100 btn-sm" id="btnCompare" onclick="runCompare()" disabled>
+                                <i class="fas fa-columns me-1"></i>모델 비교 실행
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn-outline w-100" id="btnCompare" onclick="runCompare()" disabled style="font-size:.82rem;">
-                    <i class="fas fa-columns me-1"></i>모델 비교 실행
-                </button>
-            </div>
-        </div>
-    </div>
 
-    <!-- ══ 결과 패널 ══ -->
-    <div class="col-xl-8 col-lg-7">
-        <div class="panel p-3" style="min-height:600px;">
-            <!-- 탭 헤더 -->
-            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <div id="resultTabs" class="d-flex flex-wrap gap-1"></div>
-                <button id="btnDownload" class="btn-outline py-1 px-2" style="font-size:.75rem;display:none;"
-                        onclick="downloadAll()">
-                    <i class="fas fa-download me-1"></i>전체 MD 다운로드
-                </button>
-            </div>
+                <!-- ══ 결과 패널 ══ -->
+                <div class="col-xl-8 col-lg-7">
+                    <div class="panel p-3" style="min-height:600px;">
+                        <!-- 탭 헤더 + 액션 -->
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <div id="resultTabs" class="d-flex flex-wrap gap-1"></div>
+                            <div class="d-flex gap-1 align-items-center">
+                                <button id="btnDownload" class="copy-btn" style="display:none;" onclick="downloadAll()">
+                                    <i class="fas fa-download me-1"></i>MD 다운로드
+                                </button>
+                            </div>
+                        </div>
 
-            <!-- 탭 콘텐츠 -->
-            <div id="resultContents"></div>
+                        <!-- 탭 콘텐츠 -->
+                        <div id="resultContents"></div>
 
-            <!-- 초기 안내 -->
-            <div id="emptyState" class="text-center py-5">
-                <i class="fas fa-layer-group" style="font-size:2.5rem;color:var(--text-muted);"></i>
-                <p class="text-muted mt-3">분석 항목을 선택하고 실행 버튼을 누르세요</p>
-                <p class="text-muted" style="font-size:.82rem;">여러 분석을 동시에 실행해 탭으로 결과를 비교할 수 있습니다</p>
-            </div>
+                        <!-- 초기 안내 -->
+                        <div id="emptyState" class="text-center py-5">
+                            <i class="fas fa-layer-group" style="font-size:2.5rem;color:var(--text-muted);opacity:.3;"></i>
+                            <p class="text-muted mt-3">분석 항목을 선택하고 실행 버튼을 누르세요</p>
+                            <p class="text-muted" style="font-size:.82rem;">여러 분석을 동시에 실행해 탭으로 결과를 비교할 수 있습니다</p>
+                            <div class="d-flex gap-3 justify-content-center mt-2" style="font-size:.75rem;color:var(--text-muted);opacity:.7;">
+                                <span><i class="fas fa-folder-open me-1"></i>ERP 파일 선택</span>
+                                <span>·</span>
+                                <span><i class="fas fa-database me-1"></i>DB 오브젝트 선택</span>
+                                <span>·</span>
+                                <span><i class="fas fa-envelope me-1"></i>이메일 발송</span>
+                            </div>
+                        </div>
 
-            <!-- 모델 비교 결과 -->
-            <div id="compareResult" style="display:none;">
-                <div class="section-label mb-2">모델 비교 결과</div>
-                <div class="row g-2" id="compareColumns"></div>
-            </div>
-        </div>
-    </div>
-</div><!-- /row -->
-</div><!-- /content-wrapper -->
-</div><!-- /main-content -->
+                        <!-- 모델 비교 결과 -->
+                        <div id="compareResult" style="display:none;">
+                            <div class="section-label mb-2">모델 비교 결과</div>
+                            <div class="row g-2" id="compareColumns"></div>
+                        </div>
+
+                        <!-- 이메일 발송 패널 -->
+                        <div class="email-panel" id="emailPanel" style="display:none;">
+                            <div class="section-label mb-1" style="font-size:.75rem;"><i class="fas fa-envelope me-1"></i>결과 이메일 발송</div>
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <input type="email" id="emailTo" class="form-control" style="font-size:.82rem;max-width:280px;"
+                                       placeholder="수신자 이메일 주소">
+                                <input type="text" id="emailSubject" class="form-control" style="font-size:.82rem;max-width:200px;"
+                                       placeholder="제목 (선택)">
+                                <button class="btn-accent" style="padding:6px 18px;" onclick="sendEmail()" id="btnSendEmail">
+                                    <i class="fas fa-paper-plane me-1"></i>발송
+                                </button>
+                            </div>
+                            <div id="emailResult" style="font-size:.8rem;margin-top:6px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /row -->
+        </div><!-- /main-content -->
+    </main>
+</div><!-- /layout -->
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    상태
    ═══════════════════════════════════════════════════════════ */
-var selectedTypes = {};   // typeName → true
-var resultTexts   = {};   // typeName → 누적 텍스트
+var selectedTypes = {};
+var resultTexts   = {};
 var doneCount     = 0;
 var totalCount    = 0;
+
+/* ═══════════════════════════════════════════════════════════
+   테마
+   ═══════════════════════════════════════════════════════════ */
+function toggleTheme() {
+    var html  = document.documentElement;
+    var isDark = html.getAttribute('data-theme') !== 'light';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
+}
+(function(){
+    var t = localStorage.getItem('theme');
+    document.getElementById('themeLabel').textContent = (t === 'light') ? 'Dark' : 'Light';
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   소스 선택 패널
+   ═══════════════════════════════════════════════════════════ */
+var srcPanelOpen = false;
+var srcTab       = 'files';
+var allFiles     = [];
+var allDbObjs    = [];
+var fileLoaded   = false;
+var dbLoaded     = false;
+
+function toggleSourcePanel() {
+    srcPanelOpen = !srcPanelOpen;
+    var panel  = document.getElementById('sourcePanel');
+    var btn    = document.getElementById('srcToggleBtn');
+    var chev   = document.getElementById('srcChevron');
+    panel.style.display = srcPanelOpen ? '' : 'none';
+    btn.classList.toggle('open', srcPanelOpen);
+    chev.style.transform = srcPanelOpen ? 'rotate(180deg)' : '';
+    if (srcPanelOpen) {
+        if (!fileLoaded) loadFiles();
+        if (!dbLoaded)   loadDbObjects();
+    }
+}
+
+function switchSrcTab(tab) {
+    srcTab = tab;
+    document.getElementById('srcPanelFiles').style.display = (tab === 'files') ? '' : 'none';
+    document.getElementById('srcPanelDb').style.display    = (tab === 'db')    ? '' : 'none';
+    document.getElementById('srcTabFiles').classList.toggle('active', tab === 'files');
+    document.getElementById('srcTabDb').classList.toggle('active',    tab === 'db');
+}
+
+function refreshCache() {
+    fileLoaded = false;
+    dbLoaded   = false;
+    allFiles   = [];
+    allDbObjs  = [];
+    if (srcPanelOpen) { loadFiles(); loadDbObjects(); }
+    else { loadFiles(); loadDbObjects(); }
+}
+
+/* ── Java 파일 로딩 ── */
+function loadFiles() {
+    fileLoaded = true;
+    fetch('/harness/cache/files?q=')
+        .then(function(r){ return r.json(); })
+        .then(function(list){
+            allFiles = list || [];
+            document.getElementById('fileStatusText').textContent = '파일 목록';
+            document.getElementById('fileCount').textContent = allFiles.length + '개';
+            renderFileList(allFiles);
+        })
+        .catch(function(){
+            document.getElementById('fileStatusText').textContent = '로드 실패 (프로젝트 경로 설정 필요)';
+            document.getElementById('fileList').innerHTML =
+                '<div class="source-item" style="color:var(--text-muted);justify-content:center;">파일을 불러올 수 없습니다</div>';
+        });
+}
+
+function onFileSearch(q) {
+    var filtered = q.trim()
+        ? allFiles.filter(function(f){ return (f.rel||'').toLowerCase().indexOf(q.toLowerCase()) >= 0
+                                           || (f.name||'').toLowerCase().indexOf(q.toLowerCase()) >= 0; })
+        : allFiles;
+    renderFileList(filtered);
+}
+
+function renderFileList(list) {
+    var el = document.getElementById('fileList');
+    if (!list || !list.length) {
+        el.innerHTML = '<div class="source-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>';
+        return;
+    }
+    var html = '';
+    list.slice(0, 200).forEach(function(f) {
+        var name = escHtml(f.name || '');
+        var rel  = escHtml(f.rel  || '');
+        var abs  = escHtml(f.abs  || '');
+        html += '<div class="source-item" data-abs="' + abs + '" data-rel="' + rel + '" onclick="selectFile(this)">'
+              + '<span class="source-item-icon"><i class="fab fa-java" style="color:#f97316;"></i></span>'
+              + '<span class="source-item-name">' + name + '</span>'
+              + '<span class="source-item-path">' + rel + '</span>'
+              + '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function selectFile(el) {
+    document.querySelectorAll('#fileList .source-item').forEach(function(i){ i.classList.remove('selected'); });
+    el.classList.add('selected');
+    var abs = el.getAttribute('data-abs') || '';
+    if (!abs) return;
+    fetch('/harness/cache/file-content?path=' + encodeURIComponent(abs))
+        .then(function(r){ return r.text(); })
+        .then(function(text){
+            document.getElementById('codeInput').value = text;
+            setLang('java');
+            onCodeInput();
+            toggleSourcePanel();
+        })
+        .catch(function(){ alert('파일 내용을 불러올 수 없습니다.'); });
+}
+
+/* ── DB 오브젝트 로딩 ── */
+function loadDbObjects() {
+    dbLoaded = true;
+    fetch('/harness/cache/db-objects?q=&type=')
+        .then(function(r){ return r.json(); })
+        .then(function(list){
+            allDbObjs = list || [];
+            document.getElementById('dbStatusText').textContent = 'DB 오브젝트';
+            document.getElementById('dbCount').textContent = allDbObjs.length + '개';
+            renderDbList(allDbObjs);
+        })
+        .catch(function(){
+            document.getElementById('dbStatusText').textContent = '로드 실패 (DB 프로필 설정 필요)';
+            document.getElementById('dbList').innerHTML =
+                '<div class="source-item" style="color:var(--text-muted);justify-content:center;">DB 오브젝트를 불러올 수 없습니다</div>';
+        });
+}
+
+function onDbSearch(q) {
+    var typeFilter = document.getElementById('dbTypeFilter').value;
+    var filtered = allDbObjs.filter(function(o){
+        var matchQ    = !q.trim() || (o.name||'').toLowerCase().indexOf(q.toLowerCase()) >= 0;
+        var matchType = !typeFilter || (o.type||'').toUpperCase() === typeFilter;
+        return matchQ && matchType;
+    });
+    renderDbList(filtered);
+}
+
+function renderDbList(list) {
+    var el = document.getElementById('dbList');
+    if (!list || !list.length) {
+        el.innerHTML = '<div class="source-item" style="color:var(--text-muted);justify-content:center;">결과 없음</div>';
+        return;
+    }
+    var html = '';
+    list.slice(0, 200).forEach(function(o) {
+        var name = escHtml(o.name || '');
+        var type = (o.type || '').toUpperCase();
+        var badgeClass = 'source-badge-' + type.toLowerCase();
+        html += '<div class="source-item" data-name="' + name + '" data-type="' + escHtml(type) + '" onclick="selectDbObj(this)">'
+              + '<span class="source-item-icon"><i class="fas fa-database" style="color:#3b82f6;"></i></span>'
+              + '<span class="source-item-name">' + name + '</span>'
+              + '<span class="source-badge ' + badgeClass + '">' + type + '</span>'
+              + '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function selectDbObj(el) {
+    document.querySelectorAll('#dbList .source-item').forEach(function(i){ i.classList.remove('selected'); });
+    el.classList.add('selected');
+    var name = el.getAttribute('data-name') || '';
+    var type = el.getAttribute('data-type') || '';
+    if (!name) return;
+    fetch('/harness/cache/db-source?name=' + encodeURIComponent(name) + '&type=' + encodeURIComponent(type))
+        .then(function(r){ return r.text(); })
+        .then(function(text){
+            document.getElementById('codeInput').value = text;
+            setLang('sql');
+            onCodeInput();
+            toggleSourcePanel();
+        })
+        .catch(function(){ alert('DB 오브젝트 소스를 불러올 수 없습니다.'); });
+}
+
+function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 /* ═══════════════════════════════════════════════════════════
    언어 / 코드 입력
@@ -248,20 +583,14 @@ function autoDetectLanguage(code) {
     var upper = code.toUpperCase();
     var sqlKw  = ['SELECT ', 'INSERT ', 'UPDATE ', 'DELETE ', 'CREATE ', 'ALTER ', 'DROP '];
     var javaKw = ['import ', 'public class', '@Service', '@Controller', '@Repository', '@Component', 'public void ', 'private '];
-
-    var sqlScore  = 0, javaScore = 0;
+    var sqlScore = 0, javaScore = 0;
     for (var i = 0; i < sqlKw.length;  i++) if (upper.indexOf(sqlKw[i].toUpperCase())  >= 0) sqlScore++;
     for (var j = 0; j < javaKw.length; j++) if (code.indexOf(javaKw[j])               >= 0) javaScore++;
-
     var badge = document.getElementById('langDetectedBadge');
     if (sqlScore >= 1 && sqlScore > javaScore) {
-        setLang('sql');
-        badge.style.display = '';
-        badge.textContent   = '🔍 SQL 감지';
+        setLang('sql'); badge.style.display = ''; badge.textContent = '🔍 SQL 감지';
     } else if (javaScore >= 2) {
-        setLang('java');
-        badge.style.display = '';
-        badge.textContent   = '🔍 Java 감지';
+        setLang('java'); badge.style.display = ''; badge.textContent = '🔍 Java 감지';
     } else {
         badge.style.display = 'none';
     }
@@ -272,40 +601,31 @@ function setLang(lang) {
     if (radio && !radio.checked) { radio.checked = true; onLangChange(); }
 }
 
-function onLangChange() {
-    updateChipAvailability();
-    updateRunBtn();
-}
+function onLangChange() { updateChipAvailability(); updateRunBtn(); }
 
 function updateStats(code) {
     var lines  = code ? code.split('\n').length : 0;
     var tokens = Math.round((code || '').length / 4);
-    document.getElementById('lineCount').textContent    = lines  + '줄';
-    document.getElementById('tokenEstimate').textContent = '~' + tokens.toLocaleString() + ' 토큰 예상';
+    document.getElementById('lineCount').textContent     = lines + '줄';
+    document.getElementById('tokenEstimate').textContent = '~' + tokens.toLocaleString() + ' 토큰';
 }
 
 /* ═══════════════════════════════════════════════════════════
    체크박스 칩
    ═══════════════════════════════════════════════════════════ */
 function toggleChip(el) {
-    var type = el.dataset.type;
     if (el.classList.contains('disabled')) return;
-    if (selectedTypes[type]) {
-        delete selectedTypes[type];
-        el.classList.remove('selected');
-    } else {
-        selectedTypes[type] = true;
-        el.classList.add('selected');
-    }
-    updateRunBtn();
-    showTranslateOptions();
+    var type = el.dataset.type;
+    if (selectedTypes[type]) { delete selectedTypes[type]; el.classList.remove('selected'); }
+    else { selectedTypes[type] = true; el.classList.add('selected'); }
+    updateRunBtn(); showTranslateOptions();
 }
 
 function updateChipAvailability() {
     var lang = getLanguage();
     document.querySelectorAll('.type-chip').forEach(function(chip) {
-        var langs = (chip.dataset.langs || '').split(',');
-        var supported = langs.some(function(l) { return l.trim() === lang; });
+        var langs     = (chip.dataset.langs || '').split(',');
+        var supported = langs.some(function(l){ return l.trim() === lang; });
         chip.classList.toggle('disabled', !supported);
         if (!supported && selectedTypes[chip.dataset.type]) {
             delete selectedTypes[chip.dataset.type];
@@ -316,46 +636,37 @@ function updateChipAvailability() {
 }
 
 function selectAll() {
-    var lang = getLanguage();
-    document.querySelectorAll('.type-chip:not(.disabled)').forEach(function(chip) {
-        selectedTypes[chip.dataset.type] = true;
-        chip.classList.add('selected');
+    document.querySelectorAll('.type-chip:not(.disabled)').forEach(function(chip){
+        selectedTypes[chip.dataset.type] = true; chip.classList.add('selected');
     });
-    updateRunBtn();
-    showTranslateOptions();
+    updateRunBtn(); showTranslateOptions();
 }
 
 function clearAll() {
     selectedTypes = {};
-    document.querySelectorAll('.type-chip').forEach(function(c) { c.classList.remove('selected'); });
+    document.querySelectorAll('.type-chip').forEach(function(c){ c.classList.remove('selected'); });
     updateRunBtn();
     document.getElementById('translateOptions').style.display = 'none';
 }
 
 function showTranslateOptions() {
-    var show = !!selectedTypes['SQL_TRANSLATE'];
-    document.getElementById('translateOptions').style.display = show ? '' : 'none';
+    document.getElementById('translateOptions').style.display = !!selectedTypes['SQL_TRANSLATE'] ? '' : 'none';
 }
 
 function updateRunBtn() {
     var count = Object.keys(selectedTypes).length;
     var btn   = document.getElementById('btnRun');
-    var label = document.getElementById('btnLabel');
     btn.disabled = count === 0;
-    label.textContent = count > 0
+    document.getElementById('btnLabel').textContent = count > 0
         ? '선택한 ' + count + '개 분석 실행'
         : '분석 유형을 선택하세요';
 }
 
 /* ═══════════════════════════════════════════════════════════
-   번들 저장/불러오기 (localStorage)
+   번들 저장/불러오기
    ═══════════════════════════════════════════════════════════ */
 var BUNDLE_KEY = 'workspace_bundles_v1';
-
-function loadBundles() {
-    try { return JSON.parse(localStorage.getItem(BUNDLE_KEY)) || {}; }
-    catch(e) { return {}; }
-}
+function loadBundles() { try { return JSON.parse(localStorage.getItem(BUNDLE_KEY)) || {}; } catch(e) { return {}; } }
 
 function renderBundles() {
     var bundles = loadBundles();
@@ -363,22 +674,21 @@ function renderBundles() {
     el.innerHTML = '';
     Object.keys(bundles).forEach(function(name) {
         var chip = document.createElement('span');
-        chip.className   = 'bundle-chip';
-        chip.title       = bundles[name].join(', ');
-        chip.innerHTML   = '<i class="fas fa-bookmark me-1"></i>' + name
-                         + ' <i class="fas fa-times ms-1" style="font-size:.65rem;" onclick="deleteBundle(\''
-                         + name + '\',event)"></i>';
-        chip.onclick = function() { loadBundle(name); };
+        chip.className = 'bundle-chip';
+        chip.title     = bundles[name].join(', ');
+        chip.innerHTML = '<i class="fas fa-bookmark me-1"></i>' + escHtml(name)
+                       + ' <i class="fas fa-times ms-1" style="font-size:.65rem;" onclick="deleteBundle(\''
+                       + name.replace(/'/g,"\\'") + '\',event)"></i>';
+        chip.onclick = function(){ loadBundle(name); };
         el.appendChild(chip);
     });
 }
 
 function saveBundle() {
-    var name = document.getElementById('bundleName').value.trim();
-    if (!name) return;
+    var name  = document.getElementById('bundleName').value.trim();
     var types = Object.keys(selectedTypes);
-    if (types.length === 0) return;
-    var bundles  = loadBundles();
+    if (!name || !types.length) return;
+    var bundles = loadBundles();
     bundles[name] = types;
     localStorage.setItem(BUNDLE_KEY, JSON.stringify(bundles));
     document.getElementById('bundleName').value = '';
@@ -387,17 +697,12 @@ function saveBundle() {
 
 function loadBundle(name) {
     clearAll();
-    var bundles = loadBundles();
-    var types   = bundles[name] || [];
-    types.forEach(function(t) {
+    var types = (loadBundles()[name]) || [];
+    types.forEach(function(t){
         var chip = document.querySelector('.type-chip[data-type="' + t + '"]');
-        if (chip && !chip.classList.contains('disabled')) {
-            selectedTypes[t] = true;
-            chip.classList.add('selected');
-        }
+        if (chip && !chip.classList.contains('disabled')) { selectedTypes[t] = true; chip.classList.add('selected'); }
     });
-    updateRunBtn();
-    showTranslateOptions();
+    updateRunBtn(); showTranslateOptions();
 }
 
 function deleteBundle(name, e) {
@@ -415,67 +720,50 @@ function runAnalysis() {
     var code  = document.getElementById('codeInput').value.trim();
     var lang  = getLanguage();
     var types = Object.keys(selectedTypes);
+    if (!code)        { alert('코드를 입력하세요.'); return; }
+    if (!types.length){ alert('분석 유형을 선택하세요.'); return; }
 
-    if (!code)           { alert('코드를 입력하세요.'); return; }
-    if (!types.length)   { alert('분석 유형을 선택하세요.'); return; }
-
-    // 결과 초기화
-    resultTexts = {};
-    doneCount   = 0;
-    totalCount  = types.length;
-
+    resultTexts = {}; doneCount = 0; totalCount = types.length;
     document.getElementById('emptyState').style.display    = 'none';
     document.getElementById('compareResult').style.display = 'none';
+    document.getElementById('emailPanel').style.display    = 'none';
     document.getElementById('resultTabs').innerHTML         = '';
     document.getElementById('resultContents').innerHTML     = '';
     document.getElementById('btnDownload').style.display    = 'none';
 
-    // 탭 생성
-    types.forEach(function(t) {
-        createResultTab(t);
-        resultTexts[t] = '';
-    });
+    types.forEach(function(t){ createResultTab(t); resultTexts[t] = ''; });
     switchResultTab(types[0]);
 
     var params = new URLSearchParams();
-    params.append('code',           code);
-    params.append('language',       lang);
+    params.append('code',     code);
+    params.append('language', lang);
     params.append('projectContext', '');
-    types.forEach(function(t) { params.append('selectedTypes', t); });
-
-    // SQL_TRANSLATE 소스/타겟 DB는 request에 추가 처리 없이 서비스가 기본값 사용
-    // (WorkspaceRequest의 sourceDb/targetDb 는 compare용 확장 필드)
+    types.forEach(function(t){ params.append('selectedTypes', t); });
 
     fetch('/workspace/run', { method:'POST', body:params })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (!d.success) { alert(d.error || '오류 발생'); return; }
-            var ids = d.streamIds || {};
-            Object.keys(ids).forEach(function(typeName) {
-                var streamId = ids[typeName];
-                startStream(typeName, '/workspace/stream/' + streamId);
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success){ alert(d.error || '오류 발생'); return; }
+            Object.keys(d.streamIds || {}).forEach(function(typeName){
+                startStream(typeName, '/workspace/stream/' + d.streamIds[typeName]);
             });
         });
 }
 
 function createResultTab(typeName) {
     var displayName = getDisplayName(typeName);
-
-    // 탭 버튼
     var btn = document.createElement('button');
-    btn.className   = 'result-tab';
-    btn.id          = 'tab-btn-' + typeName;
-    btn.onclick     = function() { switchResultTab(typeName); };
-    btn.innerHTML   = displayName + '<span class="spinner" id="spinner-' + typeName + '"></span>';
+    btn.className = 'result-tab';
+    btn.id        = 'tab-btn-' + typeName;
+    btn.onclick   = function(){ switchResultTab(typeName); };
+    btn.innerHTML = displayName + '<span class="spinner" id="spinner-' + typeName + '"></span>';
     document.getElementById('resultTabs').appendChild(btn);
 
-    // 콘텐츠 div
     var div = document.createElement('div');
     div.id            = 'tab-content-' + typeName;
     div.style.display = 'none';
     div.innerHTML     = '<div class="d-flex justify-content-end mb-1">'
-                      + '<button class="btn-outline py-0 px-2" style="font-size:.72rem;" '
-                      + 'onclick="copyResult(\'' + typeName + '\')">'
+                      + '<button class="copy-btn" onclick="copyResult(\'' + typeName + '\')">'
                       + '<i class="fas fa-copy me-1"></i>복사</button></div>'
                       + '<div class="result-content markdown-body" id="result-' + typeName + '">'
                       + '<div class="text-muted" style="font-size:.82rem;">분석 중...</div></div>';
@@ -483,8 +771,8 @@ function createResultTab(typeName) {
 }
 
 function switchResultTab(typeName) {
-    document.querySelectorAll('.result-tab').forEach(function(b) { b.classList.remove('active'); });
-    document.querySelectorAll('[id^="tab-content-"]').forEach(function(d) { d.style.display = 'none'; });
+    document.querySelectorAll('.result-tab').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('[id^="tab-content-"]').forEach(function(d){ d.style.display = 'none'; });
     var btn = document.getElementById('tab-btn-' + typeName);
     var cnt = document.getElementById('tab-content-' + typeName);
     if (btn) btn.classList.add('active');
@@ -501,15 +789,16 @@ function startStream(typeName, url) {
     es.addEventListener('done', function() {
         es.close();
         var spinner = document.getElementById('spinner-' + typeName);
-        if (spinner) {
-            spinner.outerHTML = ' <i class="fas fa-check" style="font-size:.65rem;color:#10b981;margin-left:4px;"></i>';
-        }
+        if (spinner) spinner.outerHTML = ' <i class="fas fa-check" style="font-size:.65rem;color:#10b981;margin-left:4px;"></i>';
         doneCount++;
         if (doneCount >= totalCount) {
             document.getElementById('btnDownload').style.display = '';
+            document.getElementById('emailPanel').style.display  = '';
+            var subj = document.getElementById('emailSubject');
+            if (subj && !subj.value) subj.value = '워크스페이스 분석 결과 (' + new Date().toLocaleDateString('ko-KR') + ')';
         }
     });
-    es.addEventListener('error', function(e) {
+    es.addEventListener('error', function() {
         es.close();
         var el = document.getElementById('result-' + typeName);
         if (el) el.innerHTML += '<div style="color:#ef4444;font-size:.8rem;">⚠ 스트리밍 오류</div>';
@@ -520,36 +809,31 @@ function startStream(typeName, url) {
    모델 비교
    ═══════════════════════════════════════════════════════════ */
 function updateCompareBtn() {
-    var checked = document.querySelectorAll('#btnCompare ~ * input:checked, .col-xl-4 input[type=checkbox]:checked');
-    // 더 정확하게 쿼리
     var cbs = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]');
-    var cnt = 0;
-    cbs.forEach(function(cb) { if (cb.checked) cnt++; });
-    var types = Object.keys(selectedTypes);
-    document.getElementById('btnCompare').disabled = cnt < 2 || types.length !== 1;
+    var cnt = 0; cbs.forEach(function(cb){ if (cb.checked) cnt++; });
+    document.getElementById('btnCompare').disabled = cnt < 2 || Object.keys(selectedTypes).length !== 1;
 }
 
 function getCheckedModels() {
-    var cbs = document.querySelectorAll('[id^="cmp-"] input[type=checkbox]:checked');
     var models = [];
-    cbs.forEach(function(cb) { models.push(cb.value); });
+    document.querySelectorAll('[id^="cmp-"] input[type=checkbox]:checked').forEach(function(cb){ models.push(cb.value); });
     return models;
 }
 
 function runCompare() {
-    var code   = document.getElementById('codeInput').value.trim();
-    var lang   = getLanguage();
-    var types  = Object.keys(selectedTypes);
+    var code      = document.getElementById('codeInput').value.trim();
+    var lang      = getLanguage();
+    var types     = Object.keys(selectedTypes);
     var modelList = getCheckedModels();
-
-    if (!code)         { alert('코드를 입력하세요.'); return; }
-    if (types.length !== 1) { alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
-    if (modelList.length < 2) { alert('모델을 2개 이상 선택하세요.'); return; }
+    if (!code)            { alert('코드를 입력하세요.'); return; }
+    if (types.length !== 1){ alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
+    if (modelList.length < 2){ alert('모델을 2개 이상 선택하세요.'); return; }
 
     document.getElementById('emptyState').style.display    = 'none';
     document.getElementById('resultTabs').innerHTML         = '';
     document.getElementById('resultContents').innerHTML     = '';
     document.getElementById('btnDownload').style.display    = 'none';
+    document.getElementById('emailPanel').style.display     = 'none';
     document.getElementById('compareResult').style.display  = '';
 
     var cols = document.getElementById('compareColumns');
@@ -558,36 +842,76 @@ function runCompare() {
         var col = document.createElement('div');
         col.className = 'col-md-6';
         col.innerHTML = '<div class="compare-col">'
-                      + '<div class="compare-col-header"><i class="fas fa-robot me-1"></i>' + m + '</div>'
+                      + '<div class="compare-col-header"><i class="fas fa-robot me-1"></i>' + escHtml(m) + '</div>'
                       + '<div class="markdown-body" id="compare-' + m.replace(/[^a-z0-9]/gi,'_') + '">'
                       + '<div class="text-muted" style="font-size:.82rem;">분석 중...</div></div></div>';
         cols.appendChild(col);
     });
 
     var params = new URLSearchParams();
-    params.append('code',         code);
-    params.append('language',     lang);
-    params.append('analysisType', types[0]);
-    params.append('projectContext', '');
-    modelList.forEach(function(m) { params.append('models', m); });
+    params.append('code', code); params.append('language', lang);
+    params.append('analysisType', types[0]); params.append('projectContext', '');
+    modelList.forEach(function(m){ params.append('models', m); });
 
     fetch('/workspace/compare', { method:'POST', body:params })
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-            if (!d.success) { alert(d.error || '오류'); return; }
-            var ids = d.streamIds || {};
-            Object.keys(ids).forEach(function(model) {
-                var streamId = ids[model];
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success){ alert(d.error || '오류'); return; }
+            Object.keys(d.streamIds || {}).forEach(function(model) {
                 var key = model.replace(/[^a-z0-9]/gi,'_');
-                var es  = new EventSource('/workspace/compare-stream/' + streamId);
+                var es  = new EventSource('/workspace/compare-stream/' + d.streamIds[model]);
                 var buf = '';
                 es.onmessage = function(e) {
                     buf += e.data;
                     var el = document.getElementById('compare-' + key);
                     if (el) el.innerHTML = marked.parse(buf);
                 };
-                es.addEventListener('done', function() { es.close(); });
+                es.addEventListener('done', function(){ es.close(); });
             });
+        });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   이메일 발송
+   ═══════════════════════════════════════════════════════════ */
+function sendEmail() {
+    var to      = (document.getElementById('emailTo').value || '').trim();
+    var subject = (document.getElementById('emailSubject').value || '').trim();
+    if (!to) { alert('수신자 이메일을 입력하세요.'); return; }
+
+    var lines = [];
+    Object.keys(resultTexts).forEach(function(t){
+        lines.push('=== ' + getDisplayName(t) + ' ===');
+        lines.push('');
+        lines.push(resultTexts[t]);
+        lines.push('');
+    });
+    var body = lines.join('\n');
+
+    var btn = document.getElementById('btnSendEmail');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>발송 중...';
+
+    var params = new URLSearchParams();
+    params.append('to',      to);
+    params.append('subject', subject || '워크스페이스 분석 결과');
+    params.append('content', body);
+
+    fetch('/workspace/send-email', { method:'POST', body:params })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
+            var el = document.getElementById('emailResult');
+            if (d.success) { el.style.color = '#10b981'; el.textContent = '✓ 이메일이 발송되었습니다.'; }
+            else            { el.style.color = '#ef4444'; el.textContent = d.error || '발송 실패'; }
+            setTimeout(function(){ el.textContent = ''; }, 4000);
+        })
+        .catch(function(){
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>발송';
+            var el = document.getElementById('emailResult');
+            el.style.color = '#ef4444'; el.textContent = '발송 중 오류가 발생했습니다.';
         });
 }
 
@@ -598,69 +922,52 @@ function copyResult(typeName) {
     var text = resultTexts[typeName] || '';
     if (!text) return;
     navigator.clipboard.writeText(text)
-        .then(function() { showToast('복사 완료'); })
-        .catch(function() {
+        .then(function(){ showToast('복사 완료'); })
+        .catch(function(){
             var el = document.createElement('textarea');
-            el.value = text;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
+            el.value = text; document.body.appendChild(el); el.select();
+            document.execCommand('copy'); document.body.removeChild(el);
             showToast('복사 완료');
         });
 }
 
 function downloadAll() {
     var lines = [];
-    Object.keys(resultTexts).forEach(function(t) {
-        lines.push('# ' + getDisplayName(t));
-        lines.push('');
-        lines.push(resultTexts[t]);
-        lines.push('');
-        lines.push('---');
-        lines.push('');
+    Object.keys(resultTexts).forEach(function(t){
+        lines.push('# ' + getDisplayName(t)); lines.push('');
+        lines.push(resultTexts[t]); lines.push(''); lines.push('---'); lines.push('');
     });
     var blob = new Blob([lines.join('\n')], { type:'text/markdown;charset=utf-8' });
     var a    = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
     a.download = 'workspace-analysis-' + new Date().toISOString().slice(0,10) + '.md';
-    a.click();
-    URL.revokeObjectURL(a.href);
+    a.click(); URL.revokeObjectURL(a.href);
 }
 
 function getDisplayName(typeName) {
-    var map = {
-        CODE_REVIEW:'코드 리뷰', SECURITY_AUDIT:'보안 감사', TEST_GENERATION:'테스트 생성',
-        JAVADOC:'Javadoc 생성', REFACTOR:'리팩터링', SQL_REVIEW:'SQL 리뷰',
-        SQL_SECURITY:'SQL 보안', SQL_TRANSLATE:'SQL 번역', HARNESS:'하네스 파이프라인'
-    };
+    var map = { CODE_REVIEW:'코드 리뷰', SECURITY_AUDIT:'보안 감사', TEST_GENERATION:'테스트 생성',
+                JAVADOC:'Javadoc 생성', REFACTOR:'리팩터링', SQL_REVIEW:'SQL 리뷰',
+                SQL_SECURITY:'SQL 보안', SQL_TRANSLATE:'SQL 번역', HARNESS:'하네스 파이프라인' };
     return map[typeName] || typeName;
 }
 
 function showToast(msg) {
-    if (typeof window.showToast === 'function') { window.showToast(msg); return; }
     var t = document.createElement('div');
     t.textContent = msg;
     t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;'
                     + 'padding:8px 18px;border-radius:8px;font-size:.82rem;z-index:9999;';
     document.body.appendChild(t);
-    setTimeout(function() { if (t.parentNode) document.body.removeChild(t); }, 2000);
+    setTimeout(function(){ if (t.parentNode) document.body.removeChild(t); }, 2000);
 }
 
 /* ═══════════════════════════════════════════════════════════
    로컬스토리지 임시저장
    ═══════════════════════════════════════════════════════════ */
 var DRAFT_KEY = 'workspace_draft_v1';
-function saveDraft() {
-    localStorage.setItem(DRAFT_KEY, document.getElementById('codeInput').value || '');
-}
+function saveDraft() { localStorage.setItem(DRAFT_KEY, document.getElementById('codeInput').value || ''); }
 function loadDraft() {
     var d = localStorage.getItem(DRAFT_KEY);
-    if (d) {
-        document.getElementById('codeInput').value = d;
-        updateStats(d);
-        autoDetectLanguage(d);
-    }
+    if (d) { document.getElementById('codeInput').value = d; updateStats(d); autoDetectLanguage(d); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -671,15 +978,10 @@ window.addEventListener('DOMContentLoaded', function() {
     renderBundles();
     updateChipAvailability();
 
-    // 모델 비교 체크박스 클릭 이벤트 (label 클릭 시 chip 스타일 토글)
     document.querySelectorAll('[id^="cmp-"]').forEach(function(label) {
         var cb = label.querySelector('input[type=checkbox]');
-        label.addEventListener('click', function(e) {
-            // label 클릭 → checkbox 상태 반전 후 스타일 처리
-            setTimeout(function() {
-                label.classList.toggle('selected', cb.checked);
-                updateCompareBtn();
-            }, 0);
+        label.addEventListener('click', function() {
+            setTimeout(function(){ label.classList.toggle('selected', cb.checked); updateCompareBtn(); }, 0);
         });
     });
 });
