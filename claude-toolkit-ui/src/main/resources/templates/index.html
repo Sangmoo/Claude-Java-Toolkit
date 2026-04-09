@@ -356,6 +356,60 @@
                 </div>
             </div>
 
+            <!-- ── 시스템 상태 요약 ── -->
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-xl-3">
+                    <div class="panel p-3 text-center">
+                        <div style="font-size:1.5rem;font-weight:700;color:var(--text-primary);" th:text="${monthRequests}">0</div>
+                        <div style="font-size:.72rem;color:var(--text-muted);">이번 달 분석 요청</div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="panel p-3 text-center">
+                        <div style="font-size:1.5rem;font-weight:700;color:var(--accent);"
+                             th:text="${#numbers.formatDecimal(monthTokens / 1000.0, 0, 'COMMA', 1, 'POINT')} + 'K'">0K</div>
+                        <div style="font-size:.72rem;color:var(--text-muted);">이번 달 토큰 사용량</div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="panel p-3 text-center">
+                        <div style="font-size:1.5rem;font-weight:700;color:#10b981;" th:text="${todayApiCalls}">0</div>
+                        <div style="font-size:.72rem;color:var(--text-muted);">오늘 API 호출</div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="panel p-3 text-center">
+                        <div style="font-size:1.5rem;font-weight:700;color:#8b5cf6;" th:text="${userCount}">0</div>
+                        <div style="font-size:.72rem;color:var(--text-muted);">등록 사용자</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시스템 연결 상태 -->
+            <div class="row g-3 mb-4">
+                <div class="col-lg-12">
+                    <div class="panel p-3">
+                        <div class="d-flex flex-wrap gap-3" style="font-size:.78rem;">
+                            <span>
+                                <i th:class="${apiKeySet ? 'fas fa-check-circle' : 'fas fa-times-circle'}"
+                                   th:style="${apiKeySet ? 'color:#10b981;' : 'color:#ef4444;'}"></i>
+                                Claude API <span th:if="${apiKeySet}" style="color:var(--text-muted);" th:text="'(' + ${currentModel} + ')'"></span>
+                            </span>
+                            <span>
+                                <i th:class="${dbConfigured ? 'fas fa-check-circle' : 'fas fa-minus-circle'}"
+                                   th:style="${dbConfigured ? 'color:#10b981;' : 'color:var(--text-muted);'}"></i>
+                                Oracle DB <span th:unless="${dbConfigured}" style="color:var(--text-muted);">(미설정)</span>
+                            </span>
+                            <span>
+                                <i th:class="${emailConfigured ? 'fas fa-check-circle' : 'fas fa-minus-circle'}"
+                                   th:style="${emailConfigured ? 'color:#10b981;' : 'color:var(--text-muted);'}"></i>
+                                이메일 <span th:unless="${emailConfigured}" style="color:var(--text-muted);">(미설정)</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── Dashboard Widgets ── -->
             <div class="row g-3 mb-4">
                 <!-- Recent Favorites -->

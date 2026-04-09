@@ -91,6 +91,57 @@ public class AccountController {
         return ResponseEntity.ok(resp);
     }
 
+    /** 2FA 시크릿 생성 (QR코드용) */
+    @PostMapping("/setup-2fa")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> setup2fa(Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user == null) { resp.put("success", false); return ResponseEntity.ok(resp); }
+        String secret = io.github.claudetoolkit.ui.security.TotpService.generateSecret();
+        String otpUri = io.github.claudetoolkit.ui.security.TotpService.buildOtpAuthUri(
+                secret, user.getUsername(), "Claude Toolkit");
+        // 아직 저장하지 않음 — verify 후 저장
+        resp.put("success", true);
+        resp.put("secret", secret);
+        resp.put("otpAuthUri", otpUri);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 2FA 코드 검증 + 시크릿 저장 */
+    @PostMapping("/verify-2fa")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> verify2fa(
+            @RequestParam String secret, @RequestParam String code, Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!io.github.claudetoolkit.ui.security.TotpService.verifyCode(secret, code)) {
+            resp.put("success", false);
+            resp.put("error", "인증 코드가 올바르지 않습니다.");
+            return ResponseEntity.ok(resp);
+        }
+        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user != null) {
+            user.setTotpSecret(secret);
+            userRepository.save(user);
+        }
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 2FA 비활성화 */
+    @PostMapping("/disable-2fa")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> disable2fa(Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user != null) {
+            user.setTotpSecret(null);
+            userRepository.save(user);
+        }
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
+    }
+
     @PostMapping("/change-password")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> changePassword(

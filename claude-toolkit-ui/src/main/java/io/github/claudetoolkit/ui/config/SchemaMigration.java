@@ -28,6 +28,7 @@ public class SchemaMigration implements ApplicationRunner {
         addColumnIfNotExists("APP_USER", "RATE_LIMIT_PER_MINUTE", "INTEGER DEFAULT 0");
         addColumnIfNotExists("APP_USER", "RATE_LIMIT_PER_HOUR",   "INTEGER DEFAULT 0");
         addColumnIfNotExists("APP_USER", "PERSONAL_API_KEY",      "VARCHAR(200)");
+        addColumnIfNotExists("APP_USER", "TOTP_SECRET",           "VARCHAR(64)");
         addColumnIfNotExists("AUDIT_LOG", "USERNAME",             "VARCHAR(50)");
         addColumnIfNotExists("AUDIT_LOG", "DURATION_MS",          "BIGINT");
     }

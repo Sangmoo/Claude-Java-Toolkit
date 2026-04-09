@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-2.2.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.3.0-brightgreen.svg)](#)
 
 ---
 
@@ -1356,6 +1356,23 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 **💾 데이터 관리**
 - [x] **데이터 백업/복원** — `/admin/backup`: H2 DB + settings.json + security-settings.json을 ZIP 다운로드/업로드. 사이드바 관리 섹션
 - [x] **자동 스키마 마이그레이션** — `SchemaMigration`: 앱 시작 시 누락 컬럼 자동 추가 (DEFAULT 값 포함). 기존 Docker volume DB 호환
+
+---
+
+### ✅ v2.3.0
+
+**🏠 대시보드 강화**
+- [x] **시스템 상태 위젯** — 이번 달 분석 요청/토큰 사용량, 오늘 API 호출, 등록 사용자 수 요약 카드
+- [x] **연결 상태 표시** — Claude API / Oracle DB / 이메일 연결 상태 실시간 표시
+- [x] **관리 도구 섹션** — 사용자 관리(ADMIN), 보안 설정(ADMIN), 내 설정(전체) 카드
+
+**🎨 테마 프리셋**
+- [x] **5가지 색상 프리셋** — Settings에서 오렌지/블루/그린/퍼플/핑크 원클릭 전환 (기 구현)
+
+**🔐 2FA 이중 인증**
+- [x] **Google Authenticator 연동** — `/account/settings`에서 QR코드 스캔 → 6자리 코드 인증 → 2FA 활성화
+- [x] **TOTP (RFC 6238)** — `TotpService`: Base32 시크릿 생성, HMAC-SHA1 코드 생성, ±30초 허용
+- [x] **사용자별 독립 설정** — 각 사용자가 자신의 2FA를 개별 관리 (활성화/비활성화)
 
 ---
 

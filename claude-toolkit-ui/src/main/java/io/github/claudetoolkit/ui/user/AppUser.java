@@ -43,6 +43,10 @@ public class AppUser {
     @Column(length = 200)
     private String personalApiKey;
 
+    /** TOTP 시크릿 (Base32, Google Authenticator용). null이면 2FA 비활성. */
+    @Column(length = 64)
+    private String totpSecret;
+
     /** 분당 API 호출 제한 (0=무제한) */
     @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
     private int rateLimitPerMinute = 0;
@@ -80,6 +84,8 @@ public class AppUser {
     public String getUsername()            { return username; }
     public String getPasswordHash()        { return passwordHash; }
     public String getPersonalApiKey()       { return personalApiKey; }
+    public String getTotpSecret()            { return totpSecret; }
+    public boolean isTotpEnabled()           { return totpSecret != null && !totpSecret.isEmpty(); }
     public int    getRateLimitPerMinute()  { return rateLimitPerMinute; }
     public int    getRateLimitPerHour()    { return rateLimitPerHour; }
     public String getDisplayName()         { return displayName; }
@@ -93,6 +99,7 @@ public class AppUser {
     public void setUsername(String username)           { this.username = username; }
     public void setPasswordHash(String passwordHash)  { this.passwordHash = passwordHash; }
     public void setPersonalApiKey(String key)            { this.personalApiKey = key; }
+    public void setTotpSecret(String secret)              { this.totpSecret = secret; }
     public void setRateLimitPerMinute(int v)             { this.rateLimitPerMinute = v; }
     public void setRateLimitPerHour(int v)               { this.rateLimitPerHour = v; }
     public void setDisplayName(String displayName)     { this.displayName = displayName; }
