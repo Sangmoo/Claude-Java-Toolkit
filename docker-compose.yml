@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   claude-toolkit:
     build: .
@@ -18,14 +16,8 @@ services:
     volumes:
       - toolkit-data:/root/.claude-toolkit
     restart: unless-stopped
-    depends_on:
-      - db
-    profiles:
-      - default
-      - mysql
-      - postgresql
 
-  # ── MySQL (DB_TYPE=mysql 시 사용) ──
+  # ── MySQL (docker-compose --profile mysql up -d) ──
   db:
     image: mysql:8.0
     container_name: claude-toolkit-db
@@ -42,7 +34,7 @@ services:
     profiles:
       - mysql
 
-  # ── PostgreSQL (DB_TYPE=postgresql 시 사용) ──
+  # ── PostgreSQL (docker-compose --profile postgresql up -d) ──
   db-pg:
     image: postgres:14-alpine
     container_name: claude-toolkit-pg
