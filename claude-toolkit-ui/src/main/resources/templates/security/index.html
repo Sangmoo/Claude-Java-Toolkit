@@ -253,6 +253,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="auditPagination"></div>
                     </div>
                 </div>
             </div><!-- /row -->
@@ -375,47 +376,56 @@ function deleteSettingsPassword() {
         });
 }
 
-/* ═══ 감사 로그 테이블 ════════════════════════════════════════════════════ */
-var _auditLogs = [];
-function loadAuditLog() {
-    fetch('/security/audit-log')
+/* ═══ 감사 로그 테이블 (서버 사이드 페이지네이션) ═══════════════════════ */
+var _currentPage = 0;
+var _totalPages  = 0;
+
+function loadAuditLog(page) {
+    if (page === undefined) page = 0;
+    _currentPage = page;
+    var params = 'page=' + page + '&size=50';
+    var fUser = (document.getElementById('filterUser').value || '').trim();
+    var fDate = document.getElementById('filterDate').value;
+    if (fUser) params += '&user=' + encodeURIComponent(fUser);
+    if (fDate) params += '&period=' + fDate;
+    fetch('/security/audit-log?' + params)
         .then(function(r) { return r.json(); })
-        .then(function(logs) {
-            _auditLogs = logs || [];
-            renderAuditLog(_auditLogs);
+        .then(function(data) {
+            _totalPages = data.totalPages || 0;
+            var logs = data.content || [];
+            // 클라이언트 사이드 추가 필터 (액션, 엔드포인트)
+            var fAction   = document.getElementById('filterAction').value;
+            var fEndpoint = (document.getElementById('filterEndpoint').value || '').trim().toLowerCase();
+            if (fAction || fEndpoint) {
+                logs = logs.filter(function(l) {
+                    if (fAction && l.actionType !== fAction) return false;
+                    if (fEndpoint && (!l.endpoint || l.endpoint.toLowerCase().indexOf(fEndpoint) < 0)) return false;
+                    return true;
+                });
+            }
+            renderAuditLog(logs);
+            renderPagination(data);
         })
         .catch(function() {
             document.getElementById('auditTableBody').innerHTML =
-                '<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
+                '<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
         });
 }
 
-function filterAuditLog() {
-    var fUser     = (document.getElementById('filterUser').value || '').trim().toLowerCase();
-    var fAction   = document.getElementById('filterAction').value;
-    var fEndpoint = (document.getElementById('filterEndpoint').value || '').trim().toLowerCase();
-    var fDate     = document.getElementById('filterDate').value;
-    var now       = new Date();
-    var filtered = _auditLogs.filter(function(l) {
-        if (fUser && (!l.username || l.username.toLowerCase().indexOf(fUser) < 0)) return false;
-        if (fAction && l.actionType !== fAction) return false;
-        if (fEndpoint && (!l.endpoint || l.endpoint.toLowerCase().indexOf(fEndpoint) < 0)) return false;
-        if (fDate && l.formattedDate) {
-            // formattedDate = "MM-dd HH:mm:ss" — 올해 기준으로 파싱
-            var parts = l.formattedDate.match(/(\d+)-(\d+)\s(\d+):(\d+):(\d+)/);
-            if (parts) {
-                var logDate = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]),
-                                       parseInt(parts[3]), parseInt(parts[4]), parseInt(parts[5]));
-                var diffMs = now.getTime() - logDate.getTime();
-                if (fDate === '1h'    && diffMs > 3600000) return false;
-                if (fDate === 'today' && logDate.toDateString() !== now.toDateString()) return false;
-                if (fDate === '7d'    && diffMs > 604800000) return false;
-                if (fDate === '30d'   && diffMs > 2592000000) return false;
-            }
-        }
-        return true;
-    });
-    renderAuditLog(filtered);
+function filterAuditLog() { loadAuditLog(0); }
+
+function renderPagination(data) {
+    var el = document.getElementById('auditPagination');
+    if (!el) return;
+    if (data.totalPages <= 1) { el.innerHTML = ''; return; }
+    var html = '<div style="display:flex;gap:4px;align-items:center;justify-content:center;margin-top:8px;font-size:.75rem;">';
+    html += '<button class="copy-btn" onclick="loadAuditLog(0)" ' + (data.page===0?'disabled':'') + '>&laquo;</button>';
+    html += '<button class="copy-btn" onclick="loadAuditLog('+(data.page-1)+')" ' + (data.page===0?'disabled':'') + '>&lsaquo;</button>';
+    html += '<span style="color:var(--text-muted);padding:0 8px;">' + (data.page+1) + ' / ' + data.totalPages + ' (' + data.totalElements + '건)</span>';
+    html += '<button class="copy-btn" onclick="loadAuditLog('+(data.page+1)+')" ' + (data.page>=data.totalPages-1?'disabled':'') + '>&rsaquo;</button>';
+    html += '<button class="copy-btn" onclick="loadAuditLog('+(data.totalPages-1)+')" ' + (data.page>=data.totalPages-1?'disabled':'') + '>&raquo;</button>';
+    html += '</div>';
+    el.innerHTML = html;
 }
 
 function renderAuditLog(logs) {

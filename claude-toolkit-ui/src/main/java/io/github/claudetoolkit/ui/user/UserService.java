@@ -67,6 +67,12 @@ public class UserService {
 
     @Transactional
     public void updateInfo(Long id, String displayName, String email, String phone, String role) {
+        updateInfo(id, displayName, email, phone, role, 0, 0);
+    }
+
+    @Transactional
+    public void updateInfo(Long id, String displayName, String email, String phone, String role,
+                           int rateLimitPerMinute, int rateLimitPerHour) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
                     public RuntimeException get() {
@@ -79,6 +85,8 @@ public class UserService {
         if (role != null && !role.isEmpty()) {
             user.setRole(role.toUpperCase());
         }
+        user.setRateLimitPerMinute(rateLimitPerMinute);
+        user.setRateLimitPerHour(rateLimitPerHour);
         userRepository.save(user);
     }
 

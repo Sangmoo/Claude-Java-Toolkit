@@ -65,13 +65,22 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("search",        "/search");
     }
 
+    /** Rate limit 대상 URL 패턴 (POST 분석 실행) */
+    private static final java.util.Set<String> RATE_LIMIT_PATHS = new java.util.HashSet<String>(
+            java.util.Arrays.asList("/workspace/run", "/workspace/compare",
+                    "/sql-translate/init", "/harness/analyze", "/codereview/review",
+                    "/github-pr/analyze", "/git-diff/analyze"));
+
     private final AppUserRepository userRepository;
     private final UserPermissionRepository permissionRepository;
+    private final io.github.claudetoolkit.ui.security.RateLimitService rateLimitService;
 
     public PermissionInterceptor(AppUserRepository userRepository,
-                                 UserPermissionRepository permissionRepository) {
-        this.userRepository     = userRepository;
+                                 UserPermissionRepository permissionRepository,
+                                 io.github.claudetoolkit.ui.security.RateLimitService rateLimitService) {
+        this.userRepository       = userRepository;
         this.permissionRepository = permissionRepository;
+        this.rateLimitService     = rateLimitService;
     }
 
     @Override
@@ -126,6 +135,18 @@ public class PermissionInterceptor implements WebMvcConfigurer {
                         return false;
                     }
                     break;
+                }
+            }
+
+            // Rate Limit 체크 (POST 분석 실행 요청에만 적용)
+            if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
+                String reason = rateLimitService.checkAndRecord(
+                        user.getUsername(), user.getRateLimitPerMinute(), user.getRateLimitPerHour());
+                if (reason != null) {
+                    response.setStatus(429);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"success\":false,\"error\":\"" + reason + "\"}");
+                    return false;
                 }
             }
 

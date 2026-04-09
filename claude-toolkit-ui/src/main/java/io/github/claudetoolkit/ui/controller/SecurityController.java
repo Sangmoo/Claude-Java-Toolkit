@@ -57,9 +57,28 @@ public class SecurityController {
 
     @GetMapping("/audit-log")
     @ResponseBody
-    public ResponseEntity<List<Map<String, Object>>> auditLog() {
-        List<AuditLog> logs = auditLogService.findRecent();
-        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+    public ResponseEntity<Map<String, Object>> auditLog(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String user,
+            @RequestParam(required = false) String period) {
+
+        // 기간 필터
+        java.time.LocalDateTime since = null;
+        if ("1h".equals(period)) since = java.time.LocalDateTime.now().minusHours(1);
+        else if ("today".equals(period)) since = java.time.LocalDate.now().atStartOfDay();
+        else if ("7d".equals(period)) since = java.time.LocalDateTime.now().minusDays(7);
+        else if ("30d".equals(period)) since = java.time.LocalDateTime.now().minusDays(30);
+
+        org.springframework.data.domain.Page<AuditLog> pageResult;
+        if ((user != null && !user.isEmpty()) || since != null) {
+            pageResult = auditLogService.findFiltered(user, since, page, size);
+        } else {
+            pageResult = auditLogService.findPaged(page, size);
+        }
+
+        List<AuditLog> logs = pageResult.getContent();
+        List<Map<String, Object>> items = new ArrayList<Map<String, Object>>();
         for (AuditLog l : logs) {
             Map<String, Object> m = new LinkedHashMap<String, Object>();
             m.put("id",          l.getId());
@@ -73,9 +92,16 @@ public class SecurityController {
             m.put("durationMs",  l.getDurationMs());
             m.put("formattedDate", l.getFormattedDate());
             m.put("statusColor", l.getStatusBadgeColor());
-            result.add(m);
+            items.add(m);
         }
-        return ResponseEntity.ok(result);
+
+        Map<String, Object> response = new LinkedHashMap<String, Object>();
+        response.put("content", items);
+        response.put("page", page);
+        response.put("size", size);
+        response.put("totalPages", pageResult.getTotalPages());
+        response.put("totalElements", pageResult.getTotalElements());
+        return ResponseEntity.ok(response);
     }
 
     /** 감사 로그 CSV 내보내기 */
