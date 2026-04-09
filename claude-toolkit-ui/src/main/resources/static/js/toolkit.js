@@ -15,31 +15,34 @@
     }
 })();
 
+// ── Auto-inject logout button (즉시 실행 — script가 body 하단에 로드되므로 DOM 접근 가능) ──
+(function _injectLogoutBtn() {
+    // login.html, setup.html 등에는 삽입하지 않음
+    if (window.location.pathname === '/login' || window.location.pathname === '/setup') return;
+    var themeToggle = document.getElementById('themeToggle');
+    if (themeToggle && themeToggle.parentNode && !document.getElementById('logoutBtn')) {
+        var btn = document.createElement('a');
+        btn.id = 'logoutBtn';
+        btn.href = '/logout';
+        btn.title = '로그아웃';
+        btn.style.cssText = 'background:none;border:1px solid var(--border-color);color:var(--text-muted);'
+            + 'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem;text-decoration:none;'
+            + 'display:inline-flex;align-items:center;gap:4px;margin-left:6px;transition:all .15s;';
+        btn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>로그아웃</span>';
+        btn.onmouseenter = function(){ this.style.borderColor='#ef4444'; this.style.color='#ef4444'; };
+        btn.onmouseleave = function(){ this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)'; };
+        themeToggle.parentNode.insertBefore(btn, themeToggle.nextSibling);
+    }
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     var saved = localStorage.getItem('theme') || 'dark';
     _syncThemeUI(saved);
-    // Enable transitions only after the correct theme is confirmed on screen.
-    // This prevents any residual flash from triggering CSS transitions.
     requestAnimationFrame(function () {
         requestAnimationFrame(function () {
             document.documentElement.classList.add('theme-ready');
         });
     });
-
-    // ── Auto-inject logout button next to theme toggle ──
-    var themeToggle = document.getElementById('themeToggle');
-    if (themeToggle && themeToggle.parentNode) {
-        var logoutBtn = document.createElement('a');
-        logoutBtn.href = '/logout';
-        logoutBtn.title = '로그아웃';
-        logoutBtn.style.cssText = 'background:none;border:1px solid var(--border-color);color:var(--text-muted);'
-            + 'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem;text-decoration:none;'
-            + 'display:inline-flex;align-items:center;gap:4px;margin-left:6px;transition:all .15s;';
-        logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>로그아웃</span>';
-        logoutBtn.onmouseenter = function(){ this.style.borderColor='#ef4444'; this.style.color='#ef4444'; };
-        logoutBtn.onmouseleave = function(){ this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)'; };
-        themeToggle.parentNode.insertBefore(logoutBtn, themeToggle.nextSibling);
-    }
 
     // ── Auto-inject print button when result is visible ──
     var resultEl = document.querySelector('.result-area, .result-box, #resultMd, .result-panel');

@@ -107,4 +107,44 @@ public class AdminUserController {
         }
         return ResponseEntity.ok(resp);
     }
+
+    /** 사용자 정보 조회 (JSON) */
+    @GetMapping("/{id}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        io.github.claudetoolkit.ui.user.AppUser user = userService.findById(id);
+        if (user == null) {
+            resp.put("success", false);
+            return ResponseEntity.ok(resp);
+        }
+        resp.put("success", true);
+        resp.put("id", user.getId());
+        resp.put("username", user.getUsername());
+        resp.put("displayName", user.getDisplayName());
+        resp.put("email", user.getEmail());
+        resp.put("phone", user.getPhone());
+        resp.put("role", user.getRole());
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 사용자 정보 수정 (ID 제외) */
+    @PostMapping("/{id}/update")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateUser(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "") String displayName,
+            @RequestParam(defaultValue = "") String email,
+            @RequestParam(defaultValue = "") String phone,
+            @RequestParam(defaultValue = "") String role) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            userService.updateInfo(id, displayName, email, phone, role);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
 }

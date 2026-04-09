@@ -120,7 +120,10 @@
                             <option value="REVIEWER"  th:selected="${u.role == 'REVIEWER'}">REVIEWER</option>
                             <option value="ADMIN"     th:selected="${u.role == 'ADMIN'}">ADMIN</option>
                         </select>
-                        <button class="action-btn" onclick="promptChangePassword(this)" th:attr="data-id=${u.id}">
+                        <button class="action-btn" onclick="openEditModal(this)" th:attr="data-id=${u.id}" title="정보 수정">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button class="action-btn" onclick="promptChangePassword(this)" th:attr="data-id=${u.id}" title="비밀번호 변경">
                             <i class="fas fa-key"></i>
                         </button>
                         <button class="action-btn" onclick="toggleUser(this)" th:attr="data-id=${u.id}"
@@ -158,6 +161,57 @@
             </div>
         </div>
     </main>
+
+<!-- 사용자 정보 수정 모달 -->
+<div id="editModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeEditModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,90vw);
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:.95rem;color:var(--text-primary);">
+                <i class="fas fa-pen me-2" style="color:#f97316"></i>사용자 정보 수정
+            </span>
+            <button onclick="closeEditModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div style="padding:18px;">
+            <input type="hidden" id="editId">
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">ID (변경 불가)</label>
+                <input type="text" id="editUsername" class="form-control" style="font-size:.84rem;" readonly disabled>
+            </div>
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">사용자이름</label>
+                <input type="text" id="editDisplayName" class="form-control" style="font-size:.84rem;" placeholder="홍길동">
+            </div>
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">이메일주소</label>
+                <input type="email" id="editEmail" class="form-control" style="font-size:.84rem;" placeholder="user@email.com">
+            </div>
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">핸드폰번호</label>
+                <input type="text" id="editPhone" class="form-control" style="font-size:.84rem;" placeholder="010-1234-5678">
+            </div>
+            <div class="mb-3">
+                <label style="font-size:.78rem;color:var(--text-sub);">역할</label>
+                <select id="editRole" class="form-select" style="font-size:.84rem;">
+                    <option value="VIEWER">VIEWER</option>
+                    <option value="REVIEWER">REVIEWER</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button onclick="closeEditModal()" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.84rem;">취소</button>
+                <button class="btn-accent" style="padding:7px 20px;" onclick="saveEdit()">
+                    <i class="fas fa-save me-1"></i>저장
+                </button>
+            </div>
+            <div id="editResult" style="font-size:.8rem;margin-top:6px;"></div>
+        </div>
+    </div>
+</div>
+
 </div>
 <script th:src="@{/js/toolkit.js}"></script>
 <script>
@@ -209,6 +263,38 @@ function deleteUser(btn) {
     fetch('/admin/users/' + id + '/delete', {method:'POST'})
         .then(function(r){ return r.json(); })
         .then(function(d){ if (d.success) location.reload(); else alert(d.error||'삭제 실패'); });
+}
+
+function openEditModal(btn) {
+    var id = btn.getAttribute('data-id');
+    document.getElementById('editId').value = id;
+    document.getElementById('editResult').innerHTML = '';
+    fetch('/admin/users/' + id)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) { alert('사용자 정보를 불러올 수 없습니다.'); return; }
+            document.getElementById('editUsername').value    = d.username || '';
+            document.getElementById('editDisplayName').value = d.displayName || '';
+            document.getElementById('editEmail').value       = d.email || '';
+            document.getElementById('editPhone').value       = d.phone || '';
+            document.getElementById('editRole').value        = d.role || 'VIEWER';
+            document.getElementById('editModal').style.display = '';
+        });
+}
+function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+function saveEdit() {
+    var id = document.getElementById('editId').value;
+    var fd = new URLSearchParams();
+    fd.append('displayName', document.getElementById('editDisplayName').value.trim());
+    fd.append('email',       document.getElementById('editEmail').value.trim());
+    fd.append('phone',       document.getElementById('editPhone').value.trim());
+    fd.append('role',        document.getElementById('editRole').value);
+    fetch('/admin/users/' + id + '/update', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) { location.reload(); }
+            else { document.getElementById('editResult').innerHTML = '<span style="color:#ef4444;">' + (d.error||'수정 실패') + '</span>'; }
+        });
 }
 </script>
 </body>

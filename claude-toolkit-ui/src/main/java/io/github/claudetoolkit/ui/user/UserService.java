@@ -66,6 +66,23 @@ public class UserService {
     }
 
     @Transactional
+    public void updateInfo(Long id, String displayName, String email, String phone, String role) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
+                    public RuntimeException get() {
+                        return new IllegalArgumentException("사용자를 찾을 수 없습니다.");
+                    }
+                });
+        user.setDisplayName(displayName);
+        user.setEmail(email);
+        user.setPhone(phone);
+        if (role != null && !role.isEmpty()) {
+            user.setRole(role.toUpperCase());
+        }
+        userRepository.save(user);
+    }
+
+    @Transactional
     public void toggleEnabled(Long id) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
