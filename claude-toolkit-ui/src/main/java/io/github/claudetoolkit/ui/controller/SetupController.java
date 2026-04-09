@@ -143,6 +143,32 @@ public class SetupController {
         return ResponseEntity.ok(resp);
     }
 
+    /** 이메일 SMTP 설정 저장 */
+    @PostMapping("/save-email")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveEmail(
+            @RequestParam String host,
+            @RequestParam(defaultValue = "587") String port,
+            @RequestParam(defaultValue = "") String username,
+            @RequestParam(defaultValue = "") String password,
+            @RequestParam(defaultValue = "") String from) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            settings.getEmail().setHost(host.trim());
+            try { settings.getEmail().setPort(Integer.parseInt(port.trim())); } catch (NumberFormatException e) { settings.getEmail().setPort(587); }
+            settings.getEmail().setUsername(username.trim());
+            if (!password.isEmpty()) settings.getEmail().setPassword(password.trim());
+            settings.getEmail().setFrom(from.trim().isEmpty() ? username.trim() : from.trim());
+            settings.getEmail().setTls(true);
+            persistenceService.save();
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
     /** 설치 완료 처리 */
     @PostMapping("/complete")
     @ResponseBody

@@ -29,7 +29,7 @@ public class SecurityConfig {
             .csrf()
                 .ignoringAntMatchers(
                     "/api/**", "/stream/**", "/workspace/**",
-                    "/security/**", "/settings/**", "/admin/**",
+                    "/security/**", "/settings/**", "/admin/**", "/setup/**",
                     "/history/*/share", "/sql-translate/**",
                     "/harness/**", "/codereview/**", "/advisor/**",
                     "/docgen/**", "/converter/**", "/explain/**",
