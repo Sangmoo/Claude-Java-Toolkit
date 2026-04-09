@@ -44,12 +44,12 @@ public class AppUser {
     private String personalApiKey;
 
     /** 분당 API 호출 제한 (0=무제한) */
-    @Column
-    private Integer rateLimitPerMinute;
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int rateLimitPerMinute = 0;
 
     /** 시간당 API 호출 제한 (0=무제한) */
-    @Column
-    private Integer rateLimitPerHour;
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int rateLimitPerHour = 0;
 
     /** ADMIN, REVIEWER, VIEWER */
     @Column(nullable = false, length = 20)
@@ -80,8 +80,8 @@ public class AppUser {
     public String getUsername()            { return username; }
     public String getPasswordHash()        { return passwordHash; }
     public String getPersonalApiKey()       { return personalApiKey; }
-    public int    getRateLimitPerMinute()  { return rateLimitPerMinute != null ? rateLimitPerMinute : 0; }
-    public int    getRateLimitPerHour()    { return rateLimitPerHour != null ? rateLimitPerHour : 0; }
+    public int    getRateLimitPerMinute()  { return rateLimitPerMinute; }
+    public int    getRateLimitPerHour()    { return rateLimitPerHour; }
     public String getDisplayName()         { return displayName; }
     public String getEmail()               { return email; }
     public String getPhone()               { return phone; }
@@ -95,8 +95,6 @@ public class AppUser {
     public void setPersonalApiKey(String key)            { this.personalApiKey = key; }
     public void setRateLimitPerMinute(int v)             { this.rateLimitPerMinute = v; }
     public void setRateLimitPerHour(int v)               { this.rateLimitPerHour = v; }
-    public void setRateLimitPerMinute(Integer v)          { this.rateLimitPerMinute = v; }
-    public void setRateLimitPerHour(Integer v)            { this.rateLimitPerHour = v; }
     public void setDisplayName(String displayName)     { this.displayName = displayName; }
     public void setEmail(String email)                 { this.email = email; }
     public void setPhone(String phone)                 { this.phone = phone; }
