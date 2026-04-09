@@ -1,42 +1,47 @@
 package io.github.claudetoolkit.ui.controller;
 
+import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Controller
 @RequestMapping("/usage")
 public class UsageController {
 
-    // Claude Sonnet 3.5 pricing (approximate, per 1M tokens)
-    private static final double INPUT_COST_PER_1M  = 3.0;   // $3 per 1M input tokens
-    private static final double OUTPUT_COST_PER_1M = 15.0;  // $15 per 1M output tokens
+    // 기본 단가 (per 1M tokens)
+    private static final double DEFAULT_INPUT_COST  = 3.0;
+    private static final double DEFAULT_OUTPUT_COST = 15.0;
 
     private final ReviewHistoryService historyService;
     private final ClaudeClient         claudeClient;
+    private final ToolkitSettings      settings;
 
-    public UsageController(ReviewHistoryService historyService, ClaudeClient claudeClient) {
+    public UsageController(ReviewHistoryService historyService, ClaudeClient claudeClient,
+                           ToolkitSettings settings) {
         this.historyService = historyService;
         this.claudeClient   = claudeClient;
+        this.settings       = settings;
     }
 
     @GetMapping
     public String show(Model model) {
         List<ReviewHistory> all = historyService.findAll();
 
-        long totalRequests   = all.size();
-        long totalInputTok   = 0;
-        long totalOutputTok  = 0;
-        long recordedCount   = 0;
+        long totalRequests  = all.size();
+        long totalInputTok  = 0;
+        long totalOutputTok = 0;
+        long recordedCount  = 0;
 
-        // Per-date aggregation (last 30 days)
-        Map<String, long[]> dailyMap = new LinkedHashMap<>(); // date -> [inputTok, outputTok, count]
+        Map<String, long[]> dailyMap = new LinkedHashMap<String, long[]>();
 
         for (ReviewHistory h : all) {
             if (h.getInputTokens() != null || h.getOutputTokens() != null) {
@@ -47,19 +52,20 @@ public class UsageController {
                 recordedCount++;
 
                 String date = h.getCreatedAt().toLocalDate().toString();
-                long[] d = dailyMap.getOrDefault(date, new long[]{0, 0, 0});
+                long[] d = dailyMap.get(date);
+                if (d == null) d = new long[]{0, 0, 0};
                 d[0] += in; d[1] += out; d[2]++;
                 dailyMap.put(date, d);
             }
         }
 
-        // Cost estimation (USD)
-        double inputCost  = totalInputTok  / 1_000_000.0 * INPUT_COST_PER_1M;
-        double outputCost = totalOutputTok / 1_000_000.0 * OUTPUT_COST_PER_1M;
+        double inputCostRate  = DEFAULT_INPUT_COST;
+        double outputCostRate = DEFAULT_OUTPUT_COST;
+        double inputCost  = totalInputTok  / 1_000_000.0 * inputCostRate;
+        double outputCost = totalOutputTok / 1_000_000.0 * outputCostRate;
         double totalCost  = inputCost + outputCost;
 
-        // Top types by token usage
-        Map<String, Long> typeTokenMap = new LinkedHashMap<>();
+        Map<String, Long> typeTokenMap = new LinkedHashMap<String, Long>();
         for (ReviewHistory h : all) {
             if (h.getTotalTokens() > 0) {
                 Long prev = typeTokenMap.get(h.getType());
@@ -75,10 +81,107 @@ public class UsageController {
         model.addAttribute("inputCost",       String.format("$%.4f", inputCost));
         model.addAttribute("outputCost",      String.format("$%.4f", outputCost));
         model.addAttribute("totalCost",       String.format("$%.4f", totalCost));
+        model.addAttribute("totalCostKrw",    String.format("₩%,.0f", totalCost * 1350));
         model.addAttribute("dailyMap",        dailyMap);
         model.addAttribute("typeTokenMap",    typeTokenMap);
         model.addAttribute("currentModel",    claudeClient.getEffectiveModel());
         model.addAttribute("allHistory",      all);
         return "usage/index";
+    }
+
+    /** 일별 집계 JSON */
+    @GetMapping("/daily")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> daily(
+            @RequestParam(defaultValue = "30") int days) {
+        LocalDateTime since = LocalDate.now().minusDays(days).atStartOfDay();
+        List<ReviewHistory> all = historyService.findAll();
+        Map<String, long[]> map = new LinkedHashMap<String, long[]>();
+        for (ReviewHistory h : all) {
+            if (h.getCreatedAt().isBefore(since)) continue;
+            if (h.getInputTokens() == null && h.getOutputTokens() == null) continue;
+            String date = h.getCreatedAt().toLocalDate().toString();
+            long[] d = map.get(date);
+            if (d == null) d = new long[]{0, 0, 0};
+            d[0] += h.getInputTokens()  != null ? h.getInputTokens()  : 0;
+            d[1] += h.getOutputTokens() != null ? h.getOutputTokens() : 0;
+            d[2]++;
+            map.put(date, d);
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (Map.Entry<String, long[]> e : map.entrySet()) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("date", e.getKey());
+            m.put("inputTokens", e.getValue()[0]);
+            m.put("outputTokens", e.getValue()[1]);
+            m.put("count", e.getValue()[2]);
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /** 기능별 집계 JSON */
+    @GetMapping("/by-type")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> byType(
+            @RequestParam(defaultValue = "30") int days) {
+        LocalDateTime since = LocalDate.now().minusDays(days).atStartOfDay();
+        List<ReviewHistory> all = historyService.findAll();
+        Map<String, long[]> map = new LinkedHashMap<String, long[]>();
+        for (ReviewHistory h : all) {
+            if (h.getCreatedAt().isBefore(since)) continue;
+            if (h.getTotalTokens() <= 0) continue;
+            String type = h.getType();
+            long[] d = map.get(type);
+            if (d == null) d = new long[]{0, 0, 0};
+            d[0] += h.getInputTokens()  != null ? h.getInputTokens()  : 0;
+            d[1] += h.getOutputTokens() != null ? h.getOutputTokens() : 0;
+            d[2]++;
+            map.put(type, d);
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (Map.Entry<String, long[]> e : map.entrySet()) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("type", e.getKey());
+            m.put("inputTokens", e.getValue()[0]);
+            m.put("outputTokens", e.getValue()[1]);
+            m.put("count", e.getValue()[2]);
+            result.add(m);
+        }
+        Collections.sort(result, new Comparator<Map<String, Object>>() {
+            public int compare(Map<String, Object> a, Map<String, Object> b) {
+                long ta = ((Number)a.get("inputTokens")).longValue() + ((Number)a.get("outputTokens")).longValue();
+                long tb = ((Number)b.get("inputTokens")).longValue() + ((Number)b.get("outputTokens")).longValue();
+                return Long.compare(tb, ta);
+            }
+        });
+        return ResponseEntity.ok(result);
+    }
+
+    /** 월별 비용 요약 JSON */
+    @GetMapping("/cost-summary")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> costSummary() {
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        List<ReviewHistory> all = historyService.findAll();
+        long monthInput = 0, monthOutput = 0, monthCount = 0;
+        for (ReviewHistory h : all) {
+            if (h.getCreatedAt().isBefore(monthStart)) continue;
+            if (h.getInputTokens() != null) monthInput += h.getInputTokens();
+            if (h.getOutputTokens() != null) monthOutput += h.getOutputTokens();
+            monthCount++;
+        }
+        double inputCost  = monthInput  / 1_000_000.0 * DEFAULT_INPUT_COST;
+        double outputCost = monthOutput / 1_000_000.0 * DEFAULT_OUTPUT_COST;
+        double totalCost  = inputCost + outputCost;
+
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        resp.put("monthInputTokens", monthInput);
+        resp.put("monthOutputTokens", monthOutput);
+        resp.put("monthRequests", monthCount);
+        resp.put("monthCostUsd", Math.round(totalCost * 10000) / 10000.0);
+        resp.put("monthCostKrw", Math.round(totalCost * 1350));
+        resp.put("model", claudeClient.getEffectiveModel());
+        return ResponseEntity.ok(resp);
     }
 }

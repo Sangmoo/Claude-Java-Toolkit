@@ -1328,17 +1328,15 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ### 🔮 v2.1.0 (예정) — 엔터프라이즈 로드맵
 
-> Groups 7~8: 외부 연동, 모니터링
-
 **🔗 외부 연동 (Group 7)**
-- [ ] **Slack / Teams 웹훅 알림** — 배치 완료·FAILED 판정 시 채널 자동 메시지 (`NotificationService`)
-- [ ] **GitHub PR 자동 코멘트** — PR URL 입력 → diff 가져오기 → 하네스 분석 → PR 코멘트 자동 등록
-- [ ] **Jira 연동** — FAILED / NEEDS_REVISION 판정 시 Jira Issue 자동 생성 (REST API v3)
-- [ ] **Git 로컬 연동** — 로컬 저장소 커밋 간 diff 선택 → 하네스 분석 (`ProcessBuilder` git 실행)
+- [x] **Slack / Teams 웹훅 알림** — `NotificationService`. Settings에서 URL 입력 + 테스트 발송. `~/.claude-toolkit/settings.json` 영속화
+- [x] **GitHub PR 자동 코멘트** — `/github-pr`: PR URL → diff 가져오기 → AI 리뷰 → PR 코멘트 자동 등록 (GitHub REST API)
+- [x] **Jira 연동** — `JiraService` REST API v3. Settings에서 URL/이메일/API토큰/프로젝트키 설정 + 연결 테스트
+- [x] **Git 로컬 연동** — `/git-diff`: 로컬 저장소 커밋 목록 → diff → AI 리뷰 (ProcessBuilder git 실행)
 
-**📊 모니터링 / AI 고도화 (Group 8)**
-- [ ] **Claude API 사용량 대시보드** — 일별·기능별 토큰 누적량 Chart.js 차트. 모델별 단가 설정
-- [ ] **비용 추정 + 예산 알림** — 모델별 단가 기반 월 예상 비용. 예산 초과 시 이메일 경고 (`BudgetAlertScheduler`)
+**👤 멀티유저 고도화**
+- [x] **사용자별 프로그램 권한 관리** — `/admin/permissions`: RBAC(역할) 외 개별 사용자 단위 35개 기능 접근 허용/차단. 사이드바 + URL 접근 제어 동기화
+- [x] **Docker Windows 경로 자동 변환** — Settings에 `D:\path` 입력 → Docker에서 `/host/d/path`로 자동 변환. 사용자 경험 일관성
 
 ---
 

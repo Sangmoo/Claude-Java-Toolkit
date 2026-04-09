@@ -174,7 +174,10 @@ public class SettingsController {
             return "error:\ud504\ub85c\uc81d\ud2b8 \uacbd\ub85c\uac00 \uc124\uc815\ub418\uc9c0 \uc54a\uc558\uc2b5\ub2c8\ub2e4.";
         }
         try {
-            List<ScannedFile> files = projectScannerService.scanProject(settings.getProject().getScanPath());
+            // Docker 환경에서 Windows 경로 자동 변환
+            String resolvedPath = io.github.claudetoolkit.ui.harness.HarnessCacheService
+                    .resolveHostPath(settings.getProject().getScanPath());
+            List<ScannedFile> files = projectScannerService.scanProject(resolvedPath);
             return "ok:" + projectScannerService.getScanSummary(files);
         } catch (IOException e) {
             return "error:" + e.getMessage();
