@@ -74,13 +74,16 @@ public class PermissionInterceptor implements WebMvcConfigurer {
     private final AppUserRepository userRepository;
     private final UserPermissionRepository permissionRepository;
     private final io.github.claudetoolkit.ui.security.RateLimitService rateLimitService;
+    private final io.github.claudetoolkit.starter.properties.ClaudeProperties claudeProperties;
 
     public PermissionInterceptor(AppUserRepository userRepository,
                                  UserPermissionRepository permissionRepository,
-                                 io.github.claudetoolkit.ui.security.RateLimitService rateLimitService) {
+                                 io.github.claudetoolkit.ui.security.RateLimitService rateLimitService,
+                                 io.github.claudetoolkit.starter.properties.ClaudeProperties claudeProperties) {
         this.userRepository       = userRepository;
         this.permissionRepository = permissionRepository;
         this.rateLimitService     = rateLimitService;
+        this.claudeProperties     = claudeProperties;
     }
 
     @Override
@@ -138,6 +141,16 @@ public class PermissionInterceptor implements WebMvcConfigurer {
                 }
             }
 
+            // 사용자별 API 키 적용 (POST 분석 실행 시)
+            if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
+                String personalKey = user.getPersonalApiKey();
+                if (personalKey != null && !personalKey.trim().isEmpty()) {
+                    // 원래 서버 키를 request attribute에 저장 → afterCompletion에서 복원
+                    request.setAttribute("_originalApiKey", claudeProperties.getApiKey());
+                    claudeProperties.setApiKey(personalKey.trim());
+                }
+            }
+
             // Rate Limit 체크 (POST 분석 실행 요청에만 적용)
             if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
                 String reason = rateLimitService.checkAndRecord(
@@ -151,6 +164,16 @@ public class PermissionInterceptor implements WebMvcConfigurer {
             }
 
             return true;
+        }
+
+        @Override
+        public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
+                                    Object handler, Exception ex) {
+            // 사용자별 API 키 → 서버 공용 키 복원
+            String originalKey = (String) request.getAttribute("_originalApiKey");
+            if (originalKey != null) {
+                claudeProperties.setApiKey(originalKey);
+            }
         }
     }
 }
