@@ -313,6 +313,49 @@
                 </div>
             </div>
 
+            <!-- 관리 도구 -->
+            <h6 class="mb-3" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem;">
+                <i class="fas fa-shield-halved me-2"></i>관리 도구
+            </h6>
+            <div class="row g-3 mb-4">
+                <!-- 사용자 관리 -->
+                <div class="col-md-6 col-xl-4" th:if="${#request.isUserInRole('ADMIN')}">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-users-cog fa-lg" style="color:#ef4444"></i>
+                            <span class="badge-module" style="background:#ef4444;">Admin</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">사용자 관리</h5>
+                        <p class="mb-3">계정 생성/수정/삭제, 역할(ADMIN/REVIEWER/VIEWER) 할당, API 키/Rate Limit 설정.</p>
+                        <a href="/admin/users" class="btn btn-accent w-100 btn-sm" style="background:#ef4444;"><i class="fas fa-users-cog me-2"></i>사용자 관리</a>
+                    </div>
+                </div>
+                <!-- 감사 로그 -->
+                <div class="col-md-6 col-xl-4" th:if="${#request.isUserInRole('ADMIN')}">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-shield-halved fa-lg" style="color:#8b5cf6"></i>
+                            <span class="badge-module" style="background:#8b5cf6;">Security</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">보안 설정 / 감사 로그</h5>
+                        <p class="mb-3">API 키 인증, Settings 잠금, 감사 로그 조회/필터/CSV 내보내기.</p>
+                        <a href="/security" class="btn btn-accent w-100 btn-sm" style="background:#8b5cf6;"><i class="fas fa-shield-halved me-2"></i>보안 설정</a>
+                    </div>
+                </div>
+                <!-- 내 설정 -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-user-cog fa-lg" style="color:#f97316"></i>
+                            <span class="badge-module">My Settings</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">내 설정</h5>
+                        <p class="mb-3">내 정보 수정, 개인 Claude API 키 입력, 비밀번호 변경.</p>
+                        <a href="/account/settings" class="btn btn-accent w-100 btn-sm"><i class="fas fa-user-cog me-2"></i>내 설정</a>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── Dashboard Widgets ── -->
             <div class="row g-3 mb-4">
                 <!-- Recent Favorites -->

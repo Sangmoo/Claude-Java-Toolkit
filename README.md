@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.2.0-brightgreen.svg)](#)
 
 ---
 
@@ -1340,20 +1340,22 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔮 v2.2.0 (예정) — 사용성/안정성 고도화
+### ✅ v2.2.0
 
 **🔐 계정 및 세션 관리**
-- [ ] **비밀번호 변경 UI** — 일반 사용자가 직접 비밀번호를 변경할 수 있는 페이지 (`/account/password`)
-- [ ] **세션 타임아웃 1시간** — 미활동 1시간 후 세션 만료. 페이지 이동/버튼 클릭 등 사용자 활동 시 1시간 갱신. 만료 시 로그인 페이지로 자동 이동
-- [ ] **사용자별 API 키 분리** — 개인 Claude API 키 설정. 사용자별 사용량 분리 추적
+- [x] **비밀번호 변경 UI** — `/account/password`: 현재 비밀번호 확인 + 새 비밀번호 입력. 사이드바 하단 🔑 아이콘
+- [x] **내 설정 페이지** — `/account/settings`: 내 정보(이름/이메일/핸드폰) 수정 + 개인 API 키 입력/삭제. 사이드바 하단 ⚙ 아이콘
+- [x] **세션 타임아웃 1시간** — 미활동 1시간 후 자동 만료. 사용자 활동(클릭/키 입력) 시 자동 갱신. 우측 상단에 `분:초` 카운트다운 + 🔄 갱신 버튼. 5분↓노랑, 1분↓빨강 경고
+- [x] **사용자별 API 키** — 개인 Claude API 키 설정. 분석 실행 시 개인 키 자동 전환 → 요청 완료 후 서버 키 복원. 비워두면 서버 공용 키 사용
 
 **⚙️ Settings 및 보안 강화**
-- [ ] **입력값 유효성 검증** — SMTP 포트/이메일 형식/API 키 형식 등 프론트엔드+백엔드 검증
-- [ ] **API Rate Limiting** — 사용자 관리에서 사용자별 분당/시간당 API 호출 제한 설정. 초과 시 429 응답
-- [ ] **감사 로그 페이지네이션** — 300건 제한 → 전체 기간 검색 + 페이지네이션 + 사용자별 활동 요약
+- [x] **입력값 유효성 검증** — DB URL `jdbc:` 형식 체크 등 백엔드 검증
+- [x] **API Rate Limiting** — 사용자 관리에서 사용자별 분당/시간당 호출 제한 설정 (수정 모달). `RateLimitService` 메모리 기반 추적. 초과 시 HTTP 429 응답
+- [x] **감사 로그 페이지네이션** — 300건 제한 → 서버 사이드 50건/페이지 + 페이지 이동. 사용자/기간 서버 필터 + 액션/엔드포인트 클라이언트 필터
 
 **💾 데이터 관리**
-- [ ] **데이터 백업/복원** — 관리자 페이지에서 H2 DB + settings.json을 ZIP으로 다운로드/업로드
+- [x] **데이터 백업/복원** — `/admin/backup`: H2 DB + settings.json + security-settings.json을 ZIP 다운로드/업로드. 사이드바 관리 섹션
+- [x] **자동 스키마 마이그레이션** — `SchemaMigration`: 앱 시작 시 누락 컬럼 자동 추가 (DEFAULT 값 포함). 기존 Docker volume DB 호환
 
 ---
 
