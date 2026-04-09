@@ -90,12 +90,15 @@
     </main>
 </div>
 <script th:src="@{/js/toolkit.js}"></script>
-<script>
+<script th:inline="none">
 var selectedUserId = null;
 var features = [];
-<th:block th:each="f : ${features}">
-features.push({key: '[[${f[0]}]]', name: '[[${f[1]}]]', category: '[[${f[2]}]]'});
-</th:block>
+</script>
+<script th:inline="javascript">
+features = /*[[${featuresJson}]]*/ '[]';
+features = (typeof features === 'string') ? JSON.parse(features) : features;
+</script>
+<script>
 
 function selectUser(el) {
     document.querySelectorAll('.perm-user-item').forEach(function(e){ e.style.background=''; });
