@@ -24,8 +24,6 @@ RUN apk add --no-cache curl
 
 WORKDIR /app
 COPY --from=builder /build/claude-toolkit-ui/target/claude-toolkit-ui-*.jar app.jar
-# JAR 실행 가능 여부 확인
-RUN java -jar app.jar --version 2>&1 | head -1 || true
 
 # H2 데이터 영속화 볼륨
 VOLUME /root/.claude-toolkit
