@@ -1,6 +1,9 @@
 package io.github.claudetoolkit.ui.security;
 
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -44,6 +47,15 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         // 면제 경로 확인
         String path = req.getRequestURI();
         if (isExemptPath(path)) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        // Spring Security 세션 인증된 사용자는 API키 검증 건너뛰기
+        SecurityContext ctx = SecurityContextHolder.getContext();
+        if (ctx.getAuthentication() != null
+                && ctx.getAuthentication().isAuthenticated()
+                && !(ctx.getAuthentication() instanceof AnonymousAuthenticationToken)) {
             chain.doFilter(req, res);
             return;
         }

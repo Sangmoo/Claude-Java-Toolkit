@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <nav th:fragment="sidebar" class="sidebar">
 
@@ -200,29 +200,59 @@
         </div>
     </div>
 
+        <!-- ── 관리 (ADMIN only) ── -->
+        <div sec:authorize="hasRole('ADMIN')">
+            <button class="sidebar-section-toggle" id="toggle-admin"
+                    onclick="toggleSidebarSection('admin')">
+                <span>관리</span>
+                <i class="fas fa-chevron-down sidebar-chevron" id="chevron-admin"></i>
+            </button>
+            <div class="sidebar-group-items" id="group-admin">
+                <a href="/admin/users" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/admin/users') ? ' active' : ''}">
+                    <i class="fas fa-users-cog" style="color:#ef4444"></i><span>사용자 관리</span>
+                </a>
+                <a href="/settings/shared" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/settings/shared') ? ' active' : ''}">
+                    <i class="fas fa-share-nodes" style="color:#ef4444"></i><span>팀 설정 공유</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer: Settings + Prompts -->
     <div class="sidebar-footer">
         <a href="/prompts" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/prompts') ? ' active' : ''}">
             <i class="fas fa-sliders" style="color:#f97316"></i><span>프롬프트 템플릿</span>
         </a>
-        <a href="/settings/prompts" class="sidebar-item"
+        <a sec:authorize="hasAnyRole('ADMIN','REVIEWER')" href="/settings/prompts" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings/prompts') ? ' active' : ''}">
             <i class="fas fa-wand-magic-sparkles" style="color:#f97316"></i><span>AI 프롬프트 관리</span>
         </a>
-        <a href="/db-profiles" class="sidebar-item"
+        <a sec:authorize="hasRole('ADMIN')" href="/db-profiles" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/db-profiles') ? ' active' : ''}">
             <i class="fas fa-server" style="color:#3b82f6"></i><span>DB 프로필</span>
         </a>
-        <a href="/settings" class="sidebar-item"
+        <a sec:authorize="hasRole('ADMIN')" href="/settings" class="sidebar-item"
            th:classappend="${#request.requestURI == '/settings' ? ' active' : ''}">
             <i class="fas fa-cog" style="color:#64748b"></i><span>Settings</span>
         </a>
-        <a href="/security" class="sidebar-item"
+        <a sec:authorize="hasRole('ADMIN')" href="/security" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/security') ? ' active' : ''}">
             <i class="fas fa-shield-halved" style="color:#8b5cf6"></i><span>보안 설정</span>
         </a>
-        <div class="sidebar-version">v1.9.0 · JDK 1.8</div>
+        <!-- 로그인 사용자 정보 + 로그아웃 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 16px;
+                    border-top:1px solid var(--border-color);margin-top:4px;">
+            <span style="font-size:.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                <i class="fas fa-user me-1"></i><span sec:authentication="name">user</span>
+            </span>
+            <a href="/logout" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;" title="로그아웃">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+        <div class="sidebar-version">v2.0.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->
@@ -284,11 +314,12 @@
             generate: ['/docgen', '/apispec', '/converter',
                        '/mockdata', '/migration', '/batch',
                        '/depcheck', '/migrate'],
-            history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles'],
+            history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles', '/roi-report'],
             tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen', '/input-masking'],
-            api:      ['/api-docs']
+            api:      ['/api-docs'],
+            admin:    ['/admin/users', '/settings/shared']
         };
-        var ALL_KEYS = ['analysis', 'generate', 'history', 'tools', 'api'];
+        var ALL_KEYS = ['analysis', 'generate', 'history', 'tools', 'api', 'admin'];
 
         function currentSection() {
             var p = window.location.pathname;

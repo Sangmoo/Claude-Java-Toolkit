@@ -10,6 +10,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,7 +29,7 @@ public class ShareController {
     /** Create a share link for a history entry. Returns token as plain text. */
     @PostMapping("/history/{id}/share")
     @ResponseBody
-    public ResponseEntity<String> createShare(@PathVariable long id) {
+    public ResponseEntity<String> createShare(@PathVariable long id, Principal principal) {
         ReviewHistory h = historyService.findById(id);
         if (h == null) return ResponseEntity.notFound().build();
 

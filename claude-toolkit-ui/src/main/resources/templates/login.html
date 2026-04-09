@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css}" rel="stylesheet">
+    <style>
+        body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-primary); }
+        .login-card { width:min(400px, 90vw); background:var(--bg-secondary); border:1px solid var(--border-color);
+                      border-radius:14px; padding:36px 32px; box-shadow:0 8px 30px rgba(0,0,0,.15); }
+        .login-brand { text-align:center; margin-bottom:28px; }
+        .login-brand i { color:#f97316; font-size:2rem; }
+        .login-brand h2 { font-size:1.2rem; font-weight:700; color:var(--text-primary); margin-top:10px; }
+        .login-brand p { font-size:.78rem; color:var(--text-muted); }
+        .login-input { background:var(--input-bg) !important; border:1px solid var(--border-color) !important;
+                       color:var(--text-primary) !important; font-size:.88rem; padding:10px 14px; border-radius:8px; }
+        .login-input:focus { border-color:#f97316 !important; box-shadow:0 0 0 2px rgba(249,115,22,.15) !important; }
+        .login-btn { background:#f97316; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600;
+                     font-size:.9rem; width:100%; cursor:pointer; transition:background .15s; }
+        .login-btn:hover { background:#ea580c; }
+        .theme-toggle { position:fixed; top:16px; right:16px; background:none; border:1px solid var(--border-color);
+                        color:var(--text-muted); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:.75rem; }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+    </button>
+
+    <div class="login-card">
+        <div class="login-brand">
+            <i class="fas fa-robot"></i>
+            <h2>Claude Java Toolkit</h2>
+            <p>AI-powered tools for Oracle DB &amp; Java/Spring</p>
+        </div>
+
+        <!-- 에러/로그아웃 메시지 -->
+        <div th:if="${error}" class="alert alert-danger py-2 px-3" style="font-size:.82rem;border-radius:8px;">
+            <i class="fas fa-exclamation-circle me-1"></i>아이디 또는 비밀번호가 올바르지 않습니다.
+        </div>
+        <div th:if="${logout}" class="alert alert-success py-2 px-3" style="font-size:.82rem;border-radius:8px;">
+            <i class="fas fa-check-circle me-1"></i>로그아웃되었습니다.
+        </div>
+
+        <form th:action="@{/login}" method="post">
+            <div class="mb-3">
+                <label class="form-label" style="font-size:.82rem;color:var(--text-sub);">사용자명</label>
+                <input type="text" name="username" class="form-control login-input" placeholder="admin" autofocus required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label" style="font-size:.82rem;color:var(--text-sub);">비밀번호</label>
+                <input type="password" name="password" class="form-control login-input" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="login-btn">
+                <i class="fas fa-sign-in-alt me-2"></i>로그인
+            </button>
+        </form>
+
+        <div style="text-align:center;margin-top:18px;font-size:.72rem;color:var(--text-muted);">
+            초기 계정: admin / admin1234
+        </div>
+    </div>
+
+<script>
+function toggleTheme() {
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeLabel').textContent = isDark ? 'Dark' : 'Light';
+}
+(function(){
+    var t = localStorage.getItem('theme');
+    document.getElementById('themeLabel').textContent = (t === 'light') ? 'Dark' : 'Light';
+})();
+</script>
+</body>
+</html>

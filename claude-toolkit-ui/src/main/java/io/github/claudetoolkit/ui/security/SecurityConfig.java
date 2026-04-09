@@ -1,0 +1,84 @@
+package io.github.claudetoolkit.ui.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+
+/**
+ * Spring Security 설정.
+ *
+ * <ul>
+ *   <li>Form 로그인: /login (GET/POST)</li>
+ *   <li>로그아웃: /logout</li>
+ *   <li>역할별 접근 제어: ADMIN / REVIEWER / VIEWER</li>
+ *   <li>정적 리소스, 공유 링크는 인증 없이 접근 가능</li>
+ *   <li>기존 ApiKeyFilter, AuditLogFilter와 공존</li>
+ * </ul>
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            // CSRF: REST/SSE 엔드포인트 비활성, 폼은 활성
+            .csrf()
+                .ignoringAntMatchers(
+                    "/api/**", "/stream/**", "/workspace/**",
+                    "/security/**", "/settings/**", "/admin/**",
+                    "/history/*/share", "/sql-translate/**",
+                    "/harness/**", "/codereview/**", "/advisor/**",
+                    "/docgen/**", "/converter/**", "/explain/**",
+                    "/sql-batch/**", "/batch/**", "/mockdata/**",
+                    "/migration/**", "/apispec/**", "/testgen/**",
+                    "/complexity/**", "/erd/**", "/search/**",
+                    "/loganalyzer/**", "/regex/**", "/commitmsg/**",
+                    "/maskgen/**", "/input-masking/**", "/depcheck/**",
+                    "/migrate/**", "/schedule/**", "/db-profiles/**",
+                    "/roi-report/**", "/prompts/**", "/favorites/**",
+                    "/usage/**", "/account/**"
+                )
+            .and()
+
+            .authorizeRequests()
+                // 공개: 정적 리소스, 로그인, 공유 링크
+                .antMatchers("/css/**", "/js/**", "/favicon.svg",
+                             "/login", "/share/**", "/actuator/**").permitAll()
+                // ADMIN 전용
+                .antMatchers("/admin/**").hasRole("ADMIN")
+                // REVIEWER+: 프롬프트 편집
+                .antMatchers("/settings/prompts", "/settings/prompts/**",
+                             "/prompts", "/prompts/**").hasAnyRole("ADMIN", "REVIEWER")
+                // ADMIN 전용: 설정, 보안
+                .antMatchers("/settings", "/settings/**").hasRole("ADMIN")
+                .antMatchers("/security", "/security/**").hasRole("ADMIN")
+                // 나머지: 인증된 사용자 (VIEWER 이상)
+                .anyRequest().authenticated()
+            .and()
+
+            .formLogin()
+                .loginPage("/login")
+                .defaultSuccessUrl("/", true)
+                .failureUrl("/login?error=true")
+                .permitAll()
+            .and()
+
+            .logout()
+                .logoutUrl("/logout")
+                .logoutSuccessUrl("/login?logout=true")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+                .permitAll();
+
+        return http.build();
+    }
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
