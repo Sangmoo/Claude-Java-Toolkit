@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
+import io.github.claudetoolkit.ui.service.AnalysisCacheService;
 import io.github.claudetoolkit.ui.translate.SqlTranslateService;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
@@ -52,16 +53,19 @@ public class SseStreamController {
     private final ClaudeClient         claudeClient;
     private final ToolkitSettings      settings;
     private final HarnessReviewService harnessService;
-    private final SqlTranslateService  translateService;
+    private final SqlTranslateService   translateService;
+    private final AnalysisCacheService cacheService;
 
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
                                HarnessReviewService harnessService,
-                               SqlTranslateService translateService) {
+                               SqlTranslateService translateService,
+                               AnalysisCacheService cacheService) {
         this.claudeClient     = claudeClient;
         this.settings         = settings;
         this.harnessService   = harnessService;
         this.translateService = translateService;
+        this.cacheService     = cacheService;
     }
 
     // ── Direct registration (for internal use, no HTTP round-trip) ──────────
@@ -124,6 +128,24 @@ public class SseStreamController {
             return emitter;
         }
 
+        // ── 캐시 히트 시 즉시 반환 (C15) ──────────────────────────
+        final String cachedResult = cacheService.get(input.feature, input.input);
+        if (cachedResult != null) {
+            Thread cacheThread = new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        sendSseData(emitter, "[캐시 결과]\n\n" + cachedResult);
+                        emitter.send(SseEmitter.event().name("done").data("cached"));
+                        Thread.sleep(50);
+                        emitter.complete();
+                    } catch (Exception ignored) {}
+                }
+            });
+            cacheThread.setDaemon(true);
+            cacheThread.start();
+            return emitter;
+        }
+
         Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
@@ -178,14 +200,20 @@ public class SseStreamController {
                     }
                     String userMessage = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
 
+                    final StringBuilder resultBuf = new StringBuilder();
                     claudeClient.chatStream(systemPrompt, userMessage,
                             claudeClient.getProperties().getMaxTokens(),
                             new Consumer<String>() {
                                 public void accept(String chunk) {
+                                    resultBuf.append(chunk);
                                     try { sendSseData(emitter, chunk); }
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
+                    // 캐시 저장
+                    if (resultBuf.length() > 0) {
+                        cacheService.put(input.feature, input.input, resultBuf.toString());
+                    }
                     emitter.send(SseEmitter.event().name("done").data("ok"));
                     try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();

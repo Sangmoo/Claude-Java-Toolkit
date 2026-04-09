@@ -48,7 +48,9 @@ public class SecurityConfig {
                     "/migrate/**", "/schedule/**", "/db-profiles/**",
                     "/roi-report/**", "/prompts/**", "/favorites/**",
                     "/usage/**", "/account/**", "/login/2fa/**",
-                    "/github-pr/**", "/git-diff/**"
+                    "/github-pr/**", "/git-diff/**",
+                    "/notifications/**", "/history/*/comments/**",
+                    "/chat/**"
                 )
             .and()
 

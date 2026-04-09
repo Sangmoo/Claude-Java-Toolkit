@@ -55,6 +55,10 @@ public class ReviewHistory {
     @Column(nullable = true, length = 20)
     private String analysisLanguage;
 
+    /** 분석을 실행한 사용자 username (v2.4.0+) */
+    @Column(length = 50)
+    private String username;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -97,6 +101,8 @@ public class ReviewHistory {
     public void setImprovedCode(String c)      { this.improvedCode = c; }
     public String getAnalysisLanguage()        { return analysisLanguage; }
     public void setAnalysisLanguage(String l)  { this.analysisLanguage = l; }
+    public String getUsername()                { return username; }
+    public void setUsername(String u)          { this.username = u; }
 
     public long getTotalTokens() {
         long i = inputTokens  != null ? inputTokens  : 0;

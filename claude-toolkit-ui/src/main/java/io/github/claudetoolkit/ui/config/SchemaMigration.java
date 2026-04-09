@@ -37,6 +37,9 @@ public class SchemaMigration implements ApplicationRunner {
         alterColumnType("APP_USER", "PERSONAL_API_KEY", "VARCHAR(500)");
         alterColumnType("APP_USER", "TOTP_SECRET",      "VARCHAR(500)");
 
+        // ReviewHistory에 username 추가 (v2.4.0 댓글/알림용)
+        addColumnIfNotExists("REVIEW_HISTORY", "USERNAME", "VARCHAR(50)");
+
         // AuditLog UserAgent 300→500 확장
         alterColumnType("AUDIT_LOG", "USER_AGENT", "VARCHAR(500)");
     }

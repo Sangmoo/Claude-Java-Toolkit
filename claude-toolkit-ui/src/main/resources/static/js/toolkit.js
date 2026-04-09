@@ -51,6 +51,36 @@
     };
     wrapper.appendChild(refreshBtn);
 
+    // 알림 벨
+    var bellWrap = document.createElement('div');
+    bellWrap.style.cssText = 'position:relative;display:inline-flex;';
+    var bellBtn = document.createElement('button');
+    bellBtn.id = 'notiBell';
+    bellBtn.title = '알림';
+    bellBtn.style.cssText = 'background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:.82rem;transition:all .15s;';
+    bellBtn.innerHTML = '<i class="fas fa-bell"></i>';
+    bellBtn.onmouseenter = function(){ this.style.borderColor='var(--accent)'; this.style.color='var(--accent)'; };
+    bellBtn.onmouseleave = function(){ this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)'; };
+    bellBtn.onclick = function(e) { e.stopPropagation(); _toggleNotiDropdown(); };
+    var bellBadge = document.createElement('span');
+    bellBadge.id = 'notiBadge';
+    bellBadge.style.cssText = 'display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:.6rem;min-width:16px;height:16px;border-radius:8px;text-align:center;line-height:16px;font-weight:700;';
+    bellWrap.appendChild(bellBtn);
+    bellWrap.appendChild(bellBadge);
+    // 드롭다운
+    var notiDrop = document.createElement('div');
+    notiDrop.id = 'notiDropdown';
+    notiDrop.style.cssText = 'display:none;position:absolute;top:36px;right:0;width:340px;max-height:400px;overflow-y:auto;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9999;padding:8px 0;';
+    bellWrap.appendChild(notiDrop);
+    wrapper.appendChild(bellWrap);
+
+    // 알림 폴링 (60초)
+    _pollNotifications();
+    setInterval(_pollNotifications, 60000);
+
+    // 문서 클릭 시 드롭다운 닫기
+    document.addEventListener('click', function() { notiDrop.style.display = 'none'; });
+
     // 로그아웃 버튼
     var btn = document.createElement('a');
     btn.id = 'logoutBtn';
@@ -920,6 +950,150 @@ function hideSkeleton(targetId) {
         });
     });
 })();
+
+// ── Notification bell helpers (C12) ──────────────────────────
+function _pollNotifications() {
+    fetch('/notifications/unread-count', {credentials:'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var badge = document.getElementById('notiBadge');
+            if (!badge) return;
+            if (d.count > 0) {
+                badge.textContent = d.count > 99 ? '99+' : d.count;
+                badge.style.display = '';
+            } else {
+                badge.style.display = 'none';
+            }
+        }).catch(function(){});
+}
+
+function _toggleNotiDropdown() {
+    var drop = document.getElementById('notiDropdown');
+    if (!drop) return;
+    if (drop.style.display === 'none' || !drop.style.display) {
+        drop.style.display = '';
+        drop.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem;"><i class="fas fa-spinner fa-spin me-1"></i>로딩 중...</div>';
+        fetch('/notifications', {credentials:'same-origin'})
+            .then(function(r) { return r.json(); })
+            .then(function(list) {
+                if (!list || list.length === 0) {
+                    drop.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:.82rem;"><i class="fas fa-bell-slash me-1"></i>알림이 없습니다</div>';
+                    return;
+                }
+                var html = '<div style="padding:6px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-color);">' +
+                    '<span style="font-size:.82rem;font-weight:600;color:var(--text-primary);">알림</span>' +
+                    '<button onclick="_markAllRead()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.75rem;">모두 읽음</button></div>';
+                for (var i = 0; i < list.length; i++) {
+                    var n = list[i];
+                    var bg = n.isRead ? '' : 'background:var(--accent-subtle);';
+                    html += '<a href="' + escHtml(n.link || '#') + '" onclick="_markNotiRead(' + n.id + ')" ' +
+                        'style="display:block;padding:8px 14px;text-decoration:none;border-bottom:1px solid var(--border-color);' + bg + '">' +
+                        '<div style="display:flex;gap:8px;align-items:flex-start;">' +
+                        '<i class="fas ' + escHtml(n.typeIcon) + '" style="color:var(--accent);margin-top:2px;font-size:.78rem;"></i>' +
+                        '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:.8rem;color:var(--text-primary);font-weight:' + (n.isRead ? '400' : '600') + ';">' + escHtml(n.title) + '</div>' +
+                        '<div style="font-size:.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(n.message || '') + '</div>' +
+                        '<div style="font-size:.68rem;color:var(--text-muted);margin-top:2px;">' + escHtml(n.createdAt) + '</div>' +
+                        '</div></div></a>';
+                }
+                drop.innerHTML = html;
+            }).catch(function() {
+                drop.innerHTML = '<div style="padding:12px;text-align:center;color:#ef4444;font-size:.82rem;">로드 실패</div>';
+            });
+    } else {
+        drop.style.display = 'none';
+    }
+}
+
+function _markNotiRead(id) {
+    fetch('/notifications/' + id + '/read', {method:'POST', credentials:'same-origin'}).catch(function(){});
+}
+
+function _markAllRead() {
+    fetch('/notifications/read-all', {method:'POST', credentials:'same-origin'})
+        .then(function() {
+            var badge = document.getElementById('notiBadge');
+            if (badge) badge.style.display = 'none';
+            _toggleNotiDropdown(); // close and reopen to refresh
+            setTimeout(_toggleNotiDropdown, 100);
+        }).catch(function(){});
+}
+
+// ── CodeMirror editor (C9) ───────────────────────────────────
+var _cmInstances = {};
+var _cmLoaded = false;
+var _cmLoadCallbacks = [];
+
+function _loadCodeMirror(cb) {
+    if (_cmLoaded) { cb(); return; }
+    _cmLoadCallbacks.push(cb);
+    if (_cmLoadCallbacks.length > 1) return; // already loading
+    var base = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/';
+    var css = document.createElement('link');
+    css.rel = 'stylesheet'; css.href = base + 'codemirror.min.css'; document.head.appendChild(css);
+    // dark theme
+    var cssDark = document.createElement('link');
+    cssDark.rel = 'stylesheet'; cssDark.href = base + 'theme/material-darker.min.css'; document.head.appendChild(cssDark);
+    var js = document.createElement('script');
+    js.src = base + 'codemirror.min.js';
+    js.onload = function() {
+        // load language modes
+        var modes = ['clike', 'sql', 'python', 'javascript', 'xml'];
+        var loaded = 0;
+        modes.forEach(function(m) {
+            var s = document.createElement('script');
+            s.src = base + 'mode/' + m + '/' + m + '.min.js';
+            s.onload = function() { loaded++; if (loaded === modes.length) { _cmLoaded = true; _cmLoadCallbacks.forEach(function(c){c();}); _cmLoadCallbacks = []; } };
+            document.head.appendChild(s);
+        });
+    };
+    document.head.appendChild(js);
+}
+
+/**
+ * textarea를 CodeMirror 에디터로 변환합니다.
+ * @param {string} textareaId - textarea 요소 ID
+ * @param {string} language   - 'java', 'sql', 'python', 'javascript', 'xml' (기본: 'java')
+ * @returns {object|null} CodeMirror 인스턴스
+ */
+function initCodeEditor(textareaId, language) {
+    var ta = document.getElementById(textareaId);
+    if (!ta) return null;
+    _loadCodeMirror(function() {
+        if (_cmInstances[textareaId]) return;
+        var modeMap = {
+            'java': 'text/x-java', 'sql': 'text/x-sql', 'python': 'text/x-python',
+            'javascript': 'text/javascript', 'xml': 'application/xml',
+            'kotlin': 'text/x-kotlin', 'typescript': 'text/javascript'
+        };
+        var isDark = !document.documentElement.getAttribute('data-theme');
+        var cm = CodeMirror.fromTextArea(ta, {
+            mode: modeMap[language] || modeMap['java'],
+            theme: isDark ? 'material-darker' : 'default',
+            lineNumbers: true,
+            lineWrapping: true,
+            matchBrackets: true,
+            indentWithTabs: false,
+            indentUnit: 4,
+            tabSize: 4,
+            viewportMargin: Infinity
+        });
+        cm.setSize(null, ta.getAttribute('rows') ? (parseInt(ta.getAttribute('rows')) * 22) + 'px' : '300px');
+        // sync back to textarea on change
+        cm.on('change', function() { cm.save(); });
+        _cmInstances[textareaId] = cm;
+    });
+}
+
+/**
+ * CodeMirror 인스턴스의 값을 가져옵니다.
+ */
+function getCodeEditorValue(textareaId) {
+    var cm = _cmInstances[textareaId];
+    if (cm) { cm.save(); return cm.getValue(); }
+    var ta = document.getElementById(textareaId);
+    return ta ? ta.value : '';
+}
 
 // ── PDF export (C10) ────────────────────────────────────────
 /**
