@@ -321,7 +321,7 @@ public class HarnessCacheService {
      * 로컬 실행(Windows)에서는 원래 경로를 그대로 반환합니다.
      * Docker 컨테이너(Linux)에서 Windows 경로가 입력되면 /host/ 마운트 경로로 변환합니다.
      */
-    static String resolveHostPath(String path) {
+    public static String resolveHostPath(String path) {
         if (path == null || path.trim().isEmpty()) return path;
         path = path.trim();
 
