@@ -1,6 +1,8 @@
 package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.starter.properties.ClaudeProperties;
+import io.github.claudetoolkit.ui.config.SettingsPersistenceService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.security.SecuritySettings;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +21,8 @@ import java.util.Map;
  *
  * <p>4단계 위저드:
  * <ol>
- *   <li>Claude API 키 설정 + 연결 테스트</li>
- *   <li>DB 설정 (H2 기본, MySQL/PostgreSQL 선택)</li>
+ *   <li>Claude API 키 설정 + 연결 테스트 + 저장</li>
+ *   <li>DB 설정 + 연결 테스트 + 저장</li>
  *   <li>이메일 설정 (선택)</li>
  *   <li>관리자 계정 확인</li>
  * </ol>
@@ -32,11 +34,16 @@ import java.util.Map;
 public class SetupController {
 
     private final ClaudeClient claudeClient;
+    private final ClaudeProperties claudeProperties;
     private final ToolkitSettings settings;
+    private final SettingsPersistenceService persistenceService;
 
-    public SetupController(ClaudeClient claudeClient, ToolkitSettings settings) {
-        this.claudeClient = claudeClient;
-        this.settings     = settings;
+    public SetupController(ClaudeClient claudeClient, ClaudeProperties claudeProperties,
+                           ToolkitSettings settings, SettingsPersistenceService persistenceService) {
+        this.claudeClient       = claudeClient;
+        this.claudeProperties   = claudeProperties;
+        this.settings           = settings;
+        this.persistenceService = persistenceService;
     }
 
     @GetMapping
@@ -49,7 +56,28 @@ public class SetupController {
         return "setup";
     }
 
-    /** API 키 연결 테스트 */
+    /** API 키 저장 + 연결 테스트 */
+    @PostMapping("/save-api-key")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveApiKey(@RequestParam String apiKey) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            // 런타임 적용
+            claudeProperties.setApiKey(apiKey.trim());
+            // 파일 영속화
+            persistenceService.save();
+            // 연결 테스트
+            String result = claudeClient.chat("Say 'OK' in one word.");
+            resp.put("success", true);
+            resp.put("model", claudeClient.getEffectiveModel());
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** API 키 연결 테스트 (저장 없이) */
     @PostMapping("/test-api")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> testApi() {
@@ -58,7 +86,6 @@ public class SetupController {
             String result = claudeClient.chat("Say 'OK' in one word.");
             resp.put("success", true);
             resp.put("model", claudeClient.getEffectiveModel());
-            resp.put("response", result != null ? result.trim() : "");
         } catch (Exception e) {
             resp.put("success", false);
             resp.put("error", e.getMessage());
@@ -66,7 +93,35 @@ public class SetupController {
         return ResponseEntity.ok(resp);
     }
 
-    /** DB 연결 테스트 */
+    /** Oracle DB 설정 저장 + 연결 테스트 */
+    @PostMapping("/save-db")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveDb(
+            @RequestParam String dbUrl,
+            @RequestParam String dbUsername,
+            @RequestParam String dbPassword) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            // 연결 테스트 먼저
+            Connection conn = DriverManager.getConnection(dbUrl, dbUsername, dbPassword);
+            Statement stmt = conn.createStatement();
+            stmt.execute("SELECT 1 FROM DUAL");
+            stmt.close();
+            conn.close();
+            // 런타임 적용 + 영속화
+            settings.getDb().setUrl(dbUrl.trim());
+            settings.getDb().setUsername(dbUsername.trim());
+            settings.getDb().setPassword(dbPassword.trim());
+            persistenceService.save();
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** DB 연결 테스트 (저장 없이) */
     @PostMapping("/test-db")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> testDb(

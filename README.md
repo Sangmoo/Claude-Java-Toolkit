@@ -72,7 +72,63 @@ cd claude-toolkit-ui
 mvn spring-boot:run
 ```
 
-브라우저에서 `http://localhost:8027` 접속
+브라우저에서 `http://localhost:8027` 접속 → 설치 마법사 또는 로그인 페이지로 이동
+
+> **초기 로그인**: admin / admin1234
+
+### 4. Docker 배포 (선택)
+
+```bash
+# 1. 환경변수 설정
+cp .env.example .env
+# .env 파일에서 CLAUDE_API_KEY 설정
+
+# 2-A. H2 DB (기본값, 별도 DB 불필요)
+docker-compose up -d claude-toolkit
+
+# 2-B. MySQL 사용 시
+DB_TYPE=mysql docker-compose --profile mysql up -d
+
+# 2-C. PostgreSQL 사용 시
+DB_TYPE=postgresql docker-compose --profile postgresql up -d
+```
+
+| 환경변수 | 설명 | 기본값 |
+|----------|------|--------|
+| `CLAUDE_API_KEY` | Anthropic API 키 | (필수) |
+| `DB_TYPE` | 내부 DB 유형 (`h2`/`mysql`/`postgresql`) | `h2` |
+| `DB_HOST` | DB 호스트 (MySQL/PG) | `db` |
+| `DB_PORT` | DB 포트 | `3306` |
+| `DB_NAME` | DB 이름 | `claude_toolkit` |
+| `DB_USERNAME` / `DB_PASSWORD` | DB 계정 | `claude` / `claude1234` |
+| `PORT` | 웹 서버 포트 | `8027` |
+
+### 5. 설치 마법사
+
+최초 실행 시 `/setup` 페이지로 자동 이동합니다:
+
+1. **API 키 입력** → 저장 + 연결 테스트
+2. **Oracle DB 설정** → 저장 + 연결 테스트 (선택)
+3. **이메일 설정** (나중에 Settings에서 설정 가능)
+4. **완료** → 관리자 계정 확인
+
+> "나중에 설정하기" 버튼으로 스킵하고 Settings에서 개별 설정할 수 있습니다.
+
+### 6. 헬스체크
+
+```bash
+curl http://localhost:8027/actuator/health
+```
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "claudeApi": { "status": "UP", "details": { "model": "claude-sonnet-4-20250514", "responseTime": "342ms" } },
+    "oracleDb":  { "status": "UNKNOWN", "details": { "reason": "Oracle DB 미설정" } }
+  }
+}
+```
 
 ---
 
@@ -1250,22 +1306,29 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 - [x] **기술문서·코드변환 폼 안전성** — 소스 선택 탭 `type="button"` 누락 수정. 빈 입력 방어(프론트엔드 onsubmit + 백엔드 검증)
 - [x] **글로벌 검색 확장** — 검색 대상 20개→37개 메뉴로 확대. 모든 사이드바 메뉴 검색 가능
 
+**👥 멀티유저 / 팀 기능 (Group 5)**
+- [x] **계정 관리 + RBAC** — `app_user` 엔티티. ADMIN / REVIEWER / VIEWER 역할. Spring Security Form 로그인(`/login`). 최초 실행 시 admin/admin1234 자동 생성. `sec:authorize`로 사이드바 역할별 메뉴 표시
+- [x] **팀 설정 공유** — `shared_config` 엔티티. 프로젝트 컨텍스트·분석 템플릿·커스텀 프롬프트 팀 단위 공유. `/settings/shared`
+- [x] **분석 결과 공유 링크** — `share_token` 엔티티. 7일 만료 단축 URL. `/share/{token}` 로그인 불필요 독립 뷰
+
+**🚀 운영 / 배포 (Group 6)**
+- [x] **Docker 멀티스테이지 빌드** — `maven:3.8-openjdk-11-slim` → `eclipse-temurin:11-jre-alpine`. docker-compose.yml 포함. HEALTHCHECK `/actuator/health`
+- [x] **외부 DB 지원** — `application-h2.yml` / `application-mysql.yml` / `application-postgresql.yml`. `DB_TYPE` 환경변수로 프로파일 자동 선택. `@Lob` → `@Column(columnDefinition="TEXT")` 호환성 처리
+- [x] **설치 마법사 `/setup`** — 4단계 위저드 (API키 입력+저장+테스트 → DB 설정+저장+테스트 → 이메일(선택) → 완료). "나중에 설정하기" 스킵 버튼. `SetupInterceptor`로 미완료 시 자동 리다이렉트
+- [x] **헬스체크 강화** — `ClaudeApiHealthIndicator` (API ping + 응답시간) + `OracleDbHealthIndicator` (SELECT 1 FROM DUAL + 응답시간). `/actuator/health`
+
+**🔒 감사 로그 강화**
+- [x] **사용자 추적** — 인증된 사용자명 자동 기록 (Spring Security 연동)
+- [x] **액션 유형 분류** — endpoint/method 기반 자동 분류 (조회·분석실행·다운로드·이메일·로그인 등)
+- [x] **응답 시간 기록** — 요청 처리 소요시간(ms) 기록, 1초↑ 노랑 / 3초↑ 빨강 표시
+- [x] **필터링** — 사용자·액션유형·엔드포인트·날짜범위(1h/오늘/7d/30d) 실시간 필터
+- [x] **CSV 내보내기** — `/security/audit-log/export` (BOM 포함 Excel 한국어 호환)
+
 ---
 
 ### 🔮 v2.1.0 (예정) — 엔터프라이즈 로드맵
 
-> Groups 5~8: 멀티유저, 운영/배포, 외부 연동, 모니터링
-
-**👥 멀티유저 / 팀 기능 (Group 5)**
-- [ ] **계정 관리 + RBAC** — `app_user` 엔티티. ADMIN / REVIEWER / VIEWER 역할. Spring Security Form 로그인. 최초 실행 시 admin/admin1234 자동 생성
-- [ ] **팀 설정 공유** — `shared_config` 엔티티. 프로젝트 컨텍스트·분석 템플릿 팀 단위 공유
-- [ ] **분석 결과 공유 링크** — `share_token` 엔티티. 7일 만료 단축 URL. `/share/{token}` 로그인 불필요 독립 뷰
-
-**🚀 운영 / 배포 (Group 6)**
-- [ ] **Docker 멀티스테이지 빌드** — `eclipse-temurin:11-jre-alpine` 기반. 환경변수 주입. HEALTHCHECK 포함
-- [ ] **외부 DB 지원** — `application-mysql.yml` / `application-postgresql.yml` 프로파일 분리. `DB_TYPE` 환경변수로 자동 선택
-- [ ] **설치 마법사 `/setup`** — 4단계 Bootstrap 스텝 위저드 (API키·DB·이메일·관리자 계정). `SetupInterceptor`로 미완료 시 자동 리다이렉트
-- [ ] **헬스체크 강화** — `ClaudeApiHealthIndicator` + `OracleDbHealthIndicator` (`/actuator/health`)
+> Groups 7~8: 외부 연동, 모니터링
 
 **🔗 외부 연동 (Group 7)**
 - [ ] **Slack / Teams 웹훅 알림** — 배치 완료·FAILED 판정 시 채널 자동 메시지 (`NotificationService`)

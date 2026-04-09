@@ -353,11 +353,11 @@
 
             <!-- Quick Start -->
             <div class="panel p-4">
-                <h6 class="mb-3"><i class="fas fa-bolt me-2" style="color:#f97316"></i>Quick Start</h6>
+                <h6 class="mb-3"><i class="fas fa-bolt me-2" style="color:#f97316"></i>Quick Start — 로컬 실행</h6>
                 <pre style="background:var(--input-bg);color:var(--text-sub);padding:14px;border-radius:8px;font-size:.82rem;border:1px solid var(--border-color);margin:0;">
 # 1. Clone &amp; Build
-git clone https://github.com/YOUR_USERNAME/claude-java-toolkit.git
-cd claude-java-toolkit
+git clone https://github.com/Sangmoo/Claude-Java-Toolkit.git
+cd Claude-Java-Toolkit
 mvn install -DskipTests
 
 # 2. API 키 설정
@@ -368,7 +368,33 @@ set CLAUDE_API_KEY=sk-ant-...            # Windows
 cd claude-toolkit-ui
 mvn spring-boot:run
 
+# → http://localhost:8027 (설치 마법사 → 로그인: admin / admin1234)</pre>
+            </div>
+
+            <!-- Docker -->
+            <div class="panel p-4 mt-3">
+                <h6 class="mb-3"><i class="fab fa-docker me-2" style="color:#2496ED"></i>Quick Start — Docker 배포</h6>
+                <pre style="background:var(--input-bg);color:var(--text-sub);padding:14px;border-radius:8px;font-size:.82rem;border:1px solid var(--border-color);margin:0;">
+# 1. 환경변수 설정
+cp .env.example .env     # .env에서 CLAUDE_API_KEY 설정
+
+# 2-A. H2 DB (기본, 별도 DB 불필요)
+docker-compose up -d claude-toolkit
+
+# 2-B. MySQL 사용 시
+DB_TYPE=mysql docker-compose --profile mysql up -d
+
+# 2-C. PostgreSQL 사용 시
+DB_TYPE=postgresql docker-compose --profile postgresql up -d
+
 # → http://localhost:8027</pre>
+                <div class="d-flex gap-3 mt-2" style="font-size:.75rem;color:var(--text-muted);">
+                    <span><i class="fas fa-heartbeat me-1"></i>헬스체크: /actuator/health</span>
+                    <span>·</span>
+                    <span><i class="fas fa-database me-1"></i>H2 / MySQL / PostgreSQL</span>
+                    <span>·</span>
+                    <span><i class="fas fa-users me-1"></i>초기 계정: admin / admin1234</span>
+                </div>
             </div>
         </div>
     </main>

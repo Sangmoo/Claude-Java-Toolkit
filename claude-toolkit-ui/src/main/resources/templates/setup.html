@@ -55,26 +55,42 @@
         <!-- Step 1: API 키 -->
         <div class="step active" id="step-1">
             <div class="step-title"><i class="fas fa-key me-2" style="color:#f97316"></i>Step 1. Claude API 키</div>
-            <div class="step-desc">Anthropic Claude API 키를 설정합니다. 환경변수(CLAUDE_API_KEY)로도 설정 가능합니다.</div>
+            <div class="step-desc">Anthropic Claude API 키를 입력하고 연결 테스트 후 저장합니다.</div>
+            <div th:if="${apiKeySet}" class="test-result test-ok mb-3"><i class="fas fa-check-circle me-1"></i>API 키가 이미 설정되어 있습니다.</div>
             <div class="mb-3">
-                <label style="font-size:.78rem;color:var(--text-sub);">API 키 상태</label>
-                <div th:if="${apiKeySet}" class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>API 키가 이미 설정되어 있습니다.</div>
-                <div th:unless="${apiKeySet}" class="test-result test-fail"><i class="fas fa-info-circle me-1"></i>API 키가 설정되지 않았습니다. 환경변수 CLAUDE_API_KEY를 설정하세요.</div>
+                <label style="font-size:.78rem;color:var(--text-sub);">API 키</label>
+                <input type="password" id="setupApiKey" class="form-control setup-input" placeholder="sk-ant-api03-...">
             </div>
-            <button class="btn-setup" onclick="testApi()"><i class="fas fa-plug me-1"></i>연결 테스트</button>
+            <div class="d-flex gap-2">
+                <button class="btn-setup" onclick="saveApiKey()"><i class="fas fa-save me-1"></i>저장 + 연결 테스트</button>
+                <button class="btn-skip" th:if="${apiKeySet}" onclick="testApi()"><i class="fas fa-plug me-1"></i>기존 키 테스트</button>
+            </div>
             <div id="apiTestResult"></div>
         </div>
 
         <!-- Step 2: DB -->
         <div class="step" id="step-2">
-            <div class="step-title"><i class="fas fa-database me-2" style="color:#3b82f6"></i>Step 2. 데이터베이스</div>
-            <div class="step-desc">애플리케이션 데이터 저장용 DB를 선택합니다. 기본값은 H2 파일 DB입니다.</div>
-            <div class="mb-3">
-                <label style="font-size:.78rem;color:var(--text-sub);">현재 DB</label>
-                <div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>H2 파일 DB (기본값) — 별도 설정 없이 사용 가능</div>
+            <div class="step-title"><i class="fas fa-database me-2" style="color:#3b82f6"></i>Step 2. Oracle DB 연결 (선택)</div>
+            <div class="step-desc">SQL 분석 대상 Oracle DB를 설정합니다. 나중에 Settings에서도 설정 가능합니다.</div>
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">JDBC URL</label>
+                <input type="text" id="setupDbUrl" class="form-control setup-input" placeholder="jdbc:oracle:thin:@//host:1521/ORCL">
             </div>
-            <div style="font-size:.78rem;color:var(--text-muted);margin-top:8px;">
-                <i class="fas fa-info-circle me-1"></i>MySQL/PostgreSQL로 전환하려면 환경변수 <code>DB_TYPE=mysql</code> 또는 <code>DB_TYPE=postgresql</code>을 설정하세요.
+            <div class="d-flex gap-2 mb-2">
+                <div style="flex:1;">
+                    <label style="font-size:.78rem;color:var(--text-sub);">사용자</label>
+                    <input type="text" id="setupDbUser" class="form-control setup-input" placeholder="username">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:.78rem;color:var(--text-sub);">비밀번호</label>
+                    <input type="password" id="setupDbPass" class="form-control setup-input" placeholder="password">
+                </div>
+            </div>
+            <button class="btn-setup" onclick="saveDb()"><i class="fas fa-save me-1"></i>저장 + 연결 테스트</button>
+            <div id="dbTestResult"></div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:10px;border-top:1px solid var(--border-color);padding-top:8px;">
+                <i class="fas fa-info-circle me-1"></i>내부 데이터 저장용 DB(H2)는 별도 설정 없이 자동 사용됩니다.<br>
+                MySQL/PostgreSQL로 전환하려면 환경변수 <code>DB_TYPE=mysql|postgresql</code> 설정 후 재시작하세요.
             </div>
         </div>
 
@@ -142,6 +158,26 @@ function prevStep() {
     if (currentStep > 1) goToStep(currentStep - 1);
 }
 
+function saveApiKey() {
+    var key = document.getElementById('setupApiKey').value.trim();
+    if (!key) { alert('API 키를 입력하세요.'); return; }
+    var el = document.getElementById('apiTestResult');
+    el.innerHTML = '<div class="test-result" style="color:var(--text-muted);"><i class="fas fa-spinner fa-spin me-1"></i>저장 및 테스트 중...</div>';
+    var fd = new URLSearchParams(); fd.append('apiKey', key);
+    fetch('/setup/save-api-key', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                el.innerHTML = '<div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>API 키 저장 완료 + 연결 성공 — 모델: ' + (d.model||'') + '</div>';
+            } else {
+                el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>저장됨, 연결 실패: ' + (d.error||'') + '</div>';
+            }
+        })
+        .catch(function(e){
+            el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>요청 실패: ' + e.message + '</div>';
+        });
+}
+
 function testApi() {
     var el = document.getElementById('apiTestResult');
     el.innerHTML = '<div class="test-result" style="color:var(--text-muted);"><i class="fas fa-spinner fa-spin me-1"></i>테스트 중...</div>';
@@ -152,6 +188,29 @@ function testApi() {
                 el.innerHTML = '<div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>연결 성공 — 모델: ' + (d.model||'') + '</div>';
             } else {
                 el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>' + (d.error||'연결 실패') + '</div>';
+            }
+        })
+        .catch(function(e){
+            el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>요청 실패: ' + e.message + '</div>';
+        });
+}
+
+function saveDb() {
+    var url  = document.getElementById('setupDbUrl').value.trim();
+    var user = document.getElementById('setupDbUser').value.trim();
+    var pass = document.getElementById('setupDbPass').value.trim();
+    if (!url) { alert('JDBC URL을 입력하세요.'); return; }
+    var el = document.getElementById('dbTestResult');
+    el.innerHTML = '<div class="test-result" style="color:var(--text-muted);"><i class="fas fa-spinner fa-spin me-1"></i>저장 및 연결 테스트 중...</div>';
+    var fd = new URLSearchParams();
+    fd.append('dbUrl', url); fd.append('dbUsername', user); fd.append('dbPassword', pass);
+    fetch('/setup/save-db', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                el.innerHTML = '<div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>DB 설정 저장 완료 + 연결 성공</div>';
+            } else {
+                el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>연결 실패: ' + (d.error||'') + '</div>';
             }
         })
         .catch(function(e){
