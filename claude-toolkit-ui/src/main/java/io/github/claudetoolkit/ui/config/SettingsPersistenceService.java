@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.config;
 
 import io.github.claudetoolkit.starter.properties.ClaudeProperties;
+import io.github.claudetoolkit.ui.security.CryptoUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -80,16 +81,16 @@ public class SettingsPersistenceService {
         return "{\n" +
                "  \"dbUrl\": "          + quoted(s.getDb().getUrl())            + ",\n" +
                "  \"dbUsername\": "     + quoted(s.getDb().getUsername())       + ",\n" +
-               "  \"dbPassword\": "     + quoted(s.getDb().getPassword())       + ",\n" +
+               "  \"dbPassword\": "     + quotedEncrypted(s.getDb().getPassword()) + ",\n" +
                "  \"scanPath\": "       + quoted(s.getProject().getScanPath())  + ",\n" +
                "  \"projectContext\": " + quoted(s.getProjectContext())         + ",\n" +
                "  \"claudeModel\": "    + quoted(s.getClaudeModel())            + ",\n" +
-               "  \"claudeApiKey\": "   + quoted(claudeProperties.getApiKey()) + ",\n" +
+               "  \"claudeApiKey\": "   + quotedEncrypted(claudeProperties.getApiKey()) + ",\n" +
                "  \"accentColor\": "    + quoted(s.getAccentColor())            + ",\n" +
                "  \"emailHost\": "      + quoted(s.getEmail().getHost())        + ",\n" +
                "  \"emailPort\": "      + s.getEmail().getPort()               + ",\n" +
                "  \"emailUsername\": "  + quoted(s.getEmail().getUsername())    + ",\n" +
-               "  \"emailPassword\": "  + quoted(s.getEmail().getPassword())    + ",\n" +
+               "  \"emailPassword\": "  + quotedEncrypted(s.getEmail().getPassword()) + ",\n" +
                "  \"emailFrom\": "      + quoted(s.getEmail().getFrom())        + ",\n" +
                "  \"emailTls\": "            + s.getEmail().isTls()                 + ",\n" +
                "  \"cacheRefreshCron\": "    + quoted(s.getCacheRefreshCron())       + ",\n" +
@@ -98,7 +99,7 @@ public class SettingsPersistenceService {
                "  \"jiraBaseUrl\": "        + quoted(s.getJiraBaseUrl())           + ",\n" +
                "  \"jiraProjectKey\": "     + quoted(s.getJiraProjectKey())        + ",\n" +
                "  \"jiraEmail\": "          + quoted(s.getJiraEmail())             + ",\n" +
-               "  \"jiraApiToken\": "       + quoted(s.getJiraApiToken())          + "\n" +
+               "  \"jiraApiToken\": "       + quotedEncrypted(s.getJiraApiToken()) + "\n" +
                "}";
     }
 
@@ -108,15 +109,28 @@ public class SettingsPersistenceService {
                         .replace("\n", "\\n").replace("\r", "") + "\"";
     }
 
+    /** 민감 필드: AES 암호화 후 quoted 처리 */
+    private String quotedEncrypted(String val) {
+        if (val == null || val.isEmpty()) return "\"\"";
+        return quoted(CryptoUtils.ensureEncrypted(val));
+    }
+
+    /** 민감 필드: JSON에서 추출 후 AES 복호화 */
+    private String extractDecrypted(String json, String key) {
+        String raw = extractField(json, key);
+        if (raw == null || raw.isEmpty()) return raw;
+        return CryptoUtils.decrypt(raw);
+    }
+
     private void applyJson(String json, ToolkitSettings s) {
         s.getDb().setUrl(extractField(json, "dbUrl"));
         s.getDb().setUsername(extractField(json, "dbUsername"));
-        s.getDb().setPassword(extractField(json, "dbPassword"));
+        s.getDb().setPassword(extractDecrypted(json, "dbPassword"));
         s.getProject().setScanPath(extractField(json, "scanPath"));
         s.setProjectContext(extractField(json, "projectContext"));
         String claudeModel = extractField(json, "claudeModel");
         if (claudeModel != null) s.setClaudeModel(claudeModel);
-        String savedApiKey = extractField(json, "claudeApiKey");
+        String savedApiKey = extractDecrypted(json, "claudeApiKey");
         if (savedApiKey != null && !savedApiKey.isEmpty()) {
             claudeProperties.setApiKey(savedApiKey);
         }
@@ -130,7 +144,7 @@ public class SettingsPersistenceService {
         }
         String emailUsername = extractField(json, "emailUsername");
         if (emailUsername != null) s.getEmail().setUsername(emailUsername);
-        String emailPassword = extractField(json, "emailPassword");
+        String emailPassword = extractDecrypted(json, "emailPassword");
         if (emailPassword != null) s.getEmail().setPassword(emailPassword);
         String emailFrom = extractField(json, "emailFrom");
         if (emailFrom != null) s.getEmail().setFrom(emailFrom);
@@ -148,7 +162,7 @@ public class SettingsPersistenceService {
         if (jiraProjectKey != null) s.setJiraProjectKey(jiraProjectKey);
         String jiraEmail = extractField(json, "jiraEmail");
         if (jiraEmail != null) s.setJiraEmail(jiraEmail);
-        String jiraApiToken = extractField(json, "jiraApiToken");
+        String jiraApiToken = extractDecrypted(json, "jiraApiToken");
         if (jiraApiToken != null) s.setJiraApiToken(jiraApiToken);
     }
 

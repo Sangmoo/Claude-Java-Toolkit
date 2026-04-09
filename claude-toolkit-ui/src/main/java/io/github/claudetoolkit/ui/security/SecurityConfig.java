@@ -73,6 +73,14 @@ public class SecurityConfig {
                 .accessDeniedPage("/login?denied=true")
             .and()
 
+            .sessionManagement()
+                .sessionFixation().newSession()
+                .maximumSessions(1)
+                    .maxSessionsPreventsLogin(false)
+                    .expiredUrl("/login?expired=true")
+                .and()
+            .and()
+
             .formLogin()
                 .loginPage("/login")
                 .successHandler(twoFactorAuthHandler)

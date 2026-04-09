@@ -28,11 +28,38 @@ public class UserService {
         return userRepository.findById(id).orElse(null);
     }
 
+    /**
+     * 비밀번호 정책을 검증합니다.
+     * @return 위반 시 한국어 에러 메시지, 통과 시 null
+     */
+    public String validatePassword(String rawPassword) {
+        if (rawPassword == null || rawPassword.length() < 8) {
+            return "비밀번호는 최소 8자 이상이어야 합니다.";
+        }
+        boolean hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+        for (int i = 0; i < rawPassword.length(); i++) {
+            char c = rawPassword.charAt(i);
+            if (Character.isUpperCase(c)) hasUpper = true;
+            else if (Character.isLowerCase(c)) hasLower = true;
+            else if (Character.isDigit(c)) hasDigit = true;
+            else hasSpecial = true;
+        }
+        if (!hasUpper) return "비밀번호에 대문자가 최소 1개 포함되어야 합니다.";
+        if (!hasLower) return "비밀번호에 소문자가 최소 1개 포함되어야 합니다.";
+        if (!hasDigit) return "비밀번호에 숫자가 최소 1개 포함되어야 합니다.";
+        if (!hasSpecial) return "비밀번호에 특수문자가 최소 1개 포함되어야 합니다.";
+        return null;
+    }
+
     @Transactional
     public AppUser create(String username, String rawPassword, String role,
                           String displayName, String email, String phone) {
         if (userRepository.findByUsername(username).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 ID입니다: " + username);
+        }
+        String policyError = validatePassword(rawPassword);
+        if (policyError != null) {
+            throw new IllegalArgumentException(policyError);
         }
         AppUser user = new AppUser(username, encoder.encode(rawPassword), role.toUpperCase());
         user.setDisplayName(displayName);
@@ -49,6 +76,14 @@ public class UserService {
                         return new IllegalArgumentException("사용자를 찾을 수 없습니다.");
                     }
                 });
+        String policyError = validatePassword(newRawPassword);
+        if (policyError != null) {
+            throw new IllegalArgumentException(policyError);
+        }
+        // 이전 비밀번호와 동일 여부 검사
+        if (encoder.matches(newRawPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("이전 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.");
+        }
         user.setPasswordHash(encoder.encode(newRawPassword));
         userRepository.save(user);
     }

@@ -27,21 +27,48 @@ public class SchemaMigration implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         addColumnIfNotExists("APP_USER", "RATE_LIMIT_PER_MINUTE", "INTEGER DEFAULT 0");
         addColumnIfNotExists("APP_USER", "RATE_LIMIT_PER_HOUR",   "INTEGER DEFAULT 0");
-        addColumnIfNotExists("APP_USER", "PERSONAL_API_KEY",      "VARCHAR(200)");
-        addColumnIfNotExists("APP_USER", "TOTP_SECRET",           "VARCHAR(64)");
+        addColumnIfNotExists("APP_USER", "PERSONAL_API_KEY",      "VARCHAR(500)");
+        addColumnIfNotExists("APP_USER", "TOTP_SECRET",           "VARCHAR(500)");
+        addColumnIfNotExists("APP_USER", "MUST_CHANGE_PASSWORD",  "BOOLEAN DEFAULT FALSE");
         addColumnIfNotExists("AUDIT_LOG", "USERNAME",             "VARCHAR(50)");
         addColumnIfNotExists("AUDIT_LOG", "DURATION_MS",          "BIGINT");
+
+        // 기존 VARCHAR(200)/VARCHAR(64) → VARCHAR(500) 확장 (암호화 데이터 수용)
+        alterColumnType("APP_USER", "PERSONAL_API_KEY", "VARCHAR(500)");
+        alterColumnType("APP_USER", "TOTP_SECRET",      "VARCHAR(500)");
     }
 
     private void addColumnIfNotExists(String table, String column, String type) {
+        Connection conn = null;
+        Statement stmt = null;
         try {
-            Connection conn = dataSource.getConnection();
-            Statement stmt = conn.createStatement();
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
             stmt.execute("ALTER TABLE " + table + " ADD COLUMN IF NOT EXISTS " + column + " " + type);
-            stmt.close();
-            conn.close();
         } catch (Exception e) {
             // 테이블이 아직 없거나 이미 존재하는 경우 무시
+        } finally {
+            closeQuietly(stmt);
+            closeQuietly(conn);
         }
+    }
+
+    private void alterColumnType(String table, String column, String type) {
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = dataSource.getConnection();
+            stmt = conn.createStatement();
+            stmt.execute("ALTER TABLE " + table + " ALTER COLUMN " + column + " " + type);
+        } catch (Exception e) {
+            // 지원하지 않는 DB이거나 변경 불필요한 경우 무시
+        } finally {
+            closeQuietly(stmt);
+            closeQuietly(conn);
+        }
+    }
+
+    private void closeQuietly(AutoCloseable c) {
+        if (c != null) { try { c.close(); } catch (Exception ignored) {} }
     }
 }

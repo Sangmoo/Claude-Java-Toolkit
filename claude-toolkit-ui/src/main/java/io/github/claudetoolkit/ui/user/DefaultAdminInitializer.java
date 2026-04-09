@@ -33,6 +33,7 @@ public class DefaultAdminInitializer implements ApplicationRunner {
             try {
                 AppUser admin = new AppUser("admin", encoder.encode("admin1234"), "ADMIN");
                 admin.setDisplayName("관리자");
+                admin.setMustChangePassword(true);
                 userRepository.save(admin);
                 System.out.println("[Security] 기본 관리자 계정 생성됨: admin / admin1234");
             } catch (Exception e) {

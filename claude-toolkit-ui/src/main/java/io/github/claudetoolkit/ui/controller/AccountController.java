@@ -161,7 +161,19 @@ public class AccountController {
                 resp.put("error", "현재 비밀번호가 올바르지 않습니다.");
                 return ResponseEntity.ok(resp);
             }
+            // 비밀번호 정책 검증
+            String policyError = userService.validatePassword(newPassword);
+            if (policyError != null) {
+                resp.put("success", false);
+                resp.put("error", policyError);
+                return ResponseEntity.ok(resp);
+            }
             userService.changePassword(user.getId(), newPassword);
+            // 강제 변경 플래그 해제
+            if (user.isMustChangePassword()) {
+                user.setMustChangePassword(false);
+                userRepository.save(user);
+            }
             resp.put("success", true);
         } catch (Exception e) {
             resp.put("success", false);
