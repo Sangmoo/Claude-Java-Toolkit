@@ -19,14 +19,15 @@ public class AdminPermissionController {
     /** 관리 대상 기능 목록: {key, 표시명, 카테고리} */
     private static final List<String[]> FEATURES = Arrays.asList(
         // 분석
+        // 분석
         new String[]{"workspace",    "통합 워크스페이스",   "분석"},
         new String[]{"advisor",      "SQL 리뷰",          "분석"},
         new String[]{"sql-translate","SQL DB 번역",       "분석"},
         new String[]{"sql-batch",    "배치 SQL 분석",      "분석"},
         new String[]{"erd",          "ERD 분석",          "분석"},
         new String[]{"complexity",   "복잡도 분석",        "분석"},
-        new String[]{"explain",      "실행계획 분석",      "분석"},
-        new String[]{"harness",      "코드 리뷰 하네스",   "분석"},
+        new String[]{"explain",      "실행계획 분석/비교/대시보드", "분석"},
+        new String[]{"harness",      "코드 리뷰 하네스/배치/의존성/대시보드", "분석"},
         new String[]{"codereview",   "코드 리뷰",         "분석"},
         // 생성
         new String[]{"docgen",       "기술 문서",          "생성"},
@@ -36,11 +37,25 @@ public class AdminPermissionController {
         new String[]{"mockdata",     "Mock 데이터",       "생성"},
         new String[]{"migration",    "DB 마이그레이션",    "생성"},
         new String[]{"batch",        "Batch 처리",        "생성"},
+        new String[]{"depcheck",     "의존성 분석 (pom)",  "생성"},
+        new String[]{"migrate",      "Spring 마이그레이션", "생성"},
+        // 기록
+        new String[]{"history",      "리뷰 이력",          "기록"},
+        new String[]{"favorites",    "즐겨찾기",           "기록"},
+        new String[]{"usage",        "사용량 모니터링",     "기록"},
+        new String[]{"roi-report",   "ROI 리포트",         "기록"},
+        new String[]{"schedule",     "분석 스케줄링",       "기록"},
         // 도구
         new String[]{"loganalyzer",  "로그 분석기",        "도구"},
         new String[]{"regex",        "정규식 생성기",      "도구"},
         new String[]{"commitmsg",    "커밋 메시지",        "도구"},
-        new String[]{"input-masking","민감정보 마스킹",    "도구"}
+        new String[]{"maskgen",      "마스킹 스크립트",    "도구"},
+        new String[]{"input-masking","민감정보 마스킹",    "도구"},
+        new String[]{"github-pr",    "GitHub PR 리뷰",    "도구"},
+        new String[]{"git-diff",     "Git Diff 분석",     "도구"},
+        // 기타
+        new String[]{"prompts",      "프롬프트 템플릿",    "기타"},
+        new String[]{"search",       "글로벌 검색",        "기타"}
     );
 
     private final AppUserRepository userRepository;

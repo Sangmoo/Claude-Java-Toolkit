@@ -26,6 +26,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
     /** featureKey → URL 경로 매핑 */
     private static final Map<String, String> FEATURE_PATHS = new LinkedHashMap<String, String>();
     static {
+        // 분석
         FEATURE_PATHS.put("workspace",     "/workspace");
         FEATURE_PATHS.put("advisor",       "/advisor");
         FEATURE_PATHS.put("sql-translate", "/sql-translate");
@@ -35,6 +36,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("explain",       "/explain");
         FEATURE_PATHS.put("harness",       "/harness");
         FEATURE_PATHS.put("codereview",    "/codereview");
+        // 생성
         FEATURE_PATHS.put("docgen",        "/docgen");
         FEATURE_PATHS.put("testgen",       "/testgen");
         FEATURE_PATHS.put("apispec",       "/apispec");
@@ -42,10 +44,25 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("mockdata",      "/mockdata");
         FEATURE_PATHS.put("migration",     "/migration");
         FEATURE_PATHS.put("batch",         "/batch");
+        FEATURE_PATHS.put("depcheck",      "/depcheck");
+        FEATURE_PATHS.put("migrate",       "/migrate");
+        // 기록
+        FEATURE_PATHS.put("history",       "/history");
+        FEATURE_PATHS.put("favorites",     "/favorites");
+        FEATURE_PATHS.put("usage",         "/usage");
+        FEATURE_PATHS.put("roi-report",    "/roi-report");
+        FEATURE_PATHS.put("schedule",      "/schedule");
+        // 도구
         FEATURE_PATHS.put("loganalyzer",   "/loganalyzer");
         FEATURE_PATHS.put("regex",         "/regex");
         FEATURE_PATHS.put("commitmsg",     "/commitmsg");
+        FEATURE_PATHS.put("maskgen",       "/maskgen");
         FEATURE_PATHS.put("input-masking", "/input-masking");
+        FEATURE_PATHS.put("github-pr",     "/github-pr");
+        FEATURE_PATHS.put("git-diff",      "/git-diff");
+        // 기타
+        FEATURE_PATHS.put("prompts",       "/prompts");
+        FEATURE_PATHS.put("search",        "/search");
     }
 
     private final AppUserRepository userRepository;
