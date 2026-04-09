@@ -15,6 +15,9 @@ services:
       - JAVA_OPTS=${JAVA_OPTS:--Xmx512m}
     volumes:
       - toolkit-data:/root/.claude-toolkit
+      # 호스트 프로젝트 경로를 컨테이너에 마운트 (읽기 전용)
+      # Windows: /d/... 형식으로 변환됨
+      - ${PROJECT_PATH:-./}:/workspace:ro
     restart: unless-stopped
 
   # ── MySQL (docker-compose --profile mysql up -d) ──
