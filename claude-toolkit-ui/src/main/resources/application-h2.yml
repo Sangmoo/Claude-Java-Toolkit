@@ -1,7 +1,9 @@
 # ═══ H2 파일 DB (기본값) ═══
+# DB 파일 위치: ~/.claude-toolkit/history-db.mv.db
+# 재빌드/재배포해도 데이터 유지됨 (ddl-auto: update)
 spring:
   datasource:
-    url: jdbc:h2:file:${user.home}/.claude-toolkit/history-db;AUTO_SERVER=TRUE;MODE=MySQL
+    url: jdbc:h2:file:${user.home}/.claude-toolkit/history-db;AUTO_SERVER=TRUE;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
