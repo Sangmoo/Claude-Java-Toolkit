@@ -72,7 +72,7 @@ public class UserService {
 
     @Transactional
     public void updateInfo(Long id, String displayName, String email, String phone, String role,
-                           int rateLimitPerMinute, int rateLimitPerHour) {
+                           String personalApiKey, int rateLimitPerMinute, int rateLimitPerHour) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
                     public RuntimeException get() {
@@ -84,6 +84,9 @@ public class UserService {
         user.setPhone(phone);
         if (role != null && !role.isEmpty()) {
             user.setRole(role.toUpperCase());
+        }
+        if (personalApiKey != null && !personalApiKey.isEmpty()) {
+            user.setPersonalApiKey(personalApiKey);
         }
         user.setRateLimitPerMinute(rateLimitPerMinute);
         user.setRateLimitPerHour(rateLimitPerHour);

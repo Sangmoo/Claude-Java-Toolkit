@@ -27,6 +27,31 @@
     themeToggle.parentNode.insertBefore(wrapper, themeToggle);
     wrapper.appendChild(themeToggle);
 
+    // 세션 타이머 (60분 = 3600초)
+    var SESSION_SECONDS = 3600;
+    var _sessionRemain = SESSION_SECONDS;
+
+    var timerSpan = document.createElement('span');
+    timerSpan.id = 'sessionTimer';
+    timerSpan.style.cssText = 'font-size:.7rem;color:var(--text-muted);font-family:monospace;min-width:38px;text-align:center;';
+    timerSpan.textContent = '60:00';
+    wrapper.appendChild(timerSpan);
+
+    var refreshBtn = document.createElement('button');
+    refreshBtn.title = '세션 갱신';
+    refreshBtn.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.7rem;padding:2px;transition:color .15s;';
+    refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    refreshBtn.onmouseenter = function(){ this.style.color='#10b981'; };
+    refreshBtn.onmouseleave = function(){ this.style.color='var(--text-muted)'; };
+    refreshBtn.onclick = function() {
+        // 세션 갱신: 서버에 빈 요청 → lastAccessedTime 갱신
+        fetch('/actuator/health', {credentials:'same-origin'}).catch(function(){});
+        _sessionRemain = SESSION_SECONDS;
+        timerSpan.style.color = 'var(--text-muted)';
+    };
+    wrapper.appendChild(refreshBtn);
+
+    // 로그아웃 버튼
     var btn = document.createElement('a');
     btn.id = 'logoutBtn';
     btn.href = '/logout';
@@ -38,6 +63,27 @@
     btn.onmouseenter = function(){ this.style.borderColor='#ef4444'; this.style.color='#ef4444'; };
     btn.onmouseleave = function(){ this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)'; };
     wrapper.appendChild(btn);
+
+    // 매초 카운트다운
+    setInterval(function() {
+        _sessionRemain--;
+        if (_sessionRemain < 0) _sessionRemain = 0;
+        var m = Math.floor(_sessionRemain / 60);
+        var s = _sessionRemain % 60;
+        timerSpan.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        // 5분 이하: 노랑, 1분 이하: 빨강
+        if (_sessionRemain <= 60) timerSpan.style.color = '#ef4444';
+        else if (_sessionRemain <= 300) timerSpan.style.color = '#f59e0b';
+        else timerSpan.style.color = 'var(--text-muted)';
+        // 0초: 세션 만료
+        if (_sessionRemain <= 0) {
+            window.location.href = '/login?expired=true';
+        }
+    }, 1000);
+
+    // 사용자 활동 시 타이머 리셋 (페이지 클릭, 키 입력)
+    document.addEventListener('click', function() { _sessionRemain = SESSION_SECONDS; });
+    document.addEventListener('keydown', function() { _sessionRemain = SESSION_SECONDS; });
 })();
 
 // ── 세션 만료 감지 (AJAX 응답이 로그인 페이지 리다이렉트되면 감지) ──

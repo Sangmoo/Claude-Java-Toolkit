@@ -125,6 +125,7 @@ public class AdminUserController {
         resp.put("email", user.getEmail());
         resp.put("phone", user.getPhone());
         resp.put("role", user.getRole());
+        resp.put("personalApiKey", user.getPersonalApiKey() != null ? user.getPersonalApiKey() : "");
         resp.put("rateLimitPerMinute", user.getRateLimitPerMinute());
         resp.put("rateLimitPerHour", user.getRateLimitPerHour());
         return ResponseEntity.ok(resp);
@@ -139,11 +140,12 @@ public class AdminUserController {
             @RequestParam(defaultValue = "") String email,
             @RequestParam(defaultValue = "") String phone,
             @RequestParam(defaultValue = "") String role,
+            @RequestParam(defaultValue = "") String personalApiKey,
             @RequestParam(defaultValue = "0") int rateLimitPerMinute,
             @RequestParam(defaultValue = "0") int rateLimitPerHour) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         try {
-            userService.updateInfo(id, displayName, email, phone, role, rateLimitPerMinute, rateLimitPerHour);
+            userService.updateInfo(id, displayName, email, phone, role, personalApiKey, rateLimitPerMinute, rateLimitPerHour);
             resp.put("success", true);
         } catch (Exception e) {
             resp.put("success", false);

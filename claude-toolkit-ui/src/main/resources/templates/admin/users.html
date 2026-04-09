@@ -201,6 +201,10 @@
                     <option value="ADMIN">ADMIN</option>
                 </select>
             </div>
+            <div class="mb-2">
+                <label style="font-size:.78rem;color:var(--text-sub);">개인 Claude API 키 <span style="color:var(--text-muted);font-size:.68rem;">(비우면 공용 키 사용)</span></label>
+                <input type="password" id="editApiKey" class="form-control" style="font-size:.84rem;font-family:monospace;" placeholder="sk-ant-api03-...">
+            </div>
             <div class="d-flex gap-2 mb-3">
                 <div style="flex:1;">
                     <label style="font-size:.78rem;color:var(--text-sub);">분당 호출 제한 <span style="color:var(--text-muted);font-size:.68rem;">(0=무제한)</span></label>
@@ -288,6 +292,7 @@ function openEditModal(btn) {
             document.getElementById('editEmail').value       = d.email || '';
             document.getElementById('editPhone').value       = d.phone || '';
             document.getElementById('editRole').value        = d.role || 'VIEWER';
+            document.getElementById('editApiKey').value       = d.personalApiKey || '';
             document.getElementById('editRateMin').value     = d.rateLimitPerMinute || 0;
             document.getElementById('editRateHour').value    = d.rateLimitPerHour || 0;
             document.getElementById('editModal').style.display = '';
@@ -301,6 +306,7 @@ function saveEdit() {
     fd.append('email',       document.getElementById('editEmail').value.trim());
     fd.append('phone',       document.getElementById('editPhone').value.trim());
     fd.append('role',        document.getElementById('editRole').value);
+    fd.append('personalApiKey',     document.getElementById('editApiKey').value.trim());
     fd.append('rateLimitPerMinute', document.getElementById('editRateMin').value || '0');
     fd.append('rateLimitPerHour',   document.getElementById('editRateHour').value || '0');
     fetch('/admin/users/' + id + '/update', {method:'POST', body:fd})
