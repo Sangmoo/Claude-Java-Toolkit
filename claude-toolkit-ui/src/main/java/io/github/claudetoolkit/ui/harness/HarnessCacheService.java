@@ -284,8 +284,21 @@ public class HarnessCacheService {
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    public List<FileEntry>     getCachedFiles()     { return new ArrayList<FileEntry>(cachedFiles); }
-    public List<DbObjectEntry> getCachedDbObjects() { return new ArrayList<DbObjectEntry>(cachedDbObjects); }
+    public List<FileEntry> getCachedFiles() {
+        // 캐시가 비어있고 설정이 있으면 자동 갱신
+        if (cachedFiles.isEmpty() && settings.isProjectConfigured() && lastFileRefresh == 0) {
+            refreshFileCache();
+        }
+        return new ArrayList<FileEntry>(cachedFiles);
+    }
+
+    public List<DbObjectEntry> getCachedDbObjects() {
+        // 캐시가 비어있고 DB 설정이 있으면 자동 갱신
+        if (cachedDbObjects.isEmpty() && settings.isDbConfigured() && lastDbRefresh == 0) {
+            refreshDbCache();
+        }
+        return new ArrayList<DbObjectEntry>(cachedDbObjects);
+    }
 
     public long    getLastFileRefresh()   { return lastFileRefresh; }
     public long    getLastDbRefresh()     { return lastDbRefresh; }

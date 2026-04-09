@@ -29,19 +29,22 @@ public class SettingsController {
     private final SettingsPersistenceService persistenceService;
     private final ClaudeClient               claudeClient;
     private final ClaudeProperties           claudeProperties;
+    private final io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService;
 
     public SettingsController(ToolkitSettings settings,
                               OracleMetaService oracleMetaService,
                               ProjectScannerService projectScannerService,
                               SettingsPersistenceService persistenceService,
                               ClaudeClient claudeClient,
-                              ClaudeProperties claudeProperties) {
+                              ClaudeProperties claudeProperties,
+                              io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService) {
         this.settings              = settings;
         this.oracleMetaService     = oracleMetaService;
         this.projectScannerService = projectScannerService;
         this.persistenceService    = persistenceService;
         this.claudeClient          = claudeClient;
         this.claudeProperties      = claudeProperties;
+        this.harnessCacheService   = harnessCacheService;
     }
 
     @GetMapping
@@ -119,6 +122,17 @@ public class SettingsController {
         }
 
         persistenceService.save();
+
+        // Settings 저장 후 캐시 자동 갱신 (백그라운드)
+        Thread cacheThread = new Thread(new Runnable() {
+            public void run() {
+                harnessCacheService.refreshFileCache();
+                harnessCacheService.refreshDbCache();
+            }
+        });
+        cacheThread.setDaemon(true);
+        cacheThread.setName("settings-cache-refresh");
+        cacheThread.start();
 
         claudeClient.setModelOverride(claudeModel);
 
