@@ -1366,52 +1366,56 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 - [x] **연결 상태 표시** — Claude API / Oracle DB / 이메일 연결 상태 실시간 표시
 - [x] **관리 도구 섹션** — 사용자 관리(ADMIN), 보안 설정(ADMIN), 내 설정(전체) 카드
 
+**🎨 테마 프리셋**
+- [x] **5가지 색상 프리셋** — Settings에서 오렌지/블루/그린/퍼플/핑크 원클릭 전환
+
 **🔐 2FA 이중 인증**
 - [x] **Google Authenticator 연동** — `/account/settings`에서 QR코드 스캔 → 6자리 코드 인증 → 2FA 활성화
 - [x] **TOTP (RFC 6238)** — `TotpService`: Base32 시크릿 생성, HMAC-SHA1 코드 생성, ±30초 허용
 - [x] **사용자별 독립 설정** — 각 사용자가 자신의 2FA를 개별 관리 (활성화/비활성화)
+- [x] **ADMIN 2FA 강제** — `TwoFactorAuthHandler` + `TwoFactorInterceptor`. ADMIN 로그인 시 2FA 검증 필수. QR코드 qrcodejs 라이브러리
 
 ---
 
-### 🚧 v2.4.0 (진행 중)
+### ✅ v2.4.0
 
 **🔒 보안 강화**
-- [ ] **민감정보 AES-256 암호화** — `settings.json`의 API키/DB비밀번호/이메일비밀번호/Jira토큰을 AES-256-CBC로 암호화 저장. 기존 평문 데이터 자동 마이그레이션
-- [ ] **DB 민감필드 암호화** — `AppUser.totpSecret`, `personalApiKey` AES 암호화 후 DB 저장
-- [ ] **초기 admin 비밀번호 강제 변경** — `mustChangePassword` 플래그. 첫 로그인 시 `/account/password`로 강제 리다이렉트
-- [ ] **비밀번호 정책 강화** — 최소 8자, 대문자/소문자/숫자/특수문자 각 1개 이상 필수. 이전 비밀번호 재사용 방지
-- [ ] **세션 보안** — 세션 고정 공격 방지(newSession), 중복 로그인 시 기존 세션 해제(maximumSessions=1)
+- [x] **민감정보 AES 암호화** — `settings.json`의 API키/DB비밀번호/이메일비밀번호/Jira토큰을 AES-128-CBC로 암호화 저장. `~/.claude-toolkit/.encryption-key` 자동 생성. 기존 평문 데이터 자동 마이그레이션
+- [x] **DB 민감필드 암호화** — `AppUser.totpSecret`, `personalApiKey` getter/setter에서 자동 AES 암호화/복호화. 컬럼 200/64→500자 확장
+- [x] **초기 admin 비밀번호 강제 변경** — `mustChangePassword` 플래그 + `PasswordChangeInterceptor`. 첫 로그인 시 `/account/password`로 강제 리다이렉트
+- [x] **비밀번호 정책 강화** — 최소 8자, 대문자/소문자/숫자/특수문자 각 1개 이상 필수. 이전 비밀번호 재사용 방지
+- [x] **세션 보안** — 세션 고정 공격 방지(`sessionFixation().newSession()`), 중복 로그인 시 기존 세션 해제(`maximumSessions=1`)
 
 **🛡️ 안정성 개선**
-- [ ] **Global Exception Handler** — `@ControllerAdvice` 통합 에러 처리. HTML 요청→에러 페이지, AJAX→JSON 에러 응답. SLF4J 로깅
-- [ ] **Logger 통일** — 12개 파일 `System.err.println` → SLF4J `log.error()` 교체
-- [ ] **GitService 타임아웃** — `process.waitFor(30, SECONDS)` + 초과 시 강제 종료
-- [ ] **배치 에러 핸들링** — 개별 파일 실패 시 스킵 + 성공/실패 건수 요약
-- [ ] **AuditLog 개선** — UserAgent 300→500자 확장. 보안 설정 페이지에 "90일 자동 삭제" 안내 문구
+- [x] **Global Exception Handler** — `@ControllerAdvice` 통합 에러 처리. HTML 요청→`error.html` 에러 페이지(403/404/500), AJAX→JSON 에러 응답. SLF4J 로깅
+- [x] **Logger 통일** — 12개 파일 `System.err.println` / `System.out.println` → SLF4J `log.error()` / `log.info()` 교체
+- [x] **GitService 타임아웃** — `process.waitFor(30, SECONDS)` + 초과 시 `destroyForcibly()` 강제 종료
+- [x] **배치 에러 핸들링** — 개별 파일 실패 시 스킵 + 성공/실패 건수 요약 (`successCount`, `failCount`)
+- [x] **AuditLog 개선** — UserAgent 300→500자 확장. 보안 설정 페이지에 "90일 이상 로그 자동 삭제" 안내 문구 추가
 
 **🎨 UI/UX 대규모 개선**
-- [ ] **글로벌 토스트 알림** — `alert()` 제거 → 우하단 스택형 토스트 (success/error/warning/info, 진행 바, 자동 소멸)
-- [ ] **Breadcrumb 네비게이션** — URL 경로 기반 자동 생성 (홈 > 분석 > 실행계획 비교)
-- [ ] **폼 유효성 시각화** — `.is-invalid` 빨간 테두리 + 에러 메시지 표시
-- [ ] **버튼 스타일 통일** — 인라인 `style="background:..."` → `.btn-primary-tk/.btn-danger-tk` CSS 클래스 교체
-- [ ] **모바일 결과 반응형** — 결과 영역 max-height 60vh, 스트리밍 50vh
-- [ ] **다크/라이트 모드 정리** — 하드코딩 색상 인라인 스타일 → 테마 인식 CSS 클래스
-- [ ] **결과 전체 복사** — 분석 결과 영역 상단 "전체 복사" 버튼
-- [ ] **스켈레톤 로딩 UI** — 스피너 오버레이 대신 결과 영역 펄스 애니메이션
-- [ ] **사이드바 기능 검색** — 메뉴 30개+ 실시간 필터링 검색 입력란
+- [x] **글로벌 토스트 알림** — `alert()` 141개 제거 → 우하단 스택형 토스트 (success/error/warning/info, 진행 바, 자동 소멸 3초, 최대 5개)
+- [x] **Breadcrumb 네비게이션** — URL 경로 기반 자동 생성 (홈 > 분석 > 실행계획 비교). 40개+ 한국어 경로 매핑
+- [x] **폼 유효성 시각화** — `validateForm(formId, rules)` 유틸리티 + `.is-invalid` 빨간 테두리 + `.invalid-feedback` 에러 메시지
+- [x] **버튼 스타일 통일** — `.btn-danger-tk` / `.btn-success-tk` / `.btn-info-tk` CSS 클래스 추가
+- [x] **모바일 결과 반응형** — 결과 영역 `max-height: 60vh`, 스트리밍 `50vh` (기존 고정 400px/300px)
+- [x] **다크/라이트 모드 정리** — `.text-success-tk` / `.text-danger-tk` / `.text-warning-tk` 테마 인식 유틸 클래스
+- [x] **결과 전체 복사** — `copyAllResults()` 함수 + 토스트 피드백
+- [x] **스켈레톤 로딩 UI** — `showSkeleton()` / `hideSkeleton()` + CSS 펄스 애니메이션 (`.skeleton`, `.skeleton-line`)
+- [x] **사이드바 기능 검색** — 메뉴 30개+ 실시간 필터링 검색 입력란. 매칭 섹션 자동 펼침
 
 **⚡ 기능 개선**
-- [ ] **CodeMirror 에디터** — 코드 입력 textarea → CodeMirror 5.x (라인 번호, 구문 강조, 코드 접기, Ctrl+F 검색)
-- [ ] **PDF 리포트 내보내기** — 분석 결과 Markdown→HTML→`window.print()` 기반 PDF 저장. 인쇄 레이아웃 최적화
-- [ ] **분석 결과 댓글** — `ReviewComment` 엔티티. 이력 상세 모달에서 댓글 작성/삭제 (본인 또는 ADMIN)
-- [ ] **알림 센터** — `Notification` 엔티티. 🔔 벨 아이콘 + 미읽음 배지. 60초 폴링. 댓글 알림 자동 생성
-- [ ] **분석 결과 캐싱** — SHA-256 해시 기반 인메모리 캐시 (최대 200개, TTL 1시간). 중복 API 호출 절약
+- [x] **CodeMirror 에디터** — `initCodeEditor(textareaId, language)` CDN 동적 로드. Java/SQL/Python/JS/XML 5개 언어 모드. 라인 번호, 구문 강조, 괄호 매칭
+- [x] **PDF 리포트 내보내기** — `exportPdf(elementId, title)` 새 창 인쇄 기반. 분석 결과 헤더/푸터 포함 인쇄 레이아웃
+- [x] **분석 결과 댓글** — `ReviewComment` 엔티티. 이력 상세에서 댓글 작성/삭제 (본인 또는 ADMIN). AJAX 실시간 반영
+- [x] **알림 센터** — `Notification` 엔티티. 🔔 벨 아이콘 + 미읽음 배지 + 드롭다운 목록. 60초 폴링. 댓글 작성 시 분석 작성자에게 자동 알림
+- [x] **분석 결과 캐싱** — `AnalysisCacheService` SHA-256 해시 기반 LRU 인메모리 캐시 (최대 200개, TTL 1시간). 캐시 히트 시 "[캐시 결과]" 배지 표시
 
 **🆕 새 기능**
-- [ ] **AI 채팅 인터페이스** — `/chat`: 대화형 AI 질의응답. SSE 스트리밍. 분석 결과 컨텍스트 첨부. 세션 기반 20턴 히스토리. 사용자 권한 제어
-- [ ] **팀 대시보드** — `/admin/team-dashboard`: 팀 전체 분석 트렌드, 사용자별 활동, 기능별 사용 빈도 (Chart.js)
-- [ ] **감사 로그 시각화** — `/admin/audit-dashboard`: 시간대별 히트맵, 사용자 활동 순위, 액션 유형 차트, 에러율 추이
-- [ ] **분석 비용 추적** — 모델별 토큰 단가 적용 비용 계산. 일별/주별/월별 비용 추이. 사용자별 비용 분배
+- [x] **AI 채팅 인터페이스** — `/chat`: 대화형 AI 질의응답. SSE 스트리밍 응답. 분석 결과 컨텍스트 첨부 ("이 결과에 대해 질문하기"). 세션 기반 20턴 히스토리. `PermissionInterceptor`로 사용자 권한 제어
+- [x] **팀 대시보드** — `/admin/team-dashboard` (ADMIN 전용): 일별 분석 트렌드 라인 차트, 사용자별 분석 건수/토큰 바 차트, 기능별 사용 빈도 도넛 차트 (Chart.js 4.4.1). 기간 선택기 (7/30/90일)
+- [x] **감사 로그 시각화** — `/admin/audit-dashboard` (ADMIN 전용): 시간대별 요청 분포 바 차트, 사용자별 활동 Top 10, 액션 유형 파이 차트, 일별 에러율 추이. 기간 선택기 (오늘/7일/30일)
+- [x] **분석 비용 추적** — 모델별 토큰 단가 적용 (입력 $3/1M, 출력 $15/1M). 일별 비용 추이 (`/usage/daily-cost`). 사용자별 비용 분배 (`/usage/cost-by-user`, ADMIN 전용). KRW 환산
 
 ---
 

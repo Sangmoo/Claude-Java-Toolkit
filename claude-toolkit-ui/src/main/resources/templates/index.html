@@ -8,7 +8,7 @@
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250409')}" rel="stylesheet">
     <style>
         .hero { background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%); padding: 48px 0 36px; }
         .hero h1 { color: var(--text-primary); }
@@ -309,6 +309,52 @@
                         <h5 class="mb-1" style="font-size:.95rem;">Git Diff 분석</h5>
                         <p class="mb-3">로컬 Git 저장소 커밋 간 diff 선택 → AI 코드 리뷰. 변경 사항 자동 분석.</p>
                         <a href="/git-diff" class="btn btn-accent w-100 btn-sm"><i class="fab fa-git-alt me-2"></i>Diff 분석</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- v2.4.0 신규 기능 -->
+            <h6 class="mb-3" style="color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.72rem;">
+                <i class="fas fa-sparkles me-2"></i>v2.4.0 신규
+            </h6>
+            <div class="row g-3 mb-4">
+                <!-- AI 채팅 -->
+                <div class="col-md-6 col-xl-4">
+                    <div class="tool-card" style="border:1px solid rgba(139,92,246,.3);">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-comments fa-lg" style="color:#8b5cf6"></i>
+                            <span class="badge-module" style="background:#8b5cf6;">AI Chat</span>
+                            <span style="background:rgba(239,68,68,.12);color:#ef4444;font-size:.6rem;padding:1px 6px;border-radius:8px;font-weight:600;">NEW</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">AI 채팅 인터페이스</h5>
+                        <p class="mb-3">대화형 AI 질의응답. 분석 결과 컨텍스트 첨부, SSE 스트리밍, 20턴 대화 히스토리.</p>
+                        <a href="/chat" class="btn btn-accent w-100 btn-sm" style="background:#8b5cf6;"><i class="fas fa-comments me-2"></i>채팅 시작</a>
+                    </div>
+                </div>
+                <!-- 팀 대시보드 -->
+                <div class="col-md-6 col-xl-4" th:if="${#request.isUserInRole('ADMIN')}">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-chart-line fa-lg" style="color:#3b82f6"></i>
+                            <span class="badge-module" style="background:#3b82f6;">Team Dashboard</span>
+                            <span style="background:rgba(239,68,68,.12);color:#ef4444;font-size:.6rem;padding:1px 6px;border-radius:8px;font-weight:600;">NEW</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">팀 대시보드</h5>
+                        <p class="mb-3">팀 전체 분석 트렌드, 사용자별 활동/토큰, 기능별 사용 빈도 차트.</p>
+                        <a href="/admin/team-dashboard" class="btn btn-accent w-100 btn-sm" style="background:#3b82f6;"><i class="fas fa-chart-line me-2"></i>팀 대시보드</a>
+                    </div>
+                </div>
+                <!-- 감사 로그 시각화 -->
+                <div class="col-md-6 col-xl-4" th:if="${#request.isUserInRole('ADMIN')}">
+                    <div class="tool-card">
+                        <div class="d-flex align-items-center mb-2 gap-2">
+                            <i class="fas fa-shield-alt fa-lg" style="color:#f59e0b"></i>
+                            <span class="badge-module" style="background:#f59e0b;">Audit Dashboard</span>
+                            <span style="background:rgba(239,68,68,.12);color:#ef4444;font-size:.6rem;padding:1px 6px;border-radius:8px;font-weight:600;">NEW</span>
+                        </div>
+                        <h5 class="mb-1" style="font-size:.95rem;">감사 로그 대시보드</h5>
+                        <p class="mb-3">시간대별 요청 분포, 사용자별 활동 Top 10, 액션 유형 차트, 에러율 추이.</p>
+                        <a href="/admin/audit-dashboard" class="btn btn-accent w-100 btn-sm" style="background:#f59e0b;"><i class="fas fa-shield-alt me-2"></i>감사 대시보드</a>
                     </div>
                 </div>
             </div>
