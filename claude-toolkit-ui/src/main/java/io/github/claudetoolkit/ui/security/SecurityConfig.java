@@ -41,7 +41,8 @@ public class SecurityConfig {
                     "/maskgen/**", "/input-masking/**", "/depcheck/**",
                     "/migrate/**", "/schedule/**", "/db-profiles/**",
                     "/roi-report/**", "/prompts/**", "/favorites/**",
-                    "/usage/**", "/account/**"
+                    "/usage/**", "/account/**",
+                    "/github-pr/**", "/git-diff/**"
                 )
             .and()
 
@@ -53,13 +54,16 @@ public class SecurityConfig {
                 // ADMIN 전용
                 .antMatchers("/admin/**").hasRole("ADMIN")
                 // REVIEWER+: 프롬프트 편집
-                .antMatchers("/settings/prompts", "/settings/prompts/**",
-                             "/prompts", "/prompts/**").hasAnyRole("ADMIN", "REVIEWER")
+                .antMatchers("/settings/prompts", "/settings/prompts/**").hasAnyRole("ADMIN", "REVIEWER")
                 // ADMIN 전용: 설정, 보안
                 .antMatchers("/settings", "/settings/**").hasRole("ADMIN")
                 .antMatchers("/security", "/security/**").hasRole("ADMIN")
                 // 나머지: 인증된 사용자 (VIEWER 이상)
                 .anyRequest().authenticated()
+            .and()
+
+            .exceptionHandling()
+                .accessDeniedPage("/login?denied=true")
             .and()
 
             .formLogin()

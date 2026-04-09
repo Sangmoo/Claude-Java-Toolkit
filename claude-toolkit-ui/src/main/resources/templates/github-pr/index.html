@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>GitHub PR 리뷰 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+
+    <main class="main-area">
+        <!-- Top bar -->
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-code-pull-request me-2" style="color:#8b5cf6"></i>GitHub PR 리뷰</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner-overlay" id="spinner">
+            <div class="text-center">
+                <div class="spinner-border text-warning mb-3" style="width:3rem;height:3rem;"></div>
+                <div class="spinner-msg" id="spinnerMsg">Claude가 PR을 분석 중입니다...</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <p class="page-subtitle">GitHub Pull Request의 diff를 가져와 AI 코드 리뷰를 실행하고, 리뷰 코멘트를 등록할 수 있습니다.</p>
+
+            <div class="row g-3">
+                <!-- Left Panel -->
+                <div class="col-lg-5">
+                    <div class="panel p-3">
+                        <label class="section-label"><i class="fas fa-link me-1"></i>PR URL</label>
+                        <input type="text" class="form-control form-control-sm mb-2" id="prUrl"
+                               placeholder="https://github.com/owner/repo/pull/123">
+
+                        <label class="section-label"><i class="fas fa-key me-1"></i>GitHub PAT</label>
+                        <input type="password" class="form-control form-control-sm mb-2" id="ghToken"
+                               placeholder="ghp_... (공개 repo는 선택사항)">
+
+                        <button class="btn-accent mb-3" onclick="fetchPr()">
+                            <i class="fas fa-download me-1"></i>Diff 가져오기
+                        </button>
+
+                        <label class="section-label"><i class="fas fa-file-code me-1"></i>Diff 미리보기</label>
+                        <textarea class="form-control" id="diffPreview" rows="12" readonly
+                                  style="font-family:monospace;font-size:0.82rem;"
+                                  placeholder="PR diff가 여기에 표시됩니다..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="col-lg-7">
+                    <div class="panel p-3" style="min-height:100%;">
+                        <div id="emptyState"
+                             class="d-flex flex-column align-items-center justify-content-center"
+                             style="min-height:340px;color:var(--text-muted);">
+                            <i class="fas fa-code-pull-request mb-3" style="font-size:2.5rem;opacity:0.25;"></i>
+                            <p class="mb-0" style="font-size:0.9rem;">PR diff를 가져온 후 AI 리뷰를 실행하세요</p>
+                        </div>
+
+                        <div id="resultArea" style="display:none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="section-label mb-0"><i class="fas fa-robot me-1"></i>AI 리뷰 결과</span>
+                                <button class="copy-btn" onclick="copyReview()">
+                                    <i class="fas fa-copy me-1"></i>복사
+                                </button>
+                            </div>
+                            <div class="markdown-body" id="reviewResult"></div>
+
+                            <button class="btn-accent mt-3" id="btnComment" style="display:none;" onclick="postComment()">
+                                <i class="fas fa-comment-dots me-1"></i>PR 코멘트 등록
+                            </button>
+                            <div id="commentResult" class="mt-2" style="font-size:0.85rem;"></div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button class="btn-accent" id="btnAnalyze" disabled onclick="analyzePr()">
+                                <i class="fas fa-wand-magic-sparkles me-1"></i>AI 리뷰 실행
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script th:src="@{/js/toolkit.js(v='20250409')}"></script>
+<script>
+    var _owner = '', _repo = '', _prNumber = '', _reviewText = '';
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(s));
+        return d.innerHTML;
+    }
+
+    function fetchPr() {
+        var prUrl = document.getElementById('prUrl').value.trim();
+        var token = document.getElementById('ghToken').value.trim();
+        if (!prUrl) { alert('PR URL을 입력하세요.'); return; }
+
+        var sp = document.getElementById('spinner');
+        if (sp) { document.getElementById('spinnerMsg').textContent = 'PR diff를 가져오는 중...'; sp.classList.add('active'); }
+
+        fetch('/github-pr/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prUrl: prUrl, token: token })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (sp) sp.classList.remove('active');
+            if (data.error) { alert(data.error); return; }
+            document.getElementById('diffPreview').value = data.diff || '';
+            _owner = data.owner || '';
+            _repo = data.repo || '';
+            _prNumber = data.prNumber || '';
+            document.getElementById('btnAnalyze').disabled = false;
+        })
+        .catch(function(err) {
+            if (sp) sp.classList.remove('active');
+            alert('오류: ' + err.message);
+        });
+    }
+
+    function analyzePr() {
+        var diff = document.getElementById('diffPreview').value.trim();
+        if (!diff) { alert('Diff가 비어 있습니다.'); return; }
+
+        var sp = document.getElementById('spinner');
+        if (sp) { document.getElementById('spinnerMsg').textContent = 'Claude가 PR을 분석 중입니다...'; sp.classList.add('active'); }
+
+        fetch('/github-pr/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ diff: diff })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (sp) sp.classList.remove('active');
+            if (data.error) { alert(data.error); return; }
+            _reviewText = data.review || '';
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultArea').style.display = '';
+            document.getElementById('reviewResult').innerHTML = marked.parse(_reviewText);
+            document.getElementById('btnComment').style.display = '';
+        })
+        .catch(function(err) {
+            if (sp) sp.classList.remove('active');
+            alert('오류: ' + err.message);
+        });
+    }
+
+    function postComment() {
+        var token = document.getElementById('ghToken').value.trim();
+        if (!token) { alert('코멘트 등록에는 GitHub PAT가 필요합니다.'); return; }
+        if (!_owner || !_repo || !_prNumber) { alert('PR 정보가 없습니다. diff를 다시 가져와 주세요.'); return; }
+
+        var sp = document.getElementById('spinner');
+        if (sp) { document.getElementById('spinnerMsg').textContent = 'PR 코멘트 등록 중...'; sp.classList.add('active'); }
+
+        fetch('/github-pr/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                owner: _owner,
+                repo: _repo,
+                prNumber: _prNumber,
+                token: token,
+                comment: _reviewText
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (sp) sp.classList.remove('active');
+            var el = document.getElementById('commentResult');
+            if (data.error) {
+                el.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times-circle me-1"></i>' + escHtml(data.error) + '</span>';
+            } else {
+                el.innerHTML = '<span style="color:#22c55e;"><i class="fas fa-check-circle me-1"></i>코멘트가 등록되었습니다.</span>';
+            }
+        })
+        .catch(function(err) {
+            if (sp) sp.classList.remove('active');
+            document.getElementById('commentResult').innerHTML =
+                '<span style="color:#ef4444;"><i class="fas fa-times-circle me-1"></i>' + escHtml(err.message) + '</span>';
+        });
+    }
+
+    function copyReview() {
+        if (!_reviewText) return;
+        navigator.clipboard.writeText(_reviewText).then(function() {
+            var btn = document.querySelector('[onclick="copyReview()"]');
+            if (btn) { var orig = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check me-1"></i>복사됨'; setTimeout(function(){ btn.innerHTML = orig; }, 1500); }
+        }).catch(function() {
+            var ta = document.createElement('textarea'); ta.value = _reviewText;
+            document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        });
+    }
+</script>
+</body>
+</html>

@@ -197,6 +197,14 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/input-masking') ? ' active' : ''}">
                 <i class="fas fa-eye-slash" style="color:#06b6d4"></i><span>민감정보 마스킹</span>
             </a>
+            <a href="/github-pr" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/github-pr') ? ' active' : ''}">
+                <i class="fab fa-github" style="color:#8b5cf6"></i><span>GitHub PR 리뷰</span>
+            </a>
+            <a href="/git-diff" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/git-diff') ? ' active' : ''}">
+                <i class="fab fa-git-alt" style="color:#f97316"></i><span>Git Diff 분석</span>
+            </a>
         </div>
 
         <!-- ── 관리 (ADMIN only) ── -->
@@ -318,7 +326,7 @@
                        '/mockdata', '/migration', '/batch',
                        '/depcheck', '/migrate'],
             history:  ['/history', '/favorites', '/usage', '/schedule', '/db-profiles', '/roi-report'],
-            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen', '/input-masking'],
+            tools:    ['/loganalyzer', '/regex', '/commitmsg', '/maskgen', '/input-masking', '/github-pr', '/git-diff'],
             api:      ['/api-docs'],
             admin:    ['/admin/users', '/settings/shared']
         };
