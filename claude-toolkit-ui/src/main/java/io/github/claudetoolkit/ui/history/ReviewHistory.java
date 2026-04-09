@@ -22,12 +22,10 @@ public class ReviewHistory {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String inputContent;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String outputContent;
 
     @Column(nullable = false)
@@ -46,13 +44,11 @@ public class ReviewHistory {
     private Long outputTokens;
 
     /** Original source code submitted to harness pipeline (nullable — only for HARNESS_REVIEW) */
-    @Lob
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TEXT")
     private String originalCode;
 
     /** Improved code produced by the Builder step (nullable — only for HARNESS_REVIEW) */
-    @Lob
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TEXT")
     private String improvedCode;
 
     /** Language used in harness analysis: "java" or "sql" (nullable — only for HARNESS_REVIEW) */

@@ -47,10 +47,12 @@ public class AuditLogFilter extends OncePerRequestFilter {
             return;
         }
 
+        long startTime = System.currentTimeMillis();
         ContentCachingResponseWrapper wrappedRes = new ContentCachingResponseWrapper(res);
         try {
             chain.doFilter(req, wrappedRes);
         } finally {
+            long durationMs   = System.currentTimeMillis() - startTime;
             String ip         = resolveClientIp(req);
             String userAgent  = req.getHeader("User-Agent");
             boolean apiKeyUsed= req.getHeader("X-Api-Key") != null;
@@ -64,7 +66,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
                 username = auth.getName();
             }
 
-            auditLogService.log(path, req.getMethod(), ip, userAgent, status, apiKeyUsed, username);
+            auditLogService.log(path, req.getMethod(), ip, userAgent, status, apiKeyUsed, username, durationMs);
             wrappedRes.copyBodyToResponse();
         }
     }

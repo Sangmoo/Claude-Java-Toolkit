@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: claude-toolkit-ui
+  profiles:
+    active: ${DB_TYPE:h2}
   thymeleaf:
     cache: false
     encoding: UTF-8
@@ -11,22 +13,11 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
-  datasource:
-    url: jdbc:h2:file:${user.home}/.claude-toolkit/history-db;AUTO_SERVER=TRUE;MODE=MySQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-  h2:
-    console:
-      enabled: false
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
     open-in-view: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
 
 claude:
   api-key: ${CLAUDE_API_KEY:}   # Set via env var: export CLAUDE_API_KEY=sk-ant-...
@@ -44,6 +35,16 @@ toolkit:
     password: ${ORACLE_DB_PASSWORD:}
   project:
     scan-path: ${PROJECT_SCAN_PATH:}      # e.g. C:/workspace/my-project/src/main/java
+
+# ── Actuator / Health ─────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:

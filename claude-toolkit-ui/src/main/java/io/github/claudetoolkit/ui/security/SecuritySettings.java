@@ -28,6 +28,9 @@ public class SecuritySettings {
     /** BCrypt 해시된 Settings 비밀번호 (null = 미설정) */
     private String settingsPasswordHash = null;
 
+    /** 설치 마법사 완료 여부 */
+    private boolean setupCompleted = false;
+
     // ── getters / setters ────────────────────────────────────────────────────
 
     public boolean isApiKeyEnabled()          { return apiKeyEnabled; }
@@ -42,6 +45,9 @@ public class SecuritySettings {
     public String  getSettingsPasswordHash()       { return settingsPasswordHash; }
     public void    setSettingsPasswordHash(String h){ this.settingsPasswordHash = h; }
 
+    public boolean isSetupCompleted()              { return setupCompleted; }
+    public void    setSetupCompleted(boolean v)     { this.setupCompleted = v; }
+
     // ── persistence ─────────────────────────────────────────────────────────
 
     public static SecuritySettings load() {
@@ -53,6 +59,7 @@ public class SecuritySettings {
             s.apiKeyHash           = getString(json, "apiKeyHash",           null);
             s.settingsLockEnabled  = getBool(json,   "settingsLockEnabled",  false);
             s.settingsPasswordHash = getString(json, "settingsPasswordHash", null);
+            s.setupCompleted       = getBool(json,   "setupCompleted",       false);
         } catch (Exception e) {
             System.err.println("[SecuritySettings] load failed: " + e.getMessage());
         }
@@ -66,7 +73,8 @@ public class SecuritySettings {
             sb.append("  \"apiKeyEnabled\": ").append(apiKeyEnabled).append(",\n");
             sb.append("  \"apiKeyHash\": ").append(jsonStr(apiKeyHash)).append(",\n");
             sb.append("  \"settingsLockEnabled\": ").append(settingsLockEnabled).append(",\n");
-            sb.append("  \"settingsPasswordHash\": ").append(jsonStr(settingsPasswordHash)).append("\n");
+            sb.append("  \"settingsPasswordHash\": ").append(jsonStr(settingsPasswordHash)).append(",\n");
+            sb.append("  \"setupCompleted\": ").append(setupCompleted).append("\n");
             sb.append("}");
             Files.write(FILE, sb.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {

@@ -39,8 +39,7 @@ public class BatchHistory {
      * JSON blob storing per-item summary:
      * [{"label":"...","language":"java","status":"success","verdict":"APPROVED"},...]
      */
-    @Lob
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TEXT")
     private String itemsSummaryJson;
 
     // --- constructors ---

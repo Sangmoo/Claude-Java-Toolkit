@@ -33,8 +33,14 @@ public class AuditLogService {
     @Transactional
     public void log(String endpoint, String method, String ip,
                     String userAgent, Integer statusCode, boolean apiKeyUsed, String username) {
+        log(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username, null);
+    }
+
+    @Transactional
+    public void log(String endpoint, String method, String ip,
+                    String userAgent, Integer statusCode, boolean apiKeyUsed, String username, Long durationMs) {
         try {
-            repo.save(new AuditLog(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username));
+            repo.save(new AuditLog(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username, durationMs));
         } catch (Exception e) {
             System.err.println("[AuditLog] save failed: " + e.getMessage());
         }

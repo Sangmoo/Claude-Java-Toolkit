@@ -47,7 +47,8 @@ public class SecurityConfig {
             .authorizeRequests()
                 // 공개: 정적 리소스, 로그인, 공유 링크
                 .antMatchers("/css/**", "/js/**", "/favicon.svg",
-                             "/login", "/share/**", "/actuator/**").permitAll()
+                             "/login", "/setup", "/setup/**",
+                             "/share/**", "/actuator/**").permitAll()
                 // ADMIN 전용
                 .antMatchers("/admin/**").hasRole("ADMIN")
                 // REVIEWER+: 프롬프트 편집

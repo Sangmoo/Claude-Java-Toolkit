@@ -70,11 +70,42 @@ public class SecurityController {
             m.put("apiKeyUsed",  l.isApiKeyUsed());
             m.put("username",    l.getUsername());
             m.put("actionType",  l.getActionType());
+            m.put("durationMs",  l.getDurationMs());
             m.put("formattedDate", l.getFormattedDate());
             m.put("statusColor", l.getStatusBadgeColor());
             result.add(m);
         }
         return ResponseEntity.ok(result);
+    }
+
+    /** 감사 로그 CSV 내보내기 */
+    @GetMapping("/audit-log/export")
+    @ResponseBody
+    public ResponseEntity<byte[]> exportAuditLogCsv() {
+        List<AuditLog> logs = auditLogService.findRecent();
+        StringBuilder csv = new StringBuilder();
+        csv.append("시간,사용자,액션,메서드,엔드포인트,IP,상태,응답시간(ms)\n");
+        for (AuditLog l : logs) {
+            csv.append(l.getFormattedDate()).append(',');
+            csv.append(l.getUsername() != null ? l.getUsername() : "-").append(',');
+            csv.append(l.getActionType()).append(',');
+            csv.append(l.getMethod()).append(',');
+            csv.append('"').append((l.getEndpoint() != null ? l.getEndpoint() : "").replace("\"","\"\"")).append("\",");
+            csv.append(l.getIp() != null ? l.getIp() : "-").append(',');
+            csv.append(l.getStatusCode() != null ? l.getStatusCode() : "-").append(',');
+            csv.append(l.getDurationMs() != null ? l.getDurationMs() : "-").append('\n');
+        }
+        byte[] bytes = csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        // BOM for Excel 한국어 호환
+        byte[] bom = new byte[]{(byte)0xEF, (byte)0xBB, (byte)0xBF};
+        byte[] result2 = new byte[bom.length + bytes.length];
+        System.arraycopy(bom, 0, result2, 0, bom.length);
+        System.arraycopy(bytes, 0, result2, bom.length, bytes.length);
+
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"audit-log.csv\"")
+                .header("Content-Type", "text/csv;charset=UTF-8")
+                .body(result2);
     }
 
     // ── API 키 관리 ──────────────────────────────────────────────────────────

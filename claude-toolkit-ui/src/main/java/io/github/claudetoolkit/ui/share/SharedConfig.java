@@ -27,8 +27,7 @@ public class SharedConfig {
     @Column(nullable = false, length = 200)
     private String name;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false, length = 50)

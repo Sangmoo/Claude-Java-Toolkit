@@ -16,8 +16,7 @@ public class ScheduledJob {
     private String name;
 
     /** SQL content to review on schedule */
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String sqlContent;
 
     /** Cron expression e.g. "0 0 9 * * MON-FRI" */
@@ -31,8 +30,7 @@ public class ScheduledJob {
     @Column(nullable = true)
     private LocalDateTime lastRunAt;
 
-    @Lob
-    @Column(nullable = true)
+    @Column(nullable = true, columnDefinition = "TEXT")
     private String lastResult;
 
     /** Optional email for result notification */

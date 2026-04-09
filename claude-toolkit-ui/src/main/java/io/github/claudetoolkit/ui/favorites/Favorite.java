@@ -27,12 +27,10 @@ public class Favorite {
     @Column(length = 500)
     private String tag;        // optional tag / category
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String inputContent;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String outputContent;
 
     @Column(nullable = false)

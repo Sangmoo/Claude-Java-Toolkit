@@ -26,8 +26,7 @@ public class CustomPrompt {
     private String promptName;
 
     /** 시스템 프롬프트 본문 */
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String systemPrompt;
 
     /** 활성 여부 — true인 항목만 실제 분석에 사용됩니다 */

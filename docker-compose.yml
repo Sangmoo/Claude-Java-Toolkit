@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  claude-toolkit:
+    build: .
+    container_name: claude-toolkit
+    ports:
+      - "${PORT:-8027}:8027"
+    environment:
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - DB_TYPE=${DB_TYPE:-h2}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_NAME=${DB_NAME:-claude_toolkit}
+      - DB_USERNAME=${DB_USERNAME:-claude}
+      - DB_PASSWORD=${DB_PASSWORD:-claude1234}
+      - JAVA_OPTS=${JAVA_OPTS:--Xmx512m}
+    volumes:
+      - toolkit-data:/root/.claude-toolkit
+    restart: unless-stopped
+    depends_on:
+      - db
+    profiles:
+      - default
+      - mysql
+      - postgresql
+
+  # ── MySQL (DB_TYPE=mysql 시 사용) ──
+  db:
+    image: mysql:8.0
+    container_name: claude-toolkit-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root1234}
+      MYSQL_DATABASE: ${DB_NAME:-claude_toolkit}
+      MYSQL_USER: ${DB_USERNAME:-claude}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-claude1234}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    profiles:
+      - mysql
+
+  # ── PostgreSQL (DB_TYPE=postgresql 시 사용) ──
+  db-pg:
+    image: postgres:14-alpine
+    container_name: claude-toolkit-pg
+    environment:
+      POSTGRES_DB: ${DB_NAME:-claude_toolkit}
+      POSTGRES_USER: ${DB_USERNAME:-claude}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-claude1234}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    profiles:
+      - postgresql
+
+volumes:
+  toolkit-data:
+  db-data:
+  pg-data:

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>설치 마법사 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css}" rel="stylesheet">
+    <style>
+        body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-primary); }
+        .setup-card { width:min(560px, 92vw); background:var(--bg-secondary); border:1px solid var(--border-color);
+                      border-radius:14px; padding:32px; box-shadow:0 8px 30px rgba(0,0,0,.15); }
+        .step { display:none; }
+        .step.active { display:block; }
+        .step-indicator { display:flex; gap:8px; margin-bottom:24px; }
+        .step-dot { width:100%; height:4px; border-radius:2px; background:var(--border-color); transition:background .3s; }
+        .step-dot.done { background:#10b981; }
+        .step-dot.current { background:#f97316; }
+        .step-title { font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:4px; }
+        .step-desc { font-size:.78rem; color:var(--text-muted); margin-bottom:16px; }
+        .setup-input { background:var(--input-bg) !important; border:1px solid var(--border-color) !important;
+                       color:var(--text-primary) !important; font-size:.84rem; padding:8px 12px; border-radius:8px; }
+        .setup-input:focus { border-color:#f97316 !important; box-shadow:0 0 0 2px rgba(249,115,22,.15) !important; }
+        .test-result { font-size:.78rem; margin-top:8px; padding:6px 10px; border-radius:6px; }
+        .test-ok { background:rgba(16,185,129,.08); color:#10b981; }
+        .test-fail { background:rgba(239,68,68,.08); color:#ef4444; }
+        .btn-setup { background:#f97316; color:#fff; border:none; padding:10px 24px; border-radius:8px; font-weight:600;
+                     font-size:.88rem; cursor:pointer; transition:background .15s; }
+        .btn-setup:hover { background:#ea580c; }
+        .btn-skip { background:none; border:1px solid var(--border-color); color:var(--text-muted); padding:10px 24px;
+                    border-radius:8px; font-size:.84rem; cursor:pointer; }
+        .btn-skip:hover { border-color:var(--text-sub); color:var(--text-sub); }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <!-- 브랜드 -->
+        <div style="text-align:center;margin-bottom:20px;">
+            <i class="fas fa-robot" style="color:#f97316;font-size:1.8rem;"></i>
+            <h2 style="font-size:1.1rem;font-weight:700;color:var(--text-primary);margin-top:8px;">Claude Java Toolkit 설치 마법사</h2>
+            <p style="font-size:.76rem;color:var(--text-muted);">4단계로 간단하게 설정을 완료하세요</p>
+        </div>
+
+        <!-- 진행 표시 -->
+        <div class="step-indicator">
+            <div class="step-dot current" id="dot-1"></div>
+            <div class="step-dot" id="dot-2"></div>
+            <div class="step-dot" id="dot-3"></div>
+            <div class="step-dot" id="dot-4"></div>
+        </div>
+
+        <!-- Step 1: API 키 -->
+        <div class="step active" id="step-1">
+            <div class="step-title"><i class="fas fa-key me-2" style="color:#f97316"></i>Step 1. Claude API 키</div>
+            <div class="step-desc">Anthropic Claude API 키를 설정합니다. 환경변수(CLAUDE_API_KEY)로도 설정 가능합니다.</div>
+            <div class="mb-3">
+                <label style="font-size:.78rem;color:var(--text-sub);">API 키 상태</label>
+                <div th:if="${apiKeySet}" class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>API 키가 이미 설정되어 있습니다.</div>
+                <div th:unless="${apiKeySet}" class="test-result test-fail"><i class="fas fa-info-circle me-1"></i>API 키가 설정되지 않았습니다. 환경변수 CLAUDE_API_KEY를 설정하세요.</div>
+            </div>
+            <button class="btn-setup" onclick="testApi()"><i class="fas fa-plug me-1"></i>연결 테스트</button>
+            <div id="apiTestResult"></div>
+        </div>
+
+        <!-- Step 2: DB -->
+        <div class="step" id="step-2">
+            <div class="step-title"><i class="fas fa-database me-2" style="color:#3b82f6"></i>Step 2. 데이터베이스</div>
+            <div class="step-desc">애플리케이션 데이터 저장용 DB를 선택합니다. 기본값은 H2 파일 DB입니다.</div>
+            <div class="mb-3">
+                <label style="font-size:.78rem;color:var(--text-sub);">현재 DB</label>
+                <div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>H2 파일 DB (기본값) — 별도 설정 없이 사용 가능</div>
+            </div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:8px;">
+                <i class="fas fa-info-circle me-1"></i>MySQL/PostgreSQL로 전환하려면 환경변수 <code>DB_TYPE=mysql</code> 또는 <code>DB_TYPE=postgresql</code>을 설정하세요.
+            </div>
+        </div>
+
+        <!-- Step 3: 이메일 -->
+        <div class="step" id="step-3">
+            <div class="step-title"><i class="fas fa-envelope me-2" style="color:#10b981"></i>Step 3. 이메일 (선택)</div>
+            <div class="step-desc">분석 결과 이메일 발송을 위한 SMTP를 설정합니다. 나중에 Settings에서 설정할 수 있습니다.</div>
+            <div style="font-size:.78rem;color:var(--text-muted);">
+                <i class="fas fa-info-circle me-1"></i>Settings 페이지에서 SMTP 서버, 포트, 계정을 설정하면 이메일 발송이 활성화됩니다.
+            </div>
+        </div>
+
+        <!-- Step 4: 완료 -->
+        <div class="step" id="step-4">
+            <div class="step-title"><i class="fas fa-check-circle me-2" style="color:#10b981"></i>Step 4. 설치 완료</div>
+            <div class="step-desc">기본 설정이 완료되었습니다.</div>
+            <div style="font-size:.82rem;color:var(--text-sub);margin-bottom:16px;">
+                <div style="margin-bottom:6px;"><i class="fas fa-user me-1" style="color:#8b5cf6"></i><b>기본 관리자 계정:</b> admin / admin1234</div>
+                <div style="margin-bottom:6px;"><i class="fas fa-cog me-1" style="color:#64748b"></i>추가 설정은 Settings 페이지에서 변경할 수 있습니다.</div>
+                <div><i class="fas fa-shield-halved me-1" style="color:#ef4444"></i>보안을 위해 비밀번호를 반드시 변경하세요.</div>
+            </div>
+        </div>
+
+        <!-- 하단 버튼 -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <button class="btn-skip" onclick="skipSetup()">
+                <i class="fas fa-forward me-1"></i>나중에 설정하기
+            </button>
+            <div class="d-flex gap-2">
+                <button class="btn-skip" id="btnPrev" onclick="prevStep()" style="display:none;">
+                    <i class="fas fa-chevron-left me-1"></i>이전
+                </button>
+                <button class="btn-setup" id="btnNext" onclick="nextStep()">
+                    다음 <i class="fas fa-chevron-right ms-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+var currentStep = 1;
+var totalSteps  = 4;
+
+function goToStep(n) {
+    currentStep = n;
+    for (var i = 1; i <= totalSteps; i++) {
+        document.getElementById('step-' + i).className = 'step' + (i === n ? ' active' : '');
+        var dot = document.getElementById('dot-' + i);
+        dot.className = 'step-dot' + (i < n ? ' done' : (i === n ? ' current' : ''));
+    }
+    document.getElementById('btnPrev').style.display = n > 1 ? '' : 'none';
+    document.getElementById('btnNext').innerHTML = n < totalSteps
+        ? '다음 <i class="fas fa-chevron-right ms-1"></i>'
+        : '<i class="fas fa-check me-1"></i>완료';
+}
+
+function nextStep() {
+    if (currentStep < totalSteps) {
+        goToStep(currentStep + 1);
+    } else {
+        completeSetup();
+    }
+}
+function prevStep() {
+    if (currentStep > 1) goToStep(currentStep - 1);
+}
+
+function testApi() {
+    var el = document.getElementById('apiTestResult');
+    el.innerHTML = '<div class="test-result" style="color:var(--text-muted);"><i class="fas fa-spinner fa-spin me-1"></i>테스트 중...</div>';
+    fetch('/setup/test-api', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                el.innerHTML = '<div class="test-result test-ok"><i class="fas fa-check-circle me-1"></i>연결 성공 — 모델: ' + (d.model||'') + '</div>';
+            } else {
+                el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>' + (d.error||'연결 실패') + '</div>';
+            }
+        })
+        .catch(function(e){
+            el.innerHTML = '<div class="test-result test-fail"><i class="fas fa-times-circle me-1"></i>요청 실패: ' + e.message + '</div>';
+        });
+}
+
+function completeSetup() {
+    fetch('/setup/complete', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) window.location.href = '/login';
+            else alert('완료 처리 실패: ' + (d.error||''));
+        });
+}
+
+function skipSetup() {
+    fetch('/setup/skip', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) window.location.href = '/login';
+            else alert('처리 실패');
+        });
+}
+</script>
+</body>
+</html>

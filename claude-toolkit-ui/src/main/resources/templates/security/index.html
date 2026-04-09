@@ -205,10 +205,10 @@
                             </button>
                         </div>
                         <!-- 필터 -->
-                        <div class="d-flex gap-2 mb-2 flex-wrap" style="font-size:.78rem;">
-                            <input type="text" id="filterUser" class="form-control" style="font-size:.76rem;width:100px;padding:3px 8px;"
+                        <div class="d-flex gap-2 mb-2 flex-wrap align-items-center" style="font-size:.78rem;">
+                            <input type="text" id="filterUser" class="form-control" style="font-size:.76rem;width:90px;padding:3px 8px;"
                                    placeholder="사용자" oninput="filterAuditLog()">
-                            <select id="filterAction" class="form-select" style="font-size:.76rem;width:100px;padding:3px 8px;" onchange="filterAuditLog()">
+                            <select id="filterAction" class="form-select" style="font-size:.76rem;width:95px;padding:3px 8px;" onchange="filterAuditLog()">
                                 <option value="">전체 액션</option>
                                 <option value="조회">조회</option>
                                 <option value="분석실행">분석실행</option>
@@ -219,8 +219,18 @@
                                 <option value="삭제">삭제</option>
                                 <option value="변경">변경</option>
                             </select>
-                            <input type="text" id="filterEndpoint" class="form-control" style="font-size:.76rem;width:140px;padding:3px 8px;"
+                            <input type="text" id="filterEndpoint" class="form-control" style="font-size:.76rem;width:120px;padding:3px 8px;"
                                    placeholder="엔드포인트" oninput="filterAuditLog()">
+                            <select id="filterDate" class="form-select" style="font-size:.76rem;width:85px;padding:3px 8px;" onchange="filterAuditLog()">
+                                <option value="">전체 기간</option>
+                                <option value="1h">1시간</option>
+                                <option value="today">오늘</option>
+                                <option value="7d">7일</option>
+                                <option value="30d">30일</option>
+                            </select>
+                            <a href="/security/audit-log/export" class="btn btn-outline-tk btn-sm" style="font-size:.7rem;padding:3px 10px;">
+                                <i class="fas fa-file-csv me-1"></i>CSV
+                            </a>
                         </div>
                         <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
                             <table class="audit-table w-100">
@@ -233,6 +243,7 @@
                                         <th>엔드포인트</th>
                                         <th>IP</th>
                                         <th>상태</th>
+                                        <th>소요</th>
                                     </tr>
                                 </thead>
                                 <tbody id="auditTableBody">
@@ -383,10 +394,25 @@ function filterAuditLog() {
     var fUser     = (document.getElementById('filterUser').value || '').trim().toLowerCase();
     var fAction   = document.getElementById('filterAction').value;
     var fEndpoint = (document.getElementById('filterEndpoint').value || '').trim().toLowerCase();
+    var fDate     = document.getElementById('filterDate').value;
+    var now       = new Date();
     var filtered = _auditLogs.filter(function(l) {
         if (fUser && (!l.username || l.username.toLowerCase().indexOf(fUser) < 0)) return false;
         if (fAction && l.actionType !== fAction) return false;
         if (fEndpoint && (!l.endpoint || l.endpoint.toLowerCase().indexOf(fEndpoint) < 0)) return false;
+        if (fDate && l.formattedDate) {
+            // formattedDate = "MM-dd HH:mm:ss" — 올해 기준으로 파싱
+            var parts = l.formattedDate.match(/(\d+)-(\d+)\s(\d+):(\d+):(\d+)/);
+            if (parts) {
+                var logDate = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]),
+                                       parseInt(parts[3]), parseInt(parts[4]), parseInt(parts[5]));
+                var diffMs = now.getTime() - logDate.getTime();
+                if (fDate === '1h'    && diffMs > 3600000) return false;
+                if (fDate === 'today' && logDate.toDateString() !== now.toDateString()) return false;
+                if (fDate === '7d'    && diffMs > 604800000) return false;
+                if (fDate === '30d'   && diffMs > 2592000000) return false;
+            }
+        }
         return true;
     });
     renderAuditLog(filtered);
@@ -395,7 +421,7 @@ function filterAuditLog() {
 function renderAuditLog(logs) {
     var tbody = document.getElementById('auditTableBody');
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
         return;
     }
     var actionColors = {
@@ -409,6 +435,8 @@ function renderAuditLog(logs) {
         var statusStyle = 'background:' + (l.statusColor||'#64748b') + '20;color:' + (l.statusColor||'#64748b') + ';';
         var ac = actionColors[l.actionType] || '#64748b';
         var actionBadge = '<span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:8px;background:' + ac + '20;color:' + ac + ';">' + escHtml(l.actionType||'') + '</span>';
+        var dur = l.durationMs != null ? l.durationMs + 'ms' : '-';
+        var durColor = l.durationMs != null && l.durationMs > 3000 ? '#ef4444' : (l.durationMs != null && l.durationMs > 1000 ? '#f59e0b' : 'var(--text-muted)');
         html += '<tr>'
               + '<td style="white-space:nowrap;">' + escHtml(l.formattedDate||'') + '</td>'
               + '<td style="font-weight:600;color:var(--text-primary);">' + escHtml(l.username||'-') + '</td>'
@@ -418,6 +446,7 @@ function renderAuditLog(logs) {
               + escHtml(l.endpoint||'') + '</td>'
               + '<td style="font-size:.72rem;">' + escHtml(l.ip||'-') + '</td>'
               + '<td><span class="status-badge" style="' + statusStyle + '">' + (l.statusCode||'-') + '</span></td>'
+              + '<td style="font-size:.7rem;color:' + durColor + ';">' + dur + '</td>'
               + '</tr>';
     }
     tbody.innerHTML = html;

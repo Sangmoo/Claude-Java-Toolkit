@@ -46,6 +46,10 @@ public class AuditLog {
     @Column(length = 50)
     private String username;
 
+    /** 요청 처리 소요시간 (밀리초) */
+    @Column
+    private Long durationMs;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -68,6 +72,12 @@ public class AuditLog {
         this.username = truncate(username, 50);
     }
 
+    public AuditLog(String endpoint, String method, String ip,
+                    String userAgent, Integer statusCode, boolean apiKeyUsed, String username, Long durationMs) {
+        this(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username);
+        this.durationMs = durationMs;
+    }
+
     // ── getters ──────────────────────────────────────────────────────────────
 
     public long          getId()         { return id; }
@@ -78,6 +88,7 @@ public class AuditLog {
     public Integer       getStatusCode() { return statusCode; }
     public boolean       isApiKeyUsed()  { return apiKeyUsed; }
     public String        getUsername()   { return username; }
+    public Long          getDurationMs(){ return durationMs; }
     public LocalDateTime getCreatedAt()  { return createdAt; }
 
     /** 액션 유형 추정 (endpoint 기반) */
