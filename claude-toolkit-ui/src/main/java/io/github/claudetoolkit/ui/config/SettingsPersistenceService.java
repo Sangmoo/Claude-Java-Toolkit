@@ -92,7 +92,13 @@ public class SettingsPersistenceService {
                "  \"emailPassword\": "  + quoted(s.getEmail().getPassword())    + ",\n" +
                "  \"emailFrom\": "      + quoted(s.getEmail().getFrom())        + ",\n" +
                "  \"emailTls\": "            + s.getEmail().isTls()                 + ",\n" +
-               "  \"cacheRefreshCron\": "    + quoted(s.getCacheRefreshCron())       + "\n" +
+               "  \"cacheRefreshCron\": "    + quoted(s.getCacheRefreshCron())       + ",\n" +
+               "  \"slackWebhookUrl\": "    + quoted(s.getSlackWebhookUrl())       + ",\n" +
+               "  \"teamsWebhookUrl\": "    + quoted(s.getTeamsWebhookUrl())       + ",\n" +
+               "  \"jiraBaseUrl\": "        + quoted(s.getJiraBaseUrl())           + ",\n" +
+               "  \"jiraProjectKey\": "     + quoted(s.getJiraProjectKey())        + ",\n" +
+               "  \"jiraEmail\": "          + quoted(s.getJiraEmail())             + ",\n" +
+               "  \"jiraApiToken\": "       + quoted(s.getJiraApiToken())          + "\n" +
                "}";
     }
 
@@ -132,6 +138,18 @@ public class SettingsPersistenceService {
         if (emailTls != null) s.getEmail().setTls(!"false".equals(emailTls.trim()));
         String cacheRefreshCron = extractField(json, "cacheRefreshCron");
         if (cacheRefreshCron != null) s.setCacheRefreshCron(cacheRefreshCron);
+        String slackWebhookUrl = extractField(json, "slackWebhookUrl");
+        if (slackWebhookUrl != null) s.setSlackWebhookUrl(slackWebhookUrl);
+        String teamsWebhookUrl = extractField(json, "teamsWebhookUrl");
+        if (teamsWebhookUrl != null) s.setTeamsWebhookUrl(teamsWebhookUrl);
+        String jiraBaseUrl = extractField(json, "jiraBaseUrl");
+        if (jiraBaseUrl != null) s.setJiraBaseUrl(jiraBaseUrl);
+        String jiraProjectKey = extractField(json, "jiraProjectKey");
+        if (jiraProjectKey != null) s.setJiraProjectKey(jiraProjectKey);
+        String jiraEmail = extractField(json, "jiraEmail");
+        if (jiraEmail != null) s.setJiraEmail(jiraEmail);
+        String jiraApiToken = extractField(json, "jiraApiToken");
+        if (jiraApiToken != null) s.setJiraApiToken(jiraApiToken);
     }
 
     /** Extract a raw (unquoted) JSON field value — used for numbers and booleans. */

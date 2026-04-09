@@ -24,6 +24,18 @@ public class ToolkitSettings {
     private String  accentColor    = "";
     /** Cron expression for automatic DB cache refresh (Spring cron, 6-field). Empty = disabled. */
     private String cacheRefreshCron = "";
+    /** Slack Webhook URL */
+    private String slackWebhookUrl = "";
+    /** Teams Webhook URL */
+    private String teamsWebhookUrl = "";
+    /** Jira base URL */
+    private String jiraBaseUrl = "";
+    /** Jira project key */
+    private String jiraProjectKey = "";
+    /** Jira email */
+    private String jiraEmail = "";
+    /** Jira API token */
+    private String jiraApiToken = "";
 
     public Db getDb()             { return db; }
     public void setDb(Db db)      { this.db = db; }
@@ -52,6 +64,24 @@ public class ToolkitSettings {
     public String getCacheRefreshCron()               { return cacheRefreshCron != null ? cacheRefreshCron : ""; }
     public void setCacheRefreshCron(String c)         { this.cacheRefreshCron = c == null ? "" : c; }
     public boolean isCacheRefreshCronSet()            { return isNotBlank(cacheRefreshCron); }
+
+    public String getSlackWebhookUrl()               { return slackWebhookUrl != null ? slackWebhookUrl : ""; }
+    public void setSlackWebhookUrl(String v)          { this.slackWebhookUrl = v == null ? "" : v; }
+
+    public String getTeamsWebhookUrl()               { return teamsWebhookUrl != null ? teamsWebhookUrl : ""; }
+    public void setTeamsWebhookUrl(String v)          { this.teamsWebhookUrl = v == null ? "" : v; }
+
+    public String getJiraBaseUrl()                   { return jiraBaseUrl != null ? jiraBaseUrl : ""; }
+    public void setJiraBaseUrl(String v)              { this.jiraBaseUrl = v == null ? "" : v; }
+
+    public String getJiraProjectKey()                { return jiraProjectKey != null ? jiraProjectKey : ""; }
+    public void setJiraProjectKey(String v)           { this.jiraProjectKey = v == null ? "" : v; }
+
+    public String getJiraEmail()                     { return jiraEmail != null ? jiraEmail : ""; }
+    public void setJiraEmail(String v)                { this.jiraEmail = v == null ? "" : v; }
+
+    public String getJiraApiToken()                  { return jiraApiToken != null ? jiraApiToken : ""; }
+    public void setJiraApiToken(String v)              { this.jiraApiToken = v == null ? "" : v; }
 
     /** Returns true only when all three DB fields are non-empty. */
     public boolean isDbConfigured() {

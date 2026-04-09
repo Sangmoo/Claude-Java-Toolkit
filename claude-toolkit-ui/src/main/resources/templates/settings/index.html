@@ -279,6 +279,71 @@
                     </div>
                 </div>
 
+                <!-- Slack / Teams 웹훅 -->
+                <div class="panel p-4 mb-4">
+                    <h5 class="section-title">
+                        <i class="fab fa-slack me-2" style="color:#4A154B"></i>Slack / Teams 웹훅 알림
+                    </h5>
+                    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">
+                        배치 분석 완료, FAILED 판정 시 Slack 또는 Teams 채널로 알림을 전송합니다.
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">Slack Webhook URL</label>
+                            <input type="text" class="form-control" name="slackWebhookUrl" placeholder="https://hooks.slack.com/services/..."
+                                   th:value="${settings.slackWebhookUrl}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">Teams Webhook URL</label>
+                            <input type="text" class="form-control" name="teamsWebhookUrl" placeholder="https://outlook.office.com/webhook/..."
+                                   th:value="${settings.teamsWebhookUrl}">
+                        </div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2">
+                        <button type="button" class="btn-test" onclick="testSlack()"><i class="fab fa-slack me-1"></i>Slack 테스트</button>
+                        <button type="button" class="btn-test" onclick="testTeams()"><i class="fab fa-microsoft me-1"></i>Teams 테스트</button>
+                    </div>
+                    <div id="webhookTestResult" style="font-size:.8rem;margin-top:6px;"></div>
+                </div>
+
+                <!-- Jira 연동 -->
+                <div class="panel p-4 mb-4">
+                    <h5 class="section-title">
+                        <i class="fab fa-jira me-2" style="color:#0052CC"></i>Jira 연동
+                    </h5>
+                    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">
+                        FAILED / NEEDS_REVISION 판정 시 Jira 이슈를 자동 생성합니다.
+                    </p>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">Jira URL</label>
+                            <input type="text" class="form-control" name="jiraBaseUrl" placeholder="https://your-domain.atlassian.net"
+                                   th:value="${settings.jiraBaseUrl}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">프로젝트 키</label>
+                            <input type="text" class="form-control" name="jiraProjectKey" placeholder="PROJ"
+                                   th:value="${settings.jiraProjectKey}">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">Jira 이메일</label>
+                            <input type="text" class="form-control" name="jiraEmail" placeholder="user@company.com"
+                                   th:value="${settings.jiraEmail}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:.8rem;">Jira API 토큰</label>
+                            <input type="password" class="form-control" name="jiraApiToken" placeholder="API Token"
+                                   th:value="${settings.jiraApiToken}">
+                        </div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2">
+                        <button type="button" class="btn-test" onclick="testJira()"><i class="fab fa-jira me-1"></i>Jira 연결 테스트</button>
+                    </div>
+                    <div id="jiraTestResult" style="font-size:.8rem;margin-top:6px;"></div>
+                </div>
+
                 <div class="d-flex gap-2 align-items-center">
                     <button type="submit" class="btn-save">
                         <i class="fas fa-save me-2"></i>저장
@@ -376,6 +441,56 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
 
     function setCronPreset(cron) {
         document.querySelector('input[name="cacheRefreshCron"]').value = cron;
+    }
+
+    function testSlack() {
+        var url = document.querySelector('input[name="slackWebhookUrl"]').value.trim();
+        if (!url) { alert('Slack Webhook URL을 입력하세요.'); return; }
+        var el = document.getElementById('webhookTestResult');
+        el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Slack 테스트 중...</span>';
+        var fd = new URLSearchParams();
+        fd.append('type', 'slack'); fd.append('webhookUrl', url);
+        fetch('/settings/test-webhook', {method:'POST', body:fd})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                el.innerHTML = d.success
+                    ? '<span style="color:#22c55e"><i class="fas fa-check-circle me-1"></i>Slack 전송 성공</span>'
+                    : '<span style="color:#ef4444"><i class="fas fa-times-circle me-1"></i>실패: ' + (d.error||'') + '</span>';
+            }).catch(function(){ el.innerHTML = '<span style="color:#ef4444">요청 실패</span>'; });
+    }
+
+    function testTeams() {
+        var url = document.querySelector('input[name="teamsWebhookUrl"]').value.trim();
+        if (!url) { alert('Teams Webhook URL을 입력하세요.'); return; }
+        var el = document.getElementById('webhookTestResult');
+        el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Teams 테스트 중...</span>';
+        var fd = new URLSearchParams();
+        fd.append('type', 'teams'); fd.append('webhookUrl', url);
+        fetch('/settings/test-webhook', {method:'POST', body:fd})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                el.innerHTML = d.success
+                    ? '<span style="color:#22c55e"><i class="fas fa-check-circle me-1"></i>Teams 전송 성공</span>'
+                    : '<span style="color:#ef4444"><i class="fas fa-times-circle me-1"></i>실패: ' + (d.error||'') + '</span>';
+            }).catch(function(){ el.innerHTML = '<span style="color:#ef4444">요청 실패</span>'; });
+    }
+
+    function testJira() {
+        var url   = document.querySelector('input[name="jiraBaseUrl"]').value.trim();
+        var email = document.querySelector('input[name="jiraEmail"]').value.trim();
+        var token = document.querySelector('input[name="jiraApiToken"]').value.trim();
+        if (!url || !email || !token) { alert('Jira URL, 이메일, API 토큰을 입력하세요.'); return; }
+        var el = document.getElementById('jiraTestResult');
+        el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Jira 연결 테스트 중...</span>';
+        var fd = new URLSearchParams();
+        fd.append('baseUrl', url); fd.append('email', email); fd.append('apiToken', token);
+        fetch('/settings/test-jira', {method:'POST', body:fd})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                el.innerHTML = d.success
+                    ? '<span style="color:#22c55e"><i class="fas fa-check-circle me-1"></i>Jira 연결 성공</span>'
+                    : '<span style="color:#ef4444"><i class="fas fa-times-circle me-1"></i>연결 실패: ' + (d.error||'') + '</span>';
+            }).catch(function(){ el.innerHTML = '<span style="color:#ef4444">요청 실패</span>'; });
     }
 </script>
 </body>

@@ -84,6 +84,12 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String emailFrom,
             @RequestParam(required = false, defaultValue = "true") String emailTls,
             @RequestParam(required = false, defaultValue = "") String cacheRefreshCron,
+            @RequestParam(required = false, defaultValue = "") String slackWebhookUrl,
+            @RequestParam(required = false, defaultValue = "") String teamsWebhookUrl,
+            @RequestParam(required = false, defaultValue = "") String jiraBaseUrl,
+            @RequestParam(required = false, defaultValue = "") String jiraProjectKey,
+            @RequestParam(required = false, defaultValue = "") String jiraEmail,
+            @RequestParam(required = false, defaultValue = "") String jiraApiToken,
             Model model) {
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -100,6 +106,12 @@ public class SettingsController {
         settings.getEmail().setFrom(emailFrom.trim());
         settings.getEmail().setTls(!"false".equals(emailTls));
         settings.setCacheRefreshCron(cacheRefreshCron);
+        settings.setSlackWebhookUrl(slackWebhookUrl);
+        settings.setTeamsWebhookUrl(teamsWebhookUrl);
+        settings.setJiraBaseUrl(jiraBaseUrl);
+        settings.setJiraProjectKey(jiraProjectKey);
+        settings.setJiraEmail(jiraEmail);
+        if (!jiraApiToken.isEmpty()) settings.setJiraApiToken(jiraApiToken);
 
         // API 키가 입력된 경우 즉시 적용
         if (claudeApiKey != null && !claudeApiKey.trim().isEmpty()) {
@@ -179,5 +191,59 @@ public class SettingsController {
             }
             return "error:API \uc5f0\uacb0 \uc2e4\ud328: " + (msg != null ? msg.substring(0, Math.min(msg.length(), 100)) : "unknown");
         }
+    }
+
+    /** Slack/Teams 웹훅 테스트 */
+    @PostMapping("/test-webhook")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> testWebhook(
+            @RequestParam String type,
+            @RequestParam String webhookUrl) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        try {
+            io.github.claudetoolkit.ui.integration.NotificationService ns =
+                    org.springframework.web.context.support.WebApplicationContextUtils
+                            .getRequiredWebApplicationContext(((org.springframework.web.context.request.ServletRequestAttributes)
+                                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes())
+                                    .getRequest().getServletContext())
+                            .getBean(io.github.claudetoolkit.ui.integration.NotificationService.class);
+            boolean ok;
+            if ("slack".equals(type)) {
+                ok = ns.sendSlack(webhookUrl, "Claude Toolkit 테스트", "Settings에서 테스트 메시지를 전송했습니다.", "#36a64f");
+            } else {
+                ok = ns.sendTeams(webhookUrl, "Claude Toolkit 테스트", "Settings에서 테스트 메시지를 전송했습니다.");
+            }
+            resp.put("success", ok);
+            if (!ok) resp.put("error", "웹훅 전송 실패 (URL을 확인하세요)");
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return org.springframework.http.ResponseEntity.ok(resp);
+    }
+
+    /** Jira 연결 테스트 */
+    @PostMapping("/test-jira")
+    @ResponseBody
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Object>> testJira(
+            @RequestParam String baseUrl,
+            @RequestParam String email,
+            @RequestParam String apiToken) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        try {
+            io.github.claudetoolkit.ui.integration.JiraService js =
+                    org.springframework.web.context.support.WebApplicationContextUtils
+                            .getRequiredWebApplicationContext(((org.springframework.web.context.request.ServletRequestAttributes)
+                                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes())
+                                    .getRequest().getServletContext())
+                            .getBean(io.github.claudetoolkit.ui.integration.JiraService.class);
+            boolean ok = js.testConnection(baseUrl, email, apiToken);
+            resp.put("success", ok);
+            if (!ok) resp.put("error", "Jira 연결 실패 (URL/인증 정보를 확인하세요)");
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return org.springframework.http.ResponseEntity.ok(resp);
     }
 }
