@@ -119,7 +119,7 @@ public class HarnessCacheService {
                 lastFileRefresh = System.currentTimeMillis();
                 return;
             }
-            String scanPath = settings.getProject().getScanPath();
+            String scanPath = resolveHostPath(settings.getProject().getScanPath());
             if (scanPath == null || scanPath.trim().isEmpty()) {
                 cachedFiles.clear();
                 lastFileRefresh = System.currentTimeMillis();
@@ -216,9 +216,10 @@ public class HarnessCacheService {
     public String readFileContent(String absolutePath) {
         if (absolutePath == null || absolutePath.trim().isEmpty()) return null;
         try {
-            File f       = new File(absolutePath).getCanonicalFile();
-            String scanP = settings.getProject() != null
-                    ? settings.getProject().getScanPath() : "";
+            String resolvedPath = resolveHostPath(absolutePath);
+            File f       = new File(resolvedPath).getCanonicalFile();
+            String scanP = resolveHostPath(settings.getProject() != null
+                    ? settings.getProject().getScanPath() : "");
             if (scanP == null || scanP.trim().isEmpty()) return null;
             File root = new File(scanP.trim()).getCanonicalFile();
             // Security: must be under the scan root
@@ -312,6 +313,41 @@ public class HarnessCacheService {
     public String  getLastDbError()       { return lastDbError; }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Docker 환경에서 Windows 경로를 자동 변환합니다.
+     * 예: "D:\eclipse\workspace\ERP" → "/host/d/eclipse/workspace/ERP"
+     *
+     * 로컬 실행(Windows)에서는 원래 경로를 그대로 반환합니다.
+     * Docker 컨테이너(Linux)에서 Windows 경로가 입력되면 /host/ 마운트 경로로 변환합니다.
+     */
+    static String resolveHostPath(String path) {
+        if (path == null || path.trim().isEmpty()) return path;
+        path = path.trim();
+
+        // Windows 경로인지 확인 (D:\... 또는 D:/...)
+        boolean isWindowsPath = path.length() >= 2 && Character.isLetter(path.charAt(0))
+                && (path.charAt(1) == ':');
+
+        if (!isWindowsPath) return path; // Linux 경로는 그대로
+
+        // 현재 OS가 Linux(Docker)인지 확인
+        boolean isLinux = File.separatorChar == '/';
+        if (!isLinux) return path; // Windows에서 실행 중이면 원래 경로 사용
+
+        // Docker 환경: D:\eclipse\workspace → /host/d/eclipse/workspace
+        char drive = Character.toLowerCase(path.charAt(0));
+        String rest = path.substring(2).replace('\\', '/');
+        if (rest.startsWith("/")) rest = rest.substring(1);
+        String resolved = "/host/" + drive + "/" + rest;
+
+        // 변환된 경로가 존재하는지 확인
+        if (new File(resolved).exists()) {
+            return resolved;
+        }
+        // 존재하지 않으면 원래 경로 반환 (로컬 실행일 수 있음)
+        return path;
+    }
 
     private void scanJavaFiles(File dir, File root, List<FileEntry> result) {
         if (result.size() >= MAX_FILES) return;
