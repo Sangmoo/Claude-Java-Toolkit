@@ -94,8 +94,10 @@
         return origFetch.apply(this, arguments).then(function(response) {
             // 로그인 페이지로 리다이렉트된 경우 (세션 만료)
             if (response.redirected && response.url && response.url.indexOf('/login') >= 0) {
-                alert('세션이 만료되었습니다. 다시 로그인합니다.');
-                window.location.href = '/login?expired=true';
+                if (typeof showToast === 'function') {
+                    showToast('\uc138\uc158\uc774 \ub9cc\ub8cc\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \ub2e4\uc2dc \ub85c\uadf8\uc778\ud569\ub2c8\ub2e4.', 'warning', 2000);
+                }
+                setTimeout(function() { window.location.href = '/login?expired=true'; }, 1500);
             }
             return response;
         });
@@ -649,4 +651,300 @@ document.addEventListener('keydown', function(e) {
 // ── Print / PDF export ────────────────────────────────────────
 function printPage() {
     window.print();
+}
+
+// ── Toast notification system (D1) ──────────────────────────
+var _toastContainer = null;
+var _toastCount = 0;
+
+/**
+ * Show a toast notification.
+ * @param {string} message - 표시할 메시지
+ * @param {string} type    - 'success' | 'error' | 'warning' | 'info' (default: 'info')
+ * @param {number} duration - 자동 소멸 시간(ms), 기본 3000
+ */
+function showToast(message, type, duration) {
+    type = type || 'info';
+    duration = duration || 3000;
+
+    if (!_toastContainer) {
+        _toastContainer = document.createElement('div');
+        _toastContainer.className = 'toast-container';
+        document.body.appendChild(_toastContainer);
+    }
+
+    var icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle', info: 'fa-info-circle' };
+    var item = document.createElement('div');
+    item.className = 'toast-item toast-' + type;
+    item.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '"></i>' +
+        '<span>' + escHtml(message) + '</span>' +
+        '<button class="toast-close" onclick="this.parentNode.remove()">&times;</button>' +
+        '<div class="toast-progress" style="animation-duration:' + duration + 'ms;"></div>';
+
+    _toastContainer.appendChild(item);
+    _toastCount++;
+
+    // 최대 5개 유지
+    while (_toastContainer.children.length > 5) {
+        _toastContainer.removeChild(_toastContainer.firstChild);
+    }
+
+    setTimeout(function() {
+        if (item.parentNode) {
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(100%)';
+            item.style.transition = 'all 0.3s ease';
+            setTimeout(function() { if (item.parentNode) item.parentNode.removeChild(item); }, 300);
+        }
+    }, duration);
+}
+
+// ── Breadcrumb navigation (D2) ──────────────────────────────
+(function initBreadcrumb() {
+    if (window.location.pathname === '/login' || window.location.pathname === '/setup'
+        || window.location.pathname === '/login/2fa') return;
+
+    var pathMap = {
+        '': '\ud648', 'advisor': 'SQL \ub9ac\ubdf0', 'sql-translate': 'SQL DB \ubc88\uc5ed',
+        'sql-batch': '\ubc30\uce58 SQL', 'erd': 'ERD \ubd84\uc11d', 'complexity': '\ubcf5\uc7a1\ub3c4',
+        'explain': '\uc2e4\ud589\uacc4\ud68d', 'compare': '\ube44\uad50', 'dashboard': '\ub300\uc2dc\ubcf4\ub4dc',
+        'harness': '\ud558\ub124\uc2a4', 'batch': '\ubc30\uce58', 'dependency': '\uc758\uc874\uc131',
+        'codereview': '\ucf54\ub4dc \ub9ac\ubdf0', 'docgen': '\uae30\uc220 \ubb38\uc11c', 'apispec': 'API \uba85\uc138',
+        'converter': '\ucf54\ub4dc \ubcc0\ud658', 'mockdata': 'Mock \ub370\uc774\ud130', 'migration': 'DB \ub9c8\uc774\uadf8\ub808\uc774\uc158',
+        'depcheck': '\uc758\uc874\uc131 \ubd84\uc11d', 'migrate': 'Spring \ub9c8\uc774\uadf8\ub808\uc774\uc158',
+        'testgen': '\ud14c\uc2a4\ud2b8 \uc0dd\uc131', 'javadoc': 'JavaDoc', 'refactor': '\ub9ac\ud329\ud1a0\ub9c1',
+        'workspace': '\ud1b5\ud569 \uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4', 'history': '\ub9ac\ubdf0 \uc774\ub825',
+        'favorites': '\uc990\uaca8\ucc3e\uae30', 'usage': '\uc0ac\uc6a9\ub7c9', 'roi-report': 'ROI \ub9ac\ud3ec\ud2b8',
+        'schedule': '\uc2a4\ucf00\uc904\ub9c1', 'search': '\uac80\uc0c9',
+        'loganalyzer': '\ub85c\uadf8 \ubd84\uc11d', 'regex': '\uc815\uaddc\uc2dd', 'commitmsg': '\ucee4\ubc0b \uba54\uc2dc\uc9c0',
+        'maskgen': '\ub9c8\uc2a4\ud0b9 \uc2a4\ud06c\ub9bd\ud2b8', 'input-masking': '\ubbfc\uac10\uc815\ubcf4 \ub9c8\uc2a4\ud0b9',
+        'github-pr': 'GitHub PR', 'git-diff': 'Git Diff',
+        'admin': '\uad00\ub9ac', 'users': '\uc0ac\uc6a9\uc790', 'permissions': '\uad8c\ud55c',
+        'backup': '\ubc31\uc5c5', 'team-dashboard': '\ud300 \ub300\uc2dc\ubcf4\ub4dc', 'audit-dashboard': '\uac10\uc0ac \ub85c\uadf8',
+        'settings': '\uc124\uc815', 'security': '\ubcf4\uc548', 'prompts': '\ud504\ub86c\ud504\ud2b8',
+        'shared': '\uacf5\uc720 \uc124\uc815', 'account': '\uacc4\uc815', 'password': '\ube44\ubc00\ubc88\ud638',
+        'chat': 'AI \ucc44\ud305', 'api-docs': 'API Playground', 'db-profiles': 'DB \ud504\ub85c\ud544'
+    };
+
+    var parts = window.location.pathname.replace(/^\//, '').replace(/\/$/, '').split('/');
+    if (parts.length <= 1 && parts[0] === '') return; // home page
+
+    var topBar = document.querySelector('.top-bar');
+    if (!topBar) return;
+
+    var bc = document.createElement('div');
+    bc.className = 'breadcrumb-bar';
+    bc.innerHTML = '<a href="/"><i class="fas fa-home"></i></a>';
+
+    var href = '';
+    for (var i = 0; i < parts.length; i++) {
+        href += '/' + parts[i];
+        var label = pathMap[parts[i]] || parts[i];
+        bc.innerHTML += '<span class="bc-sep">/</span>';
+        if (i === parts.length - 1) {
+            bc.innerHTML += '<span class="bc-current">' + escHtml(label) + '</span>';
+        } else {
+            bc.innerHTML += '<a href="' + href + '">' + escHtml(label) + '</a>';
+        }
+    }
+
+    var title = topBar.querySelector('.top-bar-title');
+    if (title) title.parentNode.insertBefore(bc, title.nextSibling);
+})();
+
+// ── Form validation utility (D3) ────────────────────────────
+/**
+ * @param {string} formId - 폼 또는 컨테이너 ID
+ * @param {object} rules  - { inputId: { required: true, minLength: 8, pattern: /regex/, message: '...' } }
+ * @returns {boolean} 유효하면 true
+ */
+function validateForm(formId, rules) {
+    var form = document.getElementById(formId);
+    if (!form) return true;
+    var valid = true;
+    for (var inputId in rules) {
+        if (!rules.hasOwnProperty(inputId)) continue;
+        var rule = rules[inputId];
+        var input = document.getElementById(inputId);
+        if (!input) continue;
+        var val = input.value.trim();
+        var err = null;
+
+        if (rule.required && !val) err = rule.message || '\ud544\uc218 \ud56d\ubaa9\uc785\ub2c8\ub2e4.';
+        else if (rule.minLength && val.length < rule.minLength) err = rule.message || '\ucd5c\uc18c ' + rule.minLength + '\uc790 \uc774\uc0c1 \uc785\ub825\ud558\uc138\uc694.';
+        else if (rule.pattern && !rule.pattern.test(val)) err = rule.message || '\ud615\uc2dd\uc774 \uc62c\ubc14\ub974\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.';
+
+        // 기존 feedback 제거
+        var fb = input.parentNode.querySelector('.invalid-feedback');
+        if (err) {
+            input.classList.add('is-invalid');
+            if (!fb) {
+                fb = document.createElement('div');
+                fb.className = 'invalid-feedback';
+                input.parentNode.appendChild(fb);
+            }
+            fb.textContent = err;
+            fb.style.display = 'block';
+            valid = false;
+        } else {
+            input.classList.remove('is-invalid');
+            if (fb) fb.style.display = 'none';
+        }
+    }
+    return valid;
+}
+
+// 입력 시 자동으로 invalid 상태 해제
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('is-invalid')) {
+        e.target.classList.remove('is-invalid');
+        var fb = e.target.parentNode ? e.target.parentNode.querySelector('.invalid-feedback') : null;
+        if (fb) fb.style.display = 'none';
+    }
+});
+
+// ── Copy all results (D8) ───────────────────────────────────
+/**
+ * 결과 영역 전체 텍스트를 클립보드에 복사합니다.
+ * @param {string} elementId - 복사할 요소 ID (없으면 .result-box 또는 #resultMd)
+ */
+function copyAllResults(elementId) {
+    var el = elementId ? document.getElementById(elementId) : (document.querySelector('.result-box') || document.getElementById('resultMd'));
+    if (!el) return;
+    var text = el.textContent || el.innerText || '';
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() { showToast('\uc804\uccb4 \uacb0\uacfc\uac00 \ud074\ub9bd\ubcf4\ub4dc\uc5d0 \ubcf5\uc0ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4.', 'success'); });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); showToast('\uc804\uccb4 \uacb0\uacfc\uac00 \ubcf5\uc0ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4.', 'success'); } catch(e) {}
+        document.body.removeChild(ta);
+    }
+}
+
+// ── Skeleton loading UI (D10) ───────────────────────────────
+/**
+ * 타겟 요소에 스켈레톤 로딩 UI를 표시합니다.
+ * @param {string} targetId - 스켈레톤을 표시할 요소 ID
+ * @param {number} lines    - 스켈레톤 라인 수 (기본 5)
+ */
+function showSkeleton(targetId, lines) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    lines = lines || 5;
+    var html = '';
+    for (var i = 0; i < lines; i++) {
+        var w = (i === lines - 1) ? '60%' : (70 + Math.floor(Math.random() * 30)) + '%';
+        html += '<div class="skeleton skeleton-line" style="width:' + w + ';"></div>';
+    }
+    html += '<div class="skeleton skeleton-block"></div>';
+    el.innerHTML = html;
+    el.setAttribute('data-skeleton', 'true');
+}
+
+function hideSkeleton(targetId) {
+    var el = document.getElementById(targetId);
+    if (!el) return;
+    if (el.getAttribute('data-skeleton') === 'true') {
+        el.innerHTML = '';
+        el.removeAttribute('data-skeleton');
+    }
+}
+
+// ── Sidebar search (D11) ────────────────────────────────────
+(function initSidebarSearch() {
+    var nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+    var brand = document.querySelector('.sidebar-brand');
+    if (!brand) return;
+
+    var searchDiv = document.createElement('div');
+    searchDiv.className = 'sidebar-search';
+    searchDiv.style.position = 'relative';
+    searchDiv.innerHTML = '<i class="fas fa-search search-icon"></i>' +
+        '<input type="text" id="sidebarSearchInput" placeholder="\uae30\ub2a5 \uac80\uc0c9..." autocomplete="off">';
+    brand.parentNode.insertBefore(searchDiv, brand.nextSibling);
+
+    var input = document.getElementById('sidebarSearchInput');
+    if (!input) return;
+
+    input.addEventListener('keyup', function() {
+        var q = this.value.trim().toLowerCase();
+        var items = nav.querySelectorAll('.sidebar-item');
+        var toggles = nav.querySelectorAll('.sidebar-section-toggle');
+
+        if (!q) {
+            // 검색어 비우면 원래 상태 복원
+            items.forEach(function(it) { it.style.display = ''; });
+            toggles.forEach(function(t) {
+                var group = t.nextElementSibling;
+                if (group && group.classList.contains('sidebar-group-items')) {
+                    // 저장된 상태 복원
+                    t.style.display = '';
+                }
+            });
+            return;
+        }
+
+        // 모든 항목 필터링
+        var visibleGroups = {};
+        items.forEach(function(it) {
+            var text = (it.textContent || '').toLowerCase();
+            var match = text.indexOf(q) >= 0;
+            it.style.display = match ? '' : 'none';
+            if (match) {
+                // 부모 그룹 펼치기
+                var group = it.closest('.sidebar-group-items');
+                if (group) {
+                    group.style.maxHeight = 'none';
+                    var toggle = group.previousElementSibling;
+                    if (toggle) {
+                        visibleGroups[toggle.textContent] = true;
+                        var chevron = toggle.querySelector('.sidebar-chevron');
+                        if (chevron) chevron.style.transform = 'rotate(0deg)';
+                    }
+                }
+            }
+        });
+
+        // 빈 섹션 토글 숨기기
+        toggles.forEach(function(t) {
+            var group = t.nextElementSibling;
+            if (!group) return;
+            var hasVisible = false;
+            var gItems = group.querySelectorAll('.sidebar-item');
+            gItems.forEach(function(gi) { if (gi.style.display !== 'none') hasVisible = true; });
+            t.style.display = hasVisible ? '' : 'none';
+            if (!hasVisible) group.style.maxHeight = '0';
+        });
+    });
+})();
+
+// ── PDF export (C10) ────────────────────────────────────────
+/**
+ * 분석 결과를 PDF로 내보냅니다 (인쇄 기반).
+ * @param {string} elementId - 인쇄할 콘텐츠 요소 ID
+ * @param {string} title     - PDF 제목 (선택)
+ */
+function exportPdf(elementId, title) {
+    var el = document.getElementById(elementId);
+    if (!el) { showToast('\ub0b4\ubcf4\ub0bc \ucf58\ud150\uce20\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.', 'warning'); return; }
+    var content = el.innerHTML;
+    var w = window.open('', '_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>' + escHtml(title || 'Claude Toolkit Report') + '</title>' +
+        '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;' +
+        'line-height:1.7;color:#1e293b;}pre{background:#f1f5f9;padding:14px;border-radius:6px;overflow-x:auto;' +
+        'font-size:0.85rem;}code{background:#f1f5f9;padding:2px 5px;border-radius:3px;font-size:0.9em;}' +
+        'pre code{background:none;}h1,h2,h3,h4{border-bottom:1px solid #e2e8f0;padding-bottom:6px;}' +
+        'table{border-collapse:collapse;width:100%;}td,th{border:1px solid #e2e8f0;padding:8px;}' +
+        'th{background:#f8fafc;}.print-header{text-align:center;color:#64748b;font-size:0.8rem;margin-bottom:24px;}' +
+        '@media print{.no-print{display:none;}}</style></head><body>' +
+        '<div class="print-header">Claude Java Toolkit &mdash; ' + new Date().toLocaleDateString('ko-KR') + '</div>' +
+        '<div>' + content + '</div>' +
+        '<div class="no-print" style="text-align:center;margin-top:40px;">' +
+        '<button onclick="window.print()" style="padding:10px 30px;font-size:1rem;cursor:pointer;">PDF \uc800\uc7a5 (Ctrl+P)</button></div>' +
+        '</body></html>');
+    w.document.close();
 }

@@ -295,10 +295,10 @@ function getSelectedTypes() {
    ═══════════════════════════════════════════════════════════════ */
 function applyMasking() {
     var text = document.getElementById('inputText').value;
-    if (!text.trim()) { alert('텍스트를 입력해주세요.'); return; }
+    if (!text.trim()) { showToast('텍스트를 입력해주세요.', 'warning'); return; }
 
     var types = getSelectedTypes();
-    if (types.length === 0) { alert('탐지할 패턴을 최소 1개 이상 선택해주세요.'); return; }
+    if (types.length === 0) { showToast('탐지할 패턴을 최소 1개 이상 선택해주세요.', 'warning'); return; }
 
     var btn = document.getElementById('maskBtn');
     btn.disabled = true;
@@ -313,13 +313,13 @@ function applyMasking() {
         .then(function(d) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-mask me-1"></i>마스킹 적용';
-            if (!d.success) { alert('오류: ' + (d.error||'')); return; }
+            if (!d.success) { showToast('오류: ' + (d.error||''), 'warning'); return; }
             renderResult(d);
         })
         .catch(function(e) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-mask me-1"></i>마스킹 적용';
-            alert('요청 실패: ' + e.message);
+            showToast('요청 실패: ' + e.message, 'warning');
         });
 }
 
@@ -397,8 +397,8 @@ function applyRestore() {
     var restoreText = document.getElementById('restoreInput').value;
     var textToRestore = restoreText.trim() ? restoreText : currentMaskedText;
 
-    if (!textToRestore) { alert('복원할 텍스트가 없습니다.'); return; }
-    if (Object.keys(currentTokenMap).length === 0) { alert('토큰 맵이 없습니다. 먼저 마스킹을 실행하세요.'); return; }
+    if (!textToRestore) { showToast('복원할 텍스트가 없습니다.', 'warning'); return; }
+    if (Object.keys(currentTokenMap).length === 0) { showToast('토큰 맵이 없습니다. 먼저 마스킹을 실행하세요.', 'warning'); return; }
 
     var fd = new FormData();
     fd.append('maskedText', textToRestore);
@@ -407,12 +407,12 @@ function applyRestore() {
     fetch('/input-masking/unmask', {method:'POST', body:fd})
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (!d.success) { alert('오류: ' + (d.error||'')); return; }
+            if (!d.success) { showToast('오류: ' + (d.error||''), 'warning'); return; }
             document.getElementById('restoredDisplay').textContent = d.restoredText || '';
             document.getElementById('restoredResult').style.display = '';
             showToast(d.restoredCount + '개 토큰이 복원되었습니다.');
         })
-        .catch(function(e) { alert('복원 실패: ' + e.message); });
+        .catch(function(e) { showToast('복원 실패: ' + e.message, 'warning'); });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -433,18 +433,18 @@ function switchTab(tab) {
    복사 액션
    ═══════════════════════════════════════════════════════════════ */
 function copyMasked() {
-    if (!currentMaskedText) { alert('복사할 내용이 없습니다.'); return; }
+    if (!currentMaskedText) { showToast('복사할 내용이 없습니다.', 'warning'); return; }
     copyToClipboard(currentMaskedText, '마스킹된 텍스트가 복사되었습니다.');
 }
 
 function copyTokenMap() {
-    if (Object.keys(currentTokenMap).length === 0) { alert('토큰 맵이 없습니다.'); return; }
+    if (Object.keys(currentTokenMap).length === 0) { showToast('토큰 맵이 없습니다.', 'warning'); return; }
     copyToClipboard(JSON.stringify(currentTokenMap, null, 2), '토큰 맵이 복사되었습니다.');
 }
 
 function copyRestored() {
     var el = document.getElementById('restoredDisplay');
-    if (!el.textContent) { alert('복사할 내용이 없습니다.'); return; }
+    if (!el.textContent) { showToast('복사할 내용이 없습니다.', 'warning'); return; }
     copyToClipboard(el.textContent, '복원된 텍스트가 복사되었습니다.');
 }
 

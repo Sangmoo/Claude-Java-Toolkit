@@ -151,7 +151,7 @@ function saveProfile() {
 }
 function saveApiKey() {
     var key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) { alert('API 키를 입력하세요.'); return; }
+    if (!key) { showToast('API 키를 입력하세요.', 'warning'); return; }
     var fd = new URLSearchParams(); fd.append('apiKey', key);
     fetch('/account/save-api-key', {method:'POST', body:fd})
         .then(function(r){ return r.json(); })
@@ -184,7 +184,7 @@ function setup2fa() {
 }
 function verify2fa() {
     var code = document.getElementById('tfaCode').value.trim();
-    if (!code || code.length !== 6) { alert('6자리 인증 코드를 입력하세요.'); return; }
+    if (!code || code.length !== 6) { showToast('6자리 인증 코드를 입력하세요.', 'warning'); return; }
     var fd = new URLSearchParams();
     fd.append('secret', _tfaSecret); fd.append('code', code);
     fetch('/account/verify-2fa', {method:'POST', body:fd})
@@ -213,7 +213,7 @@ function clearApiKey() {
         .then(function(r){ return r.json(); })
         .then(function(d){
             if (d.success) location.reload();
-            else alert(d.error||'삭제 실패');
+            else showToast(d.error||'삭제 실패', 'warning');
         });
 }
 </script>

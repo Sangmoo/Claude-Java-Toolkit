@@ -279,7 +279,7 @@ function generateApiKey() {
     fetch('/security/api-key/generate', {method:'POST'})
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (!d.success) { alert('생성 실패: ' + (d.error||'')); return; }
+            if (!d.success) { showToast('생성 실패: ' + (d.error||''), 'warning'); return; }
             _rawKey = d.rawKey;
             document.getElementById('rawKeyDisplay').textContent = d.rawKey;
             document.getElementById('keyRevealBox').style.display  = '';
@@ -297,7 +297,7 @@ function toggleApiKey(enabled) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (!d.success) {
-                alert(d.error||'오류');
+                showToast(d.error||'오류', 'warning');
                 document.getElementById('apiKeyToggle').checked = !enabled;
                 return;
             }
@@ -311,7 +311,7 @@ function deleteApiKey() {
     fetch('/security/api-key/delete', {method:'POST'})
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (!d.success) { alert(d.error||'오류'); return; }
+            if (!d.success) { showToast(d.error||'오류', 'warning'); return; }
             document.getElementById('apiKeyToggle').checked  = false;
             document.getElementById('apiKeySetLabel').style.display = 'none';
             document.getElementById('keyRevealBox').style.display   = 'none';
@@ -335,13 +335,13 @@ function copyRawKey() {
 /* ═══ Settings 비밀번호 관리 ════════════════════════════════════════════════ */
 function setSettingsPassword() {
     var pwd = document.getElementById('settingsPwdInput').value;
-    if (!pwd || pwd.length < 4) { alert('비밀번호는 4자 이상이어야 합니다.'); return; }
+    if (!pwd || pwd.length < 4) { showToast('비밀번호는 4자 이상이어야 합니다.', 'warning'); return; }
     var fd = new FormData();
     fd.append('password', pwd);
     fetch('/security/settings-password/set', {method:'POST', body:fd})
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (!d.success) { alert(d.error||'오류'); return; }
+            if (!d.success) { showToast(d.error||'오류', 'warning'); return; }
             document.getElementById('settingsPwdInput').value = '';
             document.getElementById('settingsPwdSetLabel').style.display = 'inline-flex';
             document.getElementById('settingsLockToggle').checked = true;
@@ -357,7 +357,7 @@ function toggleSettingsLock(enabled) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (!d.success) {
-                alert(d.error||'오류');
+                showToast(d.error||'오류', 'warning');
                 document.getElementById('settingsLockToggle').checked = !enabled;
                 return;
             }
@@ -371,7 +371,7 @@ function deleteSettingsPassword() {
     fetch('/security/settings-password/delete', {method:'POST'})
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            if (!d.success) { alert(d.error||'오류'); return; }
+            if (!d.success) { showToast(d.error||'오류', 'warning'); return; }
             document.getElementById('settingsLockToggle').checked    = false;
             document.getElementById('settingsPwdSetLabel').style.display = 'none';
             updateBadge('settingsLockBadge', false);

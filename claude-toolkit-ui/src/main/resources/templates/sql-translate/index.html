@@ -482,14 +482,14 @@ function loadDbSource(name, type) {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             statusEl.innerHTML = origHtml;
-            if (!data.success) { alert('소스 로드 실패: ' + (data.error || '')); return; }
+            if (!data.success) { showToast('소스 로드 실패: ' + (data.error || ''), 'warning'); return; }
             document.getElementById('sqlInput').value = data.source;
             onSqlInput();
             showToast(name + ' 소스 코드가 로드되었습니다.');
         })
         .catch(function(e) {
             statusEl.innerHTML = origHtml;
-            alert('소스 불러오기 실패: ' + e.message);
+            showToast('소스 불러오기 실패: ' + e.message, 'warning');
         });
 }
 
@@ -503,7 +503,7 @@ function refreshDbCache() {
                 if (sourcePanelOpen) setTimeout(function() { loadDbObjects(''); }, 2000);
             }
         })
-        .catch(function() { alert('캐시 갱신 요청 실패'); });
+        .catch(function() { showToast('캐시 갱신 요청 실패', 'warning'); });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -511,12 +511,12 @@ function refreshDbCache() {
    ═══════════════════════════════════════════════════════════════ */
 function startTranslate() {
     var sql = document.getElementById('sqlInput').value.trim();
-    if (!sql) { alert('SQL을 입력해주세요.'); return; }
+    if (!sql) { showToast('SQL을 입력해주세요.', 'warning'); return; }
 
     var srcDb = document.getElementById('sourceDb').value;
     var tgtDb = document.getElementById('targetDb').value;
     if (srcDb === tgtDb) {
-        alert('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.');
+        showToast('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.', 'warning');
         return;
     }
 
@@ -543,10 +543,10 @@ function startTranslate() {
     fetch('/sql-translate/init', {method:'POST', body:fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (!data.success) { alert('초기화 실패: ' + (data.error||'')); enableBtn(); return; }
+            if (!data.success) { showToast('초기화 실패: ' + (data.error||''), 'warning'); enableBtn(); return; }
             openSse(data.streamId);
         })
-        .catch(function(e) { alert('요청 실패: ' + e.message); enableBtn(); });
+        .catch(function(e) { showToast('요청 실패: ' + e.message, 'warning'); enableBtn(); });
 }
 
 function openSse(streamId) {
@@ -578,7 +578,7 @@ function openSse(streamId) {
     streamEs.addEventListener('error_msg', function(e) {
         streamEs.close(); streamEs = null;
         document.getElementById('progressPanel').style.display = 'none';
-        alert('스트리밍 오류: ' + e.data);
+        showToast('스트리밍 오류: ' + e.data, 'warning');
         enableBtn();
     });
     streamEs.onerror = function() {
@@ -736,7 +736,7 @@ function switchTab(tab) {
    액션
    ═══════════════════════════════════════════════════════════════ */
 function copyTranslated() {
-    if (!currentTranslated) { alert('복사할 변환 SQL이 없습니다.'); return; }
+    if (!currentTranslated) { showToast('복사할 변환 SQL이 없습니다.', 'warning'); return; }
     navigator.clipboard.writeText(currentTranslated).then(function() {
         showToast('변환된 SQL이 클립보드에 복사되었습니다.');
     }).catch(function() {
@@ -748,7 +748,7 @@ function copyTranslated() {
 }
 
 function saveHistory() {
-    if (!currentSql || !currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
+    if (!currentSql || !currentFullResp) { showToast('저장할 결과가 없습니다.', 'warning'); return; }
     var fd = new FormData();
     fd.append('sql',      currentSql);
     fd.append('result',   currentFullResp);
@@ -758,7 +758,7 @@ function saveHistory() {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (d.success) showToast('이력에 저장되었습니다.');
-            else alert('저장 실패: ' + (d.error||''));
+            else showToast('저장 실패: ' + (d.error||''), 'warning');
         });
 }
 

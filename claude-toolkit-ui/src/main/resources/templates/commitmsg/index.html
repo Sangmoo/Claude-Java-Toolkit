@@ -333,7 +333,7 @@ git diff HEAD~1 HEAD   # 최근 1 커밋</pre>
 
     function runStream() {
         var input = document.getElementById('diffContent').value.trim();
-        if (!input) { alert('내용을 입력하세요.'); return; }
+        if (!input) { showToast('내용을 입력하세요.', 'warning'); return; }
         document.getElementById('streamPanel').style.display = '';
         document.getElementById('streamResult').textContent = '';
         document.getElementById('streamResult').classList.add('stream-cursor');

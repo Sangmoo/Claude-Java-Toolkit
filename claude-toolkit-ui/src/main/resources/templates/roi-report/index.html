@@ -440,7 +440,7 @@ function saveSettings() {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             if (d.success) { showToast('설정이 저장되었습니다.'); loadData(currentMonths); }
-            else alert('저장 실패: ' + (d.error || ''));
+            else showToast('저장 실패: ' + (d.error || ''), 'warning');
         });
 }
 

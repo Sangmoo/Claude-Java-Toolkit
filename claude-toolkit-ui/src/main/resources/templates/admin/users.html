@@ -236,7 +236,7 @@ function createUser() {
     var dn = document.getElementById('newDisplayName').value.trim();
     var em = document.getElementById('newEmail').value.trim();
     var ph = document.getElementById('newPhone').value.trim();
-    if (!u || !p) { alert('ID와 비밀번호를 입력하세요.'); return; }
+    if (!u || !p) { showToast('ID와 비밀번호를 입력하세요.', 'warning'); return; }
     var fd = new URLSearchParams();
     fd.append('username', u); fd.append('password', p); fd.append('role', r);
     fd.append('displayName', dn); fd.append('email', em); fd.append('phone', ph);
@@ -253,7 +253,7 @@ function changeRole(sel) {
     var fd = new URLSearchParams(); fd.append('role', sel.value);
     fetch('/admin/users/' + id + '/change-role', {method:'POST', body:fd})
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (!d.success) alert(d.error||'역할 변경 실패'); else location.reload(); });
+        .then(function(d){ if (!d.success) showToast(d.error||'역할 변경 실패', 'warning'); else location.reload(); });
 }
 function promptChangePassword(btn) {
     var id = btn.getAttribute('data-id');
@@ -262,13 +262,13 @@ function promptChangePassword(btn) {
     var fd = new URLSearchParams(); fd.append('newPassword', pw);
     fetch('/admin/users/' + id + '/change-password', {method:'POST', body:fd})
         .then(function(r){ return r.json(); })
-        .then(function(d){ alert(d.success ? '비밀번호가 변경되었습니다.' : (d.error||'변경 실패')); });
+        .then(function(d){ showToast(d.success ? '비밀번호가 변경되었습니다.' : (d.error||'변경 실패'), 'warning'); });
 }
 function toggleUser(btn) {
     var id = btn.getAttribute('data-id');
     fetch('/admin/users/' + id + '/toggle', {method:'POST'})
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (d.success) location.reload(); else alert(d.error||'변경 실패'); });
+        .then(function(d){ if (d.success) location.reload(); else showToast(d.error||'변경 실패', 'warning'); });
 }
 function deleteUser(btn) {
     var id = btn.getAttribute('data-id');
@@ -276,7 +276,7 @@ function deleteUser(btn) {
     if (!confirm('사용자 "' + name + '"을 삭제하시겠습니까?')) return;
     fetch('/admin/users/' + id + '/delete', {method:'POST'})
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (d.success) location.reload(); else alert(d.error||'삭제 실패'); });
+        .then(function(d){ if (d.success) location.reload(); else showToast(d.error||'삭제 실패', 'warning'); });
 }
 
 function openEditModal(btn) {
@@ -286,7 +286,7 @@ function openEditModal(btn) {
     fetch('/admin/users/' + id)
         .then(function(r){ return r.json(); })
         .then(function(d){
-            if (!d.success) { alert('사용자 정보를 불러올 수 없습니다.'); return; }
+            if (!d.success) { showToast('사용자 정보를 불러올 수 없습니다.', 'warning'); return; }
             document.getElementById('editUsername').value    = d.username || '';
             document.getElementById('editDisplayName').value = d.displayName || '';
             document.getElementById('editEmail').value       = d.email || '';

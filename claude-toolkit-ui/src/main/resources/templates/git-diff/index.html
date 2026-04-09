@@ -117,7 +117,7 @@
 
     function loadCommits() {
         var repoPath = document.getElementById('repoPath').value.trim();
-        if (!repoPath) { alert('저장소 경로를 입력하세요.'); return; }
+        if (!repoPath) { showToast('저장소 경로를 입력하세요.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = '커밋 목록을 로드하는 중...'; sp.classList.add('active'); }
@@ -130,7 +130,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (sp) sp.classList.remove('active');
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { showToast(data.error, 'warning'); return; }
 
             var fromSel = document.getElementById('fromCommit');
             var toSel   = document.getElementById('toCommit');
@@ -158,7 +158,7 @@
         })
         .catch(function(err) {
             if (sp) sp.classList.remove('active');
-            alert('오류: ' + err.message);
+            showToast('오류: ' + err.message, 'warning');
         });
     }
 
@@ -166,8 +166,8 @@
         var repoPath   = document.getElementById('repoPath').value.trim();
         var fromCommit = document.getElementById('fromCommit').value;
         var toCommit   = document.getElementById('toCommit').value;
-        if (!repoPath)   { alert('저장소 경로를 입력하세요.'); return; }
-        if (!fromCommit || !toCommit) { alert('From / To 커밋을 선택하세요.'); return; }
+        if (!repoPath)   { showToast('저장소 경로를 입력하세요.', 'warning'); return; }
+        if (!fromCommit || !toCommit) { showToast('From / To 커밋을 선택하세요.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = 'Diff를 가져오는 중...'; sp.classList.add('active'); }
@@ -180,19 +180,19 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (sp) sp.classList.remove('active');
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { showToast(data.error, 'warning'); return; }
             document.getElementById('diffPreview').value = data.diff || '';
             document.getElementById('btnAnalyze').disabled = false;
         })
         .catch(function(err) {
             if (sp) sp.classList.remove('active');
-            alert('오류: ' + err.message);
+            showToast('오류: ' + err.message, 'warning');
         });
     }
 
     function analyzeGitDiff() {
         var diff = document.getElementById('diffPreview').value.trim();
-        if (!diff) { alert('Diff가 비어 있습니다.'); return; }
+        if (!diff) { showToast('Diff가 비어 있습니다.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = 'Claude가 diff를 분석 중입니다...'; sp.classList.add('active'); }
@@ -205,7 +205,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (sp) sp.classList.remove('active');
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { showToast(data.error, 'warning'); return; }
             _reviewText = data.review || '';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('resultArea').style.display = '';
@@ -213,7 +213,7 @@
         })
         .catch(function(err) {
             if (sp) sp.classList.remove('active');
-            alert('오류: ' + err.message);
+            showToast('오류: ' + err.message, 'warning');
         });
     }
 

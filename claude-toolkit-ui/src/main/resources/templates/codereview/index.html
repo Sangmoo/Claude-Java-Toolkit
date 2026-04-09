@@ -213,7 +213,7 @@
 
     function runStream() {
         var input = document.querySelector('[name=sourceCode]').value.trim();
-        if (!input) { alert('소스 코드를 입력하세요.'); return; }
+        if (!input) { showToast('소스 코드를 입력하세요.', 'warning'); return; }
         var reviewMode = document.getElementById('reviewModeSelect').value;
         var sourceType = document.querySelector('select[name=sourceType]').value;
         var feature = (reviewMode === 'security') ? 'code_review_security' : 'code_review';

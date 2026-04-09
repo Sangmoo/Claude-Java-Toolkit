@@ -611,7 +611,7 @@ function loadFileContent(absolutePath, relativePath) {
         .then(function(data) {
             statusEl.innerHTML = origHtml;
             if (!data.success) {
-                alert('파일 읽기 실패: ' + (data.error || '알 수 없는 오류'));
+                showToast('파일 읽기 실패: ' + (data.error || '알 수 없는 오류'), 'warning');
                 return;
             }
             document.getElementById('codeInput').value = data.content;
@@ -623,7 +623,7 @@ function loadFileContent(absolutePath, relativePath) {
         })
         .catch(function(e) {
             statusEl.innerHTML = origHtml;
-            alert('파일 불러오기 실패: ' + e.message);
+            showToast('파일 불러오기 실패: ' + e.message, 'warning');
         });
 }
 
@@ -717,7 +717,7 @@ function loadDbSource(name, type) {
         .then(function(data) {
             statusEl.innerHTML = origHtml;
             if (!data.success) {
-                alert('소스 로드 실패: ' + (data.error || '알 수 없는 오류'));
+                showToast('소스 로드 실패: ' + (data.error || '알 수 없는 오류'), 'warning');
                 return;
             }
             document.getElementById('codeInput').value = data.source;
@@ -729,7 +729,7 @@ function loadDbSource(name, type) {
         })
         .catch(function(e) {
             statusEl.innerHTML = origHtml;
-            alert('소스 불러오기 실패: ' + e.message);
+            showToast('소스 불러오기 실패: ' + e.message, 'warning');
         });
 }
 
@@ -796,7 +796,7 @@ function closeSourcePanel() {
    ═══════════════════════════════════════════════════════════════ */
 function runPipeline() {
     var code = document.getElementById('codeInput').value.trim();
-    if (!code) { alert('코드를 입력해주세요.'); return; }
+    if (!code) { showToast('코드를 입력해주세요.', 'warning'); return; }
 
     setStep('analyst');
     document.getElementById('emptyState').style.display  = 'none';
@@ -818,7 +818,7 @@ function runPipeline() {
             hideSpinner();
             document.getElementById('analyzeBtn').disabled = false;
             if (!data.success) {
-                alert('오류: ' + (data.error || '알 수 없는 오류'));
+                showToast('오류: ' + (data.error || '알 수 없는 오류'), 'warning');
                 document.getElementById('emptyState').style.display = '';
                 resetSteps();
                 return;
@@ -832,7 +832,7 @@ function runPipeline() {
         .catch(function(e) {
             hideSpinner();
             document.getElementById('analyzeBtn').disabled = false;
-            alert('요청 실패: ' + e.message);
+            showToast('요청 실패: ' + e.message, 'warning');
             document.getElementById('emptyState').style.display = '';
             resetSteps();
         });
@@ -843,7 +843,7 @@ function runPipeline() {
    ═══════════════════════════════════════════════════════════════ */
 function runStream() {
     var code = document.getElementById('codeInput').value.trim();
-    if (!code) { alert('코드를 입력해주세요.'); return; }
+    if (!code) { showToast('코드를 입력해주세요.', 'warning'); return; }
     if (streamEs) { streamEs.close(); streamEs = null; }
 
     setStep('analyst');
@@ -871,10 +871,10 @@ function runStream() {
     fetch('/harness/stream-init', { method: 'POST', body: fd })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (!data.success) { alert('스트림 등록 실패: ' + (data.error || '')); return; }
+            if (!data.success) { showToast('스트림 등록 실패: ' + (data.error || ''), 'warning'); return; }
             openSse(data.streamId);
         })
-        .catch(function(e) { alert('스트림 초기화 실패: ' + e.message); });
+        .catch(function(e) { showToast('스트림 초기화 실패: ' + e.message, 'warning'); });
 }
 
 function mkStepRow(active, label, id) {
@@ -931,7 +931,7 @@ function openSse(streamId) {
     streamEs.addEventListener('error_msg', function(e) {
         streamEs.close(); streamEs = null;
         document.getElementById('streamBtn').disabled = false;
-        alert('스트리밍 오류: ' + e.data);
+        showToast('스트리밍 오류: ' + e.data, 'warning');
     });
 
     streamEs.onerror = function() {
@@ -1155,7 +1155,7 @@ function escHtml(s) {
    ═══════════════════════════════════════════════════════════════ */
 function copyCode(which) {
     var text = which === 'original' ? currentOrigCode : currentImpCode;
-    if (!text) { alert('복사할 내용이 없습니다.'); return; }
+    if (!text) { showToast('복사할 내용이 없습니다.', 'warning'); return; }
     navigator.clipboard.writeText(text).then(function() {
         showToast((which === 'original' ? '원본' : '개선') + ' 코드가 클립보드에 복사되었습니다.');
     }).catch(function() {
@@ -1168,7 +1168,7 @@ function copyRaw() {
     if (currentFullResp) navigator.clipboard.writeText(currentFullResp).catch(function() {});
 }
 function saveMd() {
-    if (!currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
+    if (!currentFullResp) { showToast('저장할 결과가 없습니다.', 'warning'); return; }
     var content = '# 코드 리뷰 하네스 결과\n\n**언어**: '
                 + currentLang.toUpperCase() + '\n\n---\n\n' + currentFullResp;
     var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
@@ -1207,7 +1207,7 @@ function clearAll() {
    HTML Export
    ═══════════════════════════════════════════════════════════════ */
 function exportHtml() {
-    if (!currentFullResp) { alert('저장할 결과가 없습니다.'); return; }
+    if (!currentFullResp) { showToast('저장할 결과가 없습니다.', 'warning'); return; }
     var fd = new FormData();
     fd.append('code',     currentOrigCode);
     fd.append('improved', currentImpCode);

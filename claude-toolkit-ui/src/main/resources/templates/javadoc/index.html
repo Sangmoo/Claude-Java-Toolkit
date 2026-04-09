@@ -158,7 +158,7 @@
 
     function runStream() {
         var input = document.querySelector('[name=javaSource]').value.trim();
-        if (!input) { alert('Java 소스 코드를 입력하세요.'); return; }
+        if (!input) { showToast('Java 소스 코드를 입력하세요.', 'warning'); return; }
         document.getElementById('streamPanel').style.display = '';
         document.getElementById('streamResult').textContent = '';
         document.getElementById('streamResult').classList.add('stream-cursor');

@@ -133,7 +133,7 @@
 <script>
     function runStream() {
         var input = document.querySelector('[name=sourceCode]').value.trim();
-        if (!input) { alert('소스 코드를 입력하세요.'); return; }
+        if (!input) { showToast('소스 코드를 입력하세요.', 'warning'); return; }
         var outputType = document.querySelector('select[name=outputType]') ? document.querySelector('select[name=outputType]').value : 'openapi';
         document.getElementById('streamPanel').style.display = '';
         document.getElementById('streamResult').textContent = '';

@@ -166,7 +166,7 @@ function runJob(btn) {
             btn.innerHTML = '<i class="fas fa-play"></i> 즉시 실행';
         })
         .catch(function(e) {
-            alert('실행 오류: ' + e.message);
+            showToast('실행 오류: ' + e.message, 'warning');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-play"></i> 즉시 실행';
         });
@@ -176,7 +176,7 @@ function toggleJob(btn) {
     var id = btn.getAttribute('data-id');
     fetch('/schedule/' + id + '/toggle', { method: 'POST' })
         .then(function() { location.reload(); })
-        .catch(function(e) { alert('오류: ' + e.message); });
+        .catch(function(e) { showToast('오류: ' + e.message, 'warning'); });
 }
 </script>
 </body>

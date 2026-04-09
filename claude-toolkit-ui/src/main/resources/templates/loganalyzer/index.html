@@ -263,7 +263,7 @@
 
     function runStream() {
         var input = document.getElementById('logContent').value.trim();
-        if (!input) { alert('로그를 입력하세요.'); return; }
+        if (!input) { showToast('로그를 입력하세요.', 'warning'); return; }
         var mode = document.getElementById('analyzeModeInput').value;
         var feature = (mode === 'security') ? 'log_security' : 'log_analysis';
         document.getElementById('streamPanel').style.display = '';

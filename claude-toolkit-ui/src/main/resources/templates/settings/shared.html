@@ -117,7 +117,7 @@ function saveConfig() {
     var name    = document.getElementById('cfgName').value.trim();
     var content = document.getElementById('cfgContent').value.trim();
     var pub     = document.getElementById('cfgPublic').checked;
-    if (!name || !content) { alert('이름과 내용을 입력하세요.'); return; }
+    if (!name || !content) { showToast('이름과 내용을 입력하세요.', 'warning'); return; }
     var fd = new URLSearchParams();
     fd.append('configType', type); fd.append('name', name);
     fd.append('content', content); fd.append('isPublic', pub);
@@ -134,7 +134,7 @@ function deleteConfig(btn) {
     if (!confirm('이 설정을 삭제하시겠습니까?')) return;
     fetch('/settings/shared/' + id + '/delete', {method:'POST'})
         .then(function(r){ return r.json(); })
-        .then(function(d){ if (d.success) location.reload(); else alert(d.error||'삭제 실패'); });
+        .then(function(d){ if (d.success) location.reload(); else showToast(d.error||'삭제 실패', 'warning'); });
 }
 </script>
 </body>

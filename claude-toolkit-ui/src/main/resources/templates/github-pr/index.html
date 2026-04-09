@@ -107,7 +107,7 @@
     function fetchPr() {
         var prUrl = document.getElementById('prUrl').value.trim();
         var token = document.getElementById('ghToken').value.trim();
-        if (!prUrl) { alert('PR URL을 입력하세요.'); return; }
+        if (!prUrl) { showToast('PR URL을 입력하세요.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = 'PR diff를 가져오는 중...'; sp.classList.add('active'); }
@@ -120,7 +120,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (sp) sp.classList.remove('active');
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { showToast(data.error, 'warning'); return; }
             document.getElementById('diffPreview').value = data.diff || '';
             _owner = data.owner || '';
             _repo = data.repo || '';
@@ -129,13 +129,13 @@
         })
         .catch(function(err) {
             if (sp) sp.classList.remove('active');
-            alert('오류: ' + err.message);
+            showToast('오류: ' + err.message, 'warning');
         });
     }
 
     function analyzePr() {
         var diff = document.getElementById('diffPreview').value.trim();
-        if (!diff) { alert('Diff가 비어 있습니다.'); return; }
+        if (!diff) { showToast('Diff가 비어 있습니다.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = 'Claude가 PR을 분석 중입니다...'; sp.classList.add('active'); }
@@ -148,7 +148,7 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (sp) sp.classList.remove('active');
-            if (data.error) { alert(data.error); return; }
+            if (data.error) { showToast(data.error, 'warning'); return; }
             _reviewText = data.review || '';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('resultArea').style.display = '';
@@ -157,14 +157,14 @@
         })
         .catch(function(err) {
             if (sp) sp.classList.remove('active');
-            alert('오류: ' + err.message);
+            showToast('오류: ' + err.message, 'warning');
         });
     }
 
     function postComment() {
         var token = document.getElementById('ghToken').value.trim();
-        if (!token) { alert('코멘트 등록에는 GitHub PAT가 필요합니다.'); return; }
-        if (!_owner || !_repo || !_prNumber) { alert('PR 정보가 없습니다. diff를 다시 가져와 주세요.'); return; }
+        if (!token) { showToast('코멘트 등록에는 GitHub PAT가 필요합니다.', 'warning'); return; }
+        if (!_owner || !_repo || !_prNumber) { showToast('PR 정보가 없습니다. diff를 다시 가져와 주세요.', 'warning'); return; }
 
         var sp = document.getElementById('spinner');
         if (sp) { document.getElementById('spinnerMsg').textContent = 'PR 코멘트 등록 중...'; sp.classList.add('active'); }

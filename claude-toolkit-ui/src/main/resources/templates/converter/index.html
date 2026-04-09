@@ -74,7 +74,7 @@
                 <div class="col-lg-6">
                     <div class="panel p-4">
                         <form method="post" action="/converter/convert" id="convForm"
-                              onsubmit="var sc=this.querySelector('[name=sourceCode]'); if(!sc||!sc.value.trim()){alert('소스 코드를 입력하세요.');return false;} showSpinner(['코드 파싱 중...','변환 로직 분석 중...','코드 생성 중...','파일 구조 작성 중...'])">
+                              onsubmit="var sc=this.querySelector('[name=sourceCode]'); if(!sc||!sc.value.trim()){showToast('소스 코드를 입력하세요.','warning');return false;} showSpinner(['코드 파싱 중...','변환 로직 분석 중...','코드 생성 중...','파일 구조 작성 중...'])">
                             <div class="mb-3">
                                 <label class="form-label">변환 대상</label>
                                 <select class="form-select" name="targetType" id="targetTypeSelect" onchange="updateConverterHint()">
@@ -296,10 +296,10 @@
         el.style.opacity = '0.6';
         fetch('/harness/cache/file-content?path='+encodeURIComponent(abs)).then(function(r){return r.json();}).then(function(d){
             el.style.opacity='';
-            if (!d.success){ alert(d.error||'파일 로드 실패'); return; }
+            if (!d.success){ showToast(d.error||'파일 로드 실패', 'warning'); return; }
             document.getElementById('sourceCodeArea').value = d.content || '';
             cSetSrc(name);
-        }).catch(function(){ el.style.opacity=''; alert('파일 내용을 불러올 수 없습니다.'); });
+        }).catch(function(){ el.style.opacity=''; showToast('파일 내용을 불러올 수 없습니다.', 'warning'); });
     }
 
     function cLoadDb() {
@@ -340,10 +340,10 @@
         el.style.opacity = '0.6';
         fetch('/harness/cache/db-source?name='+encodeURIComponent(name)+'&type='+encodeURIComponent(type)).then(function(r){return r.json();}).then(function(d){
             el.style.opacity='';
-            if (!d.success){ alert(d.error||'DB 소스 로드 실패'); return; }
+            if (!d.success){ showToast(d.error||'DB 소스 로드 실패', 'warning'); return; }
             document.getElementById('sourceCodeArea').value = d.source || '';
             cSetSrc(name);
-        }).catch(function(){ el.style.opacity=''; alert('DB 오브젝트 소스를 불러올 수 없습니다.'); });
+        }).catch(function(){ el.style.opacity=''; showToast('DB 오브젝트 소스를 불러올 수 없습니다.', 'warning'); });
     }
     function cSetSrc(name) {
         cCurSource = name;

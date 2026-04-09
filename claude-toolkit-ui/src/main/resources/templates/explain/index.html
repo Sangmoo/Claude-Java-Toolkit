@@ -633,7 +633,7 @@
 
     window.startStreamAnalysis = function() {
         var sql = document.getElementById('sqlContent').value.trim();
-        if (!sql) { alert('SQL을 입력하세요.'); return; }
+        if (!sql) { showToast('SQL을 입력하세요.', 'warning'); return; }
 
         // Show streaming sections, hide empty state
         var emptyState = document.getElementById('emptyState');
@@ -803,7 +803,7 @@
 
     window.saveStreamResult = function() {
         var analysis = document.getElementById('streamAiResult').textContent || document.getElementById('streamAiResult').innerText;
-        if (!analysis || !_streamSql) { alert('저장할 내용이 없습니다.'); return; }
+        if (!analysis || !_streamSql) { showToast('저장할 내용이 없습니다.', 'warning'); return; }
         var fd = new FormData();
         fd.append('sqlContent', _streamSql);
         fd.append('aiAnalysis', analysis);
@@ -849,7 +849,7 @@
     var AI_ANALYSIS    = /*[[${result != null ? result.aiAnalysis : ''}]]*/ '';
 
     window.saveFavorite = function() {
-        if (!SQL_CONTENT) { alert('저장할 SQL이 없습니다.'); return; }
+        if (!SQL_CONTENT) { showToast('저장할 SQL이 없습니다.', 'warning'); return; }
         document.getElementById('favInputContent').value  = SQL_CONTENT;
         document.getElementById('favOutputContent').value = AI_ANALYSIS || '';
         var title = SQL_CONTENT.trim().replace(/\s+/g,' ');

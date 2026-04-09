@@ -406,7 +406,7 @@
 
     function runStream() {
         var input = document.querySelector('[name=sqlContent]').value.trim();
-        if (!input) { alert('SQL을 입력하세요.'); return; }
+        if (!input) { showToast('SQL을 입력하세요.', 'warning'); return; }
         var sqlType = document.querySelector('select[name=sqlType]') ? document.querySelector('select[name=sqlType]').value : '';
         // Determine which tab is active
         var activeTabEl = document.getElementById('activeTab');
@@ -437,7 +437,7 @@
         var editor = document.getElementById('optimizedSqlEditor');
         var panel  = document.getElementById('optimizePanel');
         if (sqlBlocks.length === 0) {
-            alert('AI 응답에서 SQL 코드 블록을 찾을 수 없습니다.\n직접 입력해 주세요.');
+            showToast('AI 응답에서 SQL 코드 블록을 찾을 수 없습니다.\n직접 입력해 주세요.', 'warning');
             editor.value = '';
         } else {
             // prefer the longest block (most likely the optimized SQL)
@@ -450,7 +450,7 @@
 
     function applyOptimizedSql() {
         var sql = document.getElementById('optimizedSqlEditor').value.trim();
-        if (!sql) { alert('적용할 SQL이 없습니다.'); return; }
+        if (!sql) { showToast('적용할 SQL이 없습니다.', 'warning'); return; }
         var inputEl = document.querySelector('[name=sqlContent]');
         if (inputEl) inputEl.value = sql;
         document.getElementById('optimizePanel').style.display = 'none';

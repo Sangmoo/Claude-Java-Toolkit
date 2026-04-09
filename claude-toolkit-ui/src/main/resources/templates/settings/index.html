@@ -445,7 +445,7 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
 
     function testSlack() {
         var url = document.querySelector('input[name="slackWebhookUrl"]').value.trim();
-        if (!url) { alert('Slack Webhook URL을 입력하세요.'); return; }
+        if (!url) { showToast('Slack Webhook URL을 입력하세요.', 'warning'); return; }
         var el = document.getElementById('webhookTestResult');
         el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Slack 테스트 중...</span>';
         var fd = new URLSearchParams();
@@ -461,7 +461,7 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
 
     function testTeams() {
         var url = document.querySelector('input[name="teamsWebhookUrl"]').value.trim();
-        if (!url) { alert('Teams Webhook URL을 입력하세요.'); return; }
+        if (!url) { showToast('Teams Webhook URL을 입력하세요.', 'warning'); return; }
         var el = document.getElementById('webhookTestResult');
         el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Teams 테스트 중...</span>';
         var fd = new URLSearchParams();
@@ -479,7 +479,7 @@ export PROJECT_SCAN_PATH=C:/workspace/my-spring-project/src/main/java</pre>
         var url   = document.querySelector('input[name="jiraBaseUrl"]').value.trim();
         var email = document.querySelector('input[name="jiraEmail"]').value.trim();
         var token = document.querySelector('input[name="jiraApiToken"]').value.trim();
-        if (!url || !email || !token) { alert('Jira URL, 이메일, API 토큰을 입력하세요.'); return; }
+        if (!url || !email || !token) { showToast('Jira URL, 이메일, API 토큰을 입력하세요.', 'warning'); return; }
         var el = document.getElementById('jiraTestResult');
         el.innerHTML = '<span style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Jira 연결 테스트 중...</span>';
         var fd = new URLSearchParams();

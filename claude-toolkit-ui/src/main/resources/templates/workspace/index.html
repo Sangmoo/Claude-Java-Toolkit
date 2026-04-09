@@ -658,7 +658,7 @@ function selectFile(el) {
         .then(function(r){ return r.json(); })
         .then(function(d){
             el.style.opacity = '';
-            if (!d.success) { alert(d.error || '파일 내용을 불러올 수 없습니다.'); return; }
+            if (!d.success) { showToast(d.error || '파일 내용을 불러올 수 없습니다.', 'warning'); return; }
             document.getElementById('codeInput').value = d.content || '';
             setSelectedSource(name);
             setLang('java');
@@ -667,7 +667,7 @@ function selectFile(el) {
         })
         .catch(function(){
             el.style.opacity = '';
-            alert('파일 내용을 불러올 수 없습니다.');
+            showToast('파일 내용을 불러올 수 없습니다.', 'warning');
         });
 }
 
@@ -732,7 +732,7 @@ function selectDbObj(el) {
         .then(function(r){ return r.json(); })
         .then(function(d){
             el.style.opacity = '';
-            if (!d.success) { alert(d.error || 'DB 소스를 불러올 수 없습니다.'); return; }
+            if (!d.success) { showToast(d.error || 'DB 소스를 불러올 수 없습니다.', 'warning'); return; }
             document.getElementById('codeInput').value = d.source || '';
             setSelectedSource(name);
             setLang('sql');
@@ -741,7 +741,7 @@ function selectDbObj(el) {
         })
         .catch(function(){
             el.style.opacity = '';
-            alert('DB 오브젝트 소스를 불러올 수 없습니다.');
+            showToast('DB 오브젝트 소스를 불러올 수 없습니다.', 'warning');
         });
 }
 
@@ -954,15 +954,15 @@ function runAnalysis() {
     var lang  = getLanguage();
     var types = Object.keys(selectedTypes);
     var ctx   = (document.getElementById('projectContext').value || '').trim();
-    if (!code)         { alert('코드를 입력하세요.'); return; }
-    if (!types.length) { alert('분석 유형을 선택하세요.'); return; }
+    if (!code)         { showToast('코드를 입력하세요.', 'warning'); return; }
+    if (!types.length) { showToast('분석 유형을 선택하세요.', 'warning'); return; }
 
     // SQL DB 번역 소스/타겟 동일 체크
     if (selectedTypes['SQL_TRANSLATE']) {
         var srcDb = document.getElementById('srcDb').value;
         var tgtDb = document.getElementById('tgtDb').value;
         if (srcDb === tgtDb) {
-            alert('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.');
+            showToast('SQL DB 번역 시\n소스 DB와 타겟 DB는 동일하게 설정할 수 없습니다.\n올바르게 설정해주세요.', 'warning');
             return;
         }
     }
@@ -993,7 +993,7 @@ function runAnalysis() {
     fetch('/workspace/run', { method:'POST', body:params })
         .then(function(r){ return r.json(); })
         .then(function(d){
-            if (!d.success){ alert(d.error || '오류 발생'); return; }
+            if (!d.success){ showToast(d.error || '오류 발생', 'warning'); return; }
             Object.keys(d.streamIds || {}).forEach(function(typeName){
                 startStream(typeName, '/workspace/stream/' + d.streamIds[typeName]);
             });
@@ -1139,9 +1139,9 @@ function runCompare() {
     var types     = Object.keys(selectedTypes);
     var modelList = getCheckedModels();
     var ctx       = (document.getElementById('projectContext').value || '').trim();
-    if (!code)             { alert('코드를 입력하세요.'); return; }
-    if (types.length !== 1){ alert('모델 비교는 분석 유형 1개만 선택하세요.'); return; }
-    if (modelList.length < 2){ alert('모델을 2개 이상 선택하세요.'); return; }
+    if (!code)             { showToast('코드를 입력하세요.', 'warning'); return; }
+    if (types.length !== 1){ showToast('모델 비교는 분석 유형 1개만 선택하세요.', 'warning'); return; }
+    if (modelList.length < 2){ showToast('모델을 2개 이상 선택하세요.', 'warning'); return; }
 
     document.getElementById('emptyState').style.display       = 'none';
     document.getElementById('resultTabs').innerHTML            = '';
@@ -1172,7 +1172,7 @@ function runCompare() {
     fetch('/workspace/compare', { method:'POST', body:params })
         .then(function(r){ return r.json(); })
         .then(function(d){
-            if (!d.success){ alert(d.error || '오류'); return; }
+            if (!d.success){ showToast(d.error || '오류', 'warning'); return; }
             Object.keys(d.streamIds || {}).forEach(function(model) {
                 var key = model.replace(/[^a-z0-9]/gi,'_');
                 var es  = new EventSource('/workspace/compare-stream/' + d.streamIds[model]);
@@ -1332,7 +1332,7 @@ function sendEmailAll() {
     var inputs = document.querySelectorAll('#emailRecipientList input[type=email]');
     var recipients = [];
     inputs.forEach(function(inp){ var v = (inp.value||'').trim(); if (v) recipients.push(v); });
-    if (!recipients.length) { alert('수신자를 1명 이상 입력하세요.'); return; }
+    if (!recipients.length) { showToast('수신자를 1명 이상 입력하세요.', 'warning'); return; }
     var subject = (document.getElementById('emailModalSubject').value||'').trim() || '워크스페이스 분석 결과';
     var lines = [];
     Object.keys(resultTexts).forEach(function(t){ lines.push('=== ' + getDisplayName(t) + ' ===\n\n' + resultTexts[t] + '\n'); });
