@@ -198,10 +198,9 @@
                 <i class="fas fa-eye-slash" style="color:#06b6d4"></i><span>민감정보 마스킹</span>
             </a>
         </div>
-    </div>
 
         <!-- ── 관리 (ADMIN only) ── -->
-        <div sec:authorize="hasRole('ADMIN')">
+        <div th:if="${#request.isUserInRole('ADMIN')}">
             <button class="sidebar-section-toggle" id="toggle-admin"
                     onclick="toggleSidebarSection('admin')">
                 <span>관리</span>
@@ -211,6 +210,10 @@
                 <a href="/admin/users" class="sidebar-item"
                    th:classappend="${#strings.startsWith(#request.requestURI, '/admin/users') ? ' active' : ''}">
                     <i class="fas fa-users-cog" style="color:#ef4444"></i><span>사용자 관리</span>
+                </a>
+                <a href="/admin/permissions" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/admin/permissions') ? ' active' : ''}">
+                    <i class="fas fa-user-lock" style="color:#ef4444"></i><span>사용자 권한 관리</span>
                 </a>
                 <a href="/settings/shared" class="sidebar-item"
                    th:classappend="${#strings.startsWith(#request.requestURI, '/settings/shared') ? ' active' : ''}">
@@ -226,19 +229,19 @@
            th:classappend="${#strings.startsWith(#request.requestURI, '/prompts') ? ' active' : ''}">
             <i class="fas fa-sliders" style="color:#f97316"></i><span>프롬프트 템플릿</span>
         </a>
-        <a sec:authorize="hasAnyRole('ADMIN','REVIEWER')" href="/settings/prompts" class="sidebar-item"
+        <a th:if="${#request.isUserInRole('ADMIN') or #request.isUserInRole('REVIEWER')}" href="/settings/prompts" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/settings/prompts') ? ' active' : ''}">
             <i class="fas fa-wand-magic-sparkles" style="color:#f97316"></i><span>AI 프롬프트 관리</span>
         </a>
-        <a sec:authorize="hasRole('ADMIN')" href="/db-profiles" class="sidebar-item"
+        <a th:if="${#request.isUserInRole('ADMIN')}" href="/db-profiles" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/db-profiles') ? ' active' : ''}">
             <i class="fas fa-server" style="color:#3b82f6"></i><span>DB 프로필</span>
         </a>
-        <a sec:authorize="hasRole('ADMIN')" href="/settings" class="sidebar-item"
+        <a th:if="${#request.isUserInRole('ADMIN')}" href="/settings" class="sidebar-item"
            th:classappend="${#request.requestURI == '/settings' ? ' active' : ''}">
             <i class="fas fa-cog" style="color:#64748b"></i><span>Settings</span>
         </a>
-        <a sec:authorize="hasRole('ADMIN')" href="/security" class="sidebar-item"
+        <a th:if="${#request.isUserInRole('ADMIN')}" href="/security" class="sidebar-item"
            th:classappend="${#strings.startsWith(#request.requestURI, '/security') ? ' active' : ''}">
             <i class="fas fa-shield-halved" style="color:#8b5cf6"></i><span>보안 설정</span>
         </a>
@@ -246,7 +249,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 16px;
                     border-top:1px solid var(--border-color);margin-top:4px;">
             <span style="font-size:.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                <i class="fas fa-user me-1"></i><span sec:authentication="name">user</span>
+                <i class="fas fa-user me-1"></i><span th:text="${#request.remoteUser ?: 'user'}">user</span>
             </span>
             <a href="/logout" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;" title="로그아웃">
                 <i class="fas fa-sign-out-alt"></i>

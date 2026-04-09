@@ -29,11 +29,15 @@ public class UserService {
     }
 
     @Transactional
-    public AppUser create(String username, String rawPassword, String role) {
+    public AppUser create(String username, String rawPassword, String role,
+                          String displayName, String email, String phone) {
         if (userRepository.findByUsername(username).isPresent()) {
-            throw new IllegalArgumentException("이미 존재하는 사용자명입니다: " + username);
+            throw new IllegalArgumentException("이미 존재하는 ID입니다: " + username);
         }
         AppUser user = new AppUser(username, encoder.encode(rawPassword), role.toUpperCase());
+        user.setDisplayName(displayName);
+        user.setEmail(email);
+        user.setPhone(phone);
         return userRepository.save(user);
     }
 

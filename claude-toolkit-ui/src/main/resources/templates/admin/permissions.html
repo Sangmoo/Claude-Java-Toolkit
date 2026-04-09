@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>사용자 권한 관리 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css}" rel="stylesheet">
+    <style>
+        .perm-table th { font-size:.72rem; color:var(--text-muted); font-weight:600; padding:6px 10px;
+                         border-bottom:1px solid var(--border-color); white-space:nowrap; }
+        .perm-table td { font-size:.78rem; padding:5px 10px; border-bottom:1px solid var(--border-color); text-align:center; }
+        .perm-table td:first-child { text-align:left; font-weight:500; }
+        .perm-table tr:hover td { background:rgba(249,115,22,.04); }
+        .cat-header td { background:var(--bg-secondary); font-weight:700; font-size:.75rem; color:var(--text-sub); }
+        .toggle-perm { width:16px; height:16px; cursor:pointer; accent-color:#f97316; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-user-lock me-2" style="color:#ef4444"></i>사용자 권한 관리</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+        <div class="main-content">
+            <div class="row g-3">
+                <!-- 왼쪽: 사용자 선택 -->
+                <div class="col-lg-3">
+                    <div class="panel p-3">
+                        <div class="section-label mb-2"><i class="fas fa-users me-1"></i>사용자 선택</div>
+                        <div th:each="u : ${users}" style="padding:6px 10px;cursor:pointer;border-radius:6px;margin-bottom:2px;font-size:.82rem;"
+                             th:classappend="${u.role == 'ADMIN' ? '' : ''}"
+                             th:attr="data-id=${u.id},data-name=${u.username}" onclick="selectUser(this)"
+                             class="perm-user-item">
+                            <span style="font-weight:600;" th:text="${u.username}"></span>
+                            <span style="font-size:.68rem;color:var(--text-muted);" th:text="'(' + ${u.role} + ')'"></span>
+                            <span th:if="${u.displayName}" style="font-size:.7rem;color:var(--text-muted);display:block;" th:text="${u.displayName}"></span>
+                        </div>
+                    </div>
+                    <div class="panel p-3 mt-2" style="font-size:.75rem;color:var(--text-muted);">
+                        <i class="fas fa-info-circle me-1"></i>RBAC 역할(ADMIN/REVIEWER/VIEWER)과 별도로,
+                        사용자별 기능 접근 권한을 개별 관리합니다.
+                        <br><br>
+                        <i class="fas fa-exclamation-triangle me-1" style="color:#f59e0b;"></i>ADMIN 사용자는
+                        모든 기능에 접근 가능하며, 이 설정은 VIEWER/REVIEWER에게 적용됩니다.
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 권한 테이블 -->
+                <div class="col-lg-9">
+                    <div class="panel p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span style="font-size:.85rem;font-weight:600;color:var(--text-sub);">
+                                <i class="fas fa-shield-halved me-1"></i>기능별 권한 설정
+                                <span id="selectedUserLabel" style="font-size:.75rem;color:var(--accent);margin-left:8px;"></span>
+                            </span>
+                            <div class="d-flex gap-2">
+                                <button class="copy-btn" onclick="toggleAll(true)"><i class="fas fa-check-double me-1"></i>전체 허용</button>
+                                <button class="copy-btn" onclick="toggleAll(false)"><i class="fas fa-ban me-1"></i>전체 차단</button>
+                                <button class="btn-accent" style="padding:5px 16px;font-size:.78rem;" onclick="savePermissions()" id="btnSave" disabled>
+                                    <i class="fas fa-save me-1"></i>저장
+                                </button>
+                            </div>
+                        </div>
+                        <div id="saveResult" style="font-size:.8rem;margin-bottom:6px;"></div>
+                        <table class="perm-table w-100">
+                            <thead>
+                                <tr>
+                                    <th style="width:200px;">기능</th>
+                                    <th style="width:80px;">허용</th>
+                                    <th>설명</th>
+                                </tr>
+                            </thead>
+                            <tbody id="permTableBody">
+                                <tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:30px;">
+                                    좌측에서 사용자를 선택하세요
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js}"></script>
+<script>
+var selectedUserId = null;
+var features = [];
+<th:block th:each="f : ${features}">
+features.push({key: '[[${f[0]}]]', name: '[[${f[1]}]]', category: '[[${f[2]}]]'});
+</th:block>
+
+function selectUser(el) {
+    document.querySelectorAll('.perm-user-item').forEach(function(e){ e.style.background=''; });
+    el.style.background = 'rgba(249,115,22,.1)';
+    selectedUserId = el.getAttribute('data-id');
+    var name = el.getAttribute('data-name');
+    document.getElementById('selectedUserLabel').textContent = '— ' + name;
+    document.getElementById('btnSave').disabled = false;
+    loadPermissions(selectedUserId);
+}
+
+function loadPermissions(userId) {
+    fetch('/admin/permissions/' + userId)
+        .then(function(r){ return r.json(); })
+        .then(function(perms){
+            var tbody = document.getElementById('permTableBody');
+            var html = '';
+            var lastCat = '';
+            for (var i = 0; i < features.length; i++) {
+                var f = features[i];
+                if (f.category !== lastCat) {
+                    lastCat = f.category;
+                    html += '<tr class="cat-header"><td colspan="3"><i class="fas fa-folder me-1"></i>' + f.category + '</td></tr>';
+                }
+                var checked = perms[f.key] !== false ? ' checked' : '';
+                html += '<tr>'
+                    + '<td>' + f.name + '</td>'
+                    + '<td><input type="checkbox" class="toggle-perm" data-key="' + f.key + '"' + checked + '></td>'
+                    + '<td style="font-size:.72rem;color:var(--text-muted);text-align:left;">/' + f.key + '</td>'
+                    + '</tr>';
+            }
+            tbody.innerHTML = html;
+        });
+}
+
+function toggleAll(val) {
+    document.querySelectorAll('.toggle-perm').forEach(function(cb){ cb.checked = val; });
+}
+
+function savePermissions() {
+    if (!selectedUserId) return;
+    var fd = new URLSearchParams();
+    document.querySelectorAll('.toggle-perm').forEach(function(cb){
+        fd.append(cb.getAttribute('data-key'), cb.checked ? 'true' : 'false');
+    });
+    fetch('/admin/permissions/' + selectedUserId + '/save', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var el = document.getElementById('saveResult');
+            if (d.success) {
+                el.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle me-1"></i>권한이 저장되었습니다.</span>';
+            } else {
+                el.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times-circle me-1"></i>' + (d.error||'저장 실패') + '</span>';
+            }
+            setTimeout(function(){ el.innerHTML = ''; }, 3000);
+        });
+}
+</script>
+</body>
+</html>

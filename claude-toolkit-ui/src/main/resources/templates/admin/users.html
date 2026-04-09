@@ -41,16 +41,28 @@
                 </div>
                 <div class="d-flex gap-2 flex-wrap align-items-end">
                     <div>
-                        <label style="font-size:.72rem;color:var(--text-muted);">사용자명</label>
-                        <input type="text" id="newUsername" class="form-control" style="font-size:.84rem;width:160px;" placeholder="username">
+                        <label style="font-size:.72rem;color:var(--text-muted);">ID</label>
+                        <input type="text" id="newUsername" class="form-control" style="font-size:.84rem;width:120px;" placeholder="login_id">
                     </div>
                     <div>
                         <label style="font-size:.72rem;color:var(--text-muted);">비밀번호</label>
-                        <input type="password" id="newPassword" class="form-control" style="font-size:.84rem;width:160px;" placeholder="password">
+                        <input type="password" id="newPassword" class="form-control" style="font-size:.84rem;width:120px;" placeholder="password">
+                    </div>
+                    <div>
+                        <label style="font-size:.72rem;color:var(--text-muted);">사용자이름</label>
+                        <input type="text" id="newDisplayName" class="form-control" style="font-size:.84rem;width:110px;" placeholder="홍길동">
+                    </div>
+                    <div>
+                        <label style="font-size:.72rem;color:var(--text-muted);">이메일주소</label>
+                        <input type="email" id="newEmail" class="form-control" style="font-size:.84rem;width:160px;" placeholder="user@email.com">
+                    </div>
+                    <div>
+                        <label style="font-size:.72rem;color:var(--text-muted);">핸드폰번호</label>
+                        <input type="text" id="newPhone" class="form-control" style="font-size:.84rem;width:130px;" placeholder="010-1234-5678">
                     </div>
                     <div>
                         <label style="font-size:.72rem;color:var(--text-muted);">역할</label>
-                        <select id="newRole" class="form-select" style="font-size:.84rem;width:140px;">
+                        <select id="newRole" class="form-select" style="font-size:.84rem;width:120px;">
                             <option value="VIEWER">VIEWER</option>
                             <option value="REVIEWER">REVIEWER</option>
                             <option value="ADMIN">ADMIN</option>
@@ -73,29 +85,33 @@
                 </div>
 
                 <!-- 헤더 -->
-                <div style="display:flex;gap:10px;padding:6px 14px;font-size:.72rem;font-weight:600;color:var(--text-muted);
+                <div style="display:flex;gap:8px;padding:6px 14px;font-size:.72rem;font-weight:600;color:var(--text-muted);
                             border-bottom:2px solid var(--border-color);">
-                    <span style="width:140px;">사용자명</span>
-                    <span style="width:90px;">역할</span>
-                    <span style="width:60px;">상태</span>
-                    <span style="width:130px;">생성일</span>
-                    <span style="width:130px;">최근 로그인</span>
+                    <span style="width:90px;">ID</span>
+                    <span style="width:80px;">이름</span>
+                    <span style="width:150px;">이메일</span>
+                    <span style="width:110px;">핸드폰</span>
+                    <span style="width:80px;">역할</span>
+                    <span style="width:50px;">상태</span>
+                    <span style="width:110px;">최근 로그인</span>
                     <span style="flex:1;text-align:right;">액션</span>
                 </div>
 
                 <div th:each="u : ${users}" class="user-row">
-                    <span style="width:140px;font-weight:600;color:var(--text-primary);" th:text="${u.username}"></span>
-                    <span style="width:90px;">
+                    <span style="width:90px;font-weight:600;color:var(--text-primary);" th:text="${u.username}"></span>
+                    <span style="width:80px;font-size:.78rem;color:var(--text-sub);" th:text="${u.displayName ?: '-'}"></span>
+                    <span style="width:150px;font-size:.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                          th:text="${u.email ?: '-'}"></span>
+                    <span style="width:110px;font-size:.72rem;color:var(--text-muted);" th:text="${u.phone ?: '-'}"></span>
+                    <span style="width:80px;">
                         <span class="role-badge" th:classappend="'role-' + ${u.role}" th:text="${u.role}"></span>
                     </span>
-                    <span style="width:60px;">
-                        <span th:if="${u.enabled}" style="color:#10b981;font-size:.75rem;"><i class="fas fa-check-circle"></i> 활성</span>
-                        <span th:unless="${u.enabled}" style="color:#ef4444;font-size:.75rem;"><i class="fas fa-times-circle"></i> 비활성</span>
+                    <span style="width:50px;">
+                        <span th:if="${u.enabled}" style="color:#10b981;font-size:.72rem;"><i class="fas fa-check-circle"></i></span>
+                        <span th:unless="${u.enabled}" style="color:#ef4444;font-size:.72rem;"><i class="fas fa-times-circle"></i></span>
                     </span>
-                    <span style="width:130px;font-size:.72rem;color:var(--text-muted);"
-                          th:text="${#temporals.format(u.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
-                    <span style="width:130px;font-size:.72rem;color:var(--text-muted);"
-                          th:text="${u.lastLoginAt != null ? #temporals.format(u.lastLoginAt, 'yyyy-MM-dd HH:mm') : '-'}"></span>
+                    <span style="width:110px;font-size:.7rem;color:var(--text-muted);"
+                          th:text="${u.lastLoginAt != null ? #temporals.format(u.lastLoginAt, 'MM-dd HH:mm') : '-'}"></span>
                     <span style="flex:1;text-align:right;display:flex;gap:4px;justify-content:flex-end;">
                         <select class="form-select" style="font-size:.7rem;width:100px;padding:2px 6px;"
                                 th:id="'role-' + ${u.id}" onchange="changeRole(this)"
@@ -149,9 +165,13 @@ function createUser() {
     var u = document.getElementById('newUsername').value.trim();
     var p = document.getElementById('newPassword').value.trim();
     var r = document.getElementById('newRole').value;
-    if (!u || !p) { alert('사용자명과 비밀번호를 입력하세요.'); return; }
+    var dn = document.getElementById('newDisplayName').value.trim();
+    var em = document.getElementById('newEmail').value.trim();
+    var ph = document.getElementById('newPhone').value.trim();
+    if (!u || !p) { alert('ID와 비밀번호를 입력하세요.'); return; }
     var fd = new URLSearchParams();
     fd.append('username', u); fd.append('password', p); fd.append('role', r);
+    fd.append('displayName', dn); fd.append('email', em); fd.append('phone', ph);
     fetch('/admin/users/create', {method:'POST', body:fd})
         .then(function(res){ return res.json(); })
         .then(function(d){

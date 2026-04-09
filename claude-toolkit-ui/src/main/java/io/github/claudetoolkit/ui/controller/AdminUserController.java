@@ -33,10 +33,13 @@ public class AdminUserController {
     public ResponseEntity<Map<String, Object>> createUser(
             @RequestParam String username,
             @RequestParam String password,
-            @RequestParam String role) {
+            @RequestParam String role,
+            @RequestParam(defaultValue = "") String displayName,
+            @RequestParam(defaultValue = "") String email,
+            @RequestParam(defaultValue = "") String phone) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         try {
-            userService.create(username, password, role);
+            userService.create(username, password, role, displayName, email, phone);
             resp.put("success", true);
         } catch (Exception e) {
             resp.put("success", false);

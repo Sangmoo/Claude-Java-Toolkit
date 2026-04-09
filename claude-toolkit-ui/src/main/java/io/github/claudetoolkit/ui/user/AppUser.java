@@ -27,6 +27,18 @@ public class AppUser {
     @Column(nullable = false, length = 200)
     private String passwordHash;
 
+    /** 사용자 이름 (표시명) */
+    @Column(length = 100)
+    private String displayName;
+
+    /** 이메일 주소 */
+    @Column(length = 200)
+    private String email;
+
+    /** 핸드폰 번호 */
+    @Column(length = 20)
+    private String phone;
+
     /** ADMIN, REVIEWER, VIEWER */
     @Column(nullable = false, length = 20)
     private String role;
@@ -55,6 +67,9 @@ public class AppUser {
     public Long getId()                    { return id; }
     public String getUsername()            { return username; }
     public String getPasswordHash()        { return passwordHash; }
+    public String getDisplayName()         { return displayName; }
+    public String getEmail()               { return email; }
+    public String getPhone()               { return phone; }
     public String getRole()                { return role; }
     public boolean isEnabled()             { return enabled; }
     public LocalDateTime getCreatedAt()    { return createdAt; }
@@ -62,6 +77,9 @@ public class AppUser {
 
     public void setUsername(String username)           { this.username = username; }
     public void setPasswordHash(String passwordHash)  { this.passwordHash = passwordHash; }
+    public void setDisplayName(String displayName)     { this.displayName = displayName; }
+    public void setEmail(String email)                 { this.email = email; }
+    public void setPhone(String phone)                 { this.phone = phone; }
     public void setRole(String role)                   { this.role = role; }
     public void setEnabled(boolean enabled)            { this.enabled = enabled; }
     public void setCreatedAt(LocalDateTime createdAt)  { this.createdAt = createdAt; }
