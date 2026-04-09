@@ -40,6 +40,22 @@
     wrapper.appendChild(btn);
 })();
 
+// ── 세션 만료 감지 (AJAX 응답이 로그인 페이지 리다이렉트되면 감지) ──
+(function _interceptFetchForSession() {
+    if (window.location.pathname === '/login' || window.location.pathname === '/setup') return;
+    var origFetch = window.fetch;
+    window.fetch = function() {
+        return origFetch.apply(this, arguments).then(function(response) {
+            // 로그인 페이지로 리다이렉트된 경우 (세션 만료)
+            if (response.redirected && response.url && response.url.indexOf('/login') >= 0) {
+                alert('세션이 만료되었습니다. 다시 로그인합니다.');
+                window.location.href = '/login?expired=true';
+            }
+            return response;
+        });
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     var saved = localStorage.getItem('theme') || 'dark';
     _syncThemeUI(saved);

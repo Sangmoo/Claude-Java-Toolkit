@@ -227,6 +227,10 @@
                    th:classappend="${#strings.startsWith(#request.requestURI, '/settings/shared') ? ' active' : ''}">
                     <i class="fas fa-share-nodes" style="color:#ef4444"></i><span>팀 설정 공유</span>
                 </a>
+                <a href="/admin/backup" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/admin/backup') ? ' active' : ''}">
+                    <i class="fas fa-database" style="color:#10b981"></i><span>백업 / 복원</span>
+                </a>
             </div>
         </div>
     </div>
@@ -259,11 +263,16 @@
             <span style="font-size:.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 <i class="fas fa-user me-1"></i><span th:text="${#request.remoteUser ?: 'user'}">user</span>
             </span>
-            <a href="/logout" style="font-size:.72rem;color:var(--text-muted);text-decoration:none;" title="로그아웃">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
+            <div style="display:flex;gap:8px;">
+                <a href="/account/password" style="font-size:.68rem;color:var(--text-muted);text-decoration:none;" title="비밀번호 변경">
+                    <i class="fas fa-key"></i>
+                </a>
+                <a href="/logout" style="font-size:.68rem;color:var(--text-muted);text-decoration:none;" title="로그아웃">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
         </div>
-        <div class="sidebar-version">v2.0.0 · JDK 1.8</div>
+        <div class="sidebar-version">v2.2.0 · JDK 1.8</div>
     </div>
 
     <!-- ── 플로팅 열기 탭: position:fixed이므로 nav 안에 있어도 화면 좌측 중앙에 고정됨 ── -->

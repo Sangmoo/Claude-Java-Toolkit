@@ -1326,7 +1326,7 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔮 v2.1.0 (예정) — 엔터프라이즈 로드맵
+### ✅ v2.1.0
 
 **🔗 외부 연동 (Group 7)**
 - [x] **Slack / Teams 웹훅 알림** — `NotificationService`. Settings에서 URL 입력 + 테스트 발송. `~/.claude-toolkit/settings.json` 영속화
@@ -1337,6 +1337,23 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 **👤 멀티유저 고도화**
 - [x] **사용자별 프로그램 권한 관리** — `/admin/permissions`: RBAC(역할) 외 개별 사용자 단위 35개 기능 접근 허용/차단. 사이드바 + URL 접근 제어 동기화
 - [x] **Docker Windows 경로 자동 변환** — Settings에 `D:\path` 입력 → Docker에서 `/host/d/path`로 자동 변환. 사용자 경험 일관성
+
+---
+
+### 🔮 v2.2.0 (예정) — 사용성/안정성 고도화
+
+**🔐 계정 및 세션 관리**
+- [ ] **비밀번호 변경 UI** — 일반 사용자가 직접 비밀번호를 변경할 수 있는 페이지 (`/account/password`)
+- [ ] **세션 타임아웃 1시간** — 미활동 1시간 후 세션 만료. 페이지 이동/버튼 클릭 등 사용자 활동 시 1시간 갱신. 만료 시 로그인 페이지로 자동 이동
+- [ ] **사용자별 API 키 분리** — 개인 Claude API 키 설정. 사용자별 사용량 분리 추적
+
+**⚙️ Settings 및 보안 강화**
+- [ ] **입력값 유효성 검증** — SMTP 포트/이메일 형식/API 키 형식 등 프론트엔드+백엔드 검증
+- [ ] **API Rate Limiting** — 사용자 관리에서 사용자별 분당/시간당 API 호출 제한 설정. 초과 시 429 응답
+- [ ] **감사 로그 페이지네이션** — 300건 제한 → 전체 기간 검색 + 페이지네이션 + 사용자별 활동 요약
+
+**💾 데이터 관리**
+- [ ] **데이터 백업/복원** — 관리자 페이지에서 H2 DB + settings.json을 ZIP으로 다운로드/업로드
 
 ---
 

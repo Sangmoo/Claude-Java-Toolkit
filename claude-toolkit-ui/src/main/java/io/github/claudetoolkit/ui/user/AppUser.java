@@ -39,6 +39,10 @@ public class AppUser {
     @Column(length = 20)
     private String phone;
 
+    /** 개인 Claude API 키 (사용자별 분리 추적) */
+    @Column(length = 200)
+    private String personalApiKey;
+
     /** ADMIN, REVIEWER, VIEWER */
     @Column(nullable = false, length = 20)
     private String role;
@@ -67,6 +71,7 @@ public class AppUser {
     public Long getId()                    { return id; }
     public String getUsername()            { return username; }
     public String getPasswordHash()        { return passwordHash; }
+    public String getPersonalApiKey()       { return personalApiKey; }
     public String getDisplayName()         { return displayName; }
     public String getEmail()               { return email; }
     public String getPhone()               { return phone; }
@@ -77,6 +82,7 @@ public class AppUser {
 
     public void setUsername(String username)           { this.username = username; }
     public void setPasswordHash(String passwordHash)  { this.passwordHash = passwordHash; }
+    public void setPersonalApiKey(String key)            { this.personalApiKey = key; }
     public void setDisplayName(String displayName)     { this.displayName = displayName; }
     public void setEmail(String email)                 { this.email = email; }
     public void setPhone(String phone)                 { this.phone = phone; }

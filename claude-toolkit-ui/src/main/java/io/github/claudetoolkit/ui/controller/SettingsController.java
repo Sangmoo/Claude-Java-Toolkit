@@ -95,6 +95,13 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String jiraApiToken,
             Model model) {
 
+        // 입력값 유효성 검증
+        if (!dbUrl.trim().isEmpty() && !dbUrl.trim().startsWith("jdbc:")) {
+            model.addAttribute("saveError", "DB URL은 'jdbc:'로 시작해야 합니다.");
+            model.addAttribute("settings", settings);
+            return "settings/index";
+        }
+
         settings.getDb().setUrl(dbUrl.trim());
         settings.getDb().setUsername(dbUsername.trim());
         settings.getDb().setPassword(dbPassword.trim());

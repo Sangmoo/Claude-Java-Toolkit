@@ -23,6 +23,11 @@ public class AccountController {
     private final UserService userService;
     private final BCryptPasswordEncoder encoder;
 
+    @GetMapping("/password")
+    public String passwordPage() {
+        return "account/password";
+    }
+
     public AccountController(AppUserRepository userRepository, UserService userService,
                              BCryptPasswordEncoder encoder) {
         this.userRepository = userRepository;
