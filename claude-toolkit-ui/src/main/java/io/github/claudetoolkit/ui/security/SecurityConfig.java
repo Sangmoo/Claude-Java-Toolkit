@@ -23,6 +23,12 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final TwoFactorAuthHandler twoFactorAuthHandler;
+
+    public SecurityConfig(TwoFactorAuthHandler twoFactorAuthHandler) {
+        this.twoFactorAuthHandler = twoFactorAuthHandler;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -41,7 +47,7 @@ public class SecurityConfig {
                     "/maskgen/**", "/input-masking/**", "/depcheck/**",
                     "/migrate/**", "/schedule/**", "/db-profiles/**",
                     "/roi-report/**", "/prompts/**", "/favorites/**",
-                    "/usage/**", "/account/**",
+                    "/usage/**", "/account/**", "/login/2fa/**",
                     "/github-pr/**", "/git-diff/**"
                 )
             .and()
@@ -49,7 +55,8 @@ public class SecurityConfig {
             .authorizeRequests()
                 // 공개: 정적 리소스, 로그인, 공유 링크
                 .antMatchers("/css/**", "/js/**", "/favicon.svg",
-                             "/login", "/setup", "/setup/**",
+                             "/login", "/login/2fa", "/login/2fa/**",
+                             "/setup", "/setup/**",
                              "/share/**", "/actuator/**").permitAll()
                 // ADMIN 전용
                 .antMatchers("/admin/**").hasRole("ADMIN")
@@ -68,7 +75,7 @@ public class SecurityConfig {
 
             .formLogin()
                 .loginPage("/login")
-                .defaultSuccessUrl("/", true)
+                .successHandler(twoFactorAuthHandler)
                 .failureUrl("/login?error=true")
                 .permitAll()
             .and()

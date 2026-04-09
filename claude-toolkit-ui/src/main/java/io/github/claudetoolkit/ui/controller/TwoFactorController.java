@@ -1,0 +1,107 @@
+package io.github.claudetoolkit.ui.controller;
+
+import io.github.claudetoolkit.ui.security.TotpService;
+import io.github.claudetoolkit.ui.user.AppUser;
+import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpSession;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * 로그인 후 2FA 검증 페이지 컨트롤러.
+ */
+@Controller
+@RequestMapping("/login/2fa")
+public class TwoFactorController {
+
+    private final AppUserRepository userRepository;
+
+    public TwoFactorController(AppUserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public String showPage(HttpSession session, Model model) {
+        String username = (String) session.getAttribute("2fa_username");
+        if (username == null) return "redirect:/login";
+
+        AppUser user = userRepository.findByUsername(username).orElse(null);
+        if (user == null) return "redirect:/login";
+
+        if (user.isTotpEnabled()) {
+            // OTP 등록됨 → 코드 입력 페이지
+            model.addAttribute("mode", "verify");
+        } else {
+            // OTP 미등록 → QR코드 등록 페이지
+            String secret = TotpService.generateSecret();
+            String otpUri = TotpService.buildOtpAuthUri(secret, username, "Claude Toolkit");
+            model.addAttribute("mode", "setup");
+            model.addAttribute("secret", secret);
+            model.addAttribute("otpAuthUri", otpUri);
+            session.setAttribute("2fa_setup_secret", secret);
+        }
+        model.addAttribute("username", username);
+        return "login-2fa";
+    }
+
+    /** OTP 코드 검증 (등록된 사용자) */
+    @PostMapping("/verify")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> verify(
+            @RequestParam String code, HttpSession session) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        String username = (String) session.getAttribute("2fa_username");
+        if (username == null) { resp.put("success", false); resp.put("error", "세션 만료"); return ResponseEntity.ok(resp); }
+
+        AppUser user = userRepository.findByUsername(username).orElse(null);
+        if (user == null || !user.isTotpEnabled()) {
+            resp.put("success", false); resp.put("error", "사용자 없음");
+            return ResponseEntity.ok(resp);
+        }
+
+        if (TotpService.verifyCode(user.getTotpSecret(), code)) {
+            session.removeAttribute("2fa_pending");
+            session.removeAttribute("2fa_username");
+            resp.put("success", true);
+        } else {
+            resp.put("success", false);
+            resp.put("error", "인증 코드가 올바르지 않습니다.");
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** OTP 최초 등록 + 검증 (미등록 사용자) */
+    @PostMapping("/setup")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> setup(
+            @RequestParam String code, HttpSession session) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        String username = (String) session.getAttribute("2fa_username");
+        String secret   = (String) session.getAttribute("2fa_setup_secret");
+        if (username == null || secret == null) {
+            resp.put("success", false); resp.put("error", "세션 만료");
+            return ResponseEntity.ok(resp);
+        }
+
+        if (TotpService.verifyCode(secret, code)) {
+            AppUser user = userRepository.findByUsername(username).orElse(null);
+            if (user != null) {
+                user.setTotpSecret(secret);
+                userRepository.save(user);
+            }
+            session.removeAttribute("2fa_pending");
+            session.removeAttribute("2fa_username");
+            session.removeAttribute("2fa_setup_secret");
+            resp.put("success", true);
+        } else {
+            resp.put("success", false);
+            resp.put("error", "인증 코드가 올바르지 않습니다. 다시 확인하세요.");
+        }
+        return ResponseEntity.ok(resp);
+    }
+}
