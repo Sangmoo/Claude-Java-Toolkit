@@ -9,20 +9,21 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css}" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-primary); }
         .tfa-card { width:min(420px, 90vw); background:var(--bg-secondary); border:1px solid var(--border-color);
                     border-radius:14px; padding:36px 32px; box-shadow:0 8px 30px rgba(0,0,0,.15); }
         .tfa-brand { text-align:center; margin-bottom:24px; }
-        .tfa-brand i { color:#8b5cf6; font-size:2rem; }
+        .tfa-brand i { color:var(--accent); font-size:2rem; }
         .tfa-brand h2 { font-size:1.1rem; font-weight:700; color:var(--text-primary); margin-top:10px; }
         .otp-input { font-size:1.5rem; text-align:center; letter-spacing:8px; font-family:monospace;
                      background:var(--input-bg) !important; border:2px solid var(--border-color) !important;
                      color:var(--text-primary) !important; padding:12px; border-radius:10px; }
-        .otp-input:focus { border-color:#8b5cf6 !important; box-shadow:0 0 0 3px rgba(139,92,246,.15) !important; }
-        .btn-2fa { background:#8b5cf6; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600;
+        .otp-input:focus { border-color:var(--accent) !important; box-shadow:0 0 0 3px rgba(249,115,22,.15) !important; }
+        .btn-2fa { background:var(--accent); color:#fff; border:none; padding:12px; border-radius:8px; font-weight:600;
                    font-size:.9rem; width:100%; cursor:pointer; transition:background .15s; }
-        .btn-2fa:hover { background:#7c3aed; }
+        .btn-2fa:hover { filter:brightness(0.9); }
     </style>
 </head>
 <body>
@@ -58,9 +59,16 @@
                 </p>
             </div>
             <div style="text-align:center;margin-bottom:12px;">
-                <img th:src="'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + ${#uris.escapeQueryParam(otpAuthUri)}"
-                     style="width:200px;height:200px;border:1px solid var(--border-color);border-radius:8px;">
+                <div id="qrCodeContainer" style="display:inline-block;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border-color);"></div>
             </div>
+            <script th:inline="javascript">
+                var otpUri = /*[[${otpAuthUri}]]*/ '';
+                if (otpUri && document.getElementById('qrCodeContainer')) {
+                    new QRCode(document.getElementById('qrCodeContainer'), {
+                        text: otpUri, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff'
+                    });
+                }
+            </script>
             <p style="font-size:.72rem;color:var(--text-muted);text-align:center;margin-bottom:4px;">
                 수동 입력 키: <code th:text="${secret}" style="font-size:.68rem;word-break:break-all;"></code>
             </p>

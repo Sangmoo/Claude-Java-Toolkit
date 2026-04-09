@@ -8,6 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250409')}" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="layout">
@@ -87,7 +88,7 @@
 
                 <!-- 2FA (이중 인증) -->
                 <div class="panel p-4 mb-3">
-                    <div class="section-label mb-2"><i class="fas fa-shield-halved me-1" style="color:#8b5cf6"></i>이중 인증 (2FA)</div>
+                    <div class="section-label mb-2"><i class="fas fa-shield-halved me-1" style="color:var(--accent)"></i>이중 인증 (2FA)</div>
                     <div th:if="${user.totpEnabled}">
                         <p style="font-size:.78rem;color:#10b981;margin-bottom:10px;">
                             <i class="fas fa-check-circle me-1"></i>2FA가 활성화되어 있습니다. 로그인 시 Google Authenticator 코드가 필요합니다.
@@ -107,7 +108,7 @@
                     </div>
                     <div id="tfaSetup" style="display:none;margin-top:12px;">
                         <div style="text-align:center;margin-bottom:10px;">
-                            <img id="tfaQrImg" style="width:200px;height:200px;border:1px solid var(--border-color);border-radius:8px;">
+                            <div id="tfaQrContainer" style="display:inline-block;padding:8px;background:#fff;border-radius:8px;border:1px solid var(--border-color);"></div>
                         </div>
                         <p style="font-size:.75rem;color:var(--text-muted);text-align:center;">Google Authenticator 앱으로 QR코드를 스캔하세요</p>
                         <div class="d-flex gap-2 mt-2">
@@ -171,9 +172,13 @@ function setup2fa() {
         .then(function(d){
             if (!d.success) return;
             _tfaSecret = d.secret;
-            // QR코드 이미지 (Google Charts API)
-            var qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=' + encodeURIComponent(d.otpAuthUri);
-            document.getElementById('tfaQrImg').src = qrUrl;
+            // QR코드 생성 (qrcodejs 라이브러리)
+            var container = document.getElementById('tfaQrContainer');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: d.otpAuthUri, width: 200, height: 200,
+                colorDark: '#000000', colorLight: '#ffffff'
+            });
             document.getElementById('tfaSetup').style.display = '';
         });
 }
