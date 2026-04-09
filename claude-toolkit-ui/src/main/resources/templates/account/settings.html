@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>내 설정 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link th:href="@{/css/toolkit.css(v='20250409')}" rel="stylesheet">
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-user-cog me-2" style="color:#f97316"></i>내 설정</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+        <div class="main-content">
+            <div style="max-width:520px;margin:20px auto;">
+
+                <!-- 내 정보 -->
+                <div class="panel p-4 mb-3">
+                    <div class="section-label mb-2"><i class="fas fa-user me-1"></i>내 정보</div>
+                    <div class="mb-2" style="font-size:.78rem;color:var(--text-muted);">
+                        <i class="fas fa-id-badge me-1"></i>ID: <b th:text="${user.username}"></b>
+                        <span class="ms-2" style="font-size:.68rem;padding:1px 8px;border-radius:8px;"
+                              th:classappend="${user.role == 'ADMIN' ? 'role-ADMIN' : (user.role == 'REVIEWER' ? 'role-REVIEWER' : 'role-VIEWER')}"
+                              th:text="${user.role}"
+                              th:style="${user.role == 'ADMIN' ? 'background:rgba(239,68,68,.12);color:#ef4444;' : (user.role == 'REVIEWER' ? 'background:rgba(139,92,246,.12);color:#8b5cf6;' : 'background:rgba(59,130,246,.12);color:#3b82f6;')}">
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <label style="font-size:.78rem;color:var(--text-sub);">이름</label>
+                        <input type="text" id="profileName" class="form-control" style="font-size:.84rem;"
+                               th:value="${user.displayName}" placeholder="이름">
+                    </div>
+                    <div class="mb-2">
+                        <label style="font-size:.78rem;color:var(--text-sub);">이메일</label>
+                        <input type="email" id="profileEmail" class="form-control" style="font-size:.84rem;"
+                               th:value="${user.email}" placeholder="user@email.com">
+                    </div>
+                    <div class="mb-3">
+                        <label style="font-size:.78rem;color:var(--text-sub);">핸드폰</label>
+                        <input type="text" id="profilePhone" class="form-control" style="font-size:.84rem;"
+                               th:value="${user.phone}" placeholder="010-1234-5678">
+                    </div>
+                    <button class="btn-accent w-100" style="padding:8px;" onclick="saveProfile()">
+                        <i class="fas fa-save me-1"></i>정보 저장
+                    </button>
+                    <div id="profileResult" style="font-size:.82rem;margin-top:6px;text-align:center;"></div>
+                </div>
+
+                <!-- 개인 API 키 -->
+                <div class="panel p-4 mb-3">
+                    <div class="section-label mb-2"><i class="fas fa-key me-1" style="color:#f97316"></i>개인 Claude API 키</div>
+                    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">
+                        개인 API 키를 입력하면 서버 공용 키 대신 <b>본인의 키</b>로 Claude AI를 사용합니다.<br>
+                        비워두면 서버 공용 키가 사용됩니다.
+                    </p>
+                    <div th:if="${apiKeyMasked != null and apiKeyMasked != ''}" class="mb-2"
+                         style="font-size:.78rem;color:#10b981;">
+                        <i class="fas fa-check-circle me-1"></i>현재 설정됨: <code th:text="${apiKeyMasked}"></code>
+                    </div>
+                    <div th:if="${apiKeyMasked == null or apiKeyMasked == ''}" class="mb-2"
+                         style="font-size:.78rem;color:var(--text-muted);">
+                        <i class="fas fa-info-circle me-1"></i>미설정 (서버 공용 키 사용 중)
+                    </div>
+                    <div class="mb-3">
+                        <input type="password" id="apiKeyInput" class="form-control" style="font-size:.84rem;font-family:monospace;"
+                               placeholder="sk-ant-api03-...">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn-accent" style="padding:8px 20px;flex:1;" onclick="saveApiKey()">
+                            <i class="fas fa-save me-1"></i>API 키 저장
+                        </button>
+                        <button style="padding:8px 16px;background:none;border:1px solid var(--border-color);color:var(--text-muted);border-radius:8px;cursor:pointer;font-size:.82rem;"
+                                onclick="clearApiKey()">
+                            <i class="fas fa-trash me-1"></i>삭제
+                        </button>
+                    </div>
+                    <div id="apiKeyResult" style="font-size:.82rem;margin-top:6px;text-align:center;"></div>
+                </div>
+
+                <!-- 비밀번호 변경 링크 -->
+                <div class="panel p-4">
+                    <a href="/account/password" style="font-size:.84rem;color:var(--accent);text-decoration:none;">
+                        <i class="fas fa-lock me-2"></i>비밀번호 변경 →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250409')}"></script>
+<script>
+function saveProfile() {
+    var fd = new URLSearchParams();
+    fd.append('displayName', document.getElementById('profileName').value.trim());
+    fd.append('email',       document.getElementById('profileEmail').value.trim());
+    fd.append('phone',       document.getElementById('profilePhone').value.trim());
+    fetch('/account/save-profile', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var el = document.getElementById('profileResult');
+            el.innerHTML = d.success
+                ? '<span style="color:#10b981;"><i class="fas fa-check-circle me-1"></i>저장되었습니다.</span>'
+                : '<span style="color:#ef4444;">' + (d.error||'저장 실패') + '</span>';
+            setTimeout(function(){ el.innerHTML=''; }, 3000);
+        });
+}
+function saveApiKey() {
+    var key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) { alert('API 키를 입력하세요.'); return; }
+    var fd = new URLSearchParams(); fd.append('apiKey', key);
+    fetch('/account/save-api-key', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var el = document.getElementById('apiKeyResult');
+            if (d.success) {
+                el.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle me-1"></i>API 키가 저장되었습니다.</span>';
+                setTimeout(function(){ location.reload(); }, 1000);
+            } else {
+                el.innerHTML = '<span style="color:#ef4444;">' + (d.error||'저장 실패') + '</span>';
+            }
+        });
+}
+function clearApiKey() {
+    if (!confirm('개인 API 키를 삭제하시겠습니까? 서버 공용 키로 전환됩니다.')) return;
+    var fd = new URLSearchParams(); fd.append('apiKey', '');
+    fetch('/account/save-api-key', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) location.reload();
+            else alert(d.error||'삭제 실패');
+        });
+}
+</script>
+</body>
+</html>

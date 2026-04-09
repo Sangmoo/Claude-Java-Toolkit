@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 본인 계정 관리 (비밀번호 변경).
+ * 본인 계정 관리 (비밀번호 변경, 개인 설정).
  */
 @Controller
 @RequestMapping("/account")
@@ -23,16 +23,72 @@ public class AccountController {
     private final UserService userService;
     private final BCryptPasswordEncoder encoder;
 
-    @GetMapping("/password")
-    public String passwordPage() {
-        return "account/password";
-    }
-
     public AccountController(AppUserRepository userRepository, UserService userService,
                              BCryptPasswordEncoder encoder) {
         this.userRepository = userRepository;
         this.userService    = userService;
         this.encoder        = encoder;
+    }
+
+    @GetMapping("/password")
+    public String passwordPage() {
+        return "account/password";
+    }
+
+    /** 내 설정 페이지 (개인 API 키, 내 정보) */
+    @GetMapping("/settings")
+    public String settingsPage(org.springframework.ui.Model model, Principal principal) {
+        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user != null) {
+            model.addAttribute("user", user);
+            String key = user.getPersonalApiKey();
+            model.addAttribute("apiKeyMasked", key != null && key.length() > 10
+                    ? key.substring(0, 10) + "..." + key.substring(key.length() - 4) : (key != null && !key.isEmpty() ? "****" : ""));
+        }
+        return "account/settings";
+    }
+
+    /** 개인 API 키 저장 */
+    @PostMapping("/save-api-key")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveApiKey(
+            @RequestParam String apiKey, Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (user == null) { resp.put("success", false); resp.put("error", "사용자 없음"); return ResponseEntity.ok(resp); }
+            user.setPersonalApiKey(apiKey.trim().isEmpty() ? null : apiKey.trim());
+            userRepository.save(user);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 내 정보 수정 */
+    @PostMapping("/save-profile")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> saveProfile(
+            @RequestParam(defaultValue = "") String displayName,
+            @RequestParam(defaultValue = "") String email,
+            @RequestParam(defaultValue = "") String phone,
+            Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (user == null) { resp.put("success", false); resp.put("error", "사용자 없음"); return ResponseEntity.ok(resp); }
+            user.setDisplayName(displayName);
+            user.setEmail(email);
+            user.setPhone(phone);
+            userRepository.save(user);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
     }
 
     @PostMapping("/change-password")
