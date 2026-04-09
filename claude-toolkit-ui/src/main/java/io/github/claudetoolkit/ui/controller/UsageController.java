@@ -184,4 +184,70 @@ public class UsageController {
         resp.put("model", claudeClient.getEffectiveModel());
         return ResponseEntity.ok(resp);
     }
+
+    /** 일별 비용 추이 JSON (F12) */
+    @GetMapping("/daily-cost")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> dailyCost(
+            @RequestParam(defaultValue = "30") int days) {
+        LocalDateTime since = LocalDate.now().minusDays(days).atStartOfDay();
+        List<ReviewHistory> all = historyService.findAll();
+        Map<String, long[]> map = new LinkedHashMap<String, long[]>();
+        for (int i = days - 1; i >= 0; i--) {
+            map.put(LocalDate.now().minusDays(i).toString(), new long[]{0, 0});
+        }
+        for (ReviewHistory h : all) {
+            if (h.getCreatedAt().isBefore(since)) continue;
+            String date = h.getCreatedAt().toLocalDate().toString();
+            long[] d = map.get(date);
+            if (d == null) continue;
+            d[0] += h.getInputTokens()  != null ? h.getInputTokens()  : 0;
+            d[1] += h.getOutputTokens() != null ? h.getOutputTokens() : 0;
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (Map.Entry<String, long[]> e : map.entrySet()) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("date", e.getKey());
+            double cost = e.getValue()[0] / 1_000_000.0 * DEFAULT_INPUT_COST
+                        + e.getValue()[1] / 1_000_000.0 * DEFAULT_OUTPUT_COST;
+            m.put("cost", Math.round(cost * 10000) / 10000.0);
+            m.put("costKrw", Math.round(cost * 1350));
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    /** 사용자별 비용 분배 JSON (ADMIN 전용, F12) */
+    @GetMapping("/cost-by-user")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> costByUser(
+            @RequestParam(defaultValue = "30") int days) {
+        LocalDateTime since = LocalDate.now().minusDays(days).atStartOfDay();
+        List<ReviewHistory> all = historyService.findAll();
+        Map<String, long[]> userMap = new LinkedHashMap<String, long[]>();
+        for (ReviewHistory h : all) {
+            if (h.getCreatedAt().isBefore(since)) continue;
+            String user = h.getUsername() != null ? h.getUsername() : "unknown";
+            long[] d = userMap.get(user);
+            if (d == null) d = new long[]{0, 0, 0};
+            d[0] += h.getInputTokens()  != null ? h.getInputTokens()  : 0;
+            d[1] += h.getOutputTokens() != null ? h.getOutputTokens() : 0;
+            d[2]++;
+            userMap.put(user, d);
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (Map.Entry<String, long[]> e : userMap.entrySet()) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("username", e.getKey());
+            m.put("requests", e.getValue()[2]);
+            m.put("inputTokens", e.getValue()[0]);
+            m.put("outputTokens", e.getValue()[1]);
+            double cost = e.getValue()[0] / 1_000_000.0 * DEFAULT_INPUT_COST
+                        + e.getValue()[1] / 1_000_000.0 * DEFAULT_OUTPUT_COST;
+            m.put("costUsd", Math.round(cost * 10000) / 10000.0);
+            m.put("costKrw", Math.round(cost * 1350));
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
 }

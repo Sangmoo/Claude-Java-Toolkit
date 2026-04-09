@@ -60,6 +60,8 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("input-masking", "/input-masking");
         FEATURE_PATHS.put("github-pr",     "/github-pr");
         FEATURE_PATHS.put("git-diff",      "/git-diff");
+        // 채팅
+        FEATURE_PATHS.put("chat",          "/chat");
         // 기타
         FEATURE_PATHS.put("prompts",       "/prompts");
         FEATURE_PATHS.put("search",        "/search");
