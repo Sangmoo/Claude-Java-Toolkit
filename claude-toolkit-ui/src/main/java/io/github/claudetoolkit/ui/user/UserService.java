@@ -67,7 +67,7 @@ public class UserService {
 
     @Transactional
     public void updateInfo(Long id, String displayName, String email, String phone, String role) {
-        updateInfo(id, displayName, email, phone, role, 0, 0);
+        updateInfo(id, displayName, email, phone, role, null, 0, 0);
     }
 
     @Transactional
