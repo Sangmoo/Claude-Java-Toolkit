@@ -204,20 +204,39 @@
                                 <i class="fas fa-sync-alt me-1"></i>새로고침
                             </button>
                         </div>
+                        <!-- 필터 -->
+                        <div class="d-flex gap-2 mb-2 flex-wrap" style="font-size:.78rem;">
+                            <input type="text" id="filterUser" class="form-control" style="font-size:.76rem;width:100px;padding:3px 8px;"
+                                   placeholder="사용자" oninput="filterAuditLog()">
+                            <select id="filterAction" class="form-select" style="font-size:.76rem;width:100px;padding:3px 8px;" onchange="filterAuditLog()">
+                                <option value="">전체 액션</option>
+                                <option value="조회">조회</option>
+                                <option value="분석실행">분석실행</option>
+                                <option value="다운로드">다운로드</option>
+                                <option value="이메일">이메일</option>
+                                <option value="로그인">로그인</option>
+                                <option value="저장">저장</option>
+                                <option value="삭제">삭제</option>
+                                <option value="변경">변경</option>
+                            </select>
+                            <input type="text" id="filterEndpoint" class="form-control" style="font-size:.76rem;width:140px;padding:3px 8px;"
+                                   placeholder="엔드포인트" oninput="filterAuditLog()">
+                        </div>
                         <div style="overflow-x:auto;max-height:520px;overflow-y:auto;">
                             <table class="audit-table w-100">
                                 <thead>
                                     <tr>
                                         <th>시간</th>
+                                        <th>사용자</th>
+                                        <th>액션</th>
                                         <th>메서드</th>
                                         <th>엔드포인트</th>
                                         <th>IP</th>
                                         <th>상태</th>
-                                        <th>API키</th>
                                     </tr>
                                 </thead>
                                 <tbody id="auditTableBody">
-                                    <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">
+                                    <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">
                                         <i class="fas fa-circle-notch fa-spin me-1"></i>로딩 중...
                                     </td></tr>
                                 </tbody>
@@ -346,35 +365,62 @@ function deleteSettingsPassword() {
 }
 
 /* ═══ 감사 로그 테이블 ════════════════════════════════════════════════════ */
+var _auditLogs = [];
 function loadAuditLog() {
     fetch('/security/audit-log')
         .then(function(r) { return r.json(); })
         .then(function(logs) {
-            var tbody = document.getElementById('auditTableBody');
-            if (!logs || logs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
-                return;
-            }
-            var html = '';
-            for (var i = 0; i < logs.length; i++) {
-                var l = logs[i];
-                var statusStyle = 'background:' + (l.statusColor||'#64748b') + '20;color:' + (l.statusColor||'#64748b') + ';';
-                html += '<tr>'
-                      + '<td style="white-space:nowrap;">' + escHtml(l.formattedDate||'') + '</td>'
-                      + '<td><code style="font-size:.7rem;">' + escHtml(l.method||'') + '</code></td>'
-                      + '<td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(l.endpoint||'') + '">'
-                      + escHtml(l.endpoint||'') + '</td>'
-                      + '<td style="font-size:.72rem;">' + escHtml(l.ip||'-') + '</td>'
-                      + '<td><span class="status-badge" style="' + statusStyle + '">' + (l.statusCode||'-') + '</span></td>'
-                      + '<td style="text-align:center;">' + (l.apiKeyUsed ? '<i class="fas fa-key" style="color:#f97316;font-size:.7rem;" title="API 키 사용"></i>' : '-') + '</td>'
-                      + '</tr>';
-            }
-            tbody.innerHTML = html;
+            _auditLogs = logs || [];
+            renderAuditLog(_auditLogs);
         })
         .catch(function() {
             document.getElementById('auditTableBody').innerHTML =
-                '<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
+                '<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
         });
+}
+
+function filterAuditLog() {
+    var fUser     = (document.getElementById('filterUser').value || '').trim().toLowerCase();
+    var fAction   = document.getElementById('filterAction').value;
+    var fEndpoint = (document.getElementById('filterEndpoint').value || '').trim().toLowerCase();
+    var filtered = _auditLogs.filter(function(l) {
+        if (fUser && (!l.username || l.username.toLowerCase().indexOf(fUser) < 0)) return false;
+        if (fAction && l.actionType !== fAction) return false;
+        if (fEndpoint && (!l.endpoint || l.endpoint.toLowerCase().indexOf(fEndpoint) < 0)) return false;
+        return true;
+    });
+    renderAuditLog(filtered);
+}
+
+function renderAuditLog(logs) {
+    var tbody = document.getElementById('auditTableBody');
+    if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
+        return;
+    }
+    var actionColors = {
+        '조회':'#64748b','분석실행':'#3b82f6','다운로드':'#10b981','이메일':'#f59e0b',
+        '로그인':'#8b5cf6','로그아웃':'#8b5cf6','저장':'#06b6d4','삭제':'#ef4444',
+        '변경':'#f97316','공유':'#ec4899','기타':'#64748b'
+    };
+    var html = '';
+    for (var i = 0; i < logs.length; i++) {
+        var l = logs[i];
+        var statusStyle = 'background:' + (l.statusColor||'#64748b') + '20;color:' + (l.statusColor||'#64748b') + ';';
+        var ac = actionColors[l.actionType] || '#64748b';
+        var actionBadge = '<span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:8px;background:' + ac + '20;color:' + ac + ';">' + escHtml(l.actionType||'') + '</span>';
+        html += '<tr>'
+              + '<td style="white-space:nowrap;">' + escHtml(l.formattedDate||'') + '</td>'
+              + '<td style="font-weight:600;color:var(--text-primary);">' + escHtml(l.username||'-') + '</td>'
+              + '<td>' + actionBadge + '</td>'
+              + '<td><code style="font-size:.7rem;">' + escHtml(l.method||'') + '</code></td>'
+              + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(l.endpoint||'') + '">'
+              + escHtml(l.endpoint||'') + '</td>'
+              + '<td style="font-size:.72rem;">' + escHtml(l.ip||'-') + '</td>'
+              + '<td><span class="status-badge" style="' + statusStyle + '">' + (l.statusCode||'-') + '</span></td>'
+              + '</tr>';
+    }
+    tbody.innerHTML = html;
 }
 
 /* ═══ 유틸 ══════════════════════════════════════════════════════════════════ */

@@ -42,6 +42,10 @@ public class AuditLog {
     @Column(nullable = false)
     private boolean apiKeyUsed = false;
 
+    /** 인증된 사용자명 (Spring Security) */
+    @Column(length = 50)
+    private String username;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -58,6 +62,12 @@ public class AuditLog {
         this.createdAt  = LocalDateTime.now();
     }
 
+    public AuditLog(String endpoint, String method, String ip,
+                    String userAgent, Integer statusCode, boolean apiKeyUsed, String username) {
+        this(endpoint, method, ip, userAgent, statusCode, apiKeyUsed);
+        this.username = truncate(username, 50);
+    }
+
     // ── getters ──────────────────────────────────────────────────────────────
 
     public long          getId()         { return id; }
@@ -67,7 +77,26 @@ public class AuditLog {
     public String        getUserAgent()  { return userAgent; }
     public Integer       getStatusCode() { return statusCode; }
     public boolean       isApiKeyUsed()  { return apiKeyUsed; }
+    public String        getUsername()   { return username; }
     public LocalDateTime getCreatedAt()  { return createdAt; }
+
+    /** 액션 유형 추정 (endpoint 기반) */
+    public String getActionType() {
+        if (endpoint == null) return "기타";
+        if (endpoint.contains("/download") || endpoint.contains("/export")) return "다운로드";
+        if (endpoint.contains("/send-email")) return "이메일";
+        if (endpoint.contains("/login"))  return "로그인";
+        if (endpoint.contains("/logout")) return "로그아웃";
+        if (endpoint.contains("/share"))  return "공유";
+        if ("POST".equals(method)) {
+            if (endpoint.contains("/run") || endpoint.contains("/generate") || endpoint.contains("/convert")
+                || endpoint.contains("/init") || endpoint.contains("/analyze")) return "분석실행";
+            if (endpoint.contains("/save") || endpoint.contains("/create")) return "저장";
+            if (endpoint.contains("/delete")) return "삭제";
+            return "변경";
+        }
+        return "조회";
+    }
 
     public String getFormattedDate() {
         return createdAt.format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"));

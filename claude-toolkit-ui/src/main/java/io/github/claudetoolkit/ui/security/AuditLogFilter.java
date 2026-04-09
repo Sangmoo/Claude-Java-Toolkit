@@ -1,6 +1,9 @@
 package io.github.claudetoolkit.ui.security;
 
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
@@ -53,7 +56,15 @@ public class AuditLogFilter extends OncePerRequestFilter {
             boolean apiKeyUsed= req.getHeader("X-Api-Key") != null;
             int status        = wrappedRes.getStatus();
 
-            auditLogService.log(path, req.getMethod(), ip, userAgent, status, apiKeyUsed);
+            // Spring Security 인증 사용자명 추출
+            String username = null;
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated()
+                    && !(auth instanceof AnonymousAuthenticationToken)) {
+                username = auth.getName();
+            }
+
+            auditLogService.log(path, req.getMethod(), ip, userAgent, status, apiKeyUsed, username);
             wrappedRes.copyBodyToResponse();
         }
     }

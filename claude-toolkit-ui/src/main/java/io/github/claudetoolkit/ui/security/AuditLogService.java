@@ -27,10 +27,15 @@ public class AuditLogService {
     @Transactional
     public void log(String endpoint, String method, String ip,
                     String userAgent, Integer statusCode, boolean apiKeyUsed) {
+        log(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, null);
+    }
+
+    @Transactional
+    public void log(String endpoint, String method, String ip,
+                    String userAgent, Integer statusCode, boolean apiKeyUsed, String username) {
         try {
-            repo.save(new AuditLog(endpoint, method, ip, userAgent, statusCode, apiKeyUsed));
+            repo.save(new AuditLog(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username));
         } catch (Exception e) {
-            // 감사 로그 실패가 원래 요청에 영향을 주면 안 됨
             System.err.println("[AuditLog] save failed: " + e.getMessage());
         }
     }

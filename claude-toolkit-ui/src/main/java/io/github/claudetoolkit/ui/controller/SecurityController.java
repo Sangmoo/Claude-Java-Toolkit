@@ -68,6 +68,8 @@ public class SecurityController {
             m.put("ip",          l.getIp());
             m.put("statusCode",  l.getStatusCode());
             m.put("apiKeyUsed",  l.isApiKeyUsed());
+            m.put("username",    l.getUsername());
+            m.put("actionType",  l.getActionType());
             m.put("formattedDate", l.getFormattedDate());
             m.put("statusColor", l.getStatusBadgeColor());
             result.add(m);
