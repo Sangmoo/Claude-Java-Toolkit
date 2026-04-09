@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.schedule;
 import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
 import io.github.claudetoolkit.ui.email.EmailService;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import java.util.concurrent.ScheduledFuture;
 
 @Service
 public class ScheduleService {
+
+    private static final Logger log = LoggerFactory.getLogger(ScheduleService.class);
 
     private final ScheduledJobRepository  repository;
     private final SqlAdvisorService       sqlAdvisorService;
@@ -114,7 +118,7 @@ public class ScheduleService {
             );
             futures.put(job.getId(), future);
         } catch (Exception e) {
-            System.err.println("[ScheduleService] Failed to schedule job " + job.getId() + ": " + e.getMessage());
+            log.error("[ScheduleService] Failed to schedule job " + job.getId() + ": " + e.getMessage());
         }
     }
 

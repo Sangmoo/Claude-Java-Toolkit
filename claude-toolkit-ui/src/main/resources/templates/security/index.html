@@ -198,7 +198,10 @@
                         <!-- 로그 테이블 -->
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <span style="font-size:.82rem;font-weight:600;">
-                                <i class="fas fa-list-ul me-1" style="color:#10b981"></i>최근 감사 로그 (최대 300건)
+                                <i class="fas fa-list-ul me-1" style="color:#10b981"></i>최근 감사 로그
+                                <span style="font-size:.68rem;color:var(--text-muted);font-weight:400;margin-left:6px;">
+                                    <i class="fas fa-info-circle me-1"></i>90일 이상 경과한 로그는 매일 03:00에 자동 삭제됩니다
+                                </span>
                             </span>
                             <button type="button" class="btn btn-outline-tk btn-sm" onclick="loadAuditLog()">
                                 <i class="fas fa-sync-alt me-1"></i>새로고침

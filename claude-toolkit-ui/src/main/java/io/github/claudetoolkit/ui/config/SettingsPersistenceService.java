@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.config;
 
 import io.github.claudetoolkit.starter.properties.ClaudeProperties;
 import io.github.claudetoolkit.ui.security.CryptoUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -22,6 +24,8 @@ import java.nio.charset.StandardCharsets;
  */
 @Service
 public class SettingsPersistenceService {
+
+    private static final Logger log = LoggerFactory.getLogger(SettingsPersistenceService.class);
 
     private static final String SETTINGS_DIR  =
             System.getProperty("user.home") + File.separator + ".claude-toolkit";
@@ -52,7 +56,7 @@ public class SettingsPersistenceService {
                 writer.close();
             }
         } catch (Exception e) {
-            System.err.println("[SettingsPersistence] save failed: " + e.getMessage());
+            log.error("[SettingsPersistence] save failed: " + e.getMessage());
         }
     }
 
@@ -71,7 +75,7 @@ public class SettingsPersistenceService {
             }
             applyJson(sb.toString(), settings);
         } catch (Exception e) {
-            System.err.println("[SettingsPersistence] load failed: " + e.getMessage());
+            log.error("[SettingsPersistence] load failed: " + e.getMessage());
         }
     }
 

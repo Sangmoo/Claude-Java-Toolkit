@@ -1,5 +1,7 @@
 package io.github.claudetoolkit.ui.masking;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -19,6 +21,8 @@ import java.util.regex.*;
  */
 @Service
 public class SensitiveMaskingService {
+
+    private static final Logger log = LoggerFactory.getLogger(SensitiveMaskingService.class);
 
     // ── 지원 패턴 유형 ─────────────────────────────────────────────────────────
 
@@ -88,7 +92,7 @@ public class SensitiveMaskingService {
                     spans.add(new MatchSpan(start, end, original, pt.name()));
                 }
             } catch (PatternSyntaxException e) {
-                System.err.println("[Masking] bad regex for " + pt.name() + ": " + e.getMessage());
+                log.error("[Masking] bad regex for " + pt.name() + ": " + e.getMessage());
             }
         }
 

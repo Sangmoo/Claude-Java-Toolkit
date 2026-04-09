@@ -36,6 +36,9 @@ public class SchemaMigration implements ApplicationRunner {
         // 기존 VARCHAR(200)/VARCHAR(64) → VARCHAR(500) 확장 (암호화 데이터 수용)
         alterColumnType("APP_USER", "PERSONAL_API_KEY", "VARCHAR(500)");
         alterColumnType("APP_USER", "TOTP_SECRET",      "VARCHAR(500)");
+
+        // AuditLog UserAgent 300→500 확장
+        alterColumnType("AUDIT_LOG", "USER_AGENT", "VARCHAR(500)");
     }
 
     private void addColumnIfNotExists(String table, String column, String type) {

@@ -30,8 +30,8 @@ public class AuditLog {
     @Column(nullable = true, length = 60)
     private String ip;
 
-    /** User-Agent (최대 300자) */
-    @Column(nullable = true, length = 300)
+    /** User-Agent (최대 500자) */
+    @Column(nullable = true, length = 500)
     private String userAgent;
 
     /** HTTP 응답 상태 코드 */
@@ -60,7 +60,7 @@ public class AuditLog {
         this.endpoint   = truncate(endpoint, 300);
         this.method     = truncate(method,   10);
         this.ip         = truncate(ip,       60);
-        this.userAgent  = truncate(userAgent, 300);
+        this.userAgent  = truncate(userAgent, 500);
         this.statusCode = statusCode;
         this.apiKeyUsed = apiKeyUsed;
         this.createdAt  = LocalDateTime.now();

@@ -1,5 +1,7 @@
 package io.github.claudetoolkit.ui.user;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -11,6 +13,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DefaultAdminInitializer implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultAdminInitializer.class);
 
     private final AppUserRepository userRepository;
     private final BCryptPasswordEncoder encoder;
@@ -27,7 +31,7 @@ public class DefaultAdminInitializer implements ApplicationRunner {
             count = userRepository.count();
         } catch (Exception e) {
             // 테이블이 아직 생성되지 않은 경우 (첫 실행)
-            System.out.println("[Security] 사용자 테이블 초기화 중...");
+            log.info("[Security] 사용자 테이블 초기화 중...");
         }
         if (count == 0) {
             try {
@@ -35,12 +39,12 @@ public class DefaultAdminInitializer implements ApplicationRunner {
                 admin.setDisplayName("관리자");
                 admin.setMustChangePassword(true);
                 userRepository.save(admin);
-                System.out.println("[Security] 기본 관리자 계정 생성됨: admin / admin1234");
+                log.info("[Security] 기본 관리자 계정 생성됨: admin / admin1234");
             } catch (Exception e) {
-                System.out.println("[Security] 관리자 계정 생성 실패 (이미 존재할 수 있음): " + e.getMessage());
+                log.warn("[Security] 관리자 계정 생성 실패 (이미 존재할 수 있음): " + e.getMessage());
             }
         } else {
-            System.out.println("[Security] 기존 사용자 " + count + "명 확인됨 — 관리자 계정 재생성 건너뜀");
+            log.info("[Security] 기존 사용자 " + count + "명 확인됨 — 관리자 계정 재생성 건너뜀");
         }
     }
 }

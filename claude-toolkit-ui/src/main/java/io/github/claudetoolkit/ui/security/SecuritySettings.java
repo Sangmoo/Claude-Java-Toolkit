@@ -1,5 +1,8 @@
 package io.github.claudetoolkit.ui.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -12,6 +15,8 @@ import java.nio.file.*;
  * spring-boot-starter-security는 사용하지 않습니다 (전체 엔드포인트 잠금 방지).
  */
 public class SecuritySettings {
+
+    private static final Logger log = LoggerFactory.getLogger(SecuritySettings.class);
 
     private static final Path FILE = Paths.get(
             System.getProperty("user.home"), ".claude-toolkit", "security-settings.json");
@@ -61,7 +66,7 @@ public class SecuritySettings {
             s.settingsPasswordHash = getString(json, "settingsPasswordHash", null);
             s.setupCompleted       = getBool(json,   "setupCompleted",       false);
         } catch (Exception e) {
-            System.err.println("[SecuritySettings] load failed: " + e.getMessage());
+            log.error("[SecuritySettings] load failed: " + e.getMessage());
         }
         return s;
     }
@@ -78,7 +83,7 @@ public class SecuritySettings {
             sb.append("}");
             Files.write(FILE, sb.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
-            System.err.println("[SecuritySettings] save failed: " + e.getMessage());
+            log.error("[SecuritySettings] save failed: " + e.getMessage());
         }
     }
 

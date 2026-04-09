@@ -6,6 +6,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Git 로컬 저장소 연동 서비스.
@@ -48,7 +49,17 @@ public class GitService {
         while ((line = reader.readLine()) != null) {
             sb.append(line).append('\n');
         }
-        try { process.waitFor(); } catch (InterruptedException ignored) {}
+        try {
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IOException("Git 명령 실행 시간 초과 (30초). 프로세스를 강제 종료했습니다.");
+            }
+        } catch (InterruptedException e) {
+            process.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw new IOException("Git 명령이 인터럽트되었습니다.");
+        }
         return sb.toString();
     }
 

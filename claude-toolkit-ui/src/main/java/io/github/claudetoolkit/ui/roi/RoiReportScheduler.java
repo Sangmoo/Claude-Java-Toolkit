@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.roi;
 import io.github.claudetoolkit.ui.email.EmailService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,8 @@ import java.util.List;
  */
 @Component
 public class RoiReportScheduler {
+
+    private static final Logger log = LoggerFactory.getLogger(RoiReportScheduler.class);
 
     private final ReviewHistoryService historyService;
     private final EmailService         emailService;
@@ -64,7 +68,7 @@ public class RoiReportScheduler {
         try {
             emailService.sendJobResult(alertEmail, subject, body);
         } catch (Exception e) {
-            System.err.println("[RoiScheduler] 월간 리포트 발송 실패: " + e.getMessage());
+            log.error("[RoiScheduler] 월간 리포트 발송 실패: " + e.getMessage());
         }
     }
 
@@ -106,7 +110,7 @@ public class RoiReportScheduler {
         try {
             emailService.sendJobResult(alertEmail, subject, body);
         } catch (Exception e) {
-            System.err.println("[RoiScheduler] 예산 초과 알림 발송 실패: " + e.getMessage());
+            log.error("[RoiScheduler] 예산 초과 알림 발송 실패: " + e.getMessage());
         }
     }
 

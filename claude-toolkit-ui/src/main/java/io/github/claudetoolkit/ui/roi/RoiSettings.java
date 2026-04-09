@@ -1,5 +1,8 @@
 package io.github.claudetoolkit.ui.roi;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -17,6 +20,8 @@ import java.util.Map;
  * <p>SettingsPersistenceService의 hand-written JSON과 분리하여 Map 직렬화 복잡도를 피합니다.
  */
 public class RoiSettings {
+
+    private static final Logger log = LoggerFactory.getLogger(RoiSettings.class);
 
     private static final String SETTINGS_FILE =
             System.getProperty("user.home") + File.separator + ".claude-toolkit"
@@ -78,7 +83,7 @@ public class RoiSettings {
                     new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8));
             try { w.write(toJson()); } finally { w.close(); }
         } catch (Exception e) {
-            System.err.println("[RoiSettings] save failed: " + e.getMessage());
+            log.error("[RoiSettings] save failed: " + e.getMessage());
         }
     }
 
@@ -96,7 +101,7 @@ public class RoiSettings {
             } finally { r.close(); }
             s.applyJson(sb.toString());
         } catch (Exception e) {
-            System.err.println("[RoiSettings] load failed: " + e.getMessage());
+            log.error("[RoiSettings] load failed: " + e.getMessage());
         }
         return s;
     }

@@ -71,9 +71,13 @@ public class BatchController {
             }
         }
 
-        model.addAttribute("mode",    "sql");
-        model.addAttribute("results", results);
-        model.addAttribute("count",   results.size());
+        int successCount = 0, failCount = 0;
+        for (BatchResult r : results) { if (r.isSuccess()) successCount++; else failCount++; }
+        model.addAttribute("mode",         "sql");
+        model.addAttribute("results",      results);
+        model.addAttribute("count",        results.size());
+        model.addAttribute("successCount", successCount);
+        model.addAttribute("failCount",    failCount);
         return "batch/index";
     }
 
@@ -123,10 +127,14 @@ public class BatchController {
             }
         }
 
-        model.addAttribute("mode",       "testgen");
-        model.addAttribute("results",    results);
-        model.addAttribute("count",      results.size());
-        model.addAttribute("sourceType", sourceType);
+        int successCount = 0, failCount = 0;
+        for (BatchResult r : results) { if (r.isSuccess()) successCount++; else failCount++; }
+        model.addAttribute("mode",         "testgen");
+        model.addAttribute("results",      results);
+        model.addAttribute("count",        results.size());
+        model.addAttribute("successCount", successCount);
+        model.addAttribute("failCount",    failCount);
+        model.addAttribute("sourceType",   sourceType);
         return "batch/index";
     }
 

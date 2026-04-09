@@ -1,5 +1,7 @@
 package io.github.claudetoolkit.ui.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -28,6 +30,8 @@ import java.util.Map;
  */
 @Service
 public class PromptTemplateService {
+
+    private static final Logger log = LoggerFactory.getLogger(PromptTemplateService.class);
 
     private static final String DIR  = System.getProperty("user.home") + File.separator + ".claude-toolkit";
     private static final String FILE = DIR + File.separator + "prompt-templates.json";
@@ -96,7 +100,7 @@ public class PromptTemplateService {
                 w.write(sb.toString());
             }
         } catch (Exception e) {
-            System.err.println("[PromptTemplateService] save failed: " + e.getMessage());
+            log.error("[PromptTemplateService] save failed: " + e.getMessage());
         }
     }
 
@@ -150,7 +154,7 @@ public class PromptTemplateService {
                 pos = vi;
             }
         } catch (Exception e) {
-            System.err.println("[PromptTemplateService] load failed: " + e.getMessage());
+            log.error("[PromptTemplateService] load failed: " + e.getMessage());
         }
     }
 

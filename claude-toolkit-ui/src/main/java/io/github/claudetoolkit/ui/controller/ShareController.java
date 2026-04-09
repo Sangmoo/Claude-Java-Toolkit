@@ -4,6 +4,8 @@ import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import io.github.claudetoolkit.ui.share.SharedResult;
 import io.github.claudetoolkit.ui.share.SharedResultRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
@@ -17,6 +19,8 @@ import java.util.List;
 
 @Controller
 public class ShareController {
+
+    private static final Logger log = LoggerFactory.getLogger(ShareController.class);
 
     private final ReviewHistoryService   historyService;
     private final SharedResultRepository shareRepository;
@@ -61,7 +65,7 @@ public class ShareController {
         List<SharedResult> expired = shareRepository.findExpired(LocalDateTime.now());
         if (!expired.isEmpty()) {
             shareRepository.deleteAll(expired);
-            System.out.println("[Share] Cleaned up " + expired.size() + " expired share links.");
+            log.info("[Share] Cleaned up " + expired.size() + " expired share links.");
         }
     }
 }

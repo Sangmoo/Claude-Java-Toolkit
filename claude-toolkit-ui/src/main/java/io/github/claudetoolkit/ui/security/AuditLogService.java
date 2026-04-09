@@ -1,5 +1,7 @@
 package io.github.claudetoolkit.ui.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,8 @@ import java.util.List;
  */
 @Service
 public class AuditLogService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditLogService.class);
 
     private final AuditLogRepository repo;
 
@@ -42,7 +46,7 @@ public class AuditLogService {
         try {
             repo.save(new AuditLog(endpoint, method, ip, userAgent, statusCode, apiKeyUsed, username, durationMs));
         } catch (Exception e) {
-            System.err.println("[AuditLog] save failed: " + e.getMessage());
+            log.error("[AuditLog] save failed: " + e.getMessage());
         }
     }
 

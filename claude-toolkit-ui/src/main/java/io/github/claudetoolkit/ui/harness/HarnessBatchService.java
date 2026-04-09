@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.harness;
 import io.github.claudetoolkit.ui.email.EmailService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 public class HarnessBatchService {
+
+    private static final Logger log = LoggerFactory.getLogger(HarnessBatchService.class);
 
     private final HarnessReviewService   reviewService;
     private final ReviewHistoryService   historyService;
@@ -169,7 +173,7 @@ public class HarnessBatchService {
             BatchHistory saved = batchHistoryRepo.save(h);
             return saved.getId();
         } catch (Exception e) {
-            System.err.println("[HarnessBatchService] DB 저장 실패: " + e.getMessage());
+            log.error("[HarnessBatchService] DB 저장 실패: " + e.getMessage());
             return -1L;
         }
     }
