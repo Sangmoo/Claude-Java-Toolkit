@@ -26,6 +26,21 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // ── Auto-inject logout button next to theme toggle ──
+    var themeToggle = document.getElementById('themeToggle');
+    if (themeToggle && themeToggle.parentNode) {
+        var logoutBtn = document.createElement('a');
+        logoutBtn.href = '/logout';
+        logoutBtn.title = '로그아웃';
+        logoutBtn.style.cssText = 'background:none;border:1px solid var(--border-color);color:var(--text-muted);'
+            + 'padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.75rem;text-decoration:none;'
+            + 'display:inline-flex;align-items:center;gap:4px;margin-left:6px;transition:all .15s;';
+        logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i><span>로그아웃</span>';
+        logoutBtn.onmouseenter = function(){ this.style.borderColor='#ef4444'; this.style.color='#ef4444'; };
+        logoutBtn.onmouseleave = function(){ this.style.borderColor='var(--border-color)'; this.style.color='var(--text-muted)'; };
+        themeToggle.parentNode.insertBefore(logoutBtn, themeToggle.nextSibling);
+    }
+
     // ── Auto-inject print button when result is visible ──
     var resultEl = document.querySelector('.result-area, .result-box, #resultMd, .result-panel');
     if (resultEl) {
