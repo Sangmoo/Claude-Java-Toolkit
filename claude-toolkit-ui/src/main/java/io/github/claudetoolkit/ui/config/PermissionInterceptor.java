@@ -77,16 +77,16 @@ public class PermissionInterceptor implements WebMvcConfigurer {
     private final AppUserRepository userRepository;
     private final UserPermissionRepository permissionRepository;
     private final io.github.claudetoolkit.ui.security.RateLimitService rateLimitService;
-    private final io.github.claudetoolkit.starter.properties.ClaudeProperties claudeProperties;
+    private final io.github.claudetoolkit.starter.client.ClaudeClient claudeClient;
 
     public PermissionInterceptor(AppUserRepository userRepository,
                                  UserPermissionRepository permissionRepository,
                                  io.github.claudetoolkit.ui.security.RateLimitService rateLimitService,
-                                 io.github.claudetoolkit.starter.properties.ClaudeProperties claudeProperties) {
+                                 io.github.claudetoolkit.starter.client.ClaudeClient claudeClient) {
         this.userRepository       = userRepository;
         this.permissionRepository = permissionRepository;
         this.rateLimitService     = rateLimitService;
-        this.claudeProperties     = claudeProperties;
+        this.claudeClient         = claudeClient;
     }
 
     @Override
@@ -151,19 +151,20 @@ public class PermissionInterceptor implements WebMvcConfigurer {
             }
 
             // 사용자별 API 키 적용 (POST 분석 실행 시)
+            // ThreadLocal 기반 오버라이드 → 공유 빈 수정 없이 요청별 격리
             if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
                 String personalKey = user.getPersonalApiKey();
                 if (personalKey != null && !personalKey.trim().isEmpty()) {
-                    // 원래 서버 키를 request attribute에 저장 → afterCompletion에서 복원
-                    request.setAttribute("_originalApiKey", claudeProperties.getApiKey());
-                    claudeProperties.setApiKey(personalKey.trim());
+                    claudeClient.setApiKeyOverride(personalKey.trim());
                 }
             }
 
-            // Rate Limit 체크 (POST 분석 실행 요청에만 적용)
+            // Rate Limit 체크 (POST 분석 실행 요청에만 적용) — v2.6.0: 일일/월간 한도 포함
             if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
                 String reason = rateLimitService.checkAndRecord(
-                        user.getUsername(), user.getRateLimitPerMinute(), user.getRateLimitPerHour());
+                        user.getUsername(),
+                        user.getRateLimitPerMinute(), user.getRateLimitPerHour(),
+                        user.getDailyApiLimit(),     user.getMonthlyApiLimit());
                 if (reason != null) {
                     response.setStatus(429);
                     response.setContentType("application/json;charset=UTF-8");
@@ -178,11 +179,8 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         @Override
         public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                     Object handler, Exception ex) {
-            // 사용자별 API 키 → 서버 공용 키 복원
-            String originalKey = (String) request.getAttribute("_originalApiKey");
-            if (originalKey != null) {
-                claudeProperties.setApiKey(originalKey);
-            }
+            // 요청 스레드의 API 키 오버라이드 제거
+            claudeClient.clearApiKeyOverride();
         }
     }
 }

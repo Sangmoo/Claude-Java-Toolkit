@@ -241,6 +241,7 @@
                                     <tr>
                                         <th>시간</th>
                                         <th>사용자</th>
+                                        <th>기능 메뉴</th>
                                         <th>액션</th>
                                         <th>메서드</th>
                                         <th>엔드포인트</th>
@@ -411,7 +412,7 @@ function loadAuditLog(page) {
         })
         .catch(function() {
             document.getElementById('auditTableBody').innerHTML =
-                '<tr><td colspan="8" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
+                '<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:20px;">로그 조회 실패</td></tr>';
         });
 }
 
@@ -434,7 +435,7 @@ function renderPagination(data) {
 function renderAuditLog(logs) {
     var tbody = document.getElementById('auditTableBody');
     if (!logs || logs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">로그 없음</td></tr>';
         return;
     }
     var actionColors = {
@@ -450,9 +451,11 @@ function renderAuditLog(logs) {
         var actionBadge = '<span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:8px;background:' + ac + '20;color:' + ac + ';">' + escHtml(l.actionType||'') + '</span>';
         var dur = l.durationMs != null ? l.durationMs + 'ms' : '-';
         var durColor = l.durationMs != null && l.durationMs > 3000 ? '#ef4444' : (l.durationMs != null && l.durationMs > 1000 ? '#f59e0b' : 'var(--text-muted)');
+        var menuName = l.menuName && l.menuName !== '-' ? l.menuName : '';
         html += '<tr>'
               + '<td style="white-space:nowrap;">' + escHtml(l.formattedDate||'') + '</td>'
               + '<td style="font-weight:600;color:var(--text-primary);">' + escHtml(l.username||'-') + '</td>'
+              + '<td style="font-size:.76rem;color:var(--accent);">' + escHtml(menuName) + '</td>'
               + '<td>' + actionBadge + '</td>'
               + '<td><code style="font-size:.7rem;">' + escHtml(l.method||'') + '</code></td>'
               + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(l.endpoint||'') + '">'

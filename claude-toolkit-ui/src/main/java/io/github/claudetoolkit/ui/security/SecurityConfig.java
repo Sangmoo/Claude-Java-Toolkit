@@ -24,9 +24,12 @@ import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 public class SecurityConfig {
 
     private final TwoFactorAuthHandler twoFactorAuthHandler;
+    private final LoginAttemptHandler  loginAttemptHandler;
 
-    public SecurityConfig(TwoFactorAuthHandler twoFactorAuthHandler) {
+    public SecurityConfig(TwoFactorAuthHandler twoFactorAuthHandler,
+                          LoginAttemptHandler loginAttemptHandler) {
         this.twoFactorAuthHandler = twoFactorAuthHandler;
+        this.loginAttemptHandler  = loginAttemptHandler;
     }
 
     @Bean
@@ -87,7 +90,7 @@ public class SecurityConfig {
             .formLogin()
                 .loginPage("/login")
                 .successHandler(twoFactorAuthHandler)
-                .failureUrl("/login?error=true")
+                .failureHandler(loginAttemptHandler)
                 .permitAll()
             .and()
 

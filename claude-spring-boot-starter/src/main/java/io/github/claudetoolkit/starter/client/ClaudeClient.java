@@ -46,6 +46,14 @@ public class ClaudeClient {
     private volatile int            lastInputTokens   = 0;
     private volatile int            lastOutputTokens  = 0;
 
+    /**
+     * 요청별 API 키 오버라이드.
+     * <p>{@link InheritableThreadLocal}이라 SSE 백그라운드 스레드({@code new Thread()})에서도
+     * 부모 스레드의 값이 상속됩니다. 멀티유저 동시 요청 시 공유 상태(ClaudeProperties)를
+     * 수정하지 않고 요청별로 개인 API 키를 격리합니다.
+     */
+    private final InheritableThreadLocal<String> apiKeyOverride = new InheritableThreadLocal<String>();
+
     public ClaudeClient(ClaudeProperties properties) {
         this.properties   = properties;
         this.objectMapper = new ObjectMapper();
@@ -64,6 +72,28 @@ public class ClaudeClient {
 
     public String getEffectiveModel() {
         return modelOverride != null ? modelOverride : properties.getModel();
+    }
+
+    // ── API key override (요청별 개인 API 키 격리) ────────────────────────────
+
+    /** 현재 스레드(및 자식 스레드)에서 사용할 API 키를 설정합니다. */
+    public void setApiKeyOverride(String key) {
+        if (key != null && !key.trim().isEmpty()) {
+            apiKeyOverride.set(key.trim());
+        } else {
+            apiKeyOverride.remove();
+        }
+    }
+
+    /** 현재 스레드의 API 키 오버라이드를 제거합니다. */
+    public void clearApiKeyOverride() {
+        apiKeyOverride.remove();
+    }
+
+    /** 현재 요청에 실제 사용될 API 키 (오버라이드 우선, 없으면 properties). */
+    public String getEffectiveApiKey() {
+        String override = apiKeyOverride.get();
+        return override != null ? override : properties.getApiKey();
     }
 
     // ── Standard (blocking) chat ─────────────────────────────────────────────
@@ -158,7 +188,7 @@ public class ClaudeClient {
             String requestBody = objectMapper.writeValueAsString(request);
             Request httpRequest = new Request.Builder()
                     .url(properties.getBaseUrl() + "/v1/messages")
-                    .header("x-api-key", properties.getApiKey())
+                    .header("x-api-key", getEffectiveApiKey())
                     .header("anthropic-version", properties.getApiVersion())
                     .header("content-type", "application/json")
                     .post(RequestBody.create(requestBody, JSON))
@@ -197,6 +227,17 @@ public class ClaudeClient {
         chatStreamInternal(systemPrompt,
                 Collections.singletonList(ClaudeMessage.ofUser(userMessage)),
                 maxTokens, onChunk);
+    }
+
+    /**
+     * 멀티턴 대화를 네이티브 Messages API 형식으로 스트리밍합니다.
+     * <p>대화 히스토리를 텍스트로 이어붙이지 않고 {@code messages} 배열로 직접 전달하여
+     * 토큰 절감 및 Claude prompt caching 활용이 가능합니다.
+     * user/assistant 역할이 엄격히 교대되어야 합니다.
+     */
+    public void chatStream(String systemPrompt, List<ClaudeMessage> messages,
+                           int maxTokens, Consumer<String> onChunk) throws IOException {
+        chatStreamInternal(systemPrompt, messages, maxTokens, onChunk);
     }
 
     // ── Auto-continuation (streaming) ────────────────────────────────────────
@@ -265,7 +306,7 @@ public class ClaudeClient {
         String requestBody = objectMapper.writeValueAsString(request);
         Request httpRequest = new Request.Builder()
                 .url(properties.getBaseUrl() + "/v1/messages")
-                .header("x-api-key", properties.getApiKey())
+                .header("x-api-key", getEffectiveApiKey())
                 .header("anthropic-version", properties.getApiVersion())
                 .header("content-type", "application/json")
                 .post(RequestBody.create(requestBody, JSON))

@@ -74,6 +74,34 @@ public class AppUser {
     @Column
     private LocalDateTime lastLoginAt;
 
+    /** 로그인 실패 연속 횟수 (5회 도달 시 잠금) */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int failedLoginAttempts = 0;
+
+    /** 계정 잠금 해제 시각 (미래 시각이면 로그인 불가) */
+    @Column
+    private LocalDateTime lockedUntil;
+
+    /** 마지막 비밀번호 변경 시각 */
+    @Column
+    private LocalDateTime lastPasswordChangeAt;
+
+    /** 비밀번호 만료 알림 "다음에 변경하기" 스누즈 시각 (클릭 후 다시 90일 카운팅 시작) */
+    @Column
+    private LocalDateTime passwordSnoozeAt;
+
+    /** 사용자별 IP 화이트리스트 (콤마 구분, 비어있으면 모든 IP 허용) */
+    @Column(length = 500)
+    private String ipWhitelist;
+
+    /** 일일 API 호출 제한 (0=무제한) */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int dailyApiLimit = 0;
+
+    /** 월간 API 호출 제한 (0=무제한) */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int monthlyApiLimit = 0;
+
     protected AppUser() {}
 
     public AppUser(String username, String passwordHash, String role) {
@@ -107,6 +135,18 @@ public class AppUser {
     public boolean isEnabled()             { return enabled; }
     public LocalDateTime getCreatedAt()    { return createdAt; }
     public LocalDateTime getLastLoginAt()  { return lastLoginAt; }
+    public int           getFailedLoginAttempts()  { return failedLoginAttempts; }
+    public LocalDateTime getLockedUntil()          { return lockedUntil; }
+    public LocalDateTime getLastPasswordChangeAt() { return lastPasswordChangeAt; }
+    public LocalDateTime getPasswordSnoozeAt()     { return passwordSnoozeAt; }
+    public String        getIpWhitelist()           { return ipWhitelist; }
+    public int           getDailyApiLimit()         { return dailyApiLimit; }
+    public int           getMonthlyApiLimit()       { return monthlyApiLimit; }
+
+    /** 현재 계정이 잠겨 있는지 확인 (lockedUntil이 미래 시각일 때 잠김) */
+    public boolean isLocked() {
+        return lockedUntil != null && lockedUntil.isAfter(LocalDateTime.now());
+    }
 
     public void setUsername(String username)           { this.username = username; }
     public void setPasswordHash(String passwordHash)  { this.passwordHash = passwordHash; }
@@ -128,4 +168,11 @@ public class AppUser {
     public void setEnabled(boolean enabled)            { this.enabled = enabled; }
     public void setCreatedAt(LocalDateTime createdAt)  { this.createdAt = createdAt; }
     public void setLastLoginAt(LocalDateTime t)        { this.lastLoginAt = t; }
+    public void setFailedLoginAttempts(int n)          { this.failedLoginAttempts = n; }
+    public void setLockedUntil(LocalDateTime t)        { this.lockedUntil = t; }
+    public void setLastPasswordChangeAt(LocalDateTime t){ this.lastPasswordChangeAt = t; }
+    public void setPasswordSnoozeAt(LocalDateTime t)   { this.passwordSnoozeAt = t; }
+    public void setIpWhitelist(String v)               { this.ipWhitelist = v; }
+    public void setDailyApiLimit(int v)                { this.dailyApiLimit = v; }
+    public void setMonthlyApiLimit(int v)              { this.monthlyApiLimit = v; }
 }

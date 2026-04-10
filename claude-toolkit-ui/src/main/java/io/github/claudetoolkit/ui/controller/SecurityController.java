@@ -63,12 +63,13 @@ public class SecurityController {
             @RequestParam(required = false) String user,
             @RequestParam(required = false) String period) {
 
-        // 기간 필터
+        // 기간 필터 (KST 기준)
+        java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
         java.time.LocalDateTime since = null;
-        if ("1h".equals(period)) since = java.time.LocalDateTime.now().minusHours(1);
-        else if ("today".equals(period)) since = java.time.LocalDate.now().atStartOfDay();
-        else if ("7d".equals(period)) since = java.time.LocalDateTime.now().minusDays(7);
-        else if ("30d".equals(period)) since = java.time.LocalDateTime.now().minusDays(30);
+        if ("1h".equals(period)) since = java.time.LocalDateTime.now(KST).minusHours(1);
+        else if ("today".equals(period)) since = java.time.LocalDate.now(KST).atStartOfDay();
+        else if ("7d".equals(period)) since = java.time.LocalDateTime.now(KST).minusDays(7);
+        else if ("30d".equals(period)) since = java.time.LocalDateTime.now(KST).minusDays(30);
 
         org.springframework.data.domain.Page<AuditLog> pageResult;
         if ((user != null && !user.isEmpty()) || since != null) {
@@ -89,6 +90,7 @@ public class SecurityController {
             m.put("apiKeyUsed",  l.isApiKeyUsed());
             m.put("username",    l.getUsername());
             m.put("actionType",  l.getActionType());
+            m.put("menuName",    l.getMenuName());
             m.put("durationMs",  l.getDurationMs());
             m.put("formattedDate", l.getFormattedDate());
             m.put("statusColor", l.getStatusBadgeColor());
@@ -110,10 +112,11 @@ public class SecurityController {
     public ResponseEntity<byte[]> exportAuditLogCsv() {
         List<AuditLog> logs = auditLogService.findRecent();
         StringBuilder csv = new StringBuilder();
-        csv.append("시간,사용자,액션,메서드,엔드포인트,IP,상태,응답시간(ms)\n");
+        csv.append("시간,사용자,기능 메뉴,액션,메서드,엔드포인트,IP,상태,응답시간(ms)\n");
         for (AuditLog l : logs) {
             csv.append(l.getFormattedDate()).append(',');
             csv.append(l.getUsername() != null ? l.getUsername() : "-").append(',');
+            csv.append(l.getMenuName()).append(',');
             csv.append(l.getActionType()).append(',');
             csv.append(l.getMethod()).append(',');
             csv.append('"').append((l.getEndpoint() != null ? l.getEndpoint() : "").replace("\"","\"\"")).append("\",");

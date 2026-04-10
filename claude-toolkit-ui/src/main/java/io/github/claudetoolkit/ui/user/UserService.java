@@ -100,14 +100,20 @@ public class UserService {
         userRepository.save(user);
     }
 
+    /**
+     * @deprecated v2.6.0: 이 오버로드는 rate limit 및 API 한도를 0으로 리셋합니다.
+     *     10-param 버전을 사용하세요.
+     */
+    @Deprecated
     @Transactional
     public void updateInfo(Long id, String displayName, String email, String phone, String role) {
-        updateInfo(id, displayName, email, phone, role, null, 0, 0);
+        updateInfo(id, displayName, email, phone, role, null, 0, 0, 0, 0);
     }
 
     @Transactional
     public void updateInfo(Long id, String displayName, String email, String phone, String role,
-                           String personalApiKey, int rateLimitPerMinute, int rateLimitPerHour) {
+                           String personalApiKey, int rateLimitPerMinute, int rateLimitPerHour,
+                           int dailyApiLimit, int monthlyApiLimit) {
         AppUser user = userRepository.findById(id)
                 .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
                     public RuntimeException get() {
@@ -125,6 +131,35 @@ public class UserService {
         }
         user.setRateLimitPerMinute(rateLimitPerMinute);
         user.setRateLimitPerHour(rateLimitPerHour);
+        user.setDailyApiLimit(dailyApiLimit);
+        user.setMonthlyApiLimit(monthlyApiLimit);
+        userRepository.save(user);
+    }
+
+    /** 잠긴 사용자 수동 해제 (ADMIN 전용). v2.6.0 */
+    @Transactional
+    public void unlock(Long id) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
+                    public RuntimeException get() {
+                        return new IllegalArgumentException("사용자를 찾을 수 없습니다.");
+                    }
+                });
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+    }
+
+    /** 사용자별 IP 화이트리스트 저장. v2.6.0 */
+    @Transactional
+    public void updateIpWhitelist(Long id, String whitelist) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(new java.util.function.Supplier<RuntimeException>() {
+                    public RuntimeException get() {
+                        return new IllegalArgumentException("사용자를 찾을 수 없습니다.");
+                    }
+                });
+        user.setIpWhitelist(whitelist == null || whitelist.trim().isEmpty() ? null : whitelist.trim());
         userRepository.save(user);
     }
 

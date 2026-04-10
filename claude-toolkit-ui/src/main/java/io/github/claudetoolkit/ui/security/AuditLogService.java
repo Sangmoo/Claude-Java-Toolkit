@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -75,19 +76,21 @@ public class AuditLogService {
         return repo.count();
     }
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     public long countToday() {
-        return repo.countByCreatedAtAfter(LocalDateTime.now().toLocalDate().atStartOfDay());
+        return repo.countByCreatedAtAfter(LocalDateTime.now(KST).toLocalDate().atStartOfDay());
     }
 
     public long countThisHour() {
-        return repo.countByCreatedAtAfter(LocalDateTime.now().minusHours(1));
+        return repo.countByCreatedAtAfter(LocalDateTime.now(KST).minusHours(1));
     }
 
-    /** 90일 이전 로그 자동 삭제 — 매일 새벽 3:00 */
+    /** 90일 이전 로그 자동 삭제 — 매일 새벽 3:00 KST */
     @Scheduled(cron = "0 0 3 * * ?")
     @Transactional
     public void cleanOldLogs() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(90);
+        LocalDateTime cutoff = LocalDateTime.now(KST).minusDays(90);
         repo.deleteByCreatedAtBefore(cutoff);
     }
 }

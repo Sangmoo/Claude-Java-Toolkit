@@ -27,6 +27,15 @@ public class TwoFactorAuthHandler implements AuthenticationSuccessHandler {
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
+        // v2.6.0: 로그인 성공 시 실패 카운터 + 잠금 시각 리셋
+        String username = authentication.getName();
+        AppUser successUser = userRepository.findByUsername(username).orElse(null);
+        if (successUser != null && (successUser.getFailedLoginAttempts() > 0 || successUser.getLockedUntil() != null)) {
+            successUser.setFailedLoginAttempts(0);
+            successUser.setLockedUntil(null);
+            userRepository.save(successUser);
+        }
+
         boolean isAdmin = authentication.getAuthorities()
                 .contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
 

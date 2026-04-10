@@ -42,6 +42,15 @@ public class SchemaMigration implements ApplicationRunner {
 
         // AuditLog UserAgent 300→500 확장
         alterColumnType("AUDIT_LOG", "USER_AGENT", "VARCHAR(500)");
+
+        // v2.6.0 — 보안 강화 필드
+        addColumnIfNotExists("APP_USER", "FAILED_LOGIN_ATTEMPTS",  "INTEGER DEFAULT 0");
+        addColumnIfNotExists("APP_USER", "LOCKED_UNTIL",           "TIMESTAMP");
+        addColumnIfNotExists("APP_USER", "LAST_PASSWORD_CHANGE_AT","TIMESTAMP");
+        addColumnIfNotExists("APP_USER", "PASSWORD_SNOOZE_AT",     "TIMESTAMP");
+        addColumnIfNotExists("APP_USER", "IP_WHITELIST",           "VARCHAR(500)");
+        addColumnIfNotExists("APP_USER", "DAILY_API_LIMIT",        "INTEGER DEFAULT 0");
+        addColumnIfNotExists("APP_USER", "MONTHLY_API_LIMIT",      "INTEGER DEFAULT 0");
     }
 
     private void addColumnIfNotExists(String table, String column, String type) {

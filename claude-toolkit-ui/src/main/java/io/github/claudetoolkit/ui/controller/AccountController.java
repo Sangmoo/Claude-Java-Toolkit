@@ -9,6 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -169,11 +170,33 @@ public class AccountController {
                 return ResponseEntity.ok(resp);
             }
             userService.changePassword(user.getId(), newPassword);
-            // 강제 변경 플래그 해제
-            if (user.isMustChangePassword()) {
-                user.setMustChangePassword(false);
-                userRepository.save(user);
+            // 강제 변경 플래그 해제 + v2.6.0: 비밀번호 변경 시각/스누즈 리셋
+            user.setMustChangePassword(false);
+            user.setLastPasswordChangeAt(LocalDateTime.now());
+            user.setPasswordSnoozeAt(null);
+            userRepository.save(user);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 비밀번호 변경 "다음에 변경하기" — passwordSnoozeAt을 현재 시각으로 설정 (v2.6.0) */
+    @PostMapping("/snooze-password")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> snoozePassword(Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+            if (user == null) {
+                resp.put("success", false);
+                resp.put("error", "사용자를 찾을 수 없습니다.");
+                return ResponseEntity.ok(resp);
             }
+            user.setPasswordSnoozeAt(LocalDateTime.now());
+            userRepository.save(user);
             resp.put("success", true);
         } catch (Exception e) {
             resp.put("success", false);

@@ -1438,6 +1438,68 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 - [x] **스트리밍 커서** — 응답 생성 중 말풍선 끝에 주황색 커서 깜빡임, 완료 시 자동 제거
 - [x] **말풍선 복사 버튼** — 호버 시 표시, 사용자 메시지는 좌측 하단·AI 응답은 우측 하단. HTTP 환경 `execCommand` fallback 포함. 복사 시 ✅ 피드백
 
+### ✅ v2.5.0 — 안정성 및 핵심 수정
+
+**🔧 동시성 / 안정성**
+- [x] **API 키 동시성 수정** — `ClaudeClient`에 `InheritableThreadLocal` 기반 `apiKeyOverride` 추가. `PermissionInterceptor`는 공유 `ClaudeProperties.setApiKey()` 대신 `claudeClient.setApiKeyOverride()` 호출. SSE 백그라운드 스레드도 부모 스레드의 키 상속. 멀티유저 동시 요청 완전 격리
+- [x] **채팅 세션 동시성 수정** — 신규 `ChatHistoryStore` 컴포넌트 (`ConcurrentHashMap` 기반). `HttpSession` 직접 쓰기 제거. 세션 ID를 조회 키로만 사용. 24시간 TTL 자동 정리 (KST 새벽 4시)
+- [x] **사이드바 빈 섹션 자동 숨김** — `fragments/sidebar.html`의 분석/생성/기록/도구 4개 섹션을 Thymeleaf `<div th:if="...">` 래퍼로 감싸 해당 섹션 내 허용된 메뉴가 하나도 없으면 섹션 헤더 자체를 숨김
+- [x] **CSRF 토큰 만료 UX** — `login.html`에 `?denied=true` / `?expired=true` 감지 → "세션이 만료되었습니다" 안내 표시. 15분 후 입력 필드 비어있으면 자동 새로고침으로 토큰 재발급
+
+**⚡ 성능**
+- [x] **AI 채팅 멀티턴 최적화** — `ClaudeClient`에 `chatStream(systemPrompt, List<ClaudeMessage>, ...)` 오버로드 추가. `ChatController`가 텍스트 concatenation(`[이전 대화]\n[user]: ...`) 제거하고 `messages` 배열을 Claude Messages API에 직접 전달. 토큰 절감 + prompt caching 활용 가능
+
+---
+
+### ✅ v2.6.0 — 보안 강화
+
+**🔐 인증 / 접근 제어**
+- [x] **로그인 실패 잠금** — `AppUser`에 `failedLoginAttempts`, `lockedUntil` 필드 추가. `LoginAttemptHandler` (AuthenticationFailureHandler) 신규 추가 — 5회 연속 실패 시 10분 잠금 + 감사 로그 기록. `AppUserDetailsService`에서 `LockedException` 발생. 로그인 성공 시 `TwoFactorAuthHandler`에서 카운터 자동 리셋. 사용자 관리 페이지에서 ADMIN 수동 해제 버튼 제공
+- [x] **비밀번호 만료 알림** — `lastPasswordChangeAt`, `passwordSnoozeAt` 필드 추가. `PasswordExpiryInterceptor` 신규 추가 — 90일 경과 시 변경 권고 페이지 표시. "다음에 변경하기" 버튼(`POST /account/snooze-password`) 클릭 시 `passwordSnoozeAt = now()` → 1일부터 재카운팅. 비밀번호 변경 시 `lastPasswordChangeAt` 갱신 + 스누즈 초기화
+- [x] **IP 화이트리스트 (사용자별)** — `AppUser.ipWhitelist` 필드 추가. `IpWhitelistChecker` 유틸리티 (IPv4 + CIDR, 순수 Java 비트 연산). "사용자 관리" 페이지에 **별도 팝업 모달** — 등록/추가/삭제/저장. `AppUserDetailsService.loadUserByUsername()`에서 `RequestContextHolder`로 클라이언트 IP 추출 후 검증. 초기값 무제한, 설정 시 해당 사용자는 허용된 IP에서만 로그인 가능
+- [x] **API 키 사용량 제한 (일일/월간)** — `AppUser.dailyApiLimit`, `monthlyApiLimit` 필드 추가. `RateLimitService` 확장 — 일자별 카운트 맵(`Map<LocalDate, AtomicInteger>`) 기반 메모리 효율적 추적. 32일 이전 카운트 자동 정리(`@Scheduled`). `getUsageStats()` API로 오늘/이번 달 사용량 조회. 사용자 관리 모달에 한도 입력 + 현재 사용량 표시
+
+---
+
+### 📋 v2.7.0 (예정) — 채팅 고도화 및 성능
+
+**💬 AI 채팅**
+- [ ] **AI 채팅 Markdown 렌더링** — `textContent` 평문 → `marked.js` + `Prism.js` + `DOMPurify`로 코드 블록·볼드·리스트·테이블 렌더링. 스트리밍 중에도 점진적 렌더링
+- [ ] **대화 내보내기** — 채팅 히스토리를 `.md` 파일로 다운로드. `## User` / `## Assistant` 형식
+- [ ] **대화 목록/세션 관리** — `CHAT_SESSION` / `CHAT_MESSAGE` H2 테이블 영속화. 좌측 패널 대화 목록 (생성/전환/삭제). 서버 재시작 후에도 대화 유지
+
+**⚡ 성능**
+- [ ] **정적 리소스 로컬 번들링** — Bootstrap·FontAwesome·Chart.js 등 CDN → `/vendor/` 로컬 번들. 오프라인/폐쇄망 환경 지원 + `Cache-Control` 헤더 설정
+- [ ] **분석 캐시 DB 영속화** — 인메모리 LRU 캐시(서버 재시작 시 소멸) → `ANALYSIS_CACHE` H2 테이블 영속화. TTL 기반 자동 정리
+
+---
+
+### 📋 v2.8.0 (예정) — 모니터링 및 UX
+
+**📊 모니터링**
+- [ ] **WebSocket 실시간 알림** — 60초 폴링 → Spring WebSocket (SockJS fallback) 즉시 알림. 알림 생성 시 사용자 채널로 Push
+- [ ] **감사 로그 기능 메뉴 필터** — `menuName` 컬럼 기반 드롭다운 필터 추가. 특정 기능별 감사 로그 조회
+- [ ] **시스템 헬스 대시보드** — `/admin/health` 페이지. JVM 힙 메모리, H2 DB 파일 크기, 활성 세션 수, Claude API 상태, 디스크 사용량 실시간 모니터링. 30초 자동 갱신
+
+**🎨 UX**
+- [ ] **키보드 단축키 가이드** — `?` 키로 전체 단축키 모달 표시 (`/` 검색, `Ctrl+Enter` 실행, `Esc` 닫기 등)
+- [ ] **모바일 하단 네비게이션** — 768px 이하에서 사이드바 대신 하단 탭 바 (홈/채팅/검색/설정/메뉴). CSS 미디어 쿼리 기반
+
+---
+
+### 📋 v2.9.0 (예정) — 협업 및 아키텍처
+
+**💬 채팅 확장**
+- [ ] **채팅 파일 첨부** — 드래그앤드롭으로 `.java`/`.sql`/`.xml` 파일을 채팅 컨텍스트에 첨부 (100KB 제한). `FileReader API` + `multipart/form-data`
+- [ ] **분석 결과 → 채팅 연계** — 모든 분석 결과 페이지(워크스페이스·SQL 리뷰·코드 리뷰 등 15종)에 "이 결과에 대해 질문하기" 버튼 추가. 기존 `context` 파라미터 활용
+
+**🆕 신규 기능**
+- [ ] **코드 스니펫 라이브러리** — `CODE_SNIPPET` H2 테이블. 코드 패턴을 태그별로 저장·검색·재사용. 채팅 AI 응답의 코드 블록에서 "스니펫 저장" 버튼
+- [ ] **팀 코드 리뷰 워크플로우** — `REVIEW_REQUEST` 엔티티. REVIEWER가 분석 결과에 승인/반려 판정 → 작성자에게 WebSocket 알림. `/codereview/requests` 관리 페이지
+
+**🏗️ 아키텍처**
+- [ ] **DB 마이그레이션 가이드** — `/admin/db-migration` 페이지. H2 → PostgreSQL / MySQL / Oracle 11g 전환 절차 + DDL 스키마 자동 생성 + 데이터 이관 스크립트 + DB별 주의사항 (Oracle 11g: BOOLEAN 미지원, VARCHAR2, 시퀀스 ID 등)
+
 ---
 
 ## 🤝 기여

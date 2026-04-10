@@ -40,11 +40,19 @@
         </div>
 
         <!-- 에러/로그아웃 메시지 -->
-        <div th:if="${error}" class="alert alert-danger py-2 px-3" style="font-size:.82rem;border-radius:8px;">
+        <div th:if="${param.error != null and param.error[0] == 'true'}" class="alert alert-danger py-2 px-3" style="font-size:.82rem;border-radius:8px;">
             <i class="fas fa-exclamation-circle me-1"></i>아이디 또는 비밀번호가 올바르지 않습니다.
+            <span th:if="${param.attempts != null}" th:text="'(' + ${param.attempts[0]} + '/5회 실패)'"></span>
+        </div>
+        <div th:if="${param.error != null and param.error[0] == 'locked'}" class="alert alert-danger py-2 px-3" style="font-size:.82rem;border-radius:8px;">
+            <i class="fas fa-lock me-1"></i>계정이 일시 잠금되었습니다. 10분 후 다시 시도하거나 관리자에게 문의하세요.
         </div>
         <div th:if="${logout}" class="alert alert-success py-2 px-3" style="font-size:.82rem;border-radius:8px;">
             <i class="fas fa-check-circle me-1"></i>로그아웃되었습니다.
+        </div>
+        <!-- 세션 만료 / 접근 거부 안내 (JS에서 동적으로 주입) -->
+        <div id="sessionExpiredAlert" class="alert alert-warning py-2 px-3" style="display:none;font-size:.82rem;border-radius:8px;">
+            <i class="fas fa-clock me-1"></i>세션이 만료되었습니다. 다시 로그인해주세요.
         </div>
 
         <form th:action="@{/login}" method="post">
@@ -76,6 +84,32 @@ function toggleTheme() {
 (function(){
     var t = localStorage.getItem('theme');
     document.getElementById('themeLabel').textContent = (t === 'light') ? 'Dark' : 'Light';
+})();
+
+/* ── CSRF 토큰 만료 UX ─────────────────────────────────────
+   로그인 페이지를 오래 열어두면 CSRF 토큰이 만료되어 제출 시 실패합니다.
+   1) ?denied=true / ?expired=true / ?csrf=expired 파라미터 감지 → 안내 표시
+   2) 페이지 로드 15분 후, 입력 중이 아니면 자동 새로고침으로 토큰 갱신    */
+(function() {
+    // 1) URL 파라미터 기반 안내 메시지
+    var params = new URLSearchParams(window.location.search);
+    if (params.has('denied') || params.has('expired') || params.get('csrf') === 'expired') {
+        var alertEl = document.getElementById('sessionExpiredAlert');
+        if (alertEl) alertEl.style.display = '';
+    }
+
+    // 2) 15분 후 자동 새로고침 (사용자 입력 없을 때만 안전하게)
+    var pageLoadTime = Date.now();
+    var REFRESH_AFTER_MS = 15 * 60 * 1000;
+    setInterval(function() {
+        if (Date.now() - pageLoadTime < REFRESH_AFTER_MS) return;
+        var u = document.querySelector('input[name="username"]');
+        var p = document.querySelector('input[name="password"]');
+        // 입력 필드가 비어 있을 때만 새로고침 (사용자 입력 중이면 방해하지 않음)
+        if ((!u || !u.value) && (!p || !p.value)) {
+            location.reload();
+        }
+    }, 60000);  // 1분마다 체크
 })();
 </script>
 </body>

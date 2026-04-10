@@ -123,8 +123,15 @@
                         <button class="action-btn" onclick="openEditModal(this)" th:attr="data-id=${u.id}" title="정보 수정">
                             <i class="fas fa-pen"></i>
                         </button>
+                        <button class="action-btn" onclick="openIpModal(this)" th:attr="data-id=${u.id},data-name=${u.username}" title="IP 화이트리스트">
+                            <i class="fas fa-globe"></i>
+                        </button>
                         <button class="action-btn" onclick="promptChangePassword(this)" th:attr="data-id=${u.id}" title="비밀번호 변경">
                             <i class="fas fa-key"></i>
+                        </button>
+                        <button th:if="${u.locked}" class="action-btn" style="color:#f59e0b;border-color:#f59e0b;"
+                                onclick="unlockUser(this)" th:attr="data-id=${u.id}" title="잠금 해제">
+                            <i class="fas fa-unlock"></i>
                         </button>
                         <button class="action-btn" onclick="toggleUser(this)" th:attr="data-id=${u.id}"
                                 th:title="${u.enabled ? '비활성화' : '활성화'}">
@@ -205,7 +212,7 @@
                 <label style="font-size:.78rem;color:var(--text-sub);">개인 Claude API 키 <span style="color:var(--text-muted);font-size:.68rem;">(비우면 공용 키 사용)</span></label>
                 <input type="password" id="editApiKey" class="form-control" style="font-size:.84rem;font-family:monospace;" placeholder="sk-ant-api03-...">
             </div>
-            <div class="d-flex gap-2 mb-3">
+            <div class="d-flex gap-2 mb-2">
                 <div style="flex:1;">
                     <label style="font-size:.78rem;color:var(--text-sub);">분당 호출 제한 <span style="color:var(--text-muted);font-size:.68rem;">(0=무제한)</span></label>
                     <input type="number" id="editRateMin" class="form-control" style="font-size:.84rem;" placeholder="0" min="0">
@@ -215,6 +222,19 @@
                     <input type="number" id="editRateHour" class="form-control" style="font-size:.84rem;" placeholder="0" min="0">
                 </div>
             </div>
+            <div class="d-flex gap-2 mb-2">
+                <div style="flex:1;">
+                    <label style="font-size:.78rem;color:var(--text-sub);">일일 API 한도 <span style="color:var(--text-muted);font-size:.68rem;">(0=무제한)</span></label>
+                    <input type="number" id="editDailyLimit" class="form-control" style="font-size:.84rem;" placeholder="0" min="0">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:.78rem;color:var(--text-sub);">월간 API 한도 <span style="color:var(--text-muted);font-size:.68rem;">(0=무제한)</span></label>
+                    <input type="number" id="editMonthlyLimit" class="form-control" style="font-size:.84rem;" placeholder="0" min="0">
+                </div>
+            </div>
+            <div id="usageStatsInfo" style="font-size:.72rem;color:var(--text-muted);padding:6px 10px;background:var(--bg-tertiary);border-radius:6px;margin-bottom:12px;">
+                <i class="fas fa-chart-line me-1"></i>현재 사용량: <span id="usageToday">0</span>회 (오늘) · <span id="usageMonth">0</span>회 (이번 달)
+            </div>
             <div class="d-flex justify-content-end gap-2">
                 <button onclick="closeEditModal()" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.84rem;">취소</button>
                 <button class="btn-accent" style="padding:7px 20px;" onclick="saveEdit()">
@@ -222,6 +242,60 @@
                 </button>
             </div>
             <div id="editResult" style="font-size:.8rem;margin-top:6px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- IP 화이트리스트 관리 모달 (v2.6.0) -->
+<div id="ipModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeIpModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(500px,90vw);
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:.95rem;color:var(--text-primary);">
+                <i class="fas fa-globe me-2" style="color:#3b82f6"></i>IP 화이트리스트 관리
+                — <span id="ipModalUsername" style="color:var(--accent);font-weight:600;"></span>
+            </span>
+            <button onclick="closeIpModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.1rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div style="padding:18px;">
+            <input type="hidden" id="ipUserId">
+            <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">
+                <i class="fas fa-info-circle me-1"></i>비어있으면 모든 IP에서 접근 가능.
+                설정 시 등록된 IP에서만 로그인이 허용됩니다.
+            </p>
+
+            <!-- 현재 등록된 IP 목록 -->
+            <div style="margin-bottom:12px;">
+                <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;margin-bottom:6px;display:block;">
+                    등록된 IP 목록
+                </label>
+                <div id="ipList" style="min-height:60px;max-height:200px;overflow-y:auto;padding:8px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-tertiary);">
+                    <div style="color:var(--text-muted);font-size:.76rem;text-align:center;padding:10px;">등록된 IP 없음</div>
+                </div>
+            </div>
+
+            <!-- 새 IP 추가 -->
+            <div class="mb-3">
+                <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">새 IP 또는 CIDR 추가</label>
+                <div class="d-flex gap-2">
+                    <input type="text" id="newIpEntry" class="form-control" style="font-size:.84rem;font-family:monospace;"
+                           placeholder="예: 192.168.1.10 또는 192.168.0.0/24">
+                    <button class="btn-accent" style="padding:6px 16px;white-space:nowrap;" onclick="addIpEntry()">
+                        <i class="fas fa-plus me-1"></i>추가
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <button onclick="closeIpModal()" style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.84rem;">취소</button>
+                <button class="btn-accent" style="padding:7px 20px;" onclick="saveIpWhitelist()">
+                    <i class="fas fa-save me-1"></i>저장
+                </button>
+            </div>
+            <div id="ipResult" style="font-size:.8rem;margin-top:6px;"></div>
         </div>
     </div>
 </div>
@@ -295,6 +369,11 @@ function openEditModal(btn) {
             document.getElementById('editApiKey').value       = d.personalApiKey || '';
             document.getElementById('editRateMin').value     = d.rateLimitPerMinute || 0;
             document.getElementById('editRateHour').value    = d.rateLimitPerHour || 0;
+            document.getElementById('editDailyLimit').value   = d.dailyApiLimit || 0;
+            document.getElementById('editMonthlyLimit').value = d.monthlyApiLimit || 0;
+            var stats = d.usageStats || {};
+            document.getElementById('usageToday').textContent = stats.today || 0;
+            document.getElementById('usageMonth').textContent = stats.thisMonth || 0;
             document.getElementById('editModal').style.display = '';
         });
 }
@@ -309,6 +388,8 @@ function saveEdit() {
     fd.append('personalApiKey',     document.getElementById('editApiKey').value.trim());
     fd.append('rateLimitPerMinute', document.getElementById('editRateMin').value || '0');
     fd.append('rateLimitPerHour',   document.getElementById('editRateHour').value || '0');
+    fd.append('dailyApiLimit',      document.getElementById('editDailyLimit').value || '0');
+    fd.append('monthlyApiLimit',    document.getElementById('editMonthlyLimit').value || '0');
     fetch('/admin/users/' + id + '/update', {method:'POST', body:fd})
         .then(function(r){ return r.json(); })
         .then(function(d){
@@ -316,6 +397,121 @@ function saveEdit() {
             else { document.getElementById('editResult').innerHTML = '<span style="color:#ef4444;">' + (d.error||'수정 실패') + '</span>'; }
         });
 }
+
+/* ── v2.6.0: 잠금 해제 ─────────────────────────────── */
+function unlockUser(btn) {
+    var id = btn.getAttribute('data-id');
+    if (!confirm('이 사용자의 계정 잠금을 해제하시겠습니까?')) return;
+    fetch('/admin/users/' + id + '/unlock', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) { showToast('잠금이 해제되었습니다.', 'success'); location.reload(); }
+            else showToast(d.error || '해제 실패', 'warning');
+        });
+}
+
+/* ── v2.6.0: IP 화이트리스트 모달 ───────────────────── */
+var _ipEntries = [];  // 현재 편집 중인 IP 목록
+
+function openIpModal(btn) {
+    var id = btn.getAttribute('data-id');
+    var name = btn.getAttribute('data-name');
+    document.getElementById('ipUserId').value = id;
+    document.getElementById('ipModalUsername').textContent = name || '';
+    document.getElementById('ipResult').innerHTML = '';
+    document.getElementById('newIpEntry').value = '';
+    _ipEntries = [];
+
+    fetch('/admin/users/' + id + '/ip-whitelist')
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) { showToast('IP 목록을 불러올 수 없습니다.', 'warning'); return; }
+            var wl = (d.whitelist || '').trim();
+            if (wl) {
+                var parts = wl.split(',');
+                for (var i = 0; i < parts.length; i++) {
+                    var p = parts[i].trim();
+                    if (p) _ipEntries.push(p);
+                }
+            }
+            renderIpList();
+            document.getElementById('ipModal').style.display = '';
+        });
+}
+
+function closeIpModal() { document.getElementById('ipModal').style.display = 'none'; }
+
+function renderIpList() {
+    var container = document.getElementById('ipList');
+    if (_ipEntries.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:.76rem;text-align:center;padding:10px;">등록된 IP 없음 (모든 IP 허용)</div>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < _ipEntries.length; i++) {
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:var(--bg-secondary);border-radius:4px;">'
+              + '<span style="font-family:monospace;font-size:.82rem;color:var(--text-primary);">' + escIpHtml(_ipEntries[i]) + '</span>'
+              + '<button onclick="removeIpEntry(' + i + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;" title="삭제"><i class="fas fa-times"></i></button>'
+              + '</div>';
+    }
+    container.innerHTML = html;
+}
+
+function escIpHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+
+function addIpEntry() {
+    var input = document.getElementById('newIpEntry');
+    var val = input.value.trim();
+    if (!val) return;
+    // 간단한 유효성 검사 (IPv4 또는 IPv4/CIDR)
+    var ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
+    if (!ipv4Regex.test(val)) {
+        showToast('유효한 IPv4 형식이 아닙니다. (예: 192.168.1.10 또는 192.168.0.0/24)', 'warning');
+        return;
+    }
+    if (_ipEntries.indexOf(val) >= 0) {
+        showToast('이미 등록된 IP입니다.', 'warning');
+        return;
+    }
+    _ipEntries.push(val);
+    input.value = '';
+    renderIpList();
+}
+
+function removeIpEntry(index) {
+    _ipEntries.splice(index, 1);
+    renderIpList();
+}
+
+function saveIpWhitelist() {
+    var id = document.getElementById('ipUserId').value;
+    var fd = new URLSearchParams();
+    fd.append('whitelist', _ipEntries.join(','));
+    fetch('/admin/users/' + id + '/ip-whitelist', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                showToast('IP 화이트리스트가 저장되었습니다.', 'success');
+                closeIpModal();
+            } else {
+                document.getElementById('ipResult').innerHTML = '<span style="color:#ef4444;">' + (d.error||'저장 실패') + '</span>';
+            }
+        });
+}
+
+// Enter 키로 IP 추가
+document.addEventListener('DOMContentLoaded', function() {
+    var newIpInput = document.getElementById('newIpEntry');
+    if (newIpInput) {
+        newIpInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); addIpEntry(); }
+        });
+    }
+});
 </script>
 </body>
 </html>

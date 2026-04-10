@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.starter.model.ClaudeMessage;
+import io.github.claudetoolkit.ui.chat.ChatHistoryStore;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.prompt.PromptService;
 import org.springframework.http.MediaType;
@@ -29,18 +30,19 @@ import java.util.function.Consumer;
 public class ChatController {
 
     private static final int MAX_TURNS = 20;
-    private static final String SESSION_KEY = "chat_history";
     private static final String PENDING_KEY = "chat_pending";
 
-    private final ClaudeClient    claudeClient;
-    private final ToolkitSettings settings;
-    private final PromptService   promptService;
+    private final ClaudeClient     claudeClient;
+    private final ToolkitSettings  settings;
+    private final PromptService    promptService;
+    private final ChatHistoryStore historyStore;
 
     public ChatController(ClaudeClient claudeClient, ToolkitSettings settings,
-                          PromptService promptService) {
+                          PromptService promptService, ChatHistoryStore historyStore) {
         this.claudeClient  = claudeClient;
         this.settings      = settings;
         this.promptService = promptService;
+        this.historyStore  = historyStore;
     }
 
     @GetMapping
@@ -87,12 +89,9 @@ public class ChatController {
         final String message = pending.get("message");
         final String context = pending.get("context");
 
-        // 히스토리 로드
-        @SuppressWarnings("unchecked")
-        List<Map<String, String>> history = (List<Map<String, String>>) session.getAttribute(SESSION_KEY);
-        if (history == null) {
-            history = new ArrayList<Map<String, String>>();
-        }
+        // 히스토리 로드 (스레드 안전한 스토어에서)
+        final String sessionId = session.getId();
+        List<Map<String, String>> history = historyStore.getHistory(sessionId);
 
         // 사용자 메시지 추가
         Map<String, String> userMsg = new LinkedHashMap<String, String>();
@@ -163,23 +162,11 @@ public class ChatController {
             public void run() {
                 try {
                     final StringBuilder responseBuf = new StringBuilder();
-                    // 멀티턴: 이전 히스토리 + 현재 질문
-                    StringBuilder userPrompt = new StringBuilder();
-                    for (int i = 0; i < messages.size(); i++) {
-                        ClaudeMessage m = messages.get(i);
-                        if (i < messages.size() - 1) {
-                            userPrompt.append("[").append(m.getRole()).append("]: ")
-                                      .append(m.getContent()).append("\n\n");
-                        }
-                    }
-                    String lastUserMsg = messages.get(messages.size() - 1).getContent();
-                    String fullUserMsg = userPrompt.length() > 0
-                            ? "[이전 대화]\n" + userPrompt.toString() + "\n[현재 질문]\n" + lastUserMsg
-                            : lastUserMsg;
-
+                    // 네이티브 멀티턴: messages 배열을 그대로 전달
+                    // (이전: 텍스트로 이어붙여 단일 user 메시지로 전송 → 토큰 낭비)
                     claudeClient.chatStream(
                             finalSysPrompt,
-                            fullUserMsg,
+                            messages,
                             claudeClient.getProperties().getMaxTokens(),
                             new Consumer<String>() {
                                 public void accept(String chunk) {
@@ -201,7 +188,8 @@ public class ChatController {
                         finalHistory.remove(0);
                         if (!finalHistory.isEmpty()) finalHistory.remove(0);
                     }
-                    session.setAttribute(SESSION_KEY, finalHistory);
+                    // 스레드 안전한 스토어에 저장
+                    historyStore.putHistory(sessionId, finalHistory);
 
                     emitter.send(SseEmitter.event().name("done").data("ok"));
                     Thread.sleep(50);
@@ -228,7 +216,7 @@ public class ChatController {
     @PostMapping("/clear")
     @ResponseBody
     public Map<String, Object> clear(HttpSession session) {
-        session.removeAttribute(SESSION_KEY);
+        historyStore.clear(session.getId());
         session.removeAttribute(PENDING_KEY);
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         resp.put("success", true);
@@ -239,8 +227,6 @@ public class ChatController {
     @GetMapping("/history")
     @ResponseBody
     public List<Map<String, String>> getHistory(HttpSession session) {
-        @SuppressWarnings("unchecked")
-        List<Map<String, String>> history = (List<Map<String, String>>) session.getAttribute(SESSION_KEY);
-        return history != null ? history : new ArrayList<Map<String, String>>();
+        return historyStore.getHistory(session.getId());
     }
 }

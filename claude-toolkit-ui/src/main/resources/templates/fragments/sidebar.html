@@ -32,6 +32,11 @@
         </a>
 
         <!-- ── 분석 ── -->
+        <div th:if="${allowedFeatures == null or
+                     allowedFeatures.contains('workspace') or allowedFeatures.contains('advisor') or
+                     allowedFeatures.contains('sql-translate') or allowedFeatures.contains('sql-batch') or
+                     allowedFeatures.contains('erd') or allowedFeatures.contains('complexity') or
+                     allowedFeatures.contains('explain') or allowedFeatures.contains('harness')}">
         <button class="sidebar-section-toggle" id="toggle-analysis"
                 onclick="toggleSidebarSection('analysis')">
             <span>분석</span>
@@ -91,8 +96,14 @@
                 <i class="fas fa-chart-line" style="color:#8b5cf6"></i><span>품질 대시보드</span>
             </a>
         </div>
+        </div>
 
         <!-- ── 생성 ── -->
+        <div th:if="${allowedFeatures == null or
+                     allowedFeatures.contains('docgen') or allowedFeatures.contains('apispec') or
+                     allowedFeatures.contains('converter') or allowedFeatures.contains('mockdata') or
+                     allowedFeatures.contains('migration') or allowedFeatures.contains('batch') or
+                     allowedFeatures.contains('depcheck') or allowedFeatures.contains('migrate')}">
         <button class="sidebar-section-toggle" id="toggle-generate"
                 onclick="toggleSidebarSection('generate')">
             <span>생성</span>
@@ -132,8 +143,13 @@
                 <i class="fas fa-rocket" style="color:#10b981"></i><span>Spring 마이그레이션</span>
             </a>
         </div>
+        </div>
 
         <!-- ── 기록 ── -->
+        <div th:if="${allowedFeatures == null or
+                     allowedFeatures.contains('history') or allowedFeatures.contains('favorites') or
+                     allowedFeatures.contains('usage') or allowedFeatures.contains('roi-report') or
+                     allowedFeatures.contains('schedule')}">
         <button class="sidebar-section-toggle" id="toggle-history"
                 onclick="toggleSidebarSection('history')">
             <span>기록</span>
@@ -161,6 +177,7 @@
                 <i class="fas fa-calendar-check" style="color:#f59e0b"></i><span>분석 스케줄링</span>
             </a>
         </div>
+        </div>
 
         <!-- ── REST API ── -->
         <button class="sidebar-section-toggle" id="toggle-api"
@@ -176,6 +193,11 @@
         </div>
 
         <!-- ── 도구 ── -->
+        <div th:if="${allowedFeatures == null or
+                     allowedFeatures.contains('loganalyzer') or allowedFeatures.contains('regex') or
+                     allowedFeatures.contains('commitmsg') or allowedFeatures.contains('maskgen') or
+                     allowedFeatures.contains('input-masking') or allowedFeatures.contains('github-pr') or
+                     allowedFeatures.contains('git-diff')}">
         <button class="sidebar-section-toggle" id="toggle-tools"
                 onclick="toggleSidebarSection('tools')">
             <span>도구</span>
@@ -210,6 +232,7 @@
                th:classappend="${#strings.startsWith(#request.requestURI, '/git-diff') ? ' active' : ''}">
                 <i class="fab fa-git-alt" style="color:#f97316"></i><span>Git Diff 분석</span>
             </a>
+        </div>
         </div>
 
         <!-- ── 관리 (ADMIN only) ── -->
