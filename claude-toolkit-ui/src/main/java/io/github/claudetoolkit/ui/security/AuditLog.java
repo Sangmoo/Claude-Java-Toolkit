@@ -137,11 +137,12 @@ public class AuditLog {
         MENU_NAME_MAP.put("/batch",         "Batch 처리");
         MENU_NAME_MAP.put("/depcheck",      "의존성 분석");
         MENU_NAME_MAP.put("/migrate",       "Spring 마이그레이션");
-        MENU_NAME_MAP.put("/history",       "리뷰 이력");
-        MENU_NAME_MAP.put("/favorites",     "즐겨찾기");
-        MENU_NAME_MAP.put("/usage",         "사용량 모니터링");
-        MENU_NAME_MAP.put("/roi-report",    "ROI 리포트");
-        MENU_NAME_MAP.put("/schedule",      "분석 스케줄링");
+        MENU_NAME_MAP.put("/history",         "리뷰 이력");
+        MENU_NAME_MAP.put("/favorites",       "즐겨찾기");
+        MENU_NAME_MAP.put("/usage",           "사용량 모니터링");
+        MENU_NAME_MAP.put("/roi-report",      "ROI 리포트");
+        MENU_NAME_MAP.put("/schedule",        "분석 스케줄링");
+        MENU_NAME_MAP.put("/review-requests", "팀 리뷰 요청");
         MENU_NAME_MAP.put("/loganalyzer",   "로그 분석기");
         MENU_NAME_MAP.put("/regex",         "정규식 생성기");
         MENU_NAME_MAP.put("/commitmsg",     "커밋 메시지");

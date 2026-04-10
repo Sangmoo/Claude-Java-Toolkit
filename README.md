@@ -1491,18 +1491,30 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 📋 v2.9.0 (예정) — 협업 및 아키텍처
+### ✅ v2.9.0 — 협업 및 아키텍처
 
 **💬 채팅 확장**
-- [ ] **채팅 파일 첨부** — 드래그앤드롭으로 `.java`/`.sql`/`.xml` 파일을 채팅 컨텍스트에 첨부 (100KB 제한). `FileReader API` + `multipart/form-data`
-- [ ] **분석 결과 → 채팅 연계** — 모든 분석 결과 페이지(워크스페이스·SQL 리뷰·코드 리뷰 등 15종)에 "이 결과에 대해 질문하기" 버튼 추가. 기존 `context` 파라미터 활용
+- [x] **분석 결과 → 채팅 연계** — `toolkit.js`에 `askAboutResult()` 유틸 함수 + DOMContentLoaded 자동 주입. 모든 분석 결과 페이지(`#resultMd`, `#streamResult` 등)에 "💬 이 결과에 대해 AI에게 질문하기" 플로팅 버튼 자동 표시. 버튼 클릭 시 결과 텍스트(최대 3000자)를 컨텍스트로 `/chat?context=...` 리다이렉트. 템플릿 수정 0건 (단일 JS 주입 방식)
 
 **🆕 신규 기능**
-- [ ] **코드 스니펫 라이브러리** — `CODE_SNIPPET` H2 테이블. 코드 패턴을 태그별로 저장·검색·재사용. 채팅 AI 응답의 코드 블록에서 "스니펫 저장" 버튼
-- [ ] **팀 코드 리뷰 워크플로우** — `REVIEW_REQUEST` 엔티티. REVIEWER가 분석 결과에 승인/반려 판정 → 작성자에게 WebSocket 알림. `/codereview/requests` 관리 페이지
+- [x] **팀 코드 리뷰 워크플로우** — `ReviewRequest` 엔티티 + `review_request` H2 테이블. 작성자 → REVIEWER 승인 요청 → 승인/반려 → 실시간 SSE 알림(NotificationPublisher 재사용)
+  - 엔드포인트: `GET /review-requests` (목록), `GET /review-requests/{id}` (상세), `POST /review-requests` (생성), `POST /review-requests/{id}/approve` (승인), `POST /review-requests/{id}/reject` (반려), `POST /review-requests/{id}/delete` (취소), `GET /review-requests/reviewers` (리뷰어 목록)
+  - 목록 페이지: "내게 온 리뷰" / "내가 요청한 리뷰" 탭, 상태 배지(PENDING/APPROVED/REJECTED), 호버 카드
+  - 상세 페이지: 원본 분석 결과 + 요청자 메모 + 리뷰 응답 영역 (승인/반려 버튼, 반려 시 코멘트 필수)
+  - 이력 통합: `history/index.html` 상세 모달에 "👥 리뷰 요청" 버튼 → 리뷰어 선택 모달 (REVIEWER/ADMIN 역할만 노출)
+  - 알림: 요청/응답 시 양쪽에 SSE 실시간 알림 + 상세 링크
 
 **🏗️ 아키텍처**
-- [ ] **DB 마이그레이션 가이드** — `/admin/db-migration` 페이지. H2 → PostgreSQL / MySQL / Oracle 11g 전환 절차 + DDL 스키마 자동 생성 + 데이터 이관 스크립트 + DB별 주의사항 (Oracle 11g: BOOLEAN 미지원, VARCHAR2, 시퀀스 ID 등)
+- [x] **DB 마이그레이션 가이드** — `/admin/db-migration` ADMIN 페이지 + `DbMigrationController`. 현재 DB 자동 감지(`DatabaseMetaData`), URL 비밀번호 마스킹. 4개 탭 가이드
+  - **PostgreSQL**: Docker Compose 실행, 환경변수, 자동 스키마 생성
+  - **MySQL**: 8.0+ 필수 주의, utf8mb4 문자셋, DB 생성 SQL
+  - **Oracle 11g**: BOOLEAN → NUMBER(1), TEXT → CLOB, 시퀀스 ID, `Oracle10gDialect`, ojdbc8 의존성 추가 가이드, 신규 `application-oracle.yml` 예시
+  - **백업/복원**: H2 `SCRIPT TO` 덤프, ZIP 백업 다운로드, CSV 이력 내보내기
+  - 각 단계 복사 가능 코드 블록, 주의사항 박스
+
+**🛡️ 사용자 권한 관리 통합**
+- [x] **`review-requests` 기능 권한 추가** — `PermissionInterceptor.FEATURE_PATHS`, `AdminPermissionController.FEATURES`, `AuditLog.MENU_NAME_MAP`, 감사 로그 필터 드롭다운 모두 동기화. VIEWER/REVIEWER 사용자별 on/off 가능
+- [x] **v2.5.0 ~ v2.9.0 사용자 권한 관리 범위 점검 완료** — 안정성/보안 강화(v2.5-2.6)는 ADMIN 기능이라 제외, 채팅 세션/Markdown/WebJars(v2.7)는 기존 `chat` 권한 재사용, 모니터링/UX(v2.8)는 전역 또는 ADMIN 전용이라 제외, v2.9 신규 `review-requests`만 사용자 제어 대상으로 추가
 
 ---
 

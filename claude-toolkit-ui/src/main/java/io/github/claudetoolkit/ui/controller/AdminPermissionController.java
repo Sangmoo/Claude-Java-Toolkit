@@ -41,11 +41,12 @@ public class AdminPermissionController {
         new String[]{"depcheck",     "의존성 분석 (pom)",  "생성"},
         new String[]{"migrate",      "Spring 마이그레이션", "생성"},
         // 기록
-        new String[]{"history",      "리뷰 이력",          "기록"},
-        new String[]{"favorites",    "즐겨찾기",           "기록"},
-        new String[]{"usage",        "사용량 모니터링",     "기록"},
-        new String[]{"roi-report",   "ROI 리포트",         "기록"},
-        new String[]{"schedule",     "분석 스케줄링",       "기록"},
+        new String[]{"history",        "리뷰 이력",          "기록"},
+        new String[]{"favorites",      "즐겨찾기",           "기록"},
+        new String[]{"usage",          "사용량 모니터링",     "기록"},
+        new String[]{"roi-report",     "ROI 리포트",         "기록"},
+        new String[]{"schedule",       "분석 스케줄링",       "기록"},
+        new String[]{"review-requests","팀 리뷰 요청",        "기록"},
         // 도구
         new String[]{"loganalyzer",  "로그 분석기",        "도구"},
         new String[]{"regex",        "정규식 생성기",      "도구"},

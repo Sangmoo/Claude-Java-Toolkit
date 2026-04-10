@@ -149,7 +149,7 @@
         <div th:if="${allowedFeatures == null or
                      allowedFeatures.contains('history') or allowedFeatures.contains('favorites') or
                      allowedFeatures.contains('usage') or allowedFeatures.contains('roi-report') or
-                     allowedFeatures.contains('schedule')}">
+                     allowedFeatures.contains('schedule') or allowedFeatures.contains('review-requests')}">
         <button class="sidebar-section-toggle" id="toggle-history"
                 onclick="toggleSidebarSection('history')">
             <span>기록</span>
@@ -175,6 +175,10 @@
             <a th:if="${allowedFeatures == null or allowedFeatures.contains('schedule')}" href="/schedule" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/schedule') ? ' active' : ''}">
                 <i class="fas fa-calendar-check" style="color:#f59e0b"></i><span>분석 스케줄링</span>
+            </a>
+            <a th:if="${allowedFeatures == null or allowedFeatures.contains('review-requests')}" href="/review-requests" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/review-requests') ? ' active' : ''}">
+                <i class="fas fa-user-check" style="color:#8b5cf6"></i><span>팀 리뷰 요청</span>
             </a>
         </div>
         </div>
@@ -270,6 +274,10 @@
                 <a href="/admin/backup" class="sidebar-item"
                    th:classappend="${#strings.startsWith(#request.requestURI, '/admin/backup') ? ' active' : ''}">
                     <i class="fas fa-database" style="color:#10b981"></i><span>백업 / 복원</span>
+                </a>
+                <a href="/admin/db-migration" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/admin/db-migration') ? ' active' : ''}">
+                    <i class="fas fa-exchange-alt" style="color:#3b82f6"></i><span>DB 마이그레이션 가이드</span>
                 </a>
             </div>
         </div>

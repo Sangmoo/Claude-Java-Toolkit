@@ -678,6 +678,86 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   v2.9.0: 분석 결과 → AI 채팅 연계
+   ═══════════════════════════════════════════════════════════════ */
+function askAboutResult(elementId) {
+    var el = document.getElementById(elementId);
+    if (!el) {
+        if (typeof showToast === 'function') showToast('분석 결과가 아직 없습니다.', 'warning');
+        return;
+    }
+    var text = el.textContent || el.innerText || '';
+    text = text.trim();
+    if (!text) {
+        if (typeof showToast === 'function') showToast('분석 결과가 아직 없습니다.', 'warning');
+        return;
+    }
+    // 3000자 초과 시 절삭 (ChatController에서도 절삭하지만 URL 길이 제한 대응)
+    if (text.length > 3000) text = text.substring(0, 3000);
+    window.location.href = '/chat?context=' + encodeURIComponent(text);
+}
+
+/* ── v2.9.0: 분석 결과 영역에 "이 결과에 대해 질문하기" 버튼 자동 주입 ──
+   DOMContentLoaded 시점에 #resultMd / #streamResult / #resultContainer 등의
+   표준 결과 영역을 찾아, 결과가 채워지면 상단에 플로팅 버튼을 추가한다.
+   채팅 페이지 자체에는 삽입하지 않음. */
+(function() {
+    function injectAskButton() {
+        // 채팅 페이지 제외
+        if (window.location.pathname.indexOf('/chat') === 0) return;
+
+        var candidateIds = ['resultMd', 'streamResult', 'resultContainer', 'analysisResult'];
+        var found = null;
+        for (var i = 0; i < candidateIds.length; i++) {
+            var el = document.getElementById(candidateIds[i]);
+            if (el && !el.dataset.askInjected) {
+                found = el;
+                break;
+            }
+        }
+        if (!found) return;
+
+        // 이미 버튼이 있으면 skip
+        if (found.parentNode && found.parentNode.querySelector('.ask-about-result-btn')) return;
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ask-about-result-btn';
+        btn.style.cssText = 'background:linear-gradient(135deg,#8b5cf6,#f97316);color:#fff;'
+            + 'border:none;border-radius:8px;padding:7px 16px;font-size:.78rem;font-weight:600;'
+            + 'cursor:pointer;display:none;align-items:center;gap:6px;margin:0 0 10px 0;'
+            + 'box-shadow:0 2px 6px rgba(139,92,246,.3);transition:transform .15s;';
+        btn.innerHTML = '<i class="fas fa-comments"></i> 이 결과에 대해 AI에게 질문하기';
+        btn.onmouseenter = function(){ this.style.transform = 'translateY(-1px)'; };
+        btn.onmouseleave = function(){ this.style.transform = ''; };
+        btn.onclick = function() { askAboutResult(found.id); };
+
+        // 결과 영역 앞에 삽입
+        found.parentNode.insertBefore(btn, found);
+        found.dataset.askInjected = 'true';
+
+        // 결과가 채워질 때만 버튼 표시 (MutationObserver)
+        function updateVisibility() {
+            var text = (found.textContent || '').trim();
+            btn.style.display = text.length > 20 ? 'inline-flex' : 'none';
+        }
+        updateVisibility();
+        try {
+            var observer = new MutationObserver(updateVisibility);
+            observer.observe(found, { childList: true, subtree: true, characterData: true });
+        } catch (e) {}
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectAskButton);
+    } else {
+        injectAskButton();
+    }
+    // 페이지 동적 렌더링 시 재시도 (1초 지연)
+    setTimeout(injectAskButton, 1500);
+})();
+
 /* ── v2.8.0: 키보드 단축키 가이드 (? 키로 모달 토글) ───────────── */
 document.addEventListener('keydown', function(e) {
     // Only trigger on '?' when not in input field

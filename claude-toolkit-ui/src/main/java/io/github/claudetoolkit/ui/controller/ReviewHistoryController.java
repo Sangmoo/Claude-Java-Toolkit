@@ -44,6 +44,7 @@ public class ReviewHistoryController {
             map.put("error", "Not found");
             return map;
         }
+        map.put("id",       String.valueOf(h.getId()));
         map.put("type",     h.getTypeLabel());
         map.put("typeCode", h.getType());
         map.put("title",    h.getTitle());

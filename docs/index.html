@@ -619,6 +619,30 @@ footer{
           <span class="tag">🗄️ 캐시 영속화</span>
         </div>
       </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">📡</div>
+        <div class="feat-title" data-i18n="feat.monitor.title">모니터링 & UX</div>
+        <div class="feat-desc" data-i18n="feat.monitor.desc">SSE 기반 실시간 알림(60초 폴링 → 즉시 push, 연결 실패 시 자동 fallback), 시스템 헬스 대시보드(JVM 메모리/업타임/스레드, H2 DB 크기, 디스크 여유공간, Claude API 상태), 감사 로그 기능 메뉴 필터, 키보드 단축키 가이드(? 키), 모바일 하단 탭 네비게이션</div>
+        <div class="feat-tags">
+          <span class="tag">📡 SSE 실시간 알림</span>
+          <span class="tag">🏥 헬스 대시보드</span>
+          <span class="tag">🔍 로그 필터</span>
+          <span class="tag">⌨️ 단축키</span>
+          <span class="tag">📱 모바일 네비</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">👥</div>
+        <div class="feat-title" data-i18n="feat.team.title">협업 & 아키텍처</div>
+        <div class="feat-desc" data-i18n="feat.team.desc">분석 결과를 AI 채팅 컨텍스트로 즉시 전환("💬 이 결과에 대해 질문하기"), 팀 리뷰 워크플로우(작성자 → REVIEWER 승인/반려 + 실시간 알림), DB 마이그레이션 가이드(H2 → PostgreSQL / MySQL / Oracle 11g 단계별 안내)</div>
+        <div class="feat-tags">
+          <span class="tag">💬 결과→채팅 연계</span>
+          <span class="tag">👥 팀 리뷰 워크플로우</span>
+          <span class="tag">✅ 승인/반려 알림</span>
+          <span class="tag">🗄️ DB 마이그레이션</span>
+          <span class="tag">🔶 Oracle 11g 지원</span>
+        </div>
+      </div>
     </div>
 
     <!-- 기능 탭 상세 -->
@@ -919,6 +943,10 @@ var i18n={
     'feat.security.desc':'API 키 동시성 수정(ThreadLocal 격리), 채팅 세션 스레드 안전성, 로그인 실패 잠금(5회→10분), 비밀번호 만료 알림("다음에 변경하기" 스누즈), 사용자별 IP 화이트리스트(CIDR 지원), API 키 일일/월간 사용량 제한까지 엔터프라이즈 수준의 보안을 제공합니다',
     'feat.chat.title':'채팅 고도화 & 성능',
     'feat.chat.desc':'Markdown 렌더링(marked + Prism.js + DOMPurify XSS 방지), 다중 대화 세션 관리(DB 영속화 + 좌측 패널), 대화 내보내기(.md), WebJars 기반 정적 리소스 로컬 번들링(오프라인/폐쇄망 지원), 분석 캐시 DB 영속화(서버 재시작 후에도 캐시 유지)',
+    'feat.monitor.title':'모니터링 & UX',
+    'feat.monitor.desc':'SSE 기반 실시간 알림(60초 폴링 → 즉시 push, 연결 실패 시 자동 fallback), 시스템 헬스 대시보드(JVM 메모리/업타임/스레드, H2 DB 크기, 디스크 여유공간, Claude API 상태), 감사 로그 기능 메뉴 필터, 키보드 단축키 가이드(? 키), 모바일 하단 탭 네비게이션',
+    'feat.team.title':'협업 & 아키텍처',
+    'feat.team.desc':'분석 결과를 AI 채팅 컨텍스트로 즉시 전환("💬 이 결과에 대해 질문하기"), 팀 리뷰 워크플로우(작성자 → REVIEWER 승인/반려 + 실시간 알림), DB 마이그레이션 가이드(H2 → PostgreSQL / MySQL / Oracle 11g 단계별 안내)',
     'tab.sql':'SQL 분석','tab.code':'코드 분석','tab.doc':'문서 생성','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL 전방위 분석',
     'tab.sql.p':'실행계획(EXPLAIN PLAN) 트리 시각화, <strong>⚡ SSE 스트리밍 실시간 분석</strong>(v1.5 NEW), Before/After 비교, 성능 히스토리 대시보드(Cost 추이 차트), <strong>AI 제안 SQL Diff 뷰</strong>(v1.5 NEW), 배치 SQL 분석(최대 30개 일괄 리뷰, CSV 업로드), cron 스케줄 자동 실행, SQL Injection 보안 검사까지 SQL 개발의 모든 단계를 지원합니다.',
@@ -983,6 +1011,10 @@ var i18n={
     'feat.security.desc':'API key concurrency fix (ThreadLocal isolation), chat session thread safety, login lockout (5 fails → 10 min), password expiry reminder with snooze, per-user IP whitelist (CIDR), and API daily/monthly usage limits — enterprise-grade security',
     'feat.chat.title':'Chat & Performance',
     'feat.chat.desc':'Markdown rendering (marked + Prism.js + DOMPurify XSS protection), multi-session management (DB persistence + left panel), chat export (.md), WebJars-based local static resource bundling (offline/intranet support), and analysis cache DB persistence (survives restart)',
+    'feat.monitor.title':'Monitoring & UX',
+    'feat.monitor.desc':'SSE-based real-time notifications (60s polling → instant push with auto fallback), system health dashboard (JVM memory/uptime/threads, H2 DB size, disk free, Claude API status), audit log feature menu filter, keyboard shortcuts guide (? key), mobile bottom tab navigation',
+    'feat.team.title':'Collaboration & Architecture',
+    'feat.team.desc':'Analysis-to-chat context handoff ("Ask about this result"), team review workflow (author → REVIEWER approve/reject + real-time notification), DB migration guide (H2 → PostgreSQL / MySQL / Oracle 11g step-by-step)',
     'tab.sql':'SQL Analysis','tab.code':'Code Analysis','tab.doc':'Doc Generation','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL Comprehensive Analysis',
     'tab.sql.p':'Supports all stages of SQL development: EXPLAIN PLAN tree visualization, <strong>⚡ SSE real-time streaming analysis</strong> (v1.5 NEW), Before/After comparison, performance history dashboard (Cost trend chart), <strong>AI-suggested SQL Diff view</strong> (v1.5 NEW), batch SQL analysis (up to 30 queries at once, CSV upload), cron-based scheduled auto-review, and SQL Injection security checks.',

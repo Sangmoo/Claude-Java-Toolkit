@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>DB 마이그레이션 가이드 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.2/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/prismjs/1.29.0/themes/prism-tomorrow.min.css}">
+    <link th:href="@{/css/toolkit.css(v='20250411')}" rel="stylesheet">
+    <style>
+        .mig-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border-color); margin-bottom:20px; flex-wrap:wrap; }
+        .mig-tab {
+            background:none; border:none; padding:10px 18px; font-size:.86rem; font-weight:600;
+            color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .15s;
+        }
+        .mig-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+        .mig-tab:hover { color:var(--text-primary); }
+        .mig-panel { display:none; }
+        .mig-panel.active { display:block; }
+
+        .info-box {
+            background:var(--bg-secondary); border:1px solid var(--border-color);
+            border-radius:10px; padding:16px 20px; margin-bottom:14px;
+        }
+        .info-box h5 {
+            font-size:.9rem; font-weight:700; margin:0 0 12px 0;
+            color:var(--text-primary); display:flex; align-items:center; gap:8px;
+        }
+        .info-box .row-item {
+            display:flex; justify-content:space-between; padding:6px 0;
+            border-bottom:1px solid var(--border-color); font-size:.82rem;
+        }
+        .info-box .row-item:last-child { border-bottom:none; }
+        .info-box .row-item .label { color:var(--text-sub); }
+        .info-box .row-item .value { color:var(--text-primary); font-family:'JetBrains Mono',monospace; }
+
+        .step {
+            background:var(--bg-secondary); border:1px solid var(--border-color);
+            border-radius:10px; padding:16px 20px; margin-bottom:12px;
+        }
+        .step-num {
+            display:inline-block; background:var(--accent); color:#fff;
+            width:24px; height:24px; border-radius:50%; text-align:center;
+            line-height:24px; font-size:.78rem; font-weight:700; margin-right:10px;
+        }
+        .step-title { font-size:.92rem; font-weight:700; color:var(--text-primary); margin-bottom:8px; }
+        .step-desc  { font-size:.82rem; color:var(--text-sub); margin-bottom:12px; }
+
+        pre {
+            background:#1e1e2e; color:#f1f5f9; padding:12px 16px; border-radius:8px;
+            font-size:.76rem; overflow-x:auto; margin:8px 0; position:relative;
+        }
+        pre .copy-code {
+            position:absolute; top:8px; right:8px; background:rgba(255,255,255,.1);
+            border:1px solid rgba(255,255,255,.2); color:#f1f5f9; font-size:.68rem;
+            padding:3px 8px; border-radius:4px; cursor:pointer;
+        }
+        pre .copy-code:hover { background:rgba(255,255,255,.2); }
+
+        .warning-box {
+            background:rgba(245,158,11,.1); border-left:4px solid #f59e0b;
+            padding:12px 16px; border-radius:0 6px 6px 0; margin:12px 0;
+            font-size:.82rem; color:var(--text-primary);
+        }
+        .warning-box strong { color:#f59e0b; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-database me-2" style="color:#3b82f6"></i>DB 마이그레이션 가이드</span>
+            <button id="themeToggle" onclick="toggleTheme()">
+                <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+            </button>
+        </div>
+        <div class="main-content">
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+                <i class="fas fa-info-circle me-1"></i>기본 H2 파일 DB에서 PostgreSQL / MySQL / Oracle 11g 로 이전하는 절차입니다.
+                본 가이드는 방법만 안내하며 실제 마이그레이션은 관리자가 직접 수행해야 합니다.
+            </p>
+
+            <!-- 현재 DB 상태 -->
+            <div class="info-box">
+                <h5><i class="fas fa-plug" style="color:#10b981"></i>현재 연결된 데이터베이스</h5>
+                <div id="currentDbInfo">
+                    <div class="row-item"><span class="label">로딩 중...</span><span></span></div>
+                </div>
+            </div>
+
+            <!-- 탭 -->
+            <div class="mig-tabs">
+                <button class="mig-tab active" onclick="switchMigTab('postgresql', this)">
+                    <i class="fab fa-postgresql me-1" style="color:#336791"></i>PostgreSQL
+                </button>
+                <button class="mig-tab" onclick="switchMigTab('mysql', this)">
+                    <i class="fas fa-database me-1" style="color:#4479a1"></i>MySQL
+                </button>
+                <button class="mig-tab" onclick="switchMigTab('oracle11g', this)">
+                    <i class="fas fa-database me-1" style="color:#ea2e30"></i>Oracle 11g
+                </button>
+                <button class="mig-tab" onclick="switchMigTab('backup', this)">
+                    <i class="fas fa-download me-1"></i>백업/복원
+                </button>
+            </div>
+
+            <!-- PostgreSQL 패널 -->
+            <div id="panel-postgresql" class="mig-panel active">
+                <div class="step">
+                    <div class="step-title"><span class="step-num">1</span>PostgreSQL 서버 준비 (Docker 예시)</div>
+                    <div class="step-desc">`docker-compose.yml`에 이미 정의된 `postgresql` 프로파일을 사용하면 가장 간단합니다.</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>docker-compose --profile postgresql up -d db-pg</pre>
+                    <div class="step-desc">또는 직접 PostgreSQL 14+ 인스턴스 실행:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>docker run -d --name claude-pg \
+  -e POSTGRES_DB=claude_toolkit \
+  -e POSTGRES_USER=claude \
+  -e POSTGRES_PASSWORD=claude1234 \
+  -p 5432:5432 \
+  postgres:14-alpine</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">2</span>환경변수 설정 후 재기동</div>
+                    <div class="step-desc">Docker 컴포즈 환경:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>DB_TYPE=postgresql \
+DB_HOST=db-pg \
+DB_PORT=5432 \
+DB_NAME=claude_toolkit \
+DB_USERNAME=claude \
+DB_PASSWORD=claude1234 \
+docker-compose up -d claude-toolkit</pre>
+                    <div class="step-desc">앱은 자동으로 <code>application-postgresql.yml</code> 프로파일을 로드합니다.</div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">3</span>스키마 자동 생성 확인</div>
+                    <div class="step-desc">JPA <code>ddl-auto: update</code>로 모든 테이블이 자동 생성됩니다.
+                    최초 기동 시 admin 계정이 자동 생성됩니다.</div>
+                </div>
+
+                <div class="info-box">
+                    <h5><i class="fas fa-cog" style="color:#3b82f6"></i>application-postgresql.yml 설정 (참고)</h5>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:claude_toolkit}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:claude}
+    password: ${DB_PASSWORD:claude1234}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQL10Dialect</pre>
+                </div>
+            </div>
+
+            <!-- MySQL 패널 -->
+            <div id="panel-mysql" class="mig-panel">
+                <div class="step">
+                    <div class="step-title"><span class="step-num">1</span>MySQL 서버 준비</div>
+                    <div class="step-desc">MySQL 8.0+ 권장. 프로젝트에 포함된 `mysql` 프로파일 활용:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>docker-compose --profile mysql up -d db</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">2</span>데이터베이스 생성 및 권한</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>CREATE DATABASE claude_toolkit CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'claude'@'%' IDENTIFIED BY 'claude1234';
+GRANT ALL PRIVILEGES ON claude_toolkit.* TO 'claude'@'%';
+FLUSH PRIVILEGES;</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">3</span>환경변수로 재기동</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>DB_TYPE=mysql \
+DB_HOST=db \
+DB_PORT=3306 \
+DB_NAME=claude_toolkit \
+DB_USERNAME=claude \
+DB_PASSWORD=claude1234 \
+docker-compose up -d claude-toolkit</pre>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⚠️ 주의:</strong> MySQL 8.0+ 필수. 5.7 이하는 <code>JSON</code> 타입 및 일부 기능 미지원.
+                    문자셋은 반드시 <code>utf8mb4</code>를 사용하여 한글 4byte 문자(이모지 포함)를 지원하세요.
+                </div>
+
+                <div class="info-box">
+                    <h5><i class="fas fa-cog" style="color:#4479a1"></i>application-mysql.yml 설정 (참고)</h5>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:claude_toolkit}?useSSL=false&amp;allowPublicKeyRetrieval=true&amp;serverTimezone=Asia/Seoul&amp;characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USERNAME:claude}
+    password: ${DB_PASSWORD:claude1234}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect</pre>
+                </div>
+            </div>
+
+            <!-- Oracle 11g 패널 -->
+            <div id="panel-oracle11g" class="mig-panel">
+                <div class="warning-box">
+                    <strong>⚠️ Oracle 11g 주요 제약사항:</strong>
+                    <ul style="margin:6px 0 0 18px;font-size:.8rem;">
+                        <li><code>BOOLEAN</code> 타입 미지원 → <code>NUMBER(1)</code> 로 자동 매핑</li>
+                        <li><code>TEXT</code>/<code>VARCHAR</code> 4000+ → <code>CLOB</code> 필수</li>
+                        <li>AUTO_INCREMENT 없음 → 시퀀스(SEQUENCE) 기반 ID 생성</li>
+                        <li>예약어 주의 (예: <code>level</code>, <code>comment</code>, <code>user</code>)</li>
+                        <li>Hibernate Dialect는 <code>Oracle10gDialect</code> 사용 (11g 호환)</li>
+                    </ul>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">1</span>Oracle 11g 인스턴스 준비</div>
+                    <div class="step-desc">Oracle XE 11g 또는 Enterprise Edition. 스키마 사용자 생성:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>-- SYSDBA로 접속
+CREATE USER CLAUDE_TK IDENTIFIED BY "Claude1234!";
+GRANT CONNECT, RESOURCE TO CLAUDE_TK;
+GRANT UNLIMITED TABLESPACE TO CLAUDE_TK;
+GRANT CREATE SEQUENCE TO CLAUDE_TK;
+GRANT CREATE TABLE TO CLAUDE_TK;</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">2</span>ojdbc 드라이버 추가</div>
+                    <div class="step-desc">프로젝트 <code>pom.xml</code>에 Oracle JDBC 의존성 추가 필요:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>&lt;dependency&gt;
+    &lt;groupId&gt;com.oracle.database.jdbc&lt;/groupId&gt;
+    &lt;artifactId&gt;ojdbc8&lt;/artifactId&gt;
+    &lt;version&gt;21.5.0.0&lt;/version&gt;
+    &lt;scope&gt;runtime&lt;/scope&gt;
+&lt;/dependency&gt;</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">3</span>application-oracle.yml 생성</div>
+                    <div class="step-desc">신규 프로파일 파일을 <code>src/main/resources/application-oracle.yml</code>로 생성:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>spring:
+  datasource:
+    url: jdbc:oracle:thin:@//${DB_HOST:localhost}:${DB_PORT:1521}/${DB_NAME:XE}
+    driver-class-name: oracle.jdbc.OracleDriver
+    username: ${DB_USERNAME:CLAUDE_TK}
+    password: ${DB_PASSWORD:Claude1234!}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.Oracle10gDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
+        default_batch_fetch_size: 30</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">4</span>환경변수 설정 후 재기동</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>SPRING_PROFILES_ACTIVE=oracle \
+DB_HOST=oracle-db \
+DB_PORT=1521 \
+DB_NAME=XE \
+DB_USERNAME=CLAUDE_TK \
+DB_PASSWORD=Claude1234! \
+java -jar claude-toolkit-ui.jar</pre>
+                </div>
+
+                <div class="warning-box">
+                    <strong>🔧 호환성 점검 포인트:</strong>
+                    <ul style="margin:6px 0 0 18px;font-size:.8rem;">
+                        <li>JPA가 BOOLEAN을 NUMBER(1)로 매핑하는지 확인</li>
+                        <li>TEXT 컬럼(CLOB)이 제대로 읽고 쓰기 가능한지 테스트</li>
+                        <li><code>ddl-auto: update</code>는 첫 기동 시 테이블 자동 생성</li>
+                        <li>이미 H2에 데이터가 있다면 별도 이관 작업 필요 (백업/복원 탭 참고)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 백업/복원 패널 -->
+            <div id="panel-backup" class="mig-panel">
+                <div class="step">
+                    <div class="step-title"><span class="step-num">1</span>H2 데이터 백업</div>
+                    <div class="step-desc">ADMIN 메뉴에서 전체 백업 ZIP 다운로드 가능:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>/admin/backup (메뉴 → 백업 / 복원)</pre>
+                    <div class="step-desc">또는 H2 파일 직접 복사:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button># Docker 컨테이너 외부로 복사
+docker cp claude-toolkit:/root/.claude-toolkit/ ./backup-h2/</pre>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">2</span>H2 데이터를 SQL로 덤프 (H2 Console 활용)</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>-- H2 Console (http://localhost:8082) 또는 SQL 도구에서
+SCRIPT TO '/tmp/h2-dump.sql';</pre>
+                    <div class="step-desc">생성된 SQL 파일을 목표 DB 방언에 맞게 편집 후 import합니다.
+                    H2와 대상 DB 문법 차이(ex. AUTO_INCREMENT vs SEQUENCE, TEXT vs CLOB)에 주의.</div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title"><span class="step-num">3</span>대체 방법: 분석 이력만 CSV로 내보내기</div>
+                    <div class="step-desc">전체 데이터가 아닌 분석 이력만 필요한 경우:</div>
+                    <pre><button class="copy-code" onclick="copyCode(this)">복사</button>/history → 상단 "CSV 내보내기" 버튼</pre>
+                </div>
+
+                <div class="warning-box">
+                    <strong>💡 권장 절차:</strong>
+                    <ol style="margin:6px 0 0 18px;font-size:.8rem;">
+                        <li>H2 백업 ZIP 다운로드 (안전 백업)</li>
+                        <li>새 DB에 프로파일 활성화 후 앱 재기동 (스키마 자동 생성)</li>
+                        <li>신규 DB로 시작 → 기존 이력이 꼭 필요하면 수동 INSERT 또는 H2 SCRIPT 활용</li>
+                        <li>운영 환경에서는 작업 전 기존 시스템을 점검 모드로 전환 권장</li>
+                    </ol>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250411')}"></script>
+<script>
+// 현재 DB 정보 로드
+fetch('/admin/db-migration/current')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        var el = document.getElementById('currentDbInfo');
+        if (!d.success) {
+            el.innerHTML = '<div class="row-item"><span class="label">에러</span><span class="value">' + (d.error || '조회 실패') + '</span></div>';
+            return;
+        }
+        var iconMap = {
+            h2:         '<i class="fas fa-database" style="color:#0055a4"></i> H2 (파일 DB)',
+            postgresql: '<i class="fab fa-postgresql" style="color:#336791"></i> PostgreSQL',
+            mysql:      '<i class="fas fa-database" style="color:#4479a1"></i> MySQL',
+            oracle:     '<i class="fas fa-database" style="color:#ea2e30"></i> Oracle',
+            unknown:    '<i class="fas fa-question-circle"></i> 알 수 없음'
+        };
+        var html = ''
+            + '<div class="row-item"><span class="label">제품</span><span class="value">' + (iconMap[d.dbType] || d.productName) + '</span></div>'
+            + '<div class="row-item"><span class="label">버전</span><span class="value">' + escHtml(d.productVersion) + '</span></div>'
+            + '<div class="row-item"><span class="label">URL</span><span class="value">' + escHtml(d.url) + '</span></div>'
+            + '<div class="row-item"><span class="label">사용자</span><span class="value">' + escHtml(d.username) + '</span></div>'
+            + '<div class="row-item"><span class="label">드라이버</span><span class="value">' + escHtml(d.driver) + '</span></div>';
+        el.innerHTML = html;
+    })
+    .catch(function() {
+        document.getElementById('currentDbInfo').innerHTML =
+            '<div class="row-item"><span class="label">로드 실패</span></div>';
+    });
+
+function switchMigTab(tab, btn) {
+    var tabs = document.querySelectorAll('.mig-tab');
+    var panels = document.querySelectorAll('.mig-panel');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    for (var i = 0; i < panels.length; i++) panels[i].classList.remove('active');
+    if (btn) btn.classList.add('active');
+    var panel = document.getElementById('panel-' + tab);
+    if (panel) panel.classList.add('active');
+}
+
+function copyCode(btn) {
+    var pre = btn.parentElement;
+    var text = pre.textContent.replace('복사', '').trim();
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+            var original = btn.textContent;
+            btn.textContent = '복사됨!';
+            setTimeout(function(){ btn.textContent = original; }, 1500);
+        });
+    }
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+</script>
+</body>
+</html>

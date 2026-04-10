@@ -222,8 +222,54 @@
                         onclick="reloadInHarness()">
                     <i class="fas fa-redo me-1"></i>하네스 재분석
                 </button>
+                <!-- v2.9.0: 팀 리뷰 요청 -->
+                <button type="button" class="btn btn-sm" style="background:#8b5cf6;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:.78rem;"
+                        onclick="openReviewRequestModal()">
+                    <i class="fas fa-user-check me-1"></i>리뷰 요청
+                </button>
                 <button type="button" class="btn btn-outline-tk btn-sm" data-bs-dismiss="modal">닫기</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- v2.9.0: 리뷰 요청 모달 -->
+<div id="reviewRequestModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeReviewRequestModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,92vw);
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:.95rem;color:var(--text-primary);">
+                <i class="fas fa-user-check me-2" style="color:#8b5cf6"></i>팀 리뷰 요청
+            </span>
+            <button onclick="closeReviewRequestModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;">&times;</button>
+        </div>
+        <div style="padding:20px;">
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:14px;">
+                이 분석 결과에 대해 팀원에게 리뷰 승인을 요청합니다. 리뷰어는 실시간 알림을 받습니다.
+            </p>
+            <div class="mb-3">
+                <label style="font-size:.8rem;color:var(--text-sub);font-weight:600;">리뷰어 선택</label>
+                <select id="reviewerSelect" class="form-select" style="font-size:.84rem;">
+                    <option value="">-- 선택 --</option>
+                </select>
+                <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">
+                    REVIEWER 또는 ADMIN 권한 사용자만 목록에 표시됩니다.
+                </div>
+            </div>
+            <div class="mb-3">
+                <label style="font-size:.8rem;color:var(--text-sub);font-weight:600;">요청 메모 (선택)</label>
+                <textarea id="reviewRequestComment" class="form-control" rows="3"
+                          style="font-size:.84rem;" placeholder="예: 이번 주 배포 전 확인 부탁드립니다"></textarea>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button onclick="closeReviewRequestModal()"
+                        style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.84rem;">취소</button>
+                <button class="btn-accent" style="padding:7px 20px;" onclick="submitReviewRequest()">
+                    <i class="fas fa-paper-plane me-1"></i>요청 보내기
+                </button>
+            </div>
+            <div id="reviewRequestResult" style="font-size:.8rem;margin-top:8px;"></div>
         </div>
     </div>
 </div>
@@ -327,6 +373,71 @@
                 setTimeout(function(){ btn.innerHTML = o; }, 2000);
             });
         }
+    }
+
+    // ── v2.9.0: 팀 리뷰 요청 ───────────────────────────────────
+    function openReviewRequestModal() {
+        if (!_currentDetail || !_currentDetail.id) {
+            if (typeof showToast === 'function') showToast('이력을 선택하세요.', 'warning');
+            return;
+        }
+        document.getElementById('reviewRequestComment').value = '';
+        document.getElementById('reviewRequestResult').innerHTML = '';
+        // 리뷰어 목록 로드
+        fetch('/review-requests/reviewers')
+            .then(function(r) { return r.json(); })
+            .then(function(list) {
+                var sel = document.getElementById('reviewerSelect');
+                sel.innerHTML = '<option value="">-- 선택 --</option>';
+                if (!list || list.length === 0) {
+                    sel.innerHTML += '<option value="" disabled>등록된 REVIEWER/ADMIN 사용자가 없습니다</option>';
+                } else {
+                    for (var i = 0; i < list.length; i++) {
+                        var u = list[i];
+                        var opt = document.createElement('option');
+                        opt.value = u.username;
+                        opt.textContent = (u.displayName || u.username) + ' (' + u.role + ')';
+                        sel.appendChild(opt);
+                    }
+                }
+                document.getElementById('reviewRequestModal').style.display = '';
+            })
+            .catch(function() {
+                if (typeof showToast === 'function') showToast('리뷰어 목록 로드 실패', 'error');
+            });
+    }
+
+    function closeReviewRequestModal() {
+        document.getElementById('reviewRequestModal').style.display = 'none';
+    }
+
+    function submitReviewRequest() {
+        var reviewer = document.getElementById('reviewerSelect').value;
+        var comment  = document.getElementById('reviewRequestComment').value || '';
+        if (!reviewer) {
+            document.getElementById('reviewRequestResult').innerHTML =
+                '<span style="color:#ef4444;">리뷰어를 선택해주세요.</span>';
+            return;
+        }
+        var fd = new URLSearchParams();
+        fd.append('historyId', _currentDetail.id);
+        fd.append('reviewerUsername', reviewer);
+        fd.append('comment', comment);
+        fetch('/review-requests', {method:'POST', body:fd})
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.success) {
+                    if (typeof showToast === 'function') showToast('리뷰 요청이 전송되었습니다.', 'success');
+                    closeReviewRequestModal();
+                } else {
+                    document.getElementById('reviewRequestResult').innerHTML =
+                        '<span style="color:#ef4444;">' + (d.error || '요청 실패') + '</span>';
+                }
+            })
+            .catch(function() {
+                document.getElementById('reviewRequestResult').innerHTML =
+                    '<span style="color:#ef4444;">서버 오류</span>';
+            });
     }
 
     // ── Search & type filter ──────────────────────────────────
