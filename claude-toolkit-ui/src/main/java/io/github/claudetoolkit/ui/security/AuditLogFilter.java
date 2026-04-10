@@ -75,7 +75,7 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return path.startsWith("/css/")
             || path.startsWith("/js/")
             || path.startsWith("/favicon")
-            || path.contains("/stream/")        // SSE 스트리밍 (장기 연결) — /stream/, /workspace/stream/, /compare-stream/ 등
+            || path.contains("/stream")         // SSE 스트리밍 (장기 연결) — /stream/*, /chat/stream 등
             || path.startsWith("/actuator");
     }
 

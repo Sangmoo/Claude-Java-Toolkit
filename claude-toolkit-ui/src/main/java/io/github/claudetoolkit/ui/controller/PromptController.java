@@ -63,20 +63,34 @@ public class PromptController {
 
     // ── 기본 내장 프롬프트 조회 ────────────────────────────────────────────────
 
+    /** AI 채팅 기본 시스템 프롬프트 */
+    static final String AI_CHAT_DEFAULT_PROMPT =
+            "당신은 Claude Java Toolkit의 AI 어시스턴트입니다. " +
+            "Java/Spring Boot/Oracle DB 기반 엔터프라이즈 개발에 대해 전문적으로 답변합니다. " +
+            "코드 분석 결과에 대한 후속 질문에도 상세히 답변합니다. " +
+            "항상 한국어로 답변하세요.";
+
     @GetMapping("/default/{type}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getDefault(@PathVariable String type) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         try {
             AnalysisType analysisType = AnalysisType.valueOf(type.toUpperCase());
-            AnalysisService svc = registry.find(analysisType);
-            if (svc == null) {
-                resp.put("success", false);
-                resp.put("error", "지원하지 않는 분석 유형입니다: " + type);
-                return ResponseEntity.ok(resp);
+
+            // AI_CHAT은 별도 AnalysisService 없이 기본 프롬프트 직접 제공
+            String defaultPrompt;
+            if (analysisType == AnalysisType.AI_CHAT) {
+                defaultPrompt = AI_CHAT_DEFAULT_PROMPT;
+            } else {
+                AnalysisService svc = registry.find(analysisType);
+                if (svc == null) {
+                    resp.put("success", false);
+                    resp.put("error", "지원하지 않는 분석 유형입니다: " + type);
+                    return ResponseEntity.ok(resp);
+                }
+                WorkspaceRequest dummy = new WorkspaceRequest("", "java", analysisType, "");
+                defaultPrompt = svc.buildSystemPrompt(dummy);
             }
-            WorkspaceRequest dummy = new WorkspaceRequest("", "java", analysisType, "");
-            String defaultPrompt = svc.buildSystemPrompt(dummy);
 
             // 커스텀 프롬프트가 있으면 함께 반환
             Optional<CustomPrompt> custom =

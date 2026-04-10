@@ -53,6 +53,11 @@ public enum AnalysisType {
         "코드 리뷰 하네스",
         Arrays.asList("java", "sql", "kotlin"),
         "Analyst→Builder→Reviewer→Verifier 4단계 AI 파이프라인"
+    ),
+    AI_CHAT(
+        "AI 채팅",
+        Arrays.asList("java", "sql", "kotlin", "python", "javascript", "typescript"),
+        "대화형 AI 질의응답 (코드 분석, SQL 최적화, 아키텍처 상담)"
     );
 
     /** 화면 표시명 */

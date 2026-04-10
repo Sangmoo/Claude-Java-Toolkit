@@ -35,6 +35,7 @@ public class SecurityConfig {
             // CSRF: REST/SSE 엔드포인트 비활성, 폼은 활성
             .csrf()
                 .ignoringAntMatchers(
+                    "/login",
                     "/api/**", "/stream/**", "/workspace/**",
                     "/security/**", "/settings/**", "/admin/**", "/setup/**",
                     "/history/*/share", "/sql-translate/**",

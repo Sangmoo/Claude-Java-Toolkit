@@ -1412,10 +1412,31 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 - [x] **분석 결과 캐싱** — `AnalysisCacheService` SHA-256 해시 기반 LRU 인메모리 캐시 (최대 200개, TTL 1시간). 캐시 히트 시 "[캐시 결과]" 배지 표시
 
 **🆕 새 기능**
-- [x] **AI 채팅 인터페이스** — `/chat`: 대화형 AI 질의응답. SSE 스트리밍 응답. 분석 결과 컨텍스트 첨부 ("이 결과에 대해 질문하기"). 세션 기반 20턴 히스토리. `PermissionInterceptor`로 사용자 권한 제어
+- [x] **AI 채팅 인터페이스** — `/chat`: 대화형 AI 질의응답. **EventSource 기반 SSE 실시간 스트리밍** (2단계: POST 메시지 저장 → GET 스트리밍). Thinking 인디케이터(펄스 점 + 경과 시간 표시). 스트리밍 중 커서 깜빡임 효과. 하트비트 keep-alive (유휴 연결 끊김 방지). 말풍선별 복사 버튼 (HTTP fallback 지원). 분석 결과 컨텍스트 첨부. 세션 기반 20턴 히스토리. `PermissionInterceptor`로 사용자 권한 제어
 - [x] **팀 대시보드** — `/admin/team-dashboard` (ADMIN 전용): 일별 분석 트렌드 라인 차트, 사용자별 분석 건수/토큰 바 차트, 기능별 사용 빈도 도넛 차트 (Chart.js 4.4.1). 기간 선택기 (7/30/90일)
 - [x] **감사 로그 시각화** — `/admin/audit-dashboard` (ADMIN 전용): 시간대별 요청 분포 바 차트, 사용자별 활동 Top 10, 액션 유형 파이 차트, 일별 에러율 추이. 기간 선택기 (오늘/7일/30일)
 - [x] **분석 비용 추적** — 모델별 토큰 단가 적용 (입력 $3/1M, 출력 $15/1M). 일별 비용 추이 (`/usage/daily-cost`). 사용자별 비용 분배 (`/usage/cost-by-user`, ADMIN 전용). KRW 환산
+
+### ✅ v2.4.1 (핫픽스)
+
+**🔧 버그 수정**
+- [x] **로그인 CSRF 오류 수정** — `POST /login`이 CSRF 필터에서 차단되어 500 에러 발생. `/login`을 CSRF 예외 목록에 추가
+- [x] **Jackson 버전 불일치 해결** — `jackson-databind` 2.15.4만 선언하고 `jackson-core`/`jackson-annotations`는 Spring Boot BOM의 2.13.x 사용 → `NoClassDefFoundError: StreamConstraintsException`. 3개 모듈 모두 2.15.4로 통일
+- [x] **AuditLogFilter SSE 버퍼링 수정** — `ContentCachingResponseWrapper`가 `/chat/stream`을 버퍼링하여 스트리밍 불가. `shouldSkip()` 패턴을 `"/stream/"` → `"/stream"`으로 변경
+- [x] **ChatController 에러 핸들링** — `catch(Exception)` → `catch(Throwable)`로 변경하여 `NoClassDefFoundError` 등 `Error`도 포착. 에러 시 빈 말풍선 대신 오류 메시지 표시
+
+**🛡️ 사용자별 권한 관리 보완**
+- [x] **사이드바 권한 체크 누락 11개 메뉴 보완** — `depcheck`, `migrate`, `history`, `favorites`, `usage`, `roi-report`, `schedule`, `maskgen`, `github-pr`, `git-diff`, `prompts`에 `th:if` 권한 체크 추가. 권한 없는 메뉴 클릭 시 로그아웃되는 문제 해소
+- [x] **AI 채팅 권한 관리 추가** — `AdminPermissionController` FEATURES 목록에 `chat` 항목 추가. "사용자 권한 관리" 페이지에서 AI 채팅 on/off 가능
+- [x] **`/admin` 리다이렉트** — `/admin` 접근 시 404 대신 `/admin/users`로 자동 리다이렉트
+
+**💬 AI 채팅 UX 대폭 개선**
+- [x] **EventSource 기반 실시간 스트리밍** — `fetch` + `ReadableStream` → `EventSource`(네이티브 SSE)로 전환. 글자 단위 실시간 타이핑 효과
+- [x] **2단계 SSE 아키텍처** — `POST /chat/send`(메시지 저장) → `GET /chat/stream`(EventSource 스트리밍) 분리
+- [x] **하트비트 keep-alive** — 3초 간격 SSE 코멘트 전송으로 Docker/프록시 유휴 연결 끊김 방지
+- [x] **Thinking 인디케이터** — 펄스 애니메이션 3점 + 경과 시간 실시간 카운트 ("응답 생성 중 · 5초")
+- [x] **스트리밍 커서** — 응답 생성 중 말풍선 끝에 주황색 커서 깜빡임, 완료 시 자동 제거
+- [x] **말풍선 복사 버튼** — 호버 시 표시, 사용자 메시지는 좌측 하단·AI 응답은 우측 하단. HTTP 환경 `execCommand` fallback 포함. 복사 시 ✅ 피드백
 
 ---
 

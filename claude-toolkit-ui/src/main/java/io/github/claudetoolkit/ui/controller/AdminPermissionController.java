@@ -18,7 +18,8 @@ public class AdminPermissionController {
 
     /** 관리 대상 기능 목록: {key, 표시명, 카테고리} */
     private static final List<String[]> FEATURES = Arrays.asList(
-        // 분석
+        // 채팅
+        new String[]{"chat",         "AI 채팅",            "채팅"},
         // 분석
         new String[]{"workspace",    "통합 워크스페이스",   "분석"},
         new String[]{"advisor",      "SQL 리뷰",          "분석"},
