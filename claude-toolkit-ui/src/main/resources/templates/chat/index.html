@@ -5,15 +5,93 @@
     <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
     <title>AI 채팅 — Claude Java Toolkit</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link th:href="@{/css/toolkit.css(v='20250410')}" rel="stylesheet">
+    <!-- WebJars (v2.7.0 로컬 번들링) -->
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.2/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/prism/1.29.0/themes/prism-tomorrow.min.css}">
+    <link th:href="@{/css/toolkit.css(v='20250411')}" rel="stylesheet">
     <style>
         .chat-container { display:flex; flex-direction:column; height:calc(100vh - 90px); }
+        .chat-layout { display:flex; height:100%; }
+
+        /* ── 좌측 세션 패널 (v2.7.0) ── */
+        .chat-sidepanel {
+            width:240px; flex-shrink:0; border-right:1px solid var(--border-color);
+            display:flex; flex-direction:column; background:var(--bg-secondary);
+        }
+        .chat-sidepanel-header {
+            padding:12px; border-bottom:1px solid var(--border-color);
+        }
+        .chat-new-btn {
+            width:100%; padding:8px 12px; background:var(--accent); color:#fff;
+            border:none; border-radius:8px; font-size:.82rem; font-weight:600; cursor:pointer;
+        }
+        .chat-new-btn:hover { filter:brightness(0.9); }
+        .chat-sessions { flex:1; overflow-y:auto; padding:8px; }
+        .chat-session-item {
+            padding:8px 10px; margin-bottom:4px; border-radius:6px; cursor:pointer;
+            font-size:.8rem; color:var(--text-sub); display:flex; align-items:center;
+            justify-content:space-between; gap:6px; transition:background .1s;
+        }
+        .chat-session-item:hover { background:var(--bg-tertiary); }
+        .chat-session-item.active { background:var(--bg-tertiary); color:var(--text-primary); font-weight:600; }
+        .chat-session-item .title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .chat-session-item .actions { display:none; gap:4px; }
+        .chat-session-item:hover .actions { display:flex; }
+        .chat-session-item .actions button {
+            background:none; border:none; color:var(--text-muted); cursor:pointer; padding:2px 4px;
+            font-size:.72rem;
+        }
+        .chat-session-item .actions button:hover { color:var(--accent); }
+        .chat-session-empty {
+            text-align:center; padding:20px 10px; color:var(--text-muted); font-size:.74rem;
+        }
+
+        /* ── 메인 채팅 영역 ── */
+        .chat-main { flex:1; display:flex; flex-direction:column; min-width:0; }
         .chat-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-        .chat-bubble { max-width:80%; padding:12px 16px; border-radius:12px; font-size:.88rem; line-height:1.65; white-space:pre-wrap; word-break:break-word; }
-        .chat-user { align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
-        .chat-ai { align-self:flex-start; background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border-color); border-bottom-left-radius:4px; }
+        .chat-bubble { max-width:80%; padding:12px 16px; border-radius:12px; font-size:.88rem; line-height:1.65; word-break:break-word; }
+        .chat-user { align-self:flex-end; background:var(--accent); color:#fff; border-bottom-right-radius:4px; white-space:pre-wrap; }
+        .chat-ai   { align-self:flex-start; background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border-color); border-bottom-left-radius:4px; }
+        .chat-ai.streaming .chat-text { white-space:pre-wrap; }
+
+        /* ── Markdown 렌더링 스타일 (v2.7.0) ── */
+        .chat-ai .chat-text h1, .chat-ai .chat-text h2, .chat-ai .chat-text h3,
+        .chat-ai .chat-text h4, .chat-ai .chat-text h5 {
+            font-weight:700; margin:12px 0 8px 0; color:var(--text-primary);
+        }
+        .chat-ai .chat-text h1 { font-size:1.2rem; }
+        .chat-ai .chat-text h2 { font-size:1.08rem; }
+        .chat-ai .chat-text h3 { font-size:1rem; }
+        .chat-ai .chat-text p { margin:6px 0; }
+        .chat-ai .chat-text ul, .chat-ai .chat-text ol { margin:6px 0; padding-left:22px; }
+        .chat-ai .chat-text li { margin:3px 0; }
+        .chat-ai .chat-text strong { font-weight:700; color:var(--text-primary); }
+        .chat-ai .chat-text em { font-style:italic; }
+        .chat-ai .chat-text code {
+            background:rgba(124,107,240,.12); color:#a78bfa; padding:1px 6px;
+            border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:.82rem;
+        }
+        .chat-ai .chat-text pre {
+            background:#1e1e2e; color:#f1f5f9; padding:12px 14px; border-radius:8px;
+            overflow-x:auto; margin:8px 0; border:1px solid var(--border-color);
+        }
+        .chat-ai .chat-text pre code {
+            background:none; color:inherit; padding:0; font-size:.78rem;
+        }
+        .chat-ai .chat-text blockquote {
+            border-left:3px solid var(--accent); padding-left:12px; margin:8px 0;
+            color:var(--text-sub); font-style:italic;
+        }
+        .chat-ai .chat-text table {
+            border-collapse:collapse; margin:8px 0; font-size:.82rem;
+        }
+        .chat-ai .chat-text th, .chat-ai .chat-text td {
+            border:1px solid var(--border-color); padding:6px 10px;
+        }
+        .chat-ai .chat-text th { background:var(--bg-tertiary); font-weight:600; }
+        .chat-ai .chat-text a { color:var(--accent); text-decoration:underline; }
+
         .chat-input-bar { padding:12px 16px; border-top:1px solid var(--border-color); background:var(--bg-secondary); display:flex; gap:8px; align-items:flex-end; }
         .chat-input-bar textarea { flex:1; background:var(--input-bg) !important; border:1px solid var(--border-color) !important; color:var(--text-primary) !important; border-radius:8px; padding:10px 14px; font-size:.88rem; resize:none; min-height:44px; max-height:120px; }
         .chat-input-bar textarea:focus { border-color:var(--accent) !important; outline:none; }
@@ -41,22 +119,24 @@
                                     animation:cursorBlink .8s step-end infinite; }
         @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-        /* ── 말풍선 래퍼 (복사 버튼 위치 기준) ── */
+        /* ── 복사 버튼 ── */
         .chat-wrap { position:relative; max-width:80%; display:flex; flex-direction:column; }
         .chat-wrap.wrap-user { align-self:flex-end; }
         .chat-wrap.wrap-ai   { align-self:flex-start; }
         .chat-wrap .chat-bubble { max-width:100%; }
-
-        /* ── 복사 버튼 ── */
         .chat-copy { opacity:0; transition:opacity .15s; margin-top:4px;
-                     background:none; border:none;
-                     color:var(--text-muted); cursor:pointer; font-size:.7rem;
+                     background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:.7rem;
                      padding:2px 6px; border-radius:4px; }
         .chat-wrap.wrap-user .chat-copy { align-self:flex-start; }
         .chat-wrap.wrap-ai   .chat-copy { align-self:flex-end; }
         .chat-wrap:hover .chat-copy { opacity:1; }
         .chat-copy:hover { color:var(--accent); }
         .chat-copy.copied { opacity:1; color:#10b981; }
+
+        /* ── 모바일 반응형 ── */
+        @media (max-width: 768px) {
+            .chat-sidepanel { width:180px; }
+        }
     </style>
 </head>
 <body>
@@ -66,8 +146,11 @@
         <div class="top-bar">
             <span class="top-bar-title"><i class="fas fa-comments me-2" style="color:var(--accent)"></i>AI 채팅</span>
             <div class="chat-header-actions">
-                <button class="btn btn-outline-tk btn-sm" onclick="clearChat()">
-                    <i class="fas fa-trash me-1"></i>대화 초기화
+                <button class="btn btn-outline-tk btn-sm" onclick="exportChat()" title="현재 대화를 Markdown 파일로 내보내기">
+                    <i class="fas fa-download me-1"></i>내보내기
+                </button>
+                <button class="btn btn-outline-tk btn-sm" onclick="clearCurrentSession()">
+                    <i class="fas fa-trash me-1"></i>대화 비우기
                 </button>
                 <button id="themeToggle" onclick="toggleTheme()">
                     <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
@@ -75,65 +158,231 @@
             </div>
         </div>
         <div class="chat-container">
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-guide" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
-                    <i class="fas fa-robot" style="font-size:2.5rem;color:var(--accent);"></i>
-                    <p style="margin-top:12px;font-size:.88rem;">무엇이든 질문하세요.<br>코드 분석, SQL 최적화, 아키텍처 상담 등을 도와드립니다.</p>
+            <div class="chat-layout">
+                <!-- ── 좌측 세션 패널 ── -->
+                <aside class="chat-sidepanel">
+                    <div class="chat-sidepanel-header">
+                        <button class="chat-new-btn" onclick="createNewSession()">
+                            <i class="fas fa-plus me-1"></i>새 대화
+                        </button>
+                    </div>
+                    <div class="chat-sessions" id="sessionList">
+                        <div class="chat-session-empty">대화를 불러오는 중...</div>
+                    </div>
+                </aside>
+
+                <!-- ── 메인 채팅 영역 ── -->
+                <div class="chat-main">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-guide" style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+                            <i class="fas fa-robot" style="font-size:2.5rem;color:var(--accent);"></i>
+                            <p style="margin-top:12px;font-size:.88rem;">무엇이든 질문하세요.<br>코드 분석, SQL 최적화, 아키텍처 상담 등을 도와드립니다.</p>
+                        </div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <textarea id="chatInput" rows="1" placeholder="메시지를 입력하세요... (Shift+Enter: 줄바꿈)"
+                                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                        <button class="chat-send" id="chatSendBtn" onclick="sendChat()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="chat-input-bar">
-                <textarea id="chatInput" rows="1" placeholder="메시지를 입력하세요... (Shift+Enter: 줄바꿈)"
-                          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                <button class="chat-send" id="chatSendBtn" onclick="sendChat()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
             </div>
         </div>
     </main>
 </div>
-<script th:src="@{/js/toolkit.js(v='20250410')}"></script>
-<script>
-var _chatContext = null;
 
-(function() {
+<!-- v2.7.0: Markdown 렌더링 & XSS 방지 -->
+<script th:src="@{/webjars/marked/9.1.6/marked.min.js}"></script>
+<script th:src="@{/webjars/dompurify/3.0.8/dist/purify.min.js}"></script>
+<script th:src="@{/webjars/prism/1.29.0/prism.min.js}"></script>
+<script th:src="@{/webjars/prism/1.29.0/components/prism-java.min.js}"></script>
+<script th:src="@{/webjars/prism/1.29.0/components/prism-sql.min.js}"></script>
+<script th:src="@{/webjars/prism/1.29.0/components/prism-python.min.js}"></script>
+<script th:src="@{/webjars/prism/1.29.0/components/prism-javascript.min.js}"></script>
+<script th:src="@{/js/toolkit.js(v='20250411')}"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   v2.7.0 AI 채팅 — DB 세션 + Markdown 렌더링 + 내보내기
+   ═══════════════════════════════════════════════════════════════ */
+
+var _chatContext      = null;
+var _currentSessionId = null;  // 현재 활성 세션 ID
+
+// marked.js 옵션 (줄바꿈 유지, GFM)
+if (typeof marked !== 'undefined') {
+    marked.setOptions({
+        gfm: true,
+        breaks: true,
+        headerIds: false,
+        mangle: false
+    });
+}
+
+/* ── 초기화: 세션 목록 로드 + URL 파라미터 처리 ── */
+(function init() {
     var params = new URLSearchParams(window.location.search);
     var ctx = params.get('context');
     if (ctx) _chatContext = decodeURIComponent(ctx);
 
-    // 기존 히스토리 복원
-    fetch('/chat/history').then(function(r){return r.json();}).then(function(list){
-        if (!list || list.length === 0) return;
-        var container = document.getElementById('chatMessages');
-        container.innerHTML = '';
-        for (var i = 0; i < list.length; i++) {
-            appendBubble(list[i].role === 'user' ? 'user' : 'ai', list[i].content);
+    var urlSessionId = params.get('sessionId');
+    loadSessionList().then(function() {
+        if (urlSessionId) {
+            switchSession(parseInt(urlSessionId, 10));
+        } else {
+            // 가장 최근 세션 자동 선택
+            var sessions = document.querySelectorAll('.chat-session-item');
+            if (sessions.length > 0) {
+                var firstId = sessions[0].getAttribute('data-id');
+                switchSession(parseInt(firstId, 10));
+            }
         }
-        container.scrollTop = container.scrollHeight;
-    }).catch(function(){});
+    });
 })();
 
+/* ── 세션 목록 로드/렌더링 ── */
+function loadSessionList() {
+    return fetch('/chat/sessions')
+        .then(function(r) { return r.json(); })
+        .then(function(list) {
+            var container = document.getElementById('sessionList');
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div class="chat-session-empty">대화가 없습니다.<br>"새 대화"를 눌러 시작하세요.</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < list.length; i++) {
+                var s = list[i];
+                var active = (s.id === _currentSessionId) ? ' active' : '';
+                html += '<div class="chat-session-item' + active + '" data-id="' + s.id + '" onclick="switchSession(' + s.id + ')">'
+                      + '<span class="title">' + escHtml(s.title || '새 대화') + '</span>'
+                      + '<span class="actions">'
+                      + '<button onclick="event.stopPropagation();renameSession(' + s.id + ')" title="이름 변경"><i class="fas fa-pen"></i></button>'
+                      + '<button onclick="event.stopPropagation();deleteSession(' + s.id + ')" title="삭제"><i class="fas fa-trash"></i></button>'
+                      + '</span>'
+                      + '</div>';
+            }
+            container.innerHTML = html;
+        })
+        .catch(function() {
+            document.getElementById('sessionList').innerHTML = '<div class="chat-session-empty" style="color:#ef4444;">목록 로드 실패</div>';
+        });
+}
+
+function switchSession(id) {
+    _currentSessionId = id;
+    // 활성 표시 갱신
+    var items = document.querySelectorAll('.chat-session-item');
+    for (var i = 0; i < items.length; i++) {
+        if (parseInt(items[i].getAttribute('data-id'), 10) === id) {
+            items[i].classList.add('active');
+        } else {
+            items[i].classList.remove('active');
+        }
+    }
+    // 해당 세션 메시지 로드
+    fetch('/chat/sessions/' + id + '/messages')
+        .then(function(r) { return r.json(); })
+        .then(function(messages) {
+            var container = document.getElementById('chatMessages');
+            container.innerHTML = '';
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div class="chat-guide" style="text-align:center;padding:40px 20px;color:var(--text-muted);">'
+                    + '<i class="fas fa-robot" style="font-size:2.5rem;color:var(--accent);"></i>'
+                    + '<p style="margin-top:12px;font-size:.88rem;">새로운 대화를 시작하세요.</p></div>';
+                return;
+            }
+            for (var i = 0; i < messages.length; i++) {
+                var bubble = appendBubble(messages[i].role === 'user' ? 'user' : 'ai', messages[i].content);
+                // AI 메시지는 Markdown 렌더링
+                if (messages[i].role !== 'user' && bubble) {
+                    renderMarkdown(bubble);
+                }
+            }
+            container.scrollTop = container.scrollHeight;
+        });
+}
+
+function createNewSession() {
+    fetch('/chat/sessions/new', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                loadSessionList().then(function() {
+                    switchSession(d.id);
+                });
+            } else {
+                showToast('세션 생성 실패', 'error');
+            }
+        });
+}
+
+function renameSession(id) {
+    var newTitle = prompt('대화 제목:');
+    if (!newTitle) return;
+    var fd = new URLSearchParams();
+    fd.append('title', newTitle);
+    fetch('/chat/sessions/' + id + '/rename', {method:'POST', body:fd})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) loadSessionList();
+            else showToast(d.error || '이름 변경 실패', 'warning');
+        });
+}
+
+function deleteSession(id) {
+    if (!confirm('이 대화를 삭제하시겠습니까?')) return;
+    fetch('/chat/sessions/' + id + '/delete', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                if (id === _currentSessionId) _currentSessionId = null;
+                loadSessionList().then(function() {
+                    var first = document.querySelector('.chat-session-item');
+                    if (first) {
+                        switchSession(parseInt(first.getAttribute('data-id'), 10));
+                    } else {
+                        document.getElementById('chatMessages').innerHTML =
+                            '<div class="chat-guide" style="text-align:center;padding:40px 20px;color:var(--text-muted);">'
+                            + '<i class="fas fa-robot" style="font-size:2.5rem;color:var(--accent);"></i>'
+                            + '<p style="margin-top:12px;font-size:.88rem;">"새 대화"를 눌러 시작하세요.</p></div>';
+                    }
+                });
+            } else {
+                showToast(d.error || '삭제 실패', 'warning');
+            }
+        });
+}
+
+function clearCurrentSession() {
+    if (!_currentSessionId) return;
+    if (!confirm('이 대화의 메시지를 모두 삭제하시겠습니까?')) return;
+    fetch('/chat/sessions/' + _currentSessionId + '/clear', {method:'POST'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) switchSession(_currentSessionId);
+            else showToast(d.error || '초기화 실패', 'warning');
+        });
+}
+
+/* ── 말풍선 생성 ── */
 function appendBubble(role, text) {
     var container = document.getElementById('chatMessages');
     var guide = container.querySelector('.chat-guide');
     if (guide) guide.remove();
 
     var isUser = role === 'user';
-
-    // 래퍼: 말풍선 + 복사 버튼
     var wrap = document.createElement('div');
     wrap.className = 'chat-wrap ' + (isUser ? 'wrap-user' : 'wrap-ai');
 
-    // 말풍선
     var bubble = document.createElement('div');
     bubble.className = 'chat-bubble ' + (isUser ? 'chat-user' : 'chat-ai');
 
-    // 텍스트 영역 (스트리밍 커서용)
     var textSpan = document.createElement('span');
     textSpan.className = 'chat-text';
     textSpan.textContent = text;
     bubble.appendChild(textSpan);
 
-    // 복사 버튼
     var copyBtn = document.createElement('button');
     copyBtn.className = 'chat-copy';
     copyBtn.innerHTML = '<i class="fas fa-copy"></i> 복사';
@@ -146,13 +395,36 @@ function appendBubble(role, text) {
     return bubble;
 }
 
+/* ── Markdown 렌더링 (AI 응답 완료 시 호출) ── */
+function renderMarkdown(bubble) {
+    if (!bubble || typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return;
+    var textEl = bubble.querySelector('.chat-text');
+    if (!textEl) return;
+    var raw = textEl.textContent;  // 원본 텍스트 (복사용)
+    bubble.setAttribute('data-raw', raw);
+
+    try {
+        var html = marked.parse(raw);
+        var clean = DOMPurify.sanitize(html);
+        textEl.innerHTML = clean;
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAllUnder(textEl);
+        }
+    } catch (e) {
+        // 렌더링 실패 시 원본 텍스트 유지
+        console.warn('Markdown render failed:', e);
+    }
+}
+
 function copyBubbleText(btn) {
     var wrap = btn.closest('.chat-wrap');
-    var textEl = wrap.querySelector('.chat-text');
-    if (!textEl) return;
-    var text = textEl.textContent;
-
-    // clipboard API (HTTPS) 또는 fallback (HTTP)
+    var bubble = wrap.querySelector('.chat-bubble');
+    // Markdown 렌더링된 경우 data-raw 속성에서 원본 가져오기
+    var text = bubble.getAttribute('data-raw');
+    if (!text) {
+        var textEl = wrap.querySelector('.chat-text');
+        text = textEl ? textEl.textContent : '';
+    }
     var done = function() {
         btn.innerHTML = '<i class="fas fa-check"></i> 복사됨';
         btn.classList.add('copied');
@@ -161,23 +433,21 @@ function copyBubbleText(btn) {
             btn.classList.remove('copied');
         }, 2000);
     };
-
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(text).then(done);
     } else {
-        // HTTP 환경 fallback: textarea + execCommand
         var ta = document.createElement('textarea');
         ta.value = text;
-        ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+        ta.style.cssText = 'position:fixed;left:-9999px;';
         document.body.appendChild(ta);
         ta.select();
         try { document.execCommand('copy'); done(); }
-        catch(e) { alert('복사에 실패했습니다.'); }
+        catch (e) { alert('복사 실패'); }
         document.body.removeChild(ta);
     }
 }
 
-/* ── Thinking 인디케이터 (경과 시간 표시) ── */
+/* ── Thinking 인디케이터 ── */
 var _thinkingTimerId = null;
 function showThinking() {
     var container = document.getElementById('chatMessages');
@@ -187,12 +457,8 @@ function showThinking() {
     var div = document.createElement('div');
     div.className = 'chat-thinking';
     div.id = 'thinkingIndicator';
-    div.innerHTML =
-        '<div class="chat-thinking-dots"><span></span><span></span><span></span></div>' +
-        '<div class="chat-thinking-text">' +
-            '<span>응답 생성 중</span>' +
-            '<span id="thinkingTimer"></span>' +
-        '</div>';
+    div.innerHTML = '<div class="chat-thinking-dots"><span></span><span></span><span></span></div>'
+                  + '<div class="chat-thinking-text"><span>응답 생성 중</span><span id="thinkingTimer"></span></div>';
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 
@@ -211,6 +477,7 @@ function hideThinking() {
     if (el) el.remove();
 }
 
+/* ── 메시지 전송 ── */
 function sendChat() {
     var input = document.getElementById('chatInput');
     var msg = input.value.trim();
@@ -224,16 +491,24 @@ function sendChat() {
     sendBtn.disabled = true;
     showThinking();
 
-    // Step 1: POST 메시지 저장
     var fd = new URLSearchParams();
     fd.append('message', msg);
+    if (_currentSessionId) fd.append('sessionId', _currentSessionId);
     if (_chatContext) { fd.append('context', _chatContext); _chatContext = null; }
 
     fetch('/chat/send', {method:'POST', body:fd, credentials:'same-origin'})
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (!data.success) throw new Error('메시지 저장 실패');
-            // Step 2: EventSource로 스트리밍 수신
+            if (!data.success) throw new Error(data.error || '메시지 저장 실패');
+            // 서버가 세션 ID를 확정해서 반환
+            if (data.sessionId) {
+                var wasNew = (_currentSessionId !== data.sessionId);
+                _currentSessionId = data.sessionId;
+                if (wasNew) {
+                    // 새 세션이면 목록 갱신
+                    loadSessionList();
+                }
+            }
             startStream(sendBtn);
         })
         .catch(function(e) {
@@ -249,17 +524,11 @@ function startStream(sendBtn) {
     var accumulated = '';
     var connected = false;
 
-    // 서버 연결 확립 확인
-    es.addEventListener('connected', function() {
-        connected = true;
-    });
+    es.addEventListener('connected', function() { connected = true; });
 
-    // 실제 텍스트 청크 수신 (이름 없는 SSE data)
     es.onmessage = function(e) {
         var data = e.data;
         if (data === 'ok' || data === 'cached') return;
-
-        // 첫 청크 → thinking 제거 + AI 말풍선 생성
         if (!aiBubble) {
             hideThinking();
             aiBubble = appendBubble('ai', '');
@@ -274,7 +543,13 @@ function startStream(sendBtn) {
     es.addEventListener('done', function() {
         es.close();
         hideThinking();
-        if (aiBubble) aiBubble.classList.remove('streaming');
+        if (aiBubble) {
+            aiBubble.classList.remove('streaming');
+            // 스트리밍 완료 → Markdown 렌더링
+            renderMarkdown(aiBubble);
+        }
+        // 세션 목록 갱신 (제목 자동 생성된 경우 반영)
+        loadSessionList();
         sendBtn.disabled = false;
     });
 
@@ -283,61 +558,103 @@ function startStream(sendBtn) {
         hideThinking();
         if (!aiBubble) aiBubble = appendBubble('ai', '');
         aiBubble.querySelector('.chat-text').textContent = '오류: ' + e.data;
-        if (aiBubble) aiBubble.classList.remove('streaming');
         sendBtn.disabled = false;
     });
 
     es.onerror = function() {
-        // EventSource는 자동 재접속을 시도하므로 즉시 닫기
         es.close();
-        // 이미 데이터를 받고 있었다면 (스트리밍 중 끊김) → 받은 데이터는 유지
         if (accumulated !== '') {
-            if (aiBubble) aiBubble.classList.remove('streaming');
+            if (aiBubble) {
+                aiBubble.classList.remove('streaming');
+                renderMarkdown(aiBubble);
+            }
             sendBtn.disabled = false;
             hideThinking();
             return;
         }
-        // 연결조차 안 됐으면 → 에러 표시
         if (!connected) {
             hideThinking();
             appendBubble('ai', '서버 연결에 실패했습니다. 다시 시도해주세요.');
             sendBtn.disabled = false;
             return;
         }
-        // 연결은 됐지만 데이터 전에 끊김 → 잠시 대기 후 히스토리에서 복원 시도
         hideThinking();
         setTimeout(function() {
-            fetch('/chat/history').then(function(r){return r.json();}).then(function(list){
-                if (list && list.length > 0) {
-                    var last = list[list.length - 1];
-                    if (last.role === 'assistant') {
-                        aiBubble = appendBubble('ai', last.content);
+            if (_currentSessionId) {
+                fetch('/chat/sessions/' + _currentSessionId + '/messages')
+                    .then(function(r){ return r.json(); })
+                    .then(function(list) {
+                        if (list && list.length > 0) {
+                            var last = list[list.length - 1];
+                            if (last.role === 'assistant') {
+                                var b = appendBubble('ai', last.content);
+                                if (b) renderMarkdown(b);
+                            }
+                        }
                         sendBtn.disabled = false;
-                        return;
-                    }
-                }
-                appendBubble('ai', '응답을 가져오지 못했습니다. 다시 시도해주세요.');
+                    })
+                    .catch(function() {
+                        appendBubble('ai', '응답을 가져오지 못했습니다.');
+                        sendBtn.disabled = false;
+                    });
+            } else {
                 sendBtn.disabled = false;
-            }).catch(function() {
-                appendBubble('ai', '연결이 끊어졌습니다. 다시 시도해주세요.');
-                sendBtn.disabled = false;
-            });
+            }
         }, 2000);
     };
 }
 
-function clearChat() {
-    if (!confirm('대화 내역을 모두 삭제하시겠습니까?')) return;
-    fetch('/chat/clear', {method:'POST', credentials:'same-origin'})
-        .then(function() {
-            document.getElementById('chatMessages').innerHTML =
-                '<div class="chat-guide" style="text-align:center;padding:40px 20px;color:var(--text-muted);">' +
-                '<i class="fas fa-robot" style="font-size:2.5rem;color:var(--accent);"></i>' +
-                '<p style="margin-top:12px;font-size:.88rem;">무엇이든 질문하세요.</p></div>';
-            showToast('대화가 초기화되었습니다.', 'success');
+/* ── 대화 내보내기 (.md 다운로드) (v2.7.0) ── */
+function exportChat() {
+    if (!_currentSessionId) {
+        showToast('내보낼 대화가 없습니다.', 'warning');
+        return;
+    }
+    fetch('/chat/sessions/' + _currentSessionId + '/messages')
+        .then(function(r) { return r.json(); })
+        .then(function(messages) {
+            if (!messages || messages.length === 0) {
+                showToast('대화 내용이 없습니다.', 'warning');
+                return;
+            }
+            var title = '';
+            var activeItem = document.querySelector('.chat-session-item.active .title');
+            if (activeItem) title = activeItem.textContent || '';
+
+            var now = new Date();
+            var pad = function(n) { return n < 10 ? '0' + n : n; };
+            var ts = now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
+                   + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+
+            var md = '# ' + (title || 'AI 채팅 대화') + '\n\n';
+            md += '_내보낸 일시: ' + now.toLocaleString('ko-KR') + '_\n\n---\n\n';
+            for (var i = 0; i < messages.length; i++) {
+                var m = messages[i];
+                var heading = m.role === 'user' ? '## 🙋 사용자' : '## 🤖 AI 어시스턴트';
+                md += heading + '\n\n' + (m.content || '') + '\n\n---\n\n';
+            }
+
+            var blob = new Blob([md], {type: 'text/markdown;charset=utf-8'});
+            var url  = URL.createObjectURL(blob);
+            var a    = document.createElement('a');
+            a.href   = url;
+            a.download = 'chat_' + ts + '.md';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('대화를 내보냈습니다.', 'success');
         });
 }
 
+/* ── HTML 이스케이프 ── */
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+
+/* ── textarea 자동 높이 ── */
 document.getElementById('chatInput').addEventListener('input', function() {
     this.style.height = '44px';
     this.style.height = Math.min(this.scrollHeight, 120) + 'px';

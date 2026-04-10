@@ -5,9 +5,9 @@
     <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
     <title>로그 분석기 — Claude Java Toolkit</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="/webjars/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/webjars/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link href="/webjars/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <link th:href="@{/css/toolkit.css(v='20250329')}" rel="stylesheet">
     <style>
         .mode-tab { background:none; border:1px solid var(--border-color); color:var(--text-muted);
@@ -183,8 +183,8 @@
     </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-log.min.js"></script>
+<script src="/webjars/prism/1.29.0/prism.min.js"></script>
+<script src="/webjars/prism/1.29.0/components/prism-log.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250409')}"></script>
 <script>
     /* ── Mode switching ── */

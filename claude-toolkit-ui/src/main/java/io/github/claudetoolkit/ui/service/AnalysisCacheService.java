@@ -2,92 +2,125 @@ package io.github.claudetoolkit.ui.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Iterator;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * 분석 결과 인메모리 캐시 서비스.
+ * 분석 결과 캐시 서비스 (v2.7.0 DB 영속화).
  *
- * <p>동일 입력에 대한 중복 API 호출을 방지합니다.
- * SHA-256 해시 기반 캐시 키, LRU 방식 최대 200개, TTL 1시간.
+ * <p>동일 입력에 대한 중복 Claude API 호출을 방지합니다.
+ * H2 테이블 ({@code analysis_cache})에 저장되어 서버 재시작 후에도 유지됩니다.
+ *
+ * <ul>
+ *   <li>SHA-256 해시 기반 캐시 키</li>
+ *   <li>TTL: 1시간</li>
+ *   <li>만료 캐시 정리: 매 시간 스케줄</li>
+ * </ul>
  */
 @Service
 public class AnalysisCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(AnalysisCacheService.class);
-    private static final int MAX_ENTRIES = 200;
-    private static final long TTL_MS = 3600_000L; // 1 hour
+    private static final long TTL_MINUTES = 60L;
 
-    // LRU LinkedHashMap (accessOrder=true)
-    private final Map<String, CacheEntry> cache = new LinkedHashMap<String, CacheEntry>(64, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
-            return size() > MAX_ENTRIES;
-        }
-    };
+    private final AnalysisCacheRepository repository;
 
-    /**
-     * 캐시에서 결과를 조회합니다.
-     * @param feature 분석 유형 키
-     * @param input   입력 텍스트
-     * @return 캐시된 결과 또는 null (미스)
-     */
-    public synchronized String get(String feature, String input) {
-        String key = buildKey(feature, input);
-        CacheEntry entry = cache.get(key);
-        if (entry == null) return null;
-        if (System.currentTimeMillis() - entry.createdAt > TTL_MS) {
-            cache.remove(key);
-            return null;
-        }
-        entry.hitCount++;
-        log.debug("[AnalysisCache] HIT: {} (hits={})", feature, entry.hitCount);
-        return entry.result;
+    public AnalysisCacheService(AnalysisCacheRepository repository) {
+        this.repository = repository;
     }
 
     /**
-     * 결과를 캐시에 저장합니다.
+     * 캐시에서 결과를 조회합니다.
+     * @return 캐시된 결과 또는 null (미스/만료)
      */
-    public synchronized void put(String feature, String input, String result) {
-        if (result == null || result.isEmpty()) return;
+    @Transactional
+    public String get(String feature, String input) {
+        if (input == null) return null;
         String key = buildKey(feature, input);
-        cache.put(key, new CacheEntry(result));
+        Optional<AnalysisCache> opt = repository.findByCacheKey(key);
+        if (!opt.isPresent()) return null;
+
+        AnalysisCache entry = opt.get();
+        if (entry.isExpired()) {
+            try { repository.delete(entry); } catch (Exception ignored) {}
+            return null;
+        }
+        entry.incrementHitCount();
+        try { repository.save(entry); } catch (Exception ignored) {}
+        log.debug("[AnalysisCache] HIT: {} (hits={})", feature, entry.getHitCount());
+        return entry.getResultText();
+    }
+
+    /**
+     * 결과를 캐시에 저장합니다 (기존 키 있으면 덮어쓰기).
+     */
+    @Transactional
+    public void put(String feature, String input, String result) {
+        if (result == null || result.isEmpty() || input == null) return;
+        String key = buildKey(feature, input);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expires = now.plusMinutes(TTL_MINUTES);
+
+        Optional<AnalysisCache> existing = repository.findByCacheKey(key);
+        try {
+            if (existing.isPresent()) {
+                AnalysisCache c = existing.get();
+                c.setResultText(result);
+                c.setExpiresAt(expires);
+                c.setHitCount(0);
+                repository.save(c);
+            } else {
+                repository.save(new AnalysisCache(key, feature, result, now, expires));
+            }
+        } catch (Exception e) {
+            log.warn("[AnalysisCache] save failed: {}", e.getMessage());
+        }
     }
 
     /**
      * 캐시 통계를 반환합니다.
      */
-    public synchronized Map<String, Object> getStats() {
+    public Map<String, Object> getStats() {
         Map<String, Object> stats = new LinkedHashMap<String, Object>();
-        stats.put("size", cache.size());
-        stats.put("maxEntries", MAX_ENTRIES);
-        stats.put("ttlMinutes", TTL_MS / 60000);
-        // 만료된 항목 정리
-        long now = System.currentTimeMillis();
-        Iterator<Map.Entry<String, CacheEntry>> it = cache.entrySet().iterator();
-        int expired = 0;
-        while (it.hasNext()) {
-            if (now - it.next().getValue().createdAt > TTL_MS) {
-                it.remove();
-                expired++;
-            }
-        }
-        stats.put("expired", expired);
-        stats.put("activeSize", cache.size());
+        long total   = repository.count();
+        long expired = repository.countByExpiresAtBefore(LocalDateTime.now());
+        stats.put("size",        total);
+        stats.put("activeSize",  total - expired);
+        stats.put("expired",     expired);
+        stats.put("ttlMinutes",  TTL_MINUTES);
+        stats.put("storage",     "H2 DB");
         return stats;
     }
 
     /**
      * 캐시를 전체 초기화합니다.
      */
-    public synchronized void clear() {
-        cache.clear();
+    @Transactional
+    public void clear() {
+        repository.deleteAll();
         log.info("[AnalysisCache] 캐시 전체 초기화");
+    }
+
+    /** 매 시간 정각에 만료된 캐시 엔트리 정리 */
+    @Scheduled(cron = "0 0 * * * ?")
+    @Transactional
+    public void cleanupExpired() {
+        try {
+            int deleted = repository.deleteExpired(LocalDateTime.now());
+            if (deleted > 0) {
+                log.debug("[AnalysisCache] 만료 캐시 {}건 정리", deleted);
+            }
+        } catch (Exception e) {
+            log.warn("[AnalysisCache] cleanup 실패: {}", e.getMessage());
+        }
     }
 
     // ── private helpers ──
@@ -95,27 +128,15 @@ public class AnalysisCacheService {
     private String buildKey(String feature, String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update((feature + "|").getBytes(StandardCharsets.UTF_8));
+            md.update(((feature == null ? "" : feature) + "|").getBytes(StandardCharsets.UTF_8));
             md.update(input.getBytes(StandardCharsets.UTF_8));
             byte[] hash = md.digest();
             StringBuilder sb = new StringBuilder();
             for (byte b : hash) sb.append(String.format("%02x", b));
             return sb.toString();
         } catch (Exception e) {
-            // fallback: simple hash
-            return feature + "_" + input.hashCode();
-        }
-    }
-
-    private static class CacheEntry {
-        final String result;
-        final long createdAt;
-        int hitCount;
-
-        CacheEntry(String result) {
-            this.result    = result;
-            this.createdAt = System.currentTimeMillis();
-            this.hitCount  = 0;
+            // fallback: 단순 해시 (SHA-256 실패는 거의 없음)
+            return (feature == null ? "" : feature) + "_" + input.hashCode();
         }
     }
 }

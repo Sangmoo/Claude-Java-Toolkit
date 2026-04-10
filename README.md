@@ -1461,16 +1461,20 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 📋 v2.7.0 (예정) — 채팅 고도화 및 성능
+### ✅ v2.7.0 — 채팅 고도화 및 성능
 
 **💬 AI 채팅**
-- [ ] **AI 채팅 Markdown 렌더링** — `textContent` 평문 → `marked.js` + `Prism.js` + `DOMPurify`로 코드 블록·볼드·리스트·테이블 렌더링. 스트리밍 중에도 점진적 렌더링
-- [ ] **대화 내보내기** — 채팅 히스토리를 `.md` 파일로 다운로드. `## User` / `## Assistant` 형식
-- [ ] **대화 목록/세션 관리** — `CHAT_SESSION` / `CHAT_MESSAGE` H2 테이블 영속화. 좌측 패널 대화 목록 (생성/전환/삭제). 서버 재시작 후에도 대화 유지
+- [x] **AI 채팅 Markdown 렌더링** — `marked.js` + `DOMPurify` + `Prism.js`로 코드 블록/볼드/리스트/테이블/인용/표 렌더링. 스트리밍 중에는 평문 + 커서, 완료 시 Markdown 재렌더링. XSS 방지 (DOMPurify)
+- [x] **대화 내보내기** — 헤더에 "📥 내보내기" 버튼. 현재 세션의 전체 대화를 `.md` 파일로 다운로드. 파일명: `chat_YYYYMMDD_HHmmss.md`
+- [x] **대화 목록/세션 관리** — `ChatSession` / `ChatMessage` H2 엔티티 영속화. 좌측 240px 패널에 대화 목록 표시, `+ 새 대화`, 호버 시 이름 변경/삭제 버튼. 사용자별 다중 세션 지원. 첫 메시지로 제목 자동 생성. 세션 소유권 검증
 
 **⚡ 성능**
-- [ ] **정적 리소스 로컬 번들링** — Bootstrap·FontAwesome·Chart.js 등 CDN → `/vendor/` 로컬 번들. 오프라인/폐쇄망 환경 지원 + `Cache-Control` 헤더 설정
-- [ ] **분석 캐시 DB 영속화** — 인메모리 LRU 캐시(서버 재시작 시 소멸) → `ANALYSIS_CACHE` H2 테이블 영속화. TTL 기반 자동 정리
+- [x] **정적 리소스 로컬 번들링** — WebJars 기반 Maven 의존성 추가: `bootstrap` 5.3.2, `font-awesome` 6.5.1, `prism` 1.29.0, `marked` 9.1.6, `chart.js` 4.4.1, `dompurify` 3.0.8. 60개 템플릿에서 206건 CDN URL을 `/webjars/**`로 일괄 교체. `WebJarsConfig`로 1년 캐시 헤더 설정. 오프라인/폐쇄망 완전 지원 (Mermaid, QRCode만 CDN 유지)
+- [x] **분석 캐시 DB 영속화** — `AnalysisCache` 엔티티 + `analysis_cache` H2 테이블. `AnalysisCacheService` 재작성: `findByCacheKey` 조회 → TTL 체크 → hitCount 증가. `put()`은 upsert. `@Scheduled` 매 시간 만료 캐시 자동 삭제. `SseStreamController` 호출 인터페이스(`get`/`put`) 유지
+
+**🔧 기반 구조 개선**
+- [x] `ChatHistoryStore` 제거 (v2.5.0에서 추가했던 임시 ConcurrentHashMap 기반 → v2.7.0 DB 영속화로 대체)
+- [x] `ChatController` 전면 리팩터링: 세션 CRUD 엔드포인트 6개 신규 (`/chat/sessions`, `/chat/sessions/new`, `/chat/sessions/{id}/rename|delete|clear|messages`). `/chat/send`는 `sessionId` 파라미터 받고, 없으면 자동 생성
 
 ---
 

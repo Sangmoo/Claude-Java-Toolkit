@@ -2,47 +2,58 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.starter.model.ClaudeMessage;
-import io.github.claudetoolkit.ui.chat.ChatHistoryStore;
+import io.github.claudetoolkit.ui.chat.ChatSession;
+import io.github.claudetoolkit.ui.chat.ChatSessionService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.prompt.PromptService;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.security.Principal;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * AI 채팅 인터페이스 컨트롤러.
+ * AI 채팅 인터페이스 컨트롤러 (v2.7.0 — DB 세션 기반).
  *
- * <p>2단계 SSE 스트리밍:
+ * <p>v2.7.0 변경:
+ * <ul>
+ *   <li>대화 히스토리를 {@link ChatSessionService} 기반 H2 DB로 영속화</li>
+ *   <li>사용자별 다중 세션 지원</li>
+ *   <li>세션 CRUD 엔드포인트 추가</li>
+ * </ul>
+ *
+ * <p>2단계 SSE 스트리밍은 유지:
  * <ol>
- *   <li>POST /chat/send — 메시지를 세션에 저장 (즉시 반환)</li>
- *   <li>GET  /chat/stream — EventSource로 실시간 스트리밍 (하트비트 포함)</li>
+ *   <li>POST /chat/send — 메시지를 세션에 저장 (pending 정보를 HTTP 세션에 기록)</li>
+ *   <li>GET  /chat/stream — EventSource로 실시간 스트리밍 + 하트비트</li>
  * </ol>
  */
 @Controller
 @RequestMapping("/chat")
 public class ChatController {
 
-    private static final int MAX_TURNS = 20;
     private static final String PENDING_KEY = "chat_pending";
+    private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    private final ClaudeClient     claudeClient;
-    private final ToolkitSettings  settings;
-    private final PromptService    promptService;
-    private final ChatHistoryStore historyStore;
+    private final ClaudeClient        claudeClient;
+    private final ToolkitSettings     settings;
+    private final PromptService       promptService;
+    private final ChatSessionService  sessionService;
 
     public ChatController(ClaudeClient claudeClient, ToolkitSettings settings,
-                          PromptService promptService, ChatHistoryStore historyStore) {
-        this.claudeClient  = claudeClient;
-        this.settings      = settings;
-        this.promptService = promptService;
-        this.historyStore  = historyStore;
+                          PromptService promptService, ChatSessionService sessionService) {
+        this.claudeClient   = claudeClient;
+        this.settings       = settings;
+        this.promptService  = promptService;
+        this.sessionService = sessionService;
     }
 
     @GetMapping
@@ -50,35 +61,149 @@ public class ChatController {
         return "chat/index";
     }
 
-    /** Step 1: 메시지 저장 (즉시 반환) */
+    // ── 세션 CRUD ─────────────────────────────────────────────────────────────
+
+    /** 현재 사용자의 세션 목록 조회 */
+    @GetMapping("/sessions")
+    @ResponseBody
+    public List<Map<String, Object>> listSessions(Principal principal) {
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        if (principal == null) return result;
+        List<ChatSession> sessions = sessionService.listByUser(principal.getName());
+        for (ChatSession s : sessions) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("id",        s.getId());
+            m.put("title",     s.getTitle());
+            m.put("createdAt", s.getCreatedAt() != null ? s.getCreatedAt().format(TS_FMT) : null);
+            m.put("updatedAt", s.getUpdatedAt() != null ? s.getUpdatedAt().format(TS_FMT) : null);
+            result.add(m);
+        }
+        return result;
+    }
+
+    /** 새 세션 생성 */
+    @PostMapping("/sessions/new")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> createSession(Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (principal == null) { resp.put("success", false); return ResponseEntity.ok(resp); }
+        ChatSession s = sessionService.create(principal.getName(), "새 대화");
+        resp.put("success", true);
+        resp.put("id",      s.getId());
+        resp.put("title",   s.getTitle());
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 세션 제목 변경 */
+    @PostMapping("/sessions/{id}/rename")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> renameSession(
+            @PathVariable Long id, @RequestParam String title, Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!checkOwner(id, principal)) {
+            resp.put("success", false);
+            resp.put("error", "권한이 없습니다.");
+            return ResponseEntity.ok(resp);
+        }
+        sessionService.rename(id, title);
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 세션 삭제 */
+    @PostMapping("/sessions/{id}/delete")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deleteSession(@PathVariable Long id, Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!checkOwner(id, principal)) {
+            resp.put("success", false);
+            resp.put("error", "권한이 없습니다.");
+            return ResponseEntity.ok(resp);
+        }
+        sessionService.delete(id);
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 세션 메시지 전체 삭제 (세션은 유지) */
+    @PostMapping("/sessions/{id}/clear")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> clearSession(@PathVariable Long id, Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!checkOwner(id, principal)) {
+            resp.put("success", false);
+            resp.put("error", "권한이 없습니다.");
+            return ResponseEntity.ok(resp);
+        }
+        sessionService.clearMessages(id);
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 세션의 메시지 목록 조회 */
+    @GetMapping("/sessions/{id}/messages")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, String>>> getSessionMessages(
+            @PathVariable Long id, Principal principal) {
+        if (!checkOwner(id, principal)) {
+            return ResponseEntity.ok(new ArrayList<Map<String, String>>());
+        }
+        return ResponseEntity.ok(sessionService.getMessagesAsMap(id));
+    }
+
+    private boolean checkOwner(Long sessionId, Principal principal) {
+        return principal != null && sessionService.isOwner(sessionId, principal.getName());
+    }
+
+    // ── 메시지 전송 2단계 SSE ──────────────────────────────────────────────
+
+    /** Step 1: 메시지 저장 (즉시 반환). sessionId가 없으면 새 세션 생성 */
     @PostMapping("/send")
     @ResponseBody
     public Map<String, Object> send(@RequestParam String message,
+                                    @RequestParam(required = false) Long sessionId,
                                     @RequestParam(required = false) String context,
-                                    HttpSession session) {
+                                    HttpSession httpSession,
+                                    Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (principal == null) {
+            resp.put("success", false);
+            resp.put("error", "로그인이 필요합니다.");
+            return resp;
+        }
+
+        // 세션 ID 결정: 없으면 신규 생성, 있으면 소유권 확인
+        Long effectiveSessionId = sessionId;
+        if (effectiveSessionId == null
+                || !sessionService.isOwner(effectiveSessionId, principal.getName())) {
+            ChatSession s = sessionService.create(principal.getName(), "새 대화");
+            effectiveSessionId = s.getId();
+        }
+
+        // pending 정보를 HTTP 세션에 저장 (stream 엔드포인트에서 사용)
         Map<String, String> pending = new LinkedHashMap<String, String>();
         pending.put("message", message);
+        pending.put("sessionId", String.valueOf(effectiveSessionId));
         if (context != null && !context.trim().isEmpty()) {
             pending.put("context", context);
         }
-        session.setAttribute(PENDING_KEY, pending);
+        httpSession.setAttribute(PENDING_KEY, pending);
 
-        Map<String, Object> resp = new LinkedHashMap<String, Object>();
-        resp.put("success", true);
+        resp.put("success",   true);
+        resp.put("sessionId", effectiveSessionId);
         return resp;
     }
 
-    /** Step 2: EventSource 스트리밍 — 하트비트로 연결 유지 */
+    /** Step 2: EventSource 스트리밍 */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(HttpSession session) {
+    public SseEmitter stream(HttpSession httpSession, Principal principal) {
         final SseEmitter emitter = new SseEmitter(180_000L);
 
-        // pending 메시지 꺼내기
         @SuppressWarnings("unchecked")
-        final Map<String, String> pending = (Map<String, String>) session.getAttribute(PENDING_KEY);
-        session.removeAttribute(PENDING_KEY);
+        final Map<String, String> pending = (Map<String, String>) httpSession.getAttribute(PENDING_KEY);
+        httpSession.removeAttribute(PENDING_KEY);
 
-        if (pending == null || pending.get("message") == null) {
+        if (principal == null || pending == null || pending.get("message") == null) {
             try {
                 emitter.send(SseEmitter.event().name("error_msg").data("전송할 메시지가 없습니다."));
                 emitter.complete();
@@ -86,20 +211,35 @@ public class ChatController {
             return emitter;
         }
 
-        final String message = pending.get("message");
-        final String context = pending.get("context");
+        final String username = principal.getName();
+        final String message  = pending.get("message");
+        final String context  = pending.get("context");
+        final Long   sessionId;
+        try {
+            sessionId = Long.parseLong(pending.get("sessionId"));
+        } catch (Exception e) {
+            try {
+                emitter.send(SseEmitter.event().name("error_msg").data("세션 정보가 유효하지 않습니다."));
+                emitter.complete();
+            } catch (IOException ignored) {}
+            return emitter;
+        }
 
-        // 히스토리 로드 (스레드 안전한 스토어에서)
-        final String sessionId = session.getId();
-        List<Map<String, String>> history = historyStore.getHistory(sessionId);
+        // 세션 소유권 재확인
+        if (!sessionService.isOwner(sessionId, username)) {
+            try {
+                emitter.send(SseEmitter.event().name("error_msg").data("세션 접근 권한이 없습니다."));
+                emitter.complete();
+            } catch (IOException ignored) {}
+            return emitter;
+        }
 
-        // 사용자 메시지 추가
-        Map<String, String> userMsg = new LinkedHashMap<String, String>();
-        userMsg.put("role", "user");
-        userMsg.put("content", message);
-        history.add(userMsg);
+        // DB에 사용자 메시지 추가
+        sessionService.addUserMessage(sessionId, message);
+        // 첫 메시지면 자동 제목 생성
+        sessionService.autoGenerateTitle(sessionId, message);
 
-        // 시스템 프롬프트 구성 (커스텀 프롬프트 우선, 없으면 기본)
+        // 시스템 프롬프트 구성
         String customPrompt = promptService.findActivePrompt("AI_CHAT");
         StringBuilder sysPrompt = new StringBuilder();
         if (customPrompt != null) {
@@ -116,16 +256,17 @@ public class ChatController {
                       .append(context.length() > 3000 ? context.substring(0, 3000) + "..." : context);
         }
 
-        // Claude API 호출용 메시지 구성
+        // DB에서 메시지 목록 로드 (방금 추가한 사용자 메시지 포함)
+        final List<Map<String, String>> history = sessionService.getMessagesAsMap(sessionId);
         final List<ClaudeMessage> messages = new ArrayList<ClaudeMessage>();
         for (Map<String, String> h : history) {
             messages.add(new ClaudeMessage(h.get("role"), h.get("content")));
         }
 
-        final List<Map<String, String>> finalHistory = history;
         final String finalSysPrompt = sysPrompt.toString();
+        final Long finalSessionId = sessionId;
 
-        // ── 즉시 connected 이벤트 전송 (연결 확립 확인) ──
+        // 즉시 connected 이벤트
         try {
             emitter.send(SseEmitter.event().name("connected").data("ok"));
         } catch (IOException e) {
@@ -133,7 +274,7 @@ public class ChatController {
             return emitter;
         }
 
-        // ── 하트비트: 3초마다 SSE 코멘트 전송 (유휴 연결 끊김 방지) ──
+        // 하트비트
         final AtomicBoolean streaming = new AtomicBoolean(false);
         final AtomicBoolean completed = new AtomicBoolean(false);
         final Thread heartbeat = new Thread(new Runnable() {
@@ -142,13 +283,9 @@ public class ChatController {
                     while (!completed.get()) {
                         Thread.sleep(3000);
                         if (completed.get()) break;
-                        // 아직 실제 데이터가 안 왔으면 하트비트 전송
                         if (!streaming.get()) {
-                            try {
-                                emitter.send(SseEmitter.event().comment("heartbeat"));
-                            } catch (IOException e) {
-                                break; // 연결 끊김 — 정상 종료
-                            }
+                            try { emitter.send(SseEmitter.event().comment("heartbeat")); }
+                            catch (IOException e) { break; }
                         }
                     }
                 } catch (InterruptedException ignored) {}
@@ -157,39 +294,26 @@ public class ChatController {
         heartbeat.setDaemon(true);
         heartbeat.start();
 
-        // ── 메인 스트리밍 스레드 ──
+        // 메인 스트리밍
         Thread thread = new Thread(new Runnable() {
             public void run() {
                 try {
                     final StringBuilder responseBuf = new StringBuilder();
-                    // 네이티브 멀티턴: messages 배열을 그대로 전달
-                    // (이전: 텍스트로 이어붙여 단일 user 메시지로 전송 → 토큰 낭비)
                     claudeClient.chatStream(
                             finalSysPrompt,
                             messages,
                             claudeClient.getProperties().getMaxTokens(),
                             new Consumer<String>() {
                                 public void accept(String chunk) {
-                                    streaming.set(true);  // 하트비트 중단 신호
+                                    streaming.set(true);
                                     responseBuf.append(chunk);
                                     try { SseStreamController.sendSseData(emitter, chunk); }
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
 
-                    // AI 응답을 히스토리에 추가
-                    Map<String, String> aiMsg = new LinkedHashMap<String, String>();
-                    aiMsg.put("role", "assistant");
-                    aiMsg.put("content", responseBuf.toString());
-                    finalHistory.add(aiMsg);
-
-                    // 턴 수 제한
-                    while (finalHistory.size() > MAX_TURNS * 2) {
-                        finalHistory.remove(0);
-                        if (!finalHistory.isEmpty()) finalHistory.remove(0);
-                    }
-                    // 스레드 안전한 스토어에 저장
-                    historyStore.putHistory(sessionId, finalHistory);
+                    // AI 응답을 DB에 저장
+                    sessionService.addAssistantMessage(finalSessionId, responseBuf.toString());
 
                     emitter.send(SseEmitter.event().name("done").data("ok"));
                     Thread.sleep(50);
@@ -210,23 +334,5 @@ public class ChatController {
         thread.setDaemon(true);
         thread.start();
         return emitter;
-    }
-
-    /** 대화 초기화 */
-    @PostMapping("/clear")
-    @ResponseBody
-    public Map<String, Object> clear(HttpSession session) {
-        historyStore.clear(session.getId());
-        session.removeAttribute(PENDING_KEY);
-        Map<String, Object> resp = new LinkedHashMap<String, Object>();
-        resp.put("success", true);
-        return resp;
-    }
-
-    /** 대화 히스토리 조회 */
-    @GetMapping("/history")
-    @ResponseBody
-    public List<Map<String, String>> getHistory(HttpSession session) {
-        return historyStore.getHistory(session.getId());
     }
 }
