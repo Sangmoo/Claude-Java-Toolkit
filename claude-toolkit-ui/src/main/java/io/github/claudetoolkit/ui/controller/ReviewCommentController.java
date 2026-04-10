@@ -5,6 +5,7 @@ import io.github.claudetoolkit.ui.history.ReviewCommentRepository;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
 import io.github.claudetoolkit.ui.notification.Notification;
+import io.github.claudetoolkit.ui.notification.NotificationPublisher;
 import io.github.claudetoolkit.ui.notification.NotificationRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,13 +23,16 @@ public class ReviewCommentController {
     private final ReviewCommentRepository commentRepository;
     private final ReviewHistoryRepository historyRepository;
     private final NotificationRepository  notificationRepository;
+    private final NotificationPublisher   notificationPublisher;
 
     public ReviewCommentController(ReviewCommentRepository commentRepository,
                                    ReviewHistoryRepository historyRepository,
-                                   NotificationRepository notificationRepository) {
-        this.commentRepository     = commentRepository;
-        this.historyRepository     = historyRepository;
+                                   NotificationRepository notificationRepository,
+                                   NotificationPublisher notificationPublisher) {
+        this.commentRepository      = commentRepository;
+        this.historyRepository      = historyRepository;
         this.notificationRepository = notificationRepository;
+        this.notificationPublisher  = notificationPublisher;
     }
 
     /** 댓글 목록 조회 */
@@ -76,7 +80,8 @@ public class ReviewCommentController {
                     content.trim().length() > 80 ? content.trim().substring(0, 80) + "..." : content.trim(),
                     "/history"
                 );
-                notificationRepository.save(noti);
+                // v2.8.0: DB 저장 + SSE 실시간 push
+                notificationPublisher.publish(noti);
             }
         } catch (Exception ignored) {
             // 알림 실패해도 댓글은 저장됨

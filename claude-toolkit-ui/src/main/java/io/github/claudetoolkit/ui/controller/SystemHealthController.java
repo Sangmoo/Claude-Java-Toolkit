@@ -1,0 +1,166 @@
+package io.github.claudetoolkit.ui.controller;
+
+import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.File;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
+import java.lang.management.ThreadMXBean;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * 시스템 헬스 대시보드 컨트롤러 (v2.8.0).
+ *
+ * <p>ADMIN 전용 모니터링 페이지:
+ * <ul>
+ *   <li>JVM 힙 메모리 사용량</li>
+ *   <li>H2 DB 파일 크기</li>
+ *   <li>활성 스레드 수</li>
+ *   <li>JVM 업타임</li>
+ *   <li>Claude API 상태</li>
+ *   <li>사용자 수 / 활성 세션 수</li>
+ * </ul>
+ */
+@Controller
+@RequestMapping("/admin/health")
+public class SystemHealthController {
+
+    private static final Logger log = LoggerFactory.getLogger(SystemHealthController.class);
+
+    private final ClaudeClient     claudeClient;
+    private final AppUserRepository userRepository;
+
+    public SystemHealthController(ClaudeClient claudeClient, AppUserRepository userRepository) {
+        this.claudeClient   = claudeClient;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public String dashboard(Model model) {
+        return "admin/health";
+    }
+
+    /** 시스템 상태 JSON API (30초마다 갱신용) */
+    @GetMapping("/data")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> healthData() {
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+
+        // ── JVM 메모리 ──
+        Runtime rt = Runtime.getRuntime();
+        long totalMem = rt.totalMemory();
+        long freeMem  = rt.freeMemory();
+        long usedMem  = totalMem - freeMem;
+        long maxMem   = rt.maxMemory();
+        Map<String, Object> memory = new LinkedHashMap<String, Object>();
+        memory.put("usedBytes",  usedMem);
+        memory.put("totalBytes", totalMem);
+        memory.put("maxBytes",   maxMem);
+        memory.put("usedMb",     usedMem / (1024 * 1024));
+        memory.put("totalMb",    totalMem / (1024 * 1024));
+        memory.put("maxMb",      maxMem / (1024 * 1024));
+        memory.put("usagePercent", maxMem > 0 ? (int)(usedMem * 100 / maxMem) : 0);
+        data.put("memory", memory);
+
+        // ── JVM 업타임 / 스레드 ──
+        RuntimeMXBean rtBean  = ManagementFactory.getRuntimeMXBean();
+        ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
+        long uptimeMs = rtBean.getUptime();
+        Map<String, Object> jvm = new LinkedHashMap<String, Object>();
+        jvm.put("uptimeMs",       uptimeMs);
+        jvm.put("uptimeFormatted", formatDuration(uptimeMs));
+        jvm.put("startTime",      Instant.ofEpochMilli(rtBean.getStartTime()).toString());
+        jvm.put("javaVersion",    System.getProperty("java.version"));
+        jvm.put("javaVendor",     System.getProperty("java.vendor"));
+        jvm.put("osName",         System.getProperty("os.name"));
+        jvm.put("threadCount",    threadBean.getThreadCount());
+        jvm.put("peakThreadCount", threadBean.getPeakThreadCount());
+        jvm.put("availableProcessors", rt.availableProcessors());
+        data.put("jvm", jvm);
+
+        // ── H2 DB 파일 크기 ──
+        Map<String, Object> database = new LinkedHashMap<String, Object>();
+        try {
+            String home = System.getProperty("user.home");
+            File dbFile = new File(home + "/.claude-toolkit/history-db.mv.db");
+            if (dbFile.exists()) {
+                long size = dbFile.length();
+                database.put("path",      dbFile.getAbsolutePath());
+                database.put("sizeBytes", size);
+                database.put("sizeMb",    String.format("%.2f", size / (1024.0 * 1024.0)));
+                database.put("exists",    true);
+
+                // 디스크 여유 공간
+                File disk = dbFile.getParentFile();
+                if (disk != null && disk.exists()) {
+                    long free = disk.getFreeSpace();
+                    long total = disk.getTotalSpace();
+                    database.put("diskFreeBytes", free);
+                    database.put("diskTotalBytes", total);
+                    database.put("diskFreeGb",  String.format("%.1f", free / (1024.0 * 1024.0 * 1024.0)));
+                    database.put("diskTotalGb", String.format("%.1f", total / (1024.0 * 1024.0 * 1024.0)));
+                    database.put("diskUsagePercent", total > 0 ? (int)((total - free) * 100 / total) : 0);
+                }
+            } else {
+                database.put("exists", false);
+                database.put("note",   "H2 파일이 아직 생성되지 않았거나 외부 DB 사용 중");
+            }
+        } catch (Exception e) {
+            database.put("error", e.getMessage());
+        }
+        data.put("database", database);
+
+        // ── Claude API 상태 ──
+        Map<String, Object> claudeApi = new LinkedHashMap<String, Object>();
+        try {
+            String model = claudeClient.getEffectiveModel();
+            claudeApi.put("model", model != null ? model : "(미설정)");
+            String key = claudeClient.getEffectiveApiKey();
+            claudeApi.put("keyConfigured", key != null && !key.trim().isEmpty());
+            claudeApi.put("keyMasked",
+                    key != null && key.length() > 14
+                            ? key.substring(0, 10) + "..." + key.substring(key.length() - 4)
+                            : (key != null && !key.isEmpty() ? "****" : ""));
+            claudeApi.put("status", "UNKNOWN");
+            claudeApi.put("note",   "API 호출 시 상태 확인");
+        } catch (Exception e) {
+            claudeApi.put("status", "ERROR");
+            claudeApi.put("error",  e.getMessage());
+        }
+        data.put("claudeApi", claudeApi);
+
+        // ── 사용자 통계 ──
+        Map<String, Object> users = new LinkedHashMap<String, Object>();
+        try {
+            long total = userRepository.count();
+            users.put("total", total);
+        } catch (Exception e) {
+            users.put("error", e.getMessage());
+        }
+        data.put("users", users);
+
+        return ResponseEntity.ok(data);
+    }
+
+    private String formatDuration(long millis) {
+        Duration d = Duration.ofMillis(millis);
+        long days    = d.toDays();
+        long hours   = d.toHours() % 24;
+        long minutes = d.toMinutes() % 60;
+        long seconds = d.getSeconds() % 60;
+        if (days > 0)    return days + "일 " + hours + "시간 " + minutes + "분";
+        if (hours > 0)   return hours + "시간 " + minutes + "분 " + seconds + "초";
+        if (minutes > 0) return minutes + "분 " + seconds + "초";
+        return seconds + "초";
+    }
+}

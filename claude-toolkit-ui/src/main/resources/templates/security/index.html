@@ -224,6 +224,47 @@
                             </select>
                             <input type="text" id="filterEndpoint" class="form-control" style="font-size:.76rem;width:120px;padding:3px 8px;"
                                    placeholder="엔드포인트" oninput="filterAuditLog()">
+                            <select id="filterMenu" class="form-select" style="font-size:.76rem;width:130px;padding:3px 8px;" onchange="filterAuditLog()">
+                                <option value="">전체 메뉴</option>
+                                <option value="통합 워크스페이스">통합 워크스페이스</option>
+                                <option value="SQL 리뷰">SQL 리뷰</option>
+                                <option value="SQL DB 번역">SQL DB 번역</option>
+                                <option value="배치 SQL 분석">배치 SQL 분석</option>
+                                <option value="ERD 분석">ERD 분석</option>
+                                <option value="복잡도 분석">복잡도 분석</option>
+                                <option value="실행계획 분석">실행계획 분석</option>
+                                <option value="코드 리뷰 하네스">코드 리뷰 하네스</option>
+                                <option value="코드 리뷰">코드 리뷰</option>
+                                <option value="기술 문서">기술 문서</option>
+                                <option value="테스트 생성">테스트 생성</option>
+                                <option value="API 명세">API 명세</option>
+                                <option value="코드 변환">코드 변환</option>
+                                <option value="Mock 데이터">Mock 데이터</option>
+                                <option value="DB 마이그레이션">DB 마이그레이션</option>
+                                <option value="Batch 처리">Batch 처리</option>
+                                <option value="의존성 분석">의존성 분석</option>
+                                <option value="Spring 마이그레이션">Spring 마이그레이션</option>
+                                <option value="리뷰 이력">리뷰 이력</option>
+                                <option value="즐겨찾기">즐겨찾기</option>
+                                <option value="사용량 모니터링">사용량 모니터링</option>
+                                <option value="ROI 리포트">ROI 리포트</option>
+                                <option value="분석 스케줄링">분석 스케줄링</option>
+                                <option value="로그 분석기">로그 분석기</option>
+                                <option value="정규식 생성기">정규식 생성기</option>
+                                <option value="커밋 메시지">커밋 메시지</option>
+                                <option value="마스킹 스크립트">마스킹 스크립트</option>
+                                <option value="민감정보 마스킹">민감정보 마스킹</option>
+                                <option value="GitHub PR 리뷰">GitHub PR 리뷰</option>
+                                <option value="Git Diff 분석">Git Diff 분석</option>
+                                <option value="AI 채팅">AI 채팅</option>
+                                <option value="프롬프트 템플릿">프롬프트 템플릿</option>
+                                <option value="Settings">Settings</option>
+                                <option value="보안 설정">보안 설정</option>
+                                <option value="관리">관리</option>
+                                <option value="내 설정">내 설정</option>
+                                <option value="로그인">로그인</option>
+                                <option value="REST API">REST API</option>
+                            </select>
                             <select id="filterDate" class="form-select" style="font-size:.76rem;width:85px;padding:3px 8px;" onchange="filterAuditLog()">
                                 <option value="">전체 기간</option>
                                 <option value="1h">1시간</option>
@@ -397,13 +438,15 @@ function loadAuditLog(page) {
         .then(function(data) {
             _totalPages = data.totalPages || 0;
             var logs = data.content || [];
-            // 클라이언트 사이드 추가 필터 (액션, 엔드포인트)
+            // 클라이언트 사이드 추가 필터 (액션, 엔드포인트, 기능 메뉴)
             var fAction   = document.getElementById('filterAction').value;
             var fEndpoint = (document.getElementById('filterEndpoint').value || '').trim().toLowerCase();
-            if (fAction || fEndpoint) {
+            var fMenu     = document.getElementById('filterMenu').value;
+            if (fAction || fEndpoint || fMenu) {
                 logs = logs.filter(function(l) {
                     if (fAction && l.actionType !== fAction) return false;
                     if (fEndpoint && (!l.endpoint || l.endpoint.toLowerCase().indexOf(fEndpoint) < 0)) return false;
+                    if (fMenu && l.menuName !== fMenu) return false;
                     return true;
                 });
             }

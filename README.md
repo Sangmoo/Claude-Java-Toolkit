@@ -1478,16 +1478,16 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 📋 v2.8.0 (예정) — 모니터링 및 UX
+### ✅ v2.8.0 — 모니터링 및 UX
 
 **📊 모니터링**
-- [ ] **WebSocket 실시간 알림** — 60초 폴링 → Spring WebSocket (SockJS fallback) 즉시 알림. 알림 생성 시 사용자 채널로 Push
-- [ ] **감사 로그 기능 메뉴 필터** — `menuName` 컬럼 기반 드롭다운 필터 추가. 특정 기능별 감사 로그 조회
-- [ ] **시스템 헬스 대시보드** — `/admin/health` 페이지. JVM 힙 메모리, H2 DB 파일 크기, 활성 세션 수, Claude API 상태, 디스크 사용량 실시간 모니터링. 30초 자동 갱신
+- [x] **SSE 실시간 알림** — 60초 폴링 → Server-Sent Events 즉시 알림. `NotificationPublisher` 컴포넌트(ConcurrentHashMap 기반 구독자 관리) + `/notifications/stream` SSE 엔드포인트. 알림 생성 시 `publisher.publish()` 호출 → DB 저장 + 구독자에게 즉시 push. 연결 실패 시 60초 폴링 자동 fallback + 30초 후 재연결 시도. 토스트 알림으로 즉각 피드백
+- [x] **감사 로그 기능 메뉴 필터** — `menuName` 기반 드롭다운 필터 추가 (38개 기능 메뉴). 특정 기능별 감사 로그 조회 가능. 클라이언트 사이드 실시간 필터링
+- [x] **시스템 헬스 대시보드** — `/admin/health` 페이지 + `SystemHealthController`. JVM 힙 메모리/사용률 게이지, 업타임, 스레드 수, Java/OS 버전, H2 DB 파일 크기, 디스크 여유 공간, Claude API 상태, 등록 사용자 수. Bootstrap 2열 카드 레이아웃, 30초 자동 갱신, `/admin/health/data` REST API
 
 **🎨 UX**
-- [ ] **키보드 단축키 가이드** — `?` 키로 전체 단축키 모달 표시 (`/` 검색, `Ctrl+Enter` 실행, `Esc` 닫기 등)
-- [ ] **모바일 하단 네비게이션** — 768px 이하에서 사이드바 대신 하단 탭 바 (홈/채팅/검색/설정/메뉴). CSS 미디어 쿼리 기반
+- [x] **키보드 단축키 가이드** — `?` 키로 모달 표시/토글 (input/textarea 포커스 시 제외). 단축키 목록(?, Esc, Ctrl+Enter, ⌘+Enter, /, Shift+Enter, Enter) + `<kbd>` 스타일링. Esc 또는 바깥 클릭으로 닫기
+- [x] **모바일 하단 네비게이션** — 768px 이하에서 자동 활성화되는 하단 고정 탭 바. 5개 항목(홈/채팅/검색/이력/메뉴). 활성 상태 하이라이트, 사이드바 열기 버튼 통합. 반응형 CSS 미디어 쿼리
 
 ---
 

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>시스템 헬스 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.2/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
+    <link th:href="@{/css/toolkit.css(v='20250411')}" rel="stylesheet">
+    <style>
+        .health-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+        }
+        .health-card h5 {
+            font-size: .94rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .health-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: .84rem;
+        }
+        .health-metric:last-child { border-bottom: none; }
+        .health-metric .label { color: var(--text-sub); }
+        .health-metric .value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .gauge-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+        .gauge-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #f59e0b 70%, #ef4444 90%);
+            border-radius: 4px;
+            transition: width .4s ease;
+        }
+        .gauge-label {
+            font-size: .72rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .status-ok    { background: #10b981; }
+        .status-warn  { background: #f59e0b; }
+        .status-error { background: #ef4444; }
+        .status-unknown { background: #64748b; }
+        .refresh-indicator {
+            font-size: .72rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .refresh-indicator i { animation: spin 2s linear infinite; }
+        @keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-heart-pulse me-2" style="color:#ef4444"></i>시스템 헬스 대시보드</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span class="refresh-indicator"><i class="fas fa-sync"></i>30초 자동 갱신</span>
+                <button class="btn btn-outline-tk btn-sm" onclick="loadHealthData()" style="font-size:.74rem;padding:4px 10px;">
+                    <i class="fas fa-redo me-1"></i>새로고침
+                </button>
+                <button id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+                </button>
+            </div>
+        </div>
+        <div class="main-content">
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+                <i class="fas fa-info-circle me-1"></i>JVM, H2 DB, 디스크, Claude API 등 시스템 주요 메트릭을 실시간 모니터링합니다. (30초 간격 자동 갱신)
+            </p>
+
+            <div class="row">
+                <!-- ── JVM 메모리 ── -->
+                <div class="col-lg-6">
+                    <div class="health-card">
+                        <h5><i class="fas fa-microchip" style="color:#8b5cf6;"></i>JVM 메모리</h5>
+                        <div id="memMetrics">
+                            <div class="health-metric"><span class="label">로딩 중...</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── JVM 정보 ── -->
+                <div class="col-lg-6">
+                    <div class="health-card">
+                        <h5><i class="fab fa-java" style="color:#f97316;"></i>JVM 정보</h5>
+                        <div id="jvmMetrics">
+                            <div class="health-metric"><span class="label">로딩 중...</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- ── 데이터베이스 / 디스크 ── -->
+                <div class="col-lg-6">
+                    <div class="health-card">
+                        <h5><i class="fas fa-database" style="color:#3b82f6;"></i>데이터베이스 / 디스크</h5>
+                        <div id="dbMetrics">
+                            <div class="health-metric"><span class="label">로딩 중...</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Claude API & 사용자 ── -->
+                <div class="col-lg-6">
+                    <div class="health-card">
+                        <h5><i class="fas fa-robot" style="color:#10b981;"></i>Claude API & 사용자</h5>
+                        <div id="apiMetrics">
+                            <div class="health-metric"><span class="label">로딩 중...</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 마지막 갱신 시각 ── -->
+            <div style="text-align:center;font-size:.74rem;color:var(--text-muted);margin-top:20px;">
+                마지막 갱신: <span id="lastUpdate">-</span>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250411')}"></script>
+<script>
+function formatNumber(n) {
+    return new Intl.NumberFormat('ko-KR').format(n);
+}
+
+function renderMetric(label, value, tooltip) {
+    var t = tooltip ? ' title="' + tooltip + '"' : '';
+    return '<div class="health-metric"' + t + '>'
+         + '<span class="label">' + label + '</span>'
+         + '<span class="value">' + value + '</span>'
+         + '</div>';
+}
+
+function renderGauge(percent, usedLabel, totalLabel) {
+    var color = percent > 90 ? '#ef4444' : (percent > 70 ? '#f59e0b' : '#10b981');
+    return '<div class="gauge-bar"><div class="gauge-fill" style="width:' + percent + '%;background:' + color + ';"></div></div>'
+         + '<div class="gauge-label"><span>' + usedLabel + '</span><span>' + percent + '%</span><span>' + totalLabel + '</span></div>';
+}
+
+function loadHealthData() {
+    fetch('/admin/health/data')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            // JVM 메모리
+            var mem = d.memory || {};
+            var memHtml = renderMetric('사용 중', formatNumber(mem.usedMb) + ' MB')
+                        + renderMetric('최대 힙', formatNumber(mem.maxMb) + ' MB')
+                        + renderMetric('현재 할당', formatNumber(mem.totalMb) + ' MB')
+                        + '<div style="padding:10px 0 2px 0;">'
+                        + renderGauge(mem.usagePercent || 0, mem.usedMb + ' MB', mem.maxMb + ' MB')
+                        + '</div>';
+            document.getElementById('memMetrics').innerHTML = memHtml;
+
+            // JVM 정보
+            var jvm = d.jvm || {};
+            var jvmHtml = renderMetric('Java', (jvm.javaVersion || '-') + ' · ' + (jvm.javaVendor || '-'))
+                        + renderMetric('OS', jvm.osName || '-')
+                        + renderMetric('업타임', jvm.uptimeFormatted || '-')
+                        + renderMetric('스레드 수', (jvm.threadCount || 0) + ' (피크 ' + (jvm.peakThreadCount || 0) + ')')
+                        + renderMetric('CPU 코어', jvm.availableProcessors || '-');
+            document.getElementById('jvmMetrics').innerHTML = jvmHtml;
+
+            // 데이터베이스
+            var db = d.database || {};
+            var dbHtml = '';
+            if (db.exists) {
+                dbHtml += renderMetric('DB 크기', db.sizeMb + ' MB', db.path);
+                if (db.diskTotalGb) {
+                    dbHtml += renderMetric('디스크 여유', db.diskFreeGb + ' GB / ' + db.diskTotalGb + ' GB');
+                    dbHtml += '<div style="padding:10px 0 2px 0;">'
+                            + renderGauge(db.diskUsagePercent || 0, '사용 중', db.diskTotalGb + ' GB')
+                            + '</div>';
+                }
+            } else {
+                dbHtml = renderMetric('상태', '<span class="status-dot status-warn"></span>파일 없음');
+                dbHtml += renderMetric('설명', db.note || '외부 DB 사용 중');
+            }
+            document.getElementById('dbMetrics').innerHTML = dbHtml;
+
+            // Claude API & 사용자
+            var api = d.claudeApi || {};
+            var users = d.users || {};
+            var apiHtml = renderMetric('Claude 모델', api.model || '-')
+                        + renderMetric('API 키', api.keyConfigured
+                                ? '<span class="status-dot status-ok"></span>설정됨 (' + (api.keyMasked || '****') + ')'
+                                : '<span class="status-dot status-error"></span>미설정')
+                        + renderMetric('등록 사용자', formatNumber(users.total || 0) + '명');
+            document.getElementById('apiMetrics').innerHTML = apiHtml;
+
+            // 마지막 갱신 시각
+            var now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleString('ko-KR');
+        })
+        .catch(function(e) {
+            showToast('헬스 데이터 로드 실패: ' + (e.message || '알 수 없는 오류'), 'error');
+        });
+}
+
+// 초기 로드 + 30초 주기 갱신
+loadHealthData();
+setInterval(loadHealthData, 30000);
+</script>
+</body>
+</html>

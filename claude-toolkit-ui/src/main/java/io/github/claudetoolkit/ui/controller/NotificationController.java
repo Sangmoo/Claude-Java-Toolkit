@@ -1,25 +1,42 @@
 package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.ui.notification.Notification;
+import io.github.claudetoolkit.ui.notification.NotificationPublisher;
 import io.github.claudetoolkit.ui.notification.NotificationRepository;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.security.Principal;
 import java.util.*;
 
 /**
- * 알림 센터 API.
+ * 알림 센터 API (v2.8.0 — SSE 실시간 push 추가).
  */
 @RestController
 @RequestMapping("/notifications")
 public class NotificationController {
 
     private final NotificationRepository notificationRepository;
+    private final NotificationPublisher  publisher;
 
-    public NotificationController(NotificationRepository notificationRepository) {
+    public NotificationController(NotificationRepository notificationRepository,
+                                  NotificationPublisher publisher) {
         this.notificationRepository = notificationRepository;
+        this.publisher              = publisher;
+    }
+
+    /** SSE 실시간 알림 스트림 (v2.8.0) */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(Principal principal) {
+        if (principal == null) {
+            SseEmitter emitter = new SseEmitter(0L);
+            try { emitter.complete(); } catch (Exception ignored) {}
+            return emitter;
+        }
+        return publisher.subscribe(principal.getName());
     }
 
     /** 미읽음 수 */

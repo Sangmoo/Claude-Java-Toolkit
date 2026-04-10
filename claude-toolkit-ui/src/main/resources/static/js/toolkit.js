@@ -74,9 +74,9 @@
     bellWrap.appendChild(notiDrop);
     wrapper.appendChild(bellWrap);
 
-    // 알림 폴링 (60초)
-    _pollNotifications();
-    setInterval(_pollNotifications, 60000);
+    // v2.8.0: SSE 실시간 알림 (폴링 fallback 포함)
+    _pollNotifications();  // 초기 카운트 로드
+    _startNotificationStream();
 
     // 문서 클릭 시 드롭다운 닫기
     document.addEventListener('click', function() { notiDrop.style.display = 'none'; });
@@ -678,6 +678,88 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+/* ── v2.8.0: 키보드 단축키 가이드 (? 키로 모달 토글) ───────────── */
+document.addEventListener('keydown', function(e) {
+    // Only trigger on '?' when not in input field
+    if (e.key !== '?') return;
+    var active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA'
+                || active.isContentEditable)) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    e.preventDefault();
+    toggleShortcutHelp();
+});
+
+function toggleShortcutHelp() {
+    var existing = document.getElementById('shortcutHelpModal');
+    if (existing) { existing.remove(); return; }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'shortcutHelpModal';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);'
+        + 'backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var panel = document.createElement('div');
+    panel.style.cssText = 'width:min(560px,92vw);max-height:80vh;overflow-y:auto;'
+        + 'background:var(--bg-primary);border:1px solid var(--border-color);'
+        + 'border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.5);'
+        + 'padding:24px 28px;color:var(--text-primary);';
+
+    var shortcuts = [
+        { keys: ['?'],               desc: '이 단축키 가이드 표시/숨기기' },
+        { keys: ['Esc'],             desc: '모달 닫기' },
+        { keys: ['Ctrl','Enter'],    desc: '현재 페이지 기본 버튼 실행 (분석/저장)' },
+        { keys: ['⌘','Enter'],       desc: '현재 페이지 기본 버튼 실행 (Mac)' },
+        { keys: ['/'],               desc: '글로벌 검색 포커스 (검색 페이지에서)' },
+        { keys: ['Shift','Enter'],   desc: 'AI 채팅 입력 줄바꿈' },
+        { keys: ['Enter'],           desc: 'AI 채팅 메시지 전송' }
+    ];
+
+    var listHtml = '';
+    for (var i = 0; i < shortcuts.length; i++) {
+        var s = shortcuts[i];
+        var keysHtml = '';
+        for (var k = 0; k < s.keys.length; k++) {
+            if (k > 0) keysHtml += ' <span style="color:var(--text-muted);margin:0 2px;">+</span> ';
+            keysHtml += '<kbd style="background:var(--bg-tertiary);border:1px solid var(--border-color);'
+                     + 'border-radius:5px;padding:3px 9px;font-family:monospace;font-size:.82rem;'
+                     + 'color:var(--text-primary);box-shadow:0 1px 0 var(--border-color);">'
+                     + s.keys[k] + '</kbd>';
+        }
+        listHtml += '<div style="display:flex;justify-content:space-between;align-items:center;'
+                  + 'padding:10px 0;border-bottom:1px solid var(--border-color);">'
+                  + '<div>' + keysHtml + '</div>'
+                  + '<div style="color:var(--text-sub);font-size:.86rem;">' + s.desc + '</div>'
+                  + '</div>';
+    }
+
+    panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">'
+        + '<h5 style="margin:0;font-weight:700;font-size:1.05rem;">'
+        + '<i class="fas fa-keyboard me-2" style="color:var(--accent);"></i>키보드 단축키</h5>'
+        + '<button id="closeShortcutHelp" style="background:none;border:none;color:var(--text-muted);'
+        + 'font-size:1.2rem;cursor:pointer;">&times;</button></div>'
+        + '<div>' + listHtml + '</div>'
+        + '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-color);'
+        + 'font-size:.76rem;color:var(--text-muted);text-align:center;">'
+        + '<kbd style="background:var(--bg-tertiary);border:1px solid var(--border-color);'
+        + 'border-radius:4px;padding:2px 6px;font-family:monospace;">Esc</kbd> 또는 바깥 클릭으로 닫기</div>';
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    document.getElementById('closeShortcutHelp').onclick = function() { overlay.remove(); };
+
+    // Esc 키로 닫기
+    var escHandler = function(e) {
+        if (e.key === 'Escape') {
+            overlay.remove();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
 // ── Print / PDF export ────────────────────────────────────────
 function printPage() {
     window.print();
@@ -965,6 +1047,62 @@ function _pollNotifications() {
                 badge.style.display = 'none';
             }
         }).catch(function(){});
+}
+
+/* ── v2.8.0: SSE 실시간 알림 스트림 (폴링 fallback 포함) ─────────── */
+var _notiEventSource = null;
+var _notiFallbackTimer = null;
+
+function _startNotificationStream() {
+    try {
+        if (_notiEventSource) {
+            try { _notiEventSource.close(); } catch (e) {}
+        }
+        _notiEventSource = new EventSource('/notifications/stream');
+
+        _notiEventSource.addEventListener('notification', function(e) {
+            // 새 알림 도착 → 배지 즉시 증가
+            var badge = document.getElementById('notiBadge');
+            if (badge) {
+                var current = parseInt(badge.textContent, 10) || 0;
+                if (badge.textContent === '99+') current = 99;
+                var next = current + 1;
+                badge.textContent = next > 99 ? '99+' : next;
+                badge.style.display = '';
+            }
+            // 토스트로도 간단 알림 표시
+            try {
+                var data = JSON.parse(e.data);
+                if (typeof showToast === 'function' && data.title) {
+                    showToast('🔔 ' + data.title, 'info', 4000);
+                }
+            } catch (err) {}
+        });
+
+        _notiEventSource.addEventListener('connected', function() {
+            // 연결 성공 → 폴링 fallback 중단
+            if (_notiFallbackTimer) {
+                clearInterval(_notiFallbackTimer);
+                _notiFallbackTimer = null;
+            }
+        });
+
+        _notiEventSource.onerror = function() {
+            // 연결 실패/끊김 → 60초 폴링 fallback 활성화
+            try { _notiEventSource.close(); } catch (e) {}
+            _notiEventSource = null;
+            if (!_notiFallbackTimer) {
+                _notiFallbackTimer = setInterval(_pollNotifications, 60000);
+            }
+            // 30초 후 SSE 재연결 시도
+            setTimeout(_startNotificationStream, 30000);
+        };
+    } catch (e) {
+        // EventSource 미지원 → 폴링 fallback
+        if (!_notiFallbackTimer) {
+            _notiFallbackTimer = setInterval(_pollNotifications, 60000);
+        }
+    }
 }
 
 function _toggleNotiDropdown() {

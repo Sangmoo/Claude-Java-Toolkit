@@ -263,6 +263,10 @@
                    th:classappend="${#strings.startsWith(#request.requestURI, '/admin/audit-dashboard') ? ' active' : ''}">
                     <i class="fas fa-shield-alt" style="color:#f59e0b"></i><span>감사 로그</span>
                 </a>
+                <a href="/admin/health" class="sidebar-item"
+                   th:classappend="${#strings.startsWith(#request.requestURI, '/admin/health') ? ' active' : ''}">
+                    <i class="fas fa-heart-pulse" style="color:#ef4444"></i><span>시스템 헬스</span>
+                </a>
                 <a href="/admin/backup" class="sidebar-item"
                    th:classappend="${#strings.startsWith(#request.requestURI, '/admin/backup') ? ' active' : ''}">
                     <i class="fas fa-database" style="color:#10b981"></i><span>백업 / 복원</span>
@@ -320,6 +324,34 @@
         <i class="fas fa-bars"></i>
         <span style="writing-mode:vertical-rl;font-size:0.6rem;letter-spacing:0.05em;">메뉴</span>
     </button>
+
+    <!-- ── v2.8.0: 모바일 하단 네비게이션 바 (768px 이하에서만 표시) ── -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <a href="/" class="mbnav-item"
+           th:classappend="${#request.requestURI == '/' ? ' active' : ''}">
+            <i class="fas fa-home"></i>
+            <span>홈</span>
+        </a>
+        <a th:if="${allowedFeatures == null or allowedFeatures.contains('chat')}" href="/chat" class="mbnav-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/chat') ? ' active' : ''}">
+            <i class="fas fa-comments"></i>
+            <span>채팅</span>
+        </a>
+        <a href="/search" class="mbnav-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/search') ? ' active' : ''}">
+            <i class="fas fa-search"></i>
+            <span>검색</span>
+        </a>
+        <a href="/history" class="mbnav-item"
+           th:classappend="${#strings.startsWith(#request.requestURI, '/history') ? ' active' : ''}">
+            <i class="fas fa-history"></i>
+            <span>이력</span>
+        </a>
+        <button type="button" class="mbnav-item" onclick="toggleSidebarCollapse()">
+            <i class="fas fa-bars"></i>
+            <span>메뉴</span>
+        </button>
+    </nav>
 
     <!-- ── 사이드바 스크립트: nav 안에 위치해야 th:replace 시 페이지에 포함됨 ── -->
     <script>
