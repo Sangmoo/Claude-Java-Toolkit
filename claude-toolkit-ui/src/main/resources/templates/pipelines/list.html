@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>분석 파이프라인 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.2/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
+    <link th:href="@{/css/toolkit.css(v='20250411')}" rel="stylesheet">
+    <style>
+        .pipe-section { margin-bottom: 24px; }
+        .pipe-section h5 {
+            font-size: .9rem; font-weight: 700; margin: 0 0 12px 0;
+            color: var(--text-primary); display: flex; align-items: center; gap: 6px;
+        }
+        .pipe-card {
+            background: var(--bg-secondary); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center; gap: 14px;
+            transition: all .15s;
+        }
+        .pipe-card:hover { border-color: var(--accent); }
+        .pipe-card .info { flex: 1; min-width: 0; }
+        .pipe-card .name { font-weight: 700; color: var(--text-primary); font-size: .9rem; margin-bottom: 4px; }
+        .pipe-card .desc { font-size: .78rem; color: var(--text-sub); margin-bottom: 6px; }
+        .pipe-card .meta {
+            font-size: .72rem; color: var(--text-muted);
+            display: flex; gap: 12px; flex-wrap: wrap;
+        }
+        .pipe-card .actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .pipe-card .actions button, .pipe-card .actions a {
+            background: none; border: 1px solid var(--border-color);
+            color: var(--text-muted); padding: 5px 10px; border-radius: 6px;
+            font-size: .74rem; cursor: pointer; text-decoration: none;
+            transition: all .15s;
+        }
+        .pipe-card .actions .btn-run {
+            background: var(--accent); color: #fff; border-color: var(--accent);
+        }
+        .pipe-card .actions .btn-run:hover { filter: brightness(0.9); }
+        .pipe-card .actions button:hover, .pipe-card .actions a:hover {
+            border-color: var(--accent); color: var(--accent);
+        }
+        .empty-state {
+            text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: .84rem;
+        }
+        .lang-badge {
+            display: inline-block; background: var(--bg-tertiary); color: var(--text-sub);
+            font-size: .68rem; padding: 2px 8px; border-radius: 10px; text-transform: uppercase;
+        }
+        .builtin-badge {
+            background: linear-gradient(135deg,#8b5cf6,#f97316); color: #fff;
+            font-size: .66rem; padding: 2px 8px; border-radius: 10px; font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title"><i class="fas fa-project-diagram me-2" style="color:var(--accent)"></i>분석 파이프라인</span>
+            <div style="display:flex;gap:8px;">
+                <a href="/pipelines/new" class="btn btn-accent btn-sm" style="font-size:.78rem;padding:5px 14px;">
+                    <i class="fas fa-plus me-1"></i>새 파이프라인
+                </a>
+                <button id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+                </button>
+            </div>
+        </div>
+        <div class="main-content">
+            <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+                <i class="fas fa-info-circle me-1"></i>여러 AI 분석 기능을 순차/조건부로 연결하여 자동 실행합니다.
+                YAML로 단계를 정의하고, 각 단계 결과를 다음 단계의 컨텍스트로 전달할 수 있습니다.
+            </p>
+
+            <!-- ── 내장 파이프라인 ── -->
+            <div class="pipe-section">
+                <h5><i class="fas fa-star" style="color:#f59e0b"></i>내장 파이프라인</h5>
+                <div th:if="${#lists.isEmpty(builtins)}" class="empty-state">내장 파이프라인이 없습니다.</div>
+                <div th:each="def : ${builtins}" class="pipe-card">
+                    <div class="info">
+                        <div class="name">
+                            <span th:text="${def.name}">이름</span>
+                            <span class="builtin-badge ms-2">BUILTIN</span>
+                        </div>
+                        <div class="desc" th:text="${def.description}">설명</div>
+                        <div class="meta">
+                            <span><i class="fas fa-code me-1"></i><span class="lang-badge" th:text="${def.inputLanguage}"></span></span>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-run" th:attr="data-id=${def.id},data-name=${def.name},data-lang=${def.inputLanguage}"
+                                onclick="openRunModal(this)">
+                            <i class="fas fa-play me-1"></i>실행
+                        </button>
+                        <a th:href="@{'/pipelines/' + ${def.id}}">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 사용자 파이프라인 ── -->
+            <div class="pipe-section">
+                <h5><i class="fas fa-user" style="color:#3b82f6"></i>사용자 파이프라인</h5>
+                <div th:if="${#lists.isEmpty(userDefs)}" class="empty-state">
+                    아직 생성된 사용자 파이프라인이 없습니다.<br>
+                    <small>우측 상단 "새 파이프라인" 버튼으로 시작하세요.</small>
+                </div>
+                <div th:each="def : ${userDefs}" class="pipe-card">
+                    <div class="info">
+                        <div class="name" th:text="${def.name}">이름</div>
+                        <div class="desc" th:text="${def.description}">설명</div>
+                        <div class="meta">
+                            <span><i class="fas fa-code me-1"></i><span class="lang-badge" th:text="${def.inputLanguage}"></span></span>
+                            <span th:if="${def.createdBy != null}"><i class="fas fa-user me-1"></i><span th:text="${def.createdBy}"></span></span>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-run" th:attr="data-id=${def.id},data-name=${def.name},data-lang=${def.inputLanguage}"
+                                onclick="openRunModal(this)">
+                            <i class="fas fa-play me-1"></i>실행
+                        </button>
+                        <a th:href="@{'/pipelines/' + ${def.id}}">
+                            <i class="fas fa-pen"></i>
+                        </a>
+                        <button th:attr="data-id=${def.id},data-name=${def.name}" onclick="deletePipeline(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- 실행 모달 -->
+<div id="runModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);"
+     onclick="if(event.target===this)closeRunModal()">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(640px,92vw);
+                background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:.95rem;">
+                <i class="fas fa-play me-2" style="color:var(--accent)"></i>
+                <span id="runModalName">파이프라인 실행</span>
+            </span>
+            <button onclick="closeRunModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;">&times;</button>
+        </div>
+        <div style="padding:20px;">
+            <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;">
+                입력 언어: <span id="runModalLang" style="font-weight:600;color:var(--accent);"></span>
+            </p>
+            <label style="font-size:.82rem;color:var(--text-sub);font-weight:600;">입력 코드</label>
+            <textarea id="runInput" class="form-control" rows="10"
+                      style="font-size:.82rem;font-family:'JetBrains Mono',monospace;"
+                      placeholder="분석할 코드를 붙여넣으세요..."></textarea>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button onclick="closeRunModal()"
+                        style="background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.84rem;">취소</button>
+                <button class="btn-accent" style="padding:7px 20px;" onclick="startRun()">
+                    <i class="fas fa-play me-1"></i>실행 시작
+                </button>
+            </div>
+            <div id="runResult" style="font-size:.8rem;margin-top:8px;"></div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/toolkit.js(v='20250411')}"></script>
+<script>
+var _runPipelineId = null;
+
+function openRunModal(btn) {
+    _runPipelineId = btn.getAttribute('data-id');
+    document.getElementById('runModalName').textContent = btn.getAttribute('data-name');
+    document.getElementById('runModalLang').textContent = btn.getAttribute('data-lang') || 'java';
+    document.getElementById('runInput').value = '';
+    document.getElementById('runResult').innerHTML = '';
+    document.getElementById('runModal').style.display = '';
+    setTimeout(function(){ document.getElementById('runInput').focus(); }, 50);
+}
+function closeRunModal() {
+    document.getElementById('runModal').style.display = 'none';
+}
+function startRun() {
+    var input = document.getElementById('runInput').value.trim();
+    if (!input) {
+        document.getElementById('runResult').innerHTML = '<span style="color:#ef4444;">입력 코드를 입력해주세요.</span>';
+        return;
+    }
+    var fd = new URLSearchParams();
+    fd.append('input', input);
+    fetch('/pipelines/' + _runPipelineId + '/run', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success && d.executionId) {
+                window.location.href = '/pipelines/executions/' + d.executionId;
+            } else {
+                document.getElementById('runResult').innerHTML = '<span style="color:#ef4444;">' + (d.error || '실행 실패') + '</span>';
+            }
+        });
+}
+
+function deletePipeline(btn) {
+    var id = btn.getAttribute('data-id');
+    var name = btn.getAttribute('data-name');
+    if (!confirm('"' + name + '" 파이프라인을 삭제하시겠습니까?')) return;
+    fetch('/pipelines/' + id + '/delete', {method:'POST'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                showToast('삭제되었습니다.', 'success');
+                setTimeout(function(){ location.reload(); }, 500);
+            } else {
+                showToast(d.error || '삭제 실패', 'error');
+            }
+        });
+}
+</script>
+</body>
+</html>

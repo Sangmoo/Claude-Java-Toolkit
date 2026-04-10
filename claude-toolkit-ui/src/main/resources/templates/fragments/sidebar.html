@@ -36,7 +36,8 @@
                      allowedFeatures.contains('workspace') or allowedFeatures.contains('advisor') or
                      allowedFeatures.contains('sql-translate') or allowedFeatures.contains('sql-batch') or
                      allowedFeatures.contains('erd') or allowedFeatures.contains('complexity') or
-                     allowedFeatures.contains('explain') or allowedFeatures.contains('harness')}">
+                     allowedFeatures.contains('explain') or allowedFeatures.contains('harness') or
+                     allowedFeatures.contains('pipelines')}">
         <button class="sidebar-section-toggle" id="toggle-analysis"
                 onclick="toggleSidebarSection('analysis')">
             <span>분석</span>
@@ -46,6 +47,10 @@
             <a th:if="${allowedFeatures == null or allowedFeatures.contains('workspace')}" href="/workspace" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/workspace') ? ' active' : ''}">
                 <i class="fas fa-layer-group" style="color:#f97316"></i><span>통합 워크스페이스</span>
+            </a>
+            <a th:if="${allowedFeatures == null or allowedFeatures.contains('pipelines')}" href="/pipelines" class="sidebar-item"
+               th:classappend="${#strings.startsWith(#request.requestURI, '/pipelines') ? ' active' : ''}">
+                <i class="fas fa-project-diagram" style="color:#8b5cf6"></i><span>분석 파이프라인</span>
             </a>
             <a th:if="${allowedFeatures == null or allowedFeatures.contains('advisor')}" href="/advisor" class="sidebar-item"
                th:classappend="${#strings.startsWith(#request.requestURI, '/advisor') ? ' active' : ''}">

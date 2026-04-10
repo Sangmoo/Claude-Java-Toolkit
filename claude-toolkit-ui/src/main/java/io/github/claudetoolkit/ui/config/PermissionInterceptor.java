@@ -37,6 +37,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("explain",       "/explain");
         FEATURE_PATHS.put("harness",       "/harness");
         FEATURE_PATHS.put("codereview",    "/codereview");
+        FEATURE_PATHS.put("pipelines",     "/pipelines");
         // 생성
         FEATURE_PATHS.put("docgen",        "/docgen");
         FEATURE_PATHS.put("testgen",       "/testgen");

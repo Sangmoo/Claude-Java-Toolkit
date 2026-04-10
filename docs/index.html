@@ -632,6 +632,18 @@ footer{
         </div>
       </div>
       <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(236,72,153,.12);color:#ec4899;">🔗</div>
+        <div class="feat-title" data-i18n="feat.pipeline.title">파이프라인 오케스트레이터</div>
+        <div class="feat-desc" data-i18n="feat.pipeline.desc">YAML 기반 분석 파이프라인으로 SQL 리뷰 → 리팩터링 → 요약 같은 워크플로우를 자동 실행. 조건부 단계, 변수 전달, 실시간 진행 상황 표시. 4개 내장 파이프라인 기본 제공. H2 → PostgreSQL/MySQL/Oracle 원클릭 자동 DB 이관 도구 포함</div>
+        <div class="feat-tags">
+          <span class="tag">🔗 YAML 파이프라인</span>
+          <span class="tag">⚡ 조건부 실행</span>
+          <span class="tag">📡 실시간 진행</span>
+          <span class="tag">🚀 DB 자동 이관</span>
+          <span class="tag">⭐ 내장 템플릿</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">👥</div>
         <div class="feat-title" data-i18n="feat.team.title">협업 & 아키텍처</div>
         <div class="feat-desc" data-i18n="feat.team.desc">분석 결과를 AI 채팅 컨텍스트로 즉시 전환("💬 이 결과에 대해 질문하기"), 팀 리뷰 워크플로우(작성자 → REVIEWER 승인/반려 + 실시간 알림), DB 마이그레이션 가이드(H2 → PostgreSQL / MySQL / Oracle 11g 단계별 안내)</div>
@@ -947,6 +959,8 @@ var i18n={
     'feat.monitor.desc':'SSE 기반 실시간 알림(60초 폴링 → 즉시 push, 연결 실패 시 자동 fallback), 시스템 헬스 대시보드(JVM 메모리/업타임/스레드, H2 DB 크기, 디스크 여유공간, Claude API 상태), 감사 로그 기능 메뉴 필터, 키보드 단축키 가이드(? 키), 모바일 하단 탭 네비게이션',
     'feat.team.title':'협업 & 아키텍처',
     'feat.team.desc':'분석 결과를 AI 채팅 컨텍스트로 즉시 전환("💬 이 결과에 대해 질문하기"), 팀 리뷰 워크플로우(작성자 → REVIEWER 승인/반려 + 실시간 알림), DB 마이그레이션 가이드(H2 → PostgreSQL / MySQL / Oracle 11g 단계별 안내)',
+    'feat.pipeline.title':'파이프라인 오케스트레이터',
+    'feat.pipeline.desc':'YAML 기반 분석 파이프라인으로 SQL 리뷰 → 리팩터링 → 요약 같은 워크플로우를 자동 실행. 조건부 단계, 변수 전달, 실시간 진행 상황 표시. 4개 내장 파이프라인 기본 제공. H2 → PostgreSQL/MySQL/Oracle 원클릭 자동 DB 이관 도구 포함',
     'tab.sql':'SQL 분석','tab.code':'코드 분석','tab.doc':'문서 생성','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL 전방위 분석',
     'tab.sql.p':'실행계획(EXPLAIN PLAN) 트리 시각화, <strong>⚡ SSE 스트리밍 실시간 분석</strong>(v1.5 NEW), Before/After 비교, 성능 히스토리 대시보드(Cost 추이 차트), <strong>AI 제안 SQL Diff 뷰</strong>(v1.5 NEW), 배치 SQL 분석(최대 30개 일괄 리뷰, CSV 업로드), cron 스케줄 자동 실행, SQL Injection 보안 검사까지 SQL 개발의 모든 단계를 지원합니다.',
@@ -1015,6 +1029,8 @@ var i18n={
     'feat.monitor.desc':'SSE-based real-time notifications (60s polling → instant push with auto fallback), system health dashboard (JVM memory/uptime/threads, H2 DB size, disk free, Claude API status), audit log feature menu filter, keyboard shortcuts guide (? key), mobile bottom tab navigation',
     'feat.team.title':'Collaboration & Architecture',
     'feat.team.desc':'Analysis-to-chat context handoff ("Ask about this result"), team review workflow (author → REVIEWER approve/reject + real-time notification), DB migration guide (H2 → PostgreSQL / MySQL / Oracle 11g step-by-step)',
+    'feat.pipeline.title':'Pipeline Orchestrator',
+    'feat.pipeline.desc':'YAML-based analysis pipelines automate workflows like SQL review → refactor → summary. Conditional steps, variable passing, real-time progress. 4 builtin pipelines included. One-click automatic DB migration tool for H2 → PostgreSQL/MySQL/Oracle',
     'tab.sql':'SQL Analysis','tab.code':'Code Analysis','tab.doc':'Doc Generation','tab.api':'REST API',
     'tab.sql.h':'Oracle SQL / PL·SQL Comprehensive Analysis',
     'tab.sql.p':'Supports all stages of SQL development: EXPLAIN PLAN tree visualization, <strong>⚡ SSE real-time streaming analysis</strong> (v1.5 NEW), Before/After comparison, performance history dashboard (Cost trend chart), <strong>AI-suggested SQL Diff view</strong> (v1.5 NEW), batch SQL analysis (up to 30 queries at once, CSV upload), cron-based scheduled auto-review, and SQL Injection security checks.',

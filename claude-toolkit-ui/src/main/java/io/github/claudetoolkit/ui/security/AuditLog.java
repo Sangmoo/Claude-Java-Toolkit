@@ -128,6 +128,7 @@ public class AuditLog {
         MENU_NAME_MAP.put("/explain",       "실행계획 분석");
         MENU_NAME_MAP.put("/harness",       "코드 리뷰 하네스");
         MENU_NAME_MAP.put("/codereview",    "코드 리뷰");
+        MENU_NAME_MAP.put("/pipelines",     "분석 파이프라인");
         MENU_NAME_MAP.put("/docgen",        "기술 문서");
         MENU_NAME_MAP.put("/testgen",       "테스트 생성");
         MENU_NAME_MAP.put("/apispec",       "API 명세");

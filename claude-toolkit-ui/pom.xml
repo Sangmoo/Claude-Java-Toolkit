@@ -123,6 +123,13 @@
             <artifactId>dompurify</artifactId>
             <version>3.1.5</version>
         </dependency>
+
+        <!-- v2.9.5: SnakeYAML (파이프라인 오케스트레이터 YAML 파싱) -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>1.33</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}();</script>
+    <title>파이프라인 편집기 — Claude Java Toolkit</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.2/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/font-awesome/6.5.1/css/all.min.css}">
+    <link th:href="@{/css/toolkit.css(v='20250411')}" rel="stylesheet">
+    <style>
+        .editor-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+        @media (max-width: 900px) { .editor-grid { grid-template-columns: 1fr; } }
+        .yaml-editor {
+            font-family: 'JetBrains Mono', monospace; font-size: .82rem;
+            min-height: 500px; line-height: 1.6;
+            background: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        .helper-panel {
+            background: var(--bg-secondary); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 14px 16px;
+        }
+        .helper-panel h6 {
+            font-size: .82rem; font-weight: 700; margin: 0 0 10px 0;
+            color: var(--text-primary);
+        }
+        .helper-panel ul { list-style: none; padding: 0; margin: 0; font-size: .74rem; }
+        .helper-panel li {
+            padding: 4px 6px; cursor: pointer; border-radius: 4px;
+            color: var(--text-sub); font-family: 'JetBrains Mono', monospace;
+        }
+        .helper-panel li:hover { background: var(--bg-tertiary); color: var(--accent); }
+        .var-item {
+            padding: 3px 6px; margin: 2px 0; font-family: monospace; font-size: .72rem;
+            background: rgba(124,107,240,.08); color: #a78bfa; border-radius: 3px; display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div th:replace="fragments/sidebar :: sidebar"></div>
+    <main class="main-area">
+        <div class="top-bar">
+            <span class="top-bar-title">
+                <a href="/pipelines" style="color:var(--text-muted);text-decoration:none;margin-right:8px;">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <i class="fas fa-edit me-2" style="color:var(--accent)"></i>
+                <span th:if="${isNew}">새 파이프라인</span>
+                <span th:unless="${isNew}" th:text="${def.name}">편집</span>
+            </span>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline-tk btn-sm" onclick="validateYaml()" style="font-size:.78rem;">
+                    <i class="fas fa-check me-1"></i>검증
+                </button>
+                <button class="btn btn-accent btn-sm" onclick="savePipeline()" style="font-size:.78rem;">
+                    <i class="fas fa-save me-1"></i>저장
+                </button>
+                <button id="themeToggle" onclick="toggleTheme()">
+                    <i class="fas fa-sun me-1"></i><span id="themeLabel">Light</span>
+                </button>
+            </div>
+        </div>
+        <div class="main-content">
+            <div th:if="${def.builtin}" class="alert alert-warning py-2 px-3" style="font-size:.8rem;">
+                <i class="fas fa-info-circle me-1"></i>내장 파이프라인은 수정할 수 없습니다. 새 파이프라인으로 복제하여 편집하세요.
+            </div>
+
+            <!-- 기본 정보 -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">이름</label>
+                    <input type="text" id="pipeName" class="form-control" style="font-size:.84rem;"
+                           th:value="${def.name}" th:disabled="${def.builtin}">
+                </div>
+                <div class="col-md-4">
+                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">입력 언어</label>
+                    <select id="pipeLang" class="form-select" style="font-size:.84rem;" th:disabled="${def.builtin}">
+                        <option value="java">java</option>
+                        <option value="sql">sql</option>
+                        <option value="kotlin">kotlin</option>
+                        <option value="python">python</option>
+                        <option value="javascript">javascript</option>
+                        <option value="typescript">typescript</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">설명</label>
+                    <input type="text" id="pipeDesc" class="form-control" style="font-size:.84rem;"
+                           th:value="${def.description}" th:disabled="${def.builtin}">
+                </div>
+            </div>
+
+            <!-- YAML 편집 그리드 -->
+            <div class="editor-grid">
+                <div>
+                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">YAML 정의</label>
+                    <textarea id="yamlContent" class="form-control yaml-editor"
+                              th:text="${def.yamlContent}" th:disabled="${def.builtin}"></textarea>
+                    <div id="editorResult" style="font-size:.76rem;margin-top:8px;"></div>
+                </div>
+
+                <!-- 도움말 패널 -->
+                <div>
+                    <div class="helper-panel mb-3">
+                        <h6><i class="fas fa-list" style="color:#3b82f6"></i>분석 유형</h6>
+                        <ul>
+                            <li th:each="at : ${analysisTypes}" th:text="${at.name()}"
+                                onclick="insertAtCursor(this.textContent)">ENUM</li>
+                        </ul>
+                    </div>
+                    <div class="helper-panel">
+                        <h6><i class="fas fa-code" style="color:#10b981"></i>사용 가능 변수</h6>
+                        <span class="var-item">${pipeline.input}</span>
+                        <span class="var-item">${pipeline.language}</span>
+                        <span class="var-item">${stepId.output}</span>
+                        <span class="var-item">${stepId.executed}</span>
+                        <span class="var-item">${stepId.status}</span>
+                        <h6 style="margin-top:12px;font-size:.78rem;">조건식 예시</h6>
+                        <span class="var-item">${review.executed}</span>
+                        <span class="var-item">'${review.output}'.length() > 100</span>
+                        <span class="var-item">'${review.output}'.contains('경고')</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+<script th:src="@{/js/toolkit.js(v='20250411')}"></script>
+<script th:inline="javascript">
+var PIPE_ID = /*[[${def.id}]]*/ null;
+var IS_NEW = /*[[${isNew}]]*/ true;
+var IS_BUILTIN = /*[[${def.builtin}]]*/ false;
+var CURRENT_LANG = /*[[${def.inputLanguage}]]*/ 'java';
+
+document.getElementById('pipeLang').value = CURRENT_LANG || 'java';
+
+function validateYaml() {
+    var yaml = document.getElementById('yamlContent').value;
+    var fd = new URLSearchParams();
+    fd.append('yamlContent', yaml);
+    fetch('/pipelines/validate', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var el = document.getElementById('editorResult');
+            if (d.success) {
+                el.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check me-1"></i>검증 통과 · ' + d.stepCount + '개 단계</span>';
+            } else {
+                el.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times me-1"></i>' + escHtml(d.error) + '</span>';
+            }
+        });
+}
+
+function savePipeline() {
+    if (IS_BUILTIN) {
+        showToast('내장 파이프라인은 수정할 수 없습니다.', 'warning');
+        return;
+    }
+    var name = document.getElementById('pipeName').value.trim();
+    var desc = document.getElementById('pipeDesc').value.trim();
+    var lang = document.getElementById('pipeLang').value;
+    var yaml = document.getElementById('yamlContent').value;
+    if (!name) { showToast('이름을 입력해주세요.', 'warning'); return; }
+
+    var fd = new URLSearchParams();
+    fd.append('name', name);
+    fd.append('description', desc);
+    fd.append('inputLanguage', lang);
+    fd.append('yamlContent', yaml);
+
+    var url = IS_NEW ? '/pipelines' : '/pipelines/' + PIPE_ID + '/save';
+    fetch(url, {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var el = document.getElementById('editorResult');
+            if (d.success) {
+                showToast('저장되었습니다.', 'success');
+                setTimeout(function(){ window.location.href = '/pipelines'; }, 500);
+            } else {
+                el.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times me-1"></i>' + escHtml(d.error) + '</span>';
+            }
+        });
+}
+
+function insertAtCursor(text) {
+    var ta = document.getElementById('yamlContent');
+    if (!ta || ta.disabled) return;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    ta.value = ta.value.substring(0, start) + text + ta.value.substring(end);
+    ta.selectionStart = ta.selectionEnd = start + text.length;
+    ta.focus();
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+</script>
+</body>
+</html>

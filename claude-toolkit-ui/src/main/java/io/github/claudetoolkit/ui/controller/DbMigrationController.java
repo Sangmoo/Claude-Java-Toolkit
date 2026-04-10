@@ -1,13 +1,20 @@
 package io.github.claudetoolkit.ui.controller;
 
+import io.github.claudetoolkit.ui.migration.DbMigrationExecutor;
+import io.github.claudetoolkit.ui.migration.DbMigrationJob;
+import io.github.claudetoolkit.ui.migration.DbMigrationJobRepository;
+import io.github.claudetoolkit.ui.migration.DbMigrationStreamBroker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.sql.DataSource;
+import java.security.Principal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.util.LinkedHashMap;
@@ -25,10 +32,19 @@ public class DbMigrationController {
 
     private static final Logger log = LoggerFactory.getLogger(DbMigrationController.class);
 
-    private final DataSource dataSource;
+    private final DataSource                dataSource;
+    private final DbMigrationExecutor       executor;
+    private final DbMigrationJobRepository  jobRepo;
+    private final DbMigrationStreamBroker   broker;
 
-    public DbMigrationController(DataSource dataSource) {
+    public DbMigrationController(DataSource dataSource,
+                                 DbMigrationExecutor executor,
+                                 DbMigrationJobRepository jobRepo,
+                                 DbMigrationStreamBroker broker) {
         this.dataSource = dataSource;
+        this.executor   = executor;
+        this.jobRepo    = jobRepo;
+        this.broker     = broker;
     }
 
     @GetMapping
@@ -86,5 +102,80 @@ public class DbMigrationController {
         if (lower.contains("postgres"))   return "postgresql";
         if (lower.contains("oracle"))     return "oracle";
         return "unknown";
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // v2.9.5: 자동 이관
+    // ═══════════════════════════════════════════════════════════════
+
+    /** 타겟 DB 연결 테스트 */
+    @PostMapping("/auto/test-connection")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> testConnection(
+            @RequestParam String targetType,
+            @RequestParam String host,
+            @RequestParam int port,
+            @RequestParam String dbName,
+            @RequestParam String username,
+            @RequestParam String password) {
+        Map<String, Object> resp = executor.testConnection(targetType, host, port, dbName, username, password);
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 이관 시작 */
+    @PostMapping("/auto/start")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> startMigration(
+            @RequestParam String targetType,
+            @RequestParam String host,
+            @RequestParam int port,
+            @RequestParam String dbName,
+            @RequestParam String username,
+            @RequestParam String password,
+            @RequestParam(defaultValue = "false") boolean overwrite,
+            Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        try {
+            DbMigrationJob job = executor.start(targetType, host, port, dbName, username, password,
+                    overwrite, principal.getName());
+            resp.put("success", true);
+            resp.put("jobId",   job.getId());
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 작업 상태 JSON */
+    @GetMapping("/auto/jobs/{id}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> jobStatus(@PathVariable Long id) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        DbMigrationJob job = jobRepo.findById(id).orElse(null);
+        if (job == null) {
+            resp.put("success", false);
+            return ResponseEntity.ok(resp);
+        }
+        resp.put("success",           true);
+        resp.put("id",                job.getId());
+        resp.put("targetType",        job.getTargetType());
+        resp.put("targetUrl",         job.getTargetUrl());
+        resp.put("status",            job.getStatus());
+        resp.put("totalTables",       job.getTotalTables());
+        resp.put("completedTables",   job.getCompletedTables());
+        resp.put("progressPercent",   job.getProgressPercent());
+        resp.put("currentTable",      job.getCurrentTable());
+        resp.put("currentTableTotal", job.getCurrentTableTotal());
+        resp.put("currentTableDone",  job.getCurrentTableDone());
+        resp.put("errorMessage",      job.getErrorMessage());
+        resp.put("warnings",          job.getWarnings());
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 실시간 진행률 SSE */
+    @GetMapping(value = "/auto/jobs/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter jobStream(@PathVariable Long id) {
+        return broker.subscribe(id);
     }
 }

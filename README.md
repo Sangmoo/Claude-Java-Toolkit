@@ -1491,6 +1491,28 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
+### ✅ v2.9.5 — 분석 파이프라인 오케스트레이터 + DB 자동 마이그레이션
+
+**🔗 분석 파이프라인 오케스트레이터**
+- [x] **YAML 기반 파이프라인 정의** — `PipelineDefinition` 엔티티, SnakeYAML 파서, SpEL 조건식 평가기
+- [x] **4개 내장 파이프라인** — SQL 최적화 풀 스택 / Java 품질 풀 체크 / 문서화 패키지 / 보안 감사 풀 플로우 (앱 시작 시 자동 등록)
+- [x] **순차 실행 엔진** — `PipelineExecutor`가 단계별 조건부 실행, 변수 치환(`${stepId.output}`), 각 단계 결과를 다음 단계 컨텍스트로 자동 전달
+- [x] **실시간 SSE 진행 상황** — `PipelineStreamBroker`로 각 단계 청크/상태/완료 이벤트 실시간 push, 연결 실패 시 3초 폴링 fallback
+- [x] **실행 이력 관리** — `PipelineExecution` + `PipelineStepResult`로 각 실행의 모든 단계 결과 영속화, 재조회 가능
+- [x] **파이프라인 CRUD UI** — 목록/편집기/실행 상세 페이지 3개. YAML textarea 편집기 + 분석 유형/변수 도움말 패널 + 검증 버튼
+- [x] **사용자 권한 관리 통합** — `pipelines` feature key 추가 (PermissionInterceptor, AdminPermissionController, AuditLog, 감사 로그 필터)
+
+**🚀 DB 자동 마이그레이션**
+- [x] **원클릭 H2 → PostgreSQL/MySQL/Oracle 이관** — `/admin/db-migration` 5번째 탭 "🚀 자동 이관"
+- [x] **`DbMigrationExecutor`** — JDBC Batch (500건/배치) 기반 테이블 복사, 외래키 의존성 순서 준수 (17개 테이블)
+- [x] **안전 장치** — 타겟 DB 스키마 존재 체크, 비어있음 확인(또는 overwrite 옵션), 이관 후 레코드 수 검증
+- [x] **임시 타겟 DataSource** — `DriverManagerDataSource`로 앱 재기동 없이 즉시 연결
+- [x] **실시간 SSE 진행률** — `DbMigrationStreamBroker`로 테이블별 진행률, 행 수, 성공/실패 이벤트 실시간 표시
+- [x] **연결 테스트** — 시작 전 타겟 DB 연결 검증 (제품/버전 조회)
+- [x] **이관 이력** — `DbMigrationJob` 엔티티로 모든 이관 작업 이력 영속화
+
+---
+
 ### ✅ v2.9.0 — 협업 및 아키텍처
 
 **💬 채팅 확장**

@@ -105,6 +105,9 @@
                 <button class="mig-tab" onclick="switchMigTab('backup', this)">
                     <i class="fas fa-download me-1"></i>백업/복원
                 </button>
+                <button class="mig-tab" onclick="switchMigTab('auto', this)">
+                    <i class="fas fa-bolt me-1" style="color:#f59e0b"></i>🚀 자동 이관 <span class="badge bg-warning text-dark" style="font-size:.58rem;">NEW</span>
+                </button>
             </div>
 
             <!-- PostgreSQL 패널 -->
@@ -292,6 +295,89 @@ java -jar claude-toolkit-ui.jar</pre>
                 </div>
             </div>
 
+            <!-- ═══════════════════════════════════════════════════════════
+                 v2.9.5: 자동 이관 패널
+                 ═══════════════════════════════════════════════════════════ -->
+            <div id="panel-auto" class="mig-panel">
+                <div class="warning-box">
+                    <strong>⚠ 사전 체크리스트:</strong>
+                    <ul style="margin:6px 0 0 18px;font-size:.8rem;">
+                        <li>타겟 DB에 <b>해당 프로파일로 앱을 1회 기동</b>하여 스키마가 생성되어 있어야 합니다</li>
+                        <li>중요 데이터는 사전에 <b>백업 ZIP 다운로드</b> 권장 (/admin/backup)</li>
+                        <li>이관 중에는 앱 재기동/종료 금지</li>
+                        <li>현재 앱의 <b>읽기 전용 복사</b>만 수행 — 소스 H2 DB는 변경되지 않습니다</li>
+                    </ul>
+                </div>
+
+                <div class="info-box">
+                    <h5><i class="fas fa-plug" style="color:#10b981"></i>타겟 DB 연결 정보</h5>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">유형</label>
+                            <select id="tgtType" class="form-select" style="font-size:.84rem;" onchange="updateDefaultPort()">
+                                <option value="postgresql">PostgreSQL</option>
+                                <option value="mysql">MySQL</option>
+                                <option value="oracle">Oracle</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">호스트</label>
+                            <input type="text" id="tgtHost" class="form-control" style="font-size:.84rem;" value="localhost">
+                        </div>
+                        <div class="col-md-3">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">포트</label>
+                            <input type="number" id="tgtPort" class="form-control" style="font-size:.84rem;" value="5432">
+                        </div>
+                        <div class="col-md-4">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">DB 이름</label>
+                            <input type="text" id="tgtDbName" class="form-control" style="font-size:.84rem;" value="claude_toolkit">
+                        </div>
+                        <div class="col-md-4">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">사용자</label>
+                            <input type="text" id="tgtUser" class="form-control" style="font-size:.84rem;" value="claude">
+                        </div>
+                        <div class="col-md-4">
+                            <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">비밀번호</label>
+                            <input type="password" id="tgtPassword" class="form-control" style="font-size:.84rem;">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3 align-items-center">
+                        <button class="btn btn-outline-tk btn-sm" onclick="testTargetConnection()" style="font-size:.78rem;">
+                            <i class="fas fa-plug me-1"></i>연결 테스트
+                        </button>
+                        <div class="form-check" style="margin:0 16px 0 auto;">
+                            <input class="form-check-input" type="checkbox" id="tgtOverwrite">
+                            <label class="form-check-label" for="tgtOverwrite" style="font-size:.76rem;color:#f59e0b;">
+                                ⚠ 기존 데이터 덮어쓰기
+                            </label>
+                        </div>
+                        <button class="btn btn-accent btn-sm" onclick="startAutoMigration()" style="font-size:.82rem;padding:6px 18px;">
+                            <i class="fas fa-bolt me-1"></i>이관 시작
+                        </button>
+                    </div>
+                    <div id="testResult" style="font-size:.78rem;margin-top:10px;"></div>
+                </div>
+
+                <!-- 진행 상황 -->
+                <div id="migProgressCard" class="info-box" style="display:none;">
+                    <h5><i class="fas fa-sync fa-spin" style="color:var(--accent)" id="migStatusIcon"></i>이관 진행 상황</h5>
+                    <div style="font-size:.82rem;margin-bottom:8px;">
+                        상태: <span id="migStatus" style="font-weight:700;">RUNNING</span>
+                    </div>
+                    <div class="gauge-bar" style="margin-bottom:4px;">
+                        <div class="gauge-fill" id="migProgressBar" style="width:0%"></div>
+                    </div>
+                    <div class="gauge-label">
+                        <span id="migProgressText">0 / 16 테이블</span>
+                        <span id="migProgressPercent">0%</span>
+                    </div>
+                    <div style="margin-top:12px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:.74rem;padding:10px;background:var(--bg-tertiary);border-radius:6px;" id="migLog">
+                        <div style="color:var(--text-muted);">이관 시작을 기다리는 중...</div>
+                    </div>
+                    <div id="migWarnings" style="margin-top:10px;font-size:.78rem;color:#f59e0b;display:none;"></div>
+                </div>
+            </div>
+
             <!-- 백업/복원 패널 -->
             <div id="panel-backup" class="mig-panel">
                 <div class="step">
@@ -388,6 +474,147 @@ function escHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function(c) {
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// v2.9.5: 자동 이관 로직
+// ═══════════════════════════════════════════════════════════════
+var DEFAULT_PORTS = { postgresql: 5432, mysql: 3306, oracle: 1521 };
+
+function updateDefaultPort() {
+    var type = document.getElementById('tgtType').value;
+    document.getElementById('tgtPort').value = DEFAULT_PORTS[type] || 5432;
+}
+
+function testTargetConnection() {
+    var fd = new URLSearchParams();
+    fd.append('targetType', document.getElementById('tgtType').value);
+    fd.append('host',       document.getElementById('tgtHost').value);
+    fd.append('port',       document.getElementById('tgtPort').value);
+    fd.append('dbName',     document.getElementById('tgtDbName').value);
+    fd.append('username',   document.getElementById('tgtUser').value);
+    fd.append('password',   document.getElementById('tgtPassword').value);
+
+    var el = document.getElementById('testResult');
+    el.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>연결 중...';
+    fetch('/admin/db-migration/auto/test-connection', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.success) {
+                el.innerHTML = '<span style="color:#10b981;"><i class="fas fa-check-circle me-1"></i>연결 성공 · '
+                    + escHtml(d.productName) + ' ' + escHtml(d.productVersion) + '</span>';
+            } else {
+                el.innerHTML = '<span style="color:#ef4444;"><i class="fas fa-times-circle me-1"></i>'
+                    + escHtml(d.error) + '</span>';
+            }
+        });
+}
+
+function startAutoMigration() {
+    var pw = document.getElementById('tgtPassword').value;
+    if (!pw) {
+        if (!confirm('비밀번호가 비어있습니다. 계속하시겠습니까?')) return;
+    }
+    var overwrite = document.getElementById('tgtOverwrite').checked;
+    if (overwrite) {
+        if (!confirm('⚠ 경고: 타겟 DB의 기존 데이터가 모두 삭제됩니다. 계속하시겠습니까?')) return;
+    }
+    if (!confirm('이관을 시작합니다. 완료될 때까지 앱을 종료하지 마세요. 계속하시겠습니까?')) return;
+
+    var fd = new URLSearchParams();
+    fd.append('targetType', document.getElementById('tgtType').value);
+    fd.append('host',       document.getElementById('tgtHost').value);
+    fd.append('port',       document.getElementById('tgtPort').value);
+    fd.append('dbName',     document.getElementById('tgtDbName').value);
+    fd.append('username',   document.getElementById('tgtUser').value);
+    fd.append('password',   pw);
+    fd.append('overwrite',  overwrite);
+
+    fetch('/admin/db-migration/auto/start', {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) {
+                showToast(d.error || '이관 시작 실패', 'error');
+                return;
+            }
+            showToast('이관 시작됨', 'success');
+            subscribeToJob(d.jobId);
+        });
+}
+
+function subscribeToJob(jobId) {
+    document.getElementById('migProgressCard').style.display = '';
+    document.getElementById('migLog').innerHTML = '';
+    document.getElementById('migWarnings').style.display = 'none';
+
+    var es = new EventSource('/admin/db-migration/auto/jobs/' + jobId + '/stream');
+
+    function logLine(color, message) {
+        var logEl = document.getElementById('migLog');
+        var line = document.createElement('div');
+        line.style.color = color;
+        var time = new Date().toLocaleTimeString('ko-KR');
+        line.textContent = '[' + time + '] ' + message;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    es.addEventListener('stage',          function(e){ var d=JSON.parse(e.data); logLine('#f59e0b', d.message); });
+    es.addEventListener('table-start',    function(e){ var d=JSON.parse(e.data); logLine('#3b82f6', '→ ' + d.message); fetchJobStatus(jobId); });
+    es.addEventListener('progress',       function(e){ var d=JSON.parse(e.data); logLine('var(--text-muted)', '  ' + d.message); fetchJobStatus(jobId); });
+    es.addEventListener('table-complete', function(e){ var d=JSON.parse(e.data); logLine('#10b981', '✓ ' + d.message); fetchJobStatus(jobId); });
+    es.addEventListener('done',           function(e){
+        logLine('#10b981', '✅ 모든 테이블 이관 완료');
+        document.getElementById('migStatus').textContent = 'COMPLETED';
+        document.getElementById('migStatus').style.color = '#10b981';
+        document.getElementById('migStatusIcon').className = 'fas fa-check-circle';
+        document.getElementById('migStatusIcon').style.color = '#10b981';
+        es.close();
+        fetchJobStatus(jobId);
+        showToast('이관 완료', 'success');
+    });
+    es.addEventListener('error',          function(e){
+        try {
+            var d = JSON.parse(e.data);
+            logLine('#ef4444', '❌ ' + (d.message || 'Unknown error'));
+            document.getElementById('migStatus').textContent = 'FAILED';
+            document.getElementById('migStatus').style.color = '#ef4444';
+            document.getElementById('migStatusIcon').className = 'fas fa-times-circle';
+            document.getElementById('migStatusIcon').style.color = '#ef4444';
+        } catch (err) {}
+        es.close();
+        fetchJobStatus(jobId);
+    });
+
+    es.onerror = function() {
+        // 폴링 fallback
+        es.close();
+        var interval = setInterval(function() {
+            fetchJobStatus(jobId, function(d) {
+                if (d && (d.status === 'COMPLETED' || d.status === 'FAILED')) {
+                    clearInterval(interval);
+                }
+            });
+        }, 2000);
+    };
+}
+
+function fetchJobStatus(jobId, cb) {
+    fetch('/admin/db-migration/auto/jobs/' + jobId)
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (!d.success) return;
+            document.getElementById('migProgressBar').style.width = d.progressPercent + '%';
+            document.getElementById('migProgressText').textContent =
+                d.completedTables + ' / ' + d.totalTables + ' 테이블';
+            document.getElementById('migProgressPercent').textContent = d.progressPercent + '%';
+            if (d.warnings) {
+                var w = document.getElementById('migWarnings');
+                w.style.display = '';
+                w.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + escHtml(d.warnings);
+            }
+            if (cb) cb(d);
+        });
 }
 </script>
 </body>
