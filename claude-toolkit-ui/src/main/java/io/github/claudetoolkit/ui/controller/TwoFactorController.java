@@ -5,7 +5,6 @@ import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
@@ -26,7 +25,7 @@ public class TwoFactorController {
     }
 
     @GetMapping
-    public String showPage(HttpSession session, Model model) {
+    public Object showPage(HttpSession session) {
         String username = (String) session.getAttribute("2fa_username");
         if (username == null) return "redirect:/login";
 
@@ -34,11 +33,22 @@ public class TwoFactorController {
         if (user == null) return "redirect:/login";
 
         if (!user.isTotpEnabled()) {
-            // OTP 미등록 → 시크릿 생성하여 세션에 저장 (React에서 API로 조회)
             String secret = TotpService.generateSecret();
             session.setAttribute("2fa_setup_secret", secret);
         }
-        return "forward:/app/index.html";
+
+        // React SPA 직접 서빙
+        try {
+            org.springframework.core.io.ClassPathResource res =
+                new org.springframework.core.io.ClassPathResource("static/app/index.html");
+            byte[] bytes = new byte[res.getInputStream().available()];
+            res.getInputStream().read(bytes);
+            return org.springframework.http.ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.TEXT_HTML)
+                    .body(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return "redirect:/";
+        }
     }
 
     /** OTP 코드 검증 (등록된 사용자) */

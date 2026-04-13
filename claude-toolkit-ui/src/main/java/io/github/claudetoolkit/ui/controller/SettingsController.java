@@ -9,7 +9,6 @@ import io.github.claudetoolkit.ui.config.SettingsPersistenceService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.security.SecuritySettings;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
@@ -48,7 +47,7 @@ public class SettingsController {
     }
 
     @GetMapping
-    public String showSettings(Model model, HttpSession session) {
+    public String showSettings(HttpSession session) {
         // Settings 비밀번호 잠금 확인
         SecuritySettings sec = SecuritySettings.load();
         if (sec.isSettingsLockEnabled() && sec.getSettingsPasswordHash() != null) {
@@ -57,7 +56,7 @@ public class SettingsController {
                 return "redirect:/security/settings-unlock?redirect=/settings";
             }
         }
-        return "forward:/app/index.html";
+        return "redirect:/";
     }
 
     @PostMapping("/save")
@@ -83,13 +82,11 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String jiraProjectKey,
             @RequestParam(required = false, defaultValue = "") String jiraEmail,
             @RequestParam(required = false, defaultValue = "") String jiraApiToken,
-            Model model) {
+            HttpSession saveSession) {
 
         // 입력값 유효성 검증
         if (!dbUrl.trim().isEmpty() && !dbUrl.trim().startsWith("jdbc:")) {
-            model.addAttribute("saveError", "DB URL은 'jdbc:'로 시작해야 합니다.");
-            model.addAttribute("settings", settings);
-            return "settings/index";
+            return "redirect:/settings?error=invalid_db_url";
         }
 
         settings.getDb().setUrl(dbUrl.trim());
@@ -133,19 +130,7 @@ public class SettingsController {
 
         claudeClient.setModelOverride(claudeModel);
 
-        model.addAttribute("settings",     settings);
-        model.addAttribute("saveSuccess",  true);
-        model.addAttribute("currentApiKeyMasked", maskApiKey(claudeProperties.getApiKey()));
-
-        java.util.List<String> availableModels = new java.util.ArrayList<String>();
-        availableModels.add("claude-opus-4-5");
-        availableModels.add("claude-sonnet-4-5");
-        availableModels.add("claude-sonnet-4-20250514");
-        availableModels.add("claude-haiku-4-5");
-        availableModels.add("claude-haiku-3-5");
-        model.addAttribute("availableModels", availableModels);
-        model.addAttribute("currentModel", claudeClient.getEffectiveModel());
-        return "settings/index";
+        return "redirect:/settings?saved=true";
     }
 
     /** AJAX: tests DB connectivity. */

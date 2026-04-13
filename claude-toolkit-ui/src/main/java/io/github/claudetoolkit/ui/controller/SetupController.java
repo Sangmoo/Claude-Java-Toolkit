@@ -7,7 +7,6 @@ import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.security.SecuritySettings;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.Connection;
@@ -46,14 +45,7 @@ public class SetupController {
         this.persistenceService = persistenceService;
     }
 
-    @GetMapping
-    public String setupPage(Model model) {
-        // 이미 설치 완료된 경우 메인으로
-        if (isSetupCompleted()) {
-            return "redirect:/";
-        }
-        return "forward:/app/index.html";
-    }
+    // GET /setup 제거됨 — SpaForwardController(ErrorController)가 React SPA 서빙
 
     /** API 키 저장 + 연결 테스트 */
     @PostMapping("/save-api-key")
