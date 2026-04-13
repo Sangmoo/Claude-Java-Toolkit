@@ -11,7 +11,7 @@ export default function SharedConfigPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/settings/shared?format=json')
+      const data = await api.get('/api/v1/settings/shared')
       if (data) setConfig(JSON.stringify(data, null, 2))
     }
     load()

@@ -19,7 +19,7 @@ export default function SchedulePage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/schedule?format=json') as ScheduleItem[] | null
+      const data = await api.get('/api/v1/schedule') as ScheduleItem[] | null
       if (data) setItems(data)
     }
     load()

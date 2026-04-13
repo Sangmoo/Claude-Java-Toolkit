@@ -49,7 +49,7 @@ export default function HistoryPage() {
   }
 
   const addFavorite = async (item: HistoryItem) => {
-    await fetch('/favorites/add', {
+    await fetch('/favorites/star', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ historyId: String(item.id) }),

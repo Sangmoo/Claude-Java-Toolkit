@@ -117,4 +117,133 @@ public class DataRestController {
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
+
+    // ── 추가 데이터 APIs ─────────────────────────────────────────────
+
+    @GetMapping("/review-requests")
+    public ResponseEntity<ApiResponse<List<?>>> reviewRequests(Authentication auth) {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT r FROM ReviewRequest r ORDER BY r.createdAt DESC"
+            ).setMaxResults(100).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/schedule")
+    public ResponseEntity<ApiResponse<List<?>>> schedule() {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT p FROM PipelineDefinition p WHERE p.scheduleCron IS NOT NULL ORDER BY p.name"
+            ).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/roi-report")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> roiReport() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        try {
+            long totalAnalysis = ((Number) em.createQuery("SELECT COUNT(h) FROM ReviewHistory h").getSingleResult()).longValue();
+            long totalChat = ((Number) em.createQuery("SELECT COUNT(m) FROM ChatMessage m").getSingleResult()).longValue();
+            data.put("totalAnalysis", totalAnalysis);
+            data.put("totalChat", totalChat);
+            data.put("estimatedHoursSaved", totalAnalysis * 0.5 + totalChat * 0.1);
+        } catch (Exception e) {
+            data.put("totalAnalysis", 0);
+            data.put("totalChat", 0);
+            data.put("estimatedHoursSaved", 0);
+        }
+        return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    @GetMapping("/prompts")
+    public ResponseEntity<ApiResponse<List<?>>> prompts() {
+        try {
+            List<?> list = em.createQuery("SELECT p FROM CustomPrompt p ORDER BY p.category, p.name").getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/settings/prompts")
+    public ResponseEntity<ApiResponse<List<?>>> settingsPrompts() {
+        return prompts(); // 동일 데이터
+    }
+
+    @GetMapping("/settings/shared")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sharedConfig() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("info", "팀 설정 공유 기능 — Settings에서 내보내기/가져오기 가능");
+        return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<?>>> search(@RequestParam(defaultValue = "") String q, Authentication auth) {
+        if (q.trim().isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+        try {
+            List<?> list = em.createQuery(
+                "SELECT h FROM ReviewHistory h WHERE h.username = :u AND " +
+                "(LOWER(h.menuName) LIKE :q OR LOWER(h.inputText) LIKE :q) ORDER BY h.createdAt DESC"
+            ).setParameter("u", auth.getName())
+             .setParameter("q", "%" + q.toLowerCase() + "%")
+             .setMaxResults(50).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/admin/team-dashboard")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> teamDashboard() {
+        List<Map<String, Object>> result = new ArrayList<>();
+        try {
+            List<?> users = em.createQuery("SELECT u FROM AppUser u ORDER BY u.username").getResultList();
+            // 간략한 통계 반환
+            for (Object u : users) {
+                Map<String, Object> stat = new LinkedHashMap<>();
+                try {
+                    java.lang.reflect.Method getName = u.getClass().getMethod("getUsername");
+                    String username = (String) getName.invoke(u);
+                    stat.put("username", username);
+                    long count = ((Number) em.createQuery("SELECT COUNT(h) FROM ReviewHistory h WHERE h.username = :u")
+                        .setParameter("u", username).getSingleResult()).longValue();
+                    stat.put("analysisCount", count);
+                    long chatCount = ((Number) em.createQuery("SELECT COUNT(s) FROM ChatSession s WHERE s.username = :u")
+                        .setParameter("u", username).getSingleResult()).longValue();
+                    stat.put("chatCount", chatCount);
+                    result.add(stat);
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    @GetMapping("/admin/health/data")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> systemHealth() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        Runtime rt = Runtime.getRuntime();
+        data.put("jvmHeapUsed", (rt.totalMemory() - rt.freeMemory()) / 1048576 + " MB");
+        data.put("jvmHeapMax", rt.maxMemory() / 1048576 + " MB");
+        data.put("heapUsagePercent", (int) ((rt.totalMemory() - rt.freeMemory()) * 100 / rt.maxMemory()));
+        data.put("uptime", java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime() / 60000 + " min");
+        data.put("threadCount", Thread.activeCount());
+        data.put("javaVersion", System.getProperty("java.version"));
+        data.put("osName", System.getProperty("os.name") + " " + System.getProperty("os.arch"));
+        data.put("dbFileSize", "H2 File");
+        data.put("diskFreeSpace", new java.io.File("/").getFreeSpace() / 1073741824 + " GB");
+        data.put("apiStatus", "UP");
+        try {
+            long userCount = ((Number) em.createQuery("SELECT COUNT(u) FROM AppUser u").getSingleResult()).longValue();
+            data.put("userCount", userCount);
+        } catch (Exception e) { data.put("userCount", 0); }
+        return ResponseEntity.ok(ApiResponse.ok(data));
+    }
 }

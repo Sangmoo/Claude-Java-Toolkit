@@ -18,7 +18,7 @@ export default function SearchPage() {
 
   const search = useCallback(async () => {
     if (!query.trim()) return
-    const data = await api.get(`/search?q=${encodeURIComponent(query)}&format=json`) as SearchResult[] | null
+    const data = await api.get(`/api/v1/search?q=${encodeURIComponent(query)}`) as SearchResult[] | null
     setResults(data || [])
     setSearched(true)
   }, [query, api])

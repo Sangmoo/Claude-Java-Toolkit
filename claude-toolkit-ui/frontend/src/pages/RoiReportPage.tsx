@@ -8,7 +8,7 @@ export default function RoiReportPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/roi-report?format=json')
+      const data = await api.get('/api/v1/roi-report')
       if (data) setReport(JSON.stringify(data, null, 2))
     }
     load()

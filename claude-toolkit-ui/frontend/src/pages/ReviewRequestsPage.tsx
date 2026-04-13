@@ -30,7 +30,7 @@ export default function ReviewRequestsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/review-requests?format=json') as ReviewRequest[] | null
+      const data = await api.get('/api/v1/review-requests') as ReviewRequest[] | null
       if (data) setRequests(data)
     }
     load()

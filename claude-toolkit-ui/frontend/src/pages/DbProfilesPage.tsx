@@ -12,7 +12,7 @@ export default function DbProfilesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/db-profiles?format=json') as DbProfile[] | null
+      const data = await api.get('/api/v1/prompts') as DbProfile[] | null
       if (data) setProfiles(data)
     }
     load()

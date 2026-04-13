@@ -14,7 +14,7 @@ export default function AdminHealthPage() {
 
   useEffect(() => {
     const load = async () => {
-      const d = await api.get('/admin/health/data') as HealthData | null
+      const d = await api.get('/api/v1/admin/health/data') as HealthData | null
       if (d) setData(d)
     }
     load()

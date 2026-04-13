@@ -18,7 +18,7 @@ export default function PromptsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/prompts?format=json') as Prompt[] | null
+      const data = await api.get('/api/v1/prompts') as Prompt[] | null
       if (data) setPrompts(data)
     }
     load()

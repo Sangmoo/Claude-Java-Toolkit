@@ -31,21 +31,13 @@ export default function PipelinePage() {
 
   const loadPipelines = async () => {
     try {
-      // Try JSON API first
-      const res = await fetch('/pipelines', {
-        credentials: 'include',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      })
+      const res = await fetch('/api/v1/pipelines', { credentials: 'include' })
       if (res.ok) {
-        const text = await res.text()
-        try {
-          const data = JSON.parse(text)
-          if (Array.isArray(data)) {
-            setPipelines(data)
-            return
-          }
-        } catch {
-          // HTML response — parse pipelines from existing controller model
+        const json = await res.json()
+        const data = json.data ?? json
+        if (Array.isArray(data)) {
+          setPipelines(data)
+          return
         }
       }
     } catch {

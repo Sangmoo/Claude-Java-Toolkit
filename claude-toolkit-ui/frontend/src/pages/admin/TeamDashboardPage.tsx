@@ -11,7 +11,7 @@ export default function TeamDashboardPage() {
 
   useEffect(() => {
     const load = async () => {
-      const d = await api.get('/admin/team-dashboard?format=json') as TeamStat[] | null
+      const d = await api.get('/api/v1/admin/team-dashboard') as TeamStat[] | null
       if (d) setStats(d)
       else setStats([
         { username: 'admin', analysisCount: 128, chatCount: 45 },

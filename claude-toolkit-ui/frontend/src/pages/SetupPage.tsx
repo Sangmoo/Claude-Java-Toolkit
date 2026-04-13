@@ -14,7 +14,7 @@ export default function SetupPage() {
     if (!apiKey.trim()) return
     setTesting(true)
     try {
-      const res = await fetch('/setup/test-api-key', {
+      const res = await fetch('/setup/save-api-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ apiKey }),

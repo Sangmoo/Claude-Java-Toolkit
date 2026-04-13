@@ -19,7 +19,7 @@ export default function SettingsPromptsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/settings/prompts?format=json') as PromptTemplate[] | null
+      const data = await api.get('/api/v1/settings/prompts') as PromptTemplate[] | null
       if (data) setPrompts(data)
     }
     load()
