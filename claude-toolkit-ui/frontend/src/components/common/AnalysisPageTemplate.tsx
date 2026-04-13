@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser } from 'react-icons/fa'
+import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import type { IconType } from 'react-icons'
 
@@ -25,6 +25,7 @@ export interface AnalysisPageConfig {
   inputLanguage?: string    // for code input styling
   options?: AnalysisOption[]
   endpoint?: string         // custom endpoint instead of /stream/init
+  allowFileUpload?: boolean // 파일 업로드 허용
 }
 
 export default function AnalysisPageTemplate({ config }: { config: AnalysisPageConfig }) {
@@ -40,8 +41,22 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     return defaults
   })
   const esRef = useRef<EventSource | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const Icon = config.icon
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = reader.result as string
+      setInput(text)
+      toast.success(`${file.name} 로드 완료 (${(file.size / 1024).toFixed(1)}KB)`)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
 
   const setOption = useCallback((name: string, value: string) => {
     setOptionValues((prev) => ({ ...prev, [name]: value }))
@@ -163,6 +178,12 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
           <div style={panelHeaderStyle}>
             <span style={{ fontWeight: 600, fontSize: '13px' }}>{config.inputLabel || '입력'}</span>
             <div style={{ display: 'flex', gap: '6px' }}>
+              {config.allowFileUpload && (
+                <>
+                  <input ref={fileRef} type="file" accept=".sql,.java,.xml,.txt,.log,.json,.yaml,.yml,.py,.kt" style={{ display: 'none' }} onChange={handleFileUpload} />
+                  <button style={smallBtnStyle} onClick={() => fileRef.current?.click()} title="파일 업로드"><FaUpload /></button>
+                </>
+              )}
               <button style={smallBtnStyle} onClick={clear} title="초기화"><FaEraser /></button>
             </div>
           </div>

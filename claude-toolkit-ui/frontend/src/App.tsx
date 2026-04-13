@@ -55,8 +55,20 @@ const GitDiffPage = lazy(() => import('./pages/analysis/GitDiffPage'))
 
 // Admin pages
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
+const AdminPermissionsPage = lazy(() => import('./pages/admin/AdminPermissionsPage'))
 const AdminHealthPage = lazy(() => import('./pages/admin/AdminHealthPage'))
+const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'))
 const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'))
+const TeamDashboardPage = lazy(() => import('./pages/admin/TeamDashboardPage'))
+const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePage'))
+
+// Special pages
+const SetupPage = lazy(() => import('./pages/SetupPage'))
+const ShareViewPage = lazy(() => import('./pages/ShareViewPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage'))
+const DbProfilesPage = lazy(() => import('./pages/DbProfilesPage'))
+const SecurityPage = lazy(() => import('./pages/SecurityPage'))
 
 function Loading() {
   return (
@@ -153,8 +165,21 @@ export default function App() {
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/health" element={<AdminHealthPage />} />
           <Route path="/admin/audit-dashboard" element={<AuditLogPage />} />
+          <Route path="/admin/permissions" element={<AdminPermissionsPage />} />
+          <Route path="/admin/team-dashboard" element={<TeamDashboardPage />} />
+          <Route path="/admin/db-migration" element={<DbMigrationGuidePage />} />
+          <Route path="/admin/backup" element={<AdminBackupPage />} />
+
+          {/* Special */}
+          <Route path="/api-docs" element={<ApiDocsPage />} />
+          <Route path="/db-profiles" element={<DbProfilesPage />} />
+          <Route path="/security" element={<SecurityPage />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Public routes (no auth) */}
+        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/share/:token" element={<ShareViewPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
     </ErrorBoundary>
