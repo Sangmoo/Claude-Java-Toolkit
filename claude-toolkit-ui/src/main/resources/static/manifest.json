@@ -1,0 +1,12 @@
+{
+  "name": "Claude Java Toolkit",
+  "short_name": "Claude Toolkit",
+  "description": "AI-powered tools for Oracle DB & Java/Spring enterprise development",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

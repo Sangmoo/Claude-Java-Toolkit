@@ -62,8 +62,9 @@ secret.properties
 # ── React Frontend ─────────────────────────────────────────────────────────
 claude-toolkit-ui/frontend/node_modules/
 claude-toolkit-ui/frontend/node/
-claude-toolkit-ui/src/main/resources/static/react/
-claude-toolkit-ui/src/main/resources/static/app/
+# Vite 빌드 결과물 (mvn package 시 자동 생성)
+claude-toolkit-ui/src/main/resources/static/assets/
+claude-toolkit-ui/src/main/resources/static/index.html
 
 # ── OS ─────────────────────────────────────────────────────────────────────
 .DS_Store

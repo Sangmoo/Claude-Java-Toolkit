@@ -20,7 +20,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../src/main/resources/static/app',
+    outDir: '../src/main/resources/static',
     emptyOutDir: true,
     chunkSizeWarningLimit: 600,
     rollupOptions: {

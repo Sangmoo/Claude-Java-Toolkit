@@ -40,7 +40,7 @@ public class TwoFactorController {
         // React SPA 직접 서빙
         try {
             org.springframework.core.io.ClassPathResource res =
-                new org.springframework.core.io.ClassPathResource("static/app/index.html");
+                new org.springframework.core.io.ClassPathResource("static/index.html");
             byte[] bytes = new byte[res.getInputStream().available()];
             res.getInputStream().read(bytes);
             return org.springframework.http.ResponseEntity.ok()

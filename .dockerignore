@@ -2,8 +2,8 @@
 **/node_modules/
 **/target/
 claude-toolkit-ui/frontend/node/
-claude-toolkit-ui/src/main/resources/static/app/
-claude-toolkit-ui/src/main/resources/static/react/
+claude-toolkit-ui/src/main/resources/static/assets/
+claude-toolkit-ui/src/main/resources/static/index.html
 
 # IDE
 .idea/

@@ -43,7 +43,7 @@ public class SpaForwardController implements ErrorController {
     private String getIndexHtml() {
         if (indexHtml == null) {
             try {
-                ClassPathResource resource = new ClassPathResource("static/app/index.html");
+                ClassPathResource resource = new ClassPathResource("static/index.html");
                 try (InputStream is = resource.getInputStream()) {
                     byte[] bytes = new byte[is.available()];
                     is.read(bytes);
