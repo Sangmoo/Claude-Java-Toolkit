@@ -46,6 +46,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       })
       const json = await res.json()
       if (res.ok && json.success) {
+        if (json.data?.require2fa) {
+          // ADMIN 2FA 필요 → 2FA 페이지로 이동
+          window.location.href = '/login/2fa'
+          return false
+        }
         set({ user: json.data, error: null })
         return true
       }

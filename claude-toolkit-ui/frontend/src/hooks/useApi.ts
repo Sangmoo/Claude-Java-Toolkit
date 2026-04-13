@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useToastStore } from '../stores/toastStore'
 
 interface ApiOptions {
@@ -19,9 +19,11 @@ export function useApi<T = unknown>(opts: ApiOptions = {}) {
     error: null,
   })
   const showToast = useToastStore((s) => s.show)
+  const abortRef = useRef(false)
 
   const request = useCallback(
     async (url: string, init?: RequestInit): Promise<T | null> => {
+      if (abortRef.current) return null
       setState({ data: null, loading: true, error: null })
       try {
         const res = await fetch(url, {
@@ -30,7 +32,15 @@ export function useApi<T = unknown>(opts: ApiOptions = {}) {
         })
 
         if (res.status === 401 || res.status === 403) {
-          window.location.href = '/react/login'
+          abortRef.current = true
+          window.location.href = '/login'
+          return null
+        }
+
+        // 응답이 HTML인 경우 (SPA 포워딩) — API 에러가 아님
+        const contentType = res.headers.get('content-type') || ''
+        if (contentType.includes('text/html')) {
+          setState({ data: null, loading: false, error: null })
           return null
         }
 

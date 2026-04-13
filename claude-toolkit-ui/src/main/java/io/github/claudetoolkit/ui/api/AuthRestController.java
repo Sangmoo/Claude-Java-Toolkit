@@ -1,5 +1,7 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.github.claudetoolkit.ui.user.AppUser;
+import io.github.claudetoolkit.ui.user.AppUserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -28,9 +30,11 @@ import java.util.Map;
 public class AuthRestController {
 
     private final AuthenticationManager authManager;
+    private final AppUserRepository userRepository;
 
-    public AuthRestController(AuthenticationManager authManager) {
+    public AuthRestController(AuthenticationManager authManager, AppUserRepository userRepository) {
         this.authManager = authManager;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/me")
@@ -66,6 +70,17 @@ public class AuthRestController {
             HttpSession session = request.getSession(true);
             session.setAttribute("SPRING_SECURITY_CONTEXT",
                     SecurityContextHolder.getContext());
+
+            // ADMIN 사용자 2FA 체크
+            boolean isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+            if (isAdmin) {
+                session.setAttribute("2fa_pending", true);
+                session.setAttribute("2fa_username", username);
+                Map<String, Object> data = buildUserMap(auth);
+                data.put("require2fa", true);
+                return ResponseEntity.ok(ApiResponse.ok(data));
+            }
 
             return ResponseEntity.ok(ApiResponse.ok(buildUserMap(auth)));
         } catch (BadCredentialsException e) {
