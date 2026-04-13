@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.ui.security.TotpService;
 import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -26,20 +28,27 @@ public class TwoFactorController {
     }
 
     @GetMapping
-    @ResponseBody
-    public Object showPage(HttpSession session) {
+    public ResponseEntity<String> showPage(HttpSession session) {
         String username = (String) session.getAttribute("2fa_username");
-        if (username == null) return "redirect:/login";
+        if (username == null) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, "/login")
+                    .build();
+        }
 
         AppUser user = userRepository.findByUsername(username).orElse(null);
-        if (user == null) return "redirect:/login";
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, "/login")
+                    .build();
+        }
 
         if (!user.isTotpEnabled()) {
             String secret = TotpService.generateSecret();
             session.setAttribute("2fa_setup_secret", secret);
         }
 
-        // React SPA 직접 서빙 (SpaForwardController의 캐시된 index.html 사용)
+        // React SPA index.html 직접 서빙
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
                 .body(SpaForwardController.getIndexHtml());
