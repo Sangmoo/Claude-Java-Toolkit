@@ -12,7 +12,7 @@ export default function AdminPermissionsPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/admin/permissions?format=json') as Permission[] | null
+      const data = await api.get('/api/v1/admin/permissions') as Permission[] | null
       if (data) setPermissions(data)
     }
     load()

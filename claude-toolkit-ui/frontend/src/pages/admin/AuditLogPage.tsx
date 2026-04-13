@@ -11,7 +11,7 @@ export default function AuditLogPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/admin/audit-dashboard?format=json') as AuditEntry[] | null
+      const data = await api.get('/api/v1/admin/audit-logs') as AuditEntry[] | null
       if (data) setLogs(data)
     }
     load()

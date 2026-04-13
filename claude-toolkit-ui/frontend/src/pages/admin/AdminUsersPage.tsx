@@ -12,7 +12,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/admin/users?format=json') as User[] | null
+      const data = await api.get('/api/v1/admin/users') as User[] | null
       if (data) setUsers(data)
     }
     load()

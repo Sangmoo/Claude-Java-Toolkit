@@ -83,4 +83,38 @@ public class DataRestController {
         data.put("monthlyLimit", 0);
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
+
+    // ── Admin APIs ─────────────────────────────────────────────────
+
+    @GetMapping("/admin/users")
+    public ResponseEntity<ApiResponse<List<?>>> adminUsers() {
+        try {
+            List<?> list = em.createQuery("SELECT u FROM AppUser u ORDER BY u.id").getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/admin/audit-logs")
+    public ResponseEntity<ApiResponse<List<?>>> auditLogs() {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT a FROM AuditLog a ORDER BY a.createdAt DESC"
+            ).setMaxResults(200).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/admin/permissions")
+    public ResponseEntity<ApiResponse<List<?>>> adminPermissions() {
+        try {
+            List<?> list = em.createQuery("SELECT u FROM AppUser u WHERE u.role <> 'ADMIN' ORDER BY u.username").getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
 }
