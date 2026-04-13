@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.ui.security.TotpService;
 import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +26,7 @@ public class TwoFactorController {
     }
 
     @GetMapping
+    @ResponseBody
     public Object showPage(HttpSession session) {
         String username = (String) session.getAttribute("2fa_username");
         if (username == null) return "redirect:/login";
@@ -37,18 +39,10 @@ public class TwoFactorController {
             session.setAttribute("2fa_setup_secret", secret);
         }
 
-        // React SPA 직접 서빙
-        try {
-            org.springframework.core.io.ClassPathResource res =
-                new org.springframework.core.io.ClassPathResource("static/index.html");
-            byte[] bytes = new byte[res.getInputStream().available()];
-            res.getInputStream().read(bytes);
-            return org.springframework.http.ResponseEntity.ok()
-                    .contentType(org.springframework.http.MediaType.TEXT_HTML)
-                    .body(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            return "redirect:/";
-        }
+        // React SPA 직접 서빙 (SpaForwardController의 캐시된 index.html 사용)
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(SpaForwardController.getIndexHtml());
     }
 
     /** OTP 코드 검증 (등록된 사용자) */

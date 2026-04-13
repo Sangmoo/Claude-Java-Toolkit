@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -35,19 +36,20 @@ import java.util.Map;
 @Controller
 public class SpaForwardController implements ErrorController {
 
-    private volatile String indexHtml;
+    private static volatile String indexHtml;
 
     /**
      * React SPA index.html 내용을 캐시하여 반환.
      */
-    private String getIndexHtml() {
+    /**
+     * index.html을 읽어 캐시. JAR 내부 리소스도 안전하게 읽음.
+     */
+    public static String getIndexHtml() {
         if (indexHtml == null) {
             try {
                 ClassPathResource resource = new ClassPathResource("static/index.html");
                 try (InputStream is = resource.getInputStream()) {
-                    byte[] bytes = new byte[is.available()];
-                    is.read(bytes);
-                    indexHtml = new String(bytes, StandardCharsets.UTF_8);
+                    indexHtml = StreamUtils.copyToString(is, StandardCharsets.UTF_8);
                 }
             } catch (IOException e) {
                 indexHtml = "<!DOCTYPE html><html><body><h1>React app not built</h1><p>Run: cd frontend && npm run build</p></body></html>";

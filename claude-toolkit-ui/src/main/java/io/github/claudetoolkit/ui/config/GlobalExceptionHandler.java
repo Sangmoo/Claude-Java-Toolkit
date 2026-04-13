@@ -2,7 +2,7 @@ package io.github.claudetoolkit.ui.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ClassPathResource;
+import io.github.claudetoolkit.ui.controller.SpaForwardController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,8 +13,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -33,22 +31,10 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    private volatile String indexHtml;
-
-    private String getIndexHtml() {
-        if (indexHtml == null) {
-            try {
-                ClassPathResource resource = new ClassPathResource("static/index.html");
-                try (InputStream is = resource.getInputStream()) {
-                    byte[] bytes = new byte[is.available()];
-                    is.read(bytes);
-                    indexHtml = new String(bytes, StandardCharsets.UTF_8);
-                }
-            } catch (Exception e) {
-                indexHtml = "<!DOCTYPE html><html><body><h1>Error</h1></body></html>";
-            }
-        }
-        return indexHtml;
+    private ResponseEntity<String> serveSpa() {
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(SpaForwardController.getIndexHtml());
     }
 
     /**
@@ -63,7 +49,7 @@ public class GlobalExceptionHandler {
             return jsonError("Method Not Allowed", HttpStatus.METHOD_NOT_ALLOWED);
         }
         // 브라우저 GET → React SPA 서빙
-        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(getIndexHtml());
+        return serveSpa();
     }
 
     /**
@@ -75,7 +61,7 @@ public class GlobalExceptionHandler {
         if (isApiRequest(request)) {
             return jsonError("Not Found", HttpStatus.NOT_FOUND);
         }
-        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(getIndexHtml());
+        return serveSpa();
     }
 
     /**
@@ -88,7 +74,7 @@ public class GlobalExceptionHandler {
         if (isApiRequest(request)) {
             return jsonError("접근 권한이 없습니다.", HttpStatus.FORBIDDEN);
         }
-        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(getIndexHtml());
+        return serveSpa();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -104,7 +90,7 @@ public class GlobalExceptionHandler {
         if (isApiRequest(request)) {
             return jsonError("서버 오류: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(getIndexHtml());
+        return serveSpa();
     }
 
     // ── helpers ──
