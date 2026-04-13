@@ -48,6 +48,15 @@ public class AuthRestController {
         String username = body.getOrDefault("username", "");
         String password = body.getOrDefault("password", "");
 
+        // 프론트엔드에서 Base64 인코딩된 비밀번호 디코딩
+        if ("true".equals(body.get("encoded")) && !password.isEmpty()) {
+            try {
+                password = new String(java.util.Base64.getDecoder().decode(password), "UTF-8");
+            } catch (Exception ignored) {
+                // 디코딩 실패 시 원본 사용
+            }
+        }
+
         try {
             Authentication auth = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(username, password));

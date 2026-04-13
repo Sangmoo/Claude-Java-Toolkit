@@ -36,10 +36,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (username: string, password: string) => {
     set({ error: null })
     try {
+      // 비밀번호 Base64 인코딩 (DevTools payload 난독화)
+      const encodedPw = btoa(unescape(encodeURIComponent(password)))
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password: encodedPw, encoded: true }),
         credentials: 'include',
       })
       const json = await res.json()

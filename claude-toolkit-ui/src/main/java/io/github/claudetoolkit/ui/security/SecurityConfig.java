@@ -64,6 +64,7 @@ public class SecurityConfig {
                 // 공개: 정적 리소스, 로그인, 공유 링크
                 .antMatchers("/assets/**", "/favicon.svg", "/manifest.json",
                              "/react/**",
+                             "/api/v1/auth/login",          // React JSON 로그인
                              "/login", "/login/2fa", "/login/2fa/**",
                              "/setup", "/setup/**",
                              "/share/**", "/actuator/**").permitAll()
