@@ -1,32 +1,79 @@
 package io.github.claudetoolkit.ui.api;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * React 프론트엔드 인증 상태 확인 API.
+ * React 프론트엔드 인증 API.
  *
  * <ul>
- *   <li>GET /api/v1/auth/me — 현재 로그인 사용자 정보 반환</li>
+ *   <li>GET  /api/v1/auth/me    — 현재 로그인 사용자 정보</li>
+ *   <li>POST /api/v1/auth/login — JSON 기반 로그인</li>
+ *   <li>POST /api/v1/auth/logout — 세션 무효화</li>
  * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthRestController {
 
+    private final AuthenticationManager authManager;
+
+    public AuthRestController(AuthenticationManager authManager) {
+        this.authManager = authManager;
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Map<String, Object>>> me(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) {
             return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
         }
+        return ResponseEntity.ok(ApiResponse.ok(buildUserMap(auth)));
+    }
 
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> login(
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        String username = body.getOrDefault("username", "");
+        String password = body.getOrDefault("password", "");
+
+        try {
+            Authentication auth = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, password));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            // 세션 생성
+            HttpSession session = request.getSession(true);
+            session.setAttribute("SPRING_SECURITY_CONTEXT",
+                    SecurityContextHolder.getContext());
+
+            return ResponseEntity.ok(ApiResponse.ok(buildUserMap(auth)));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error("아이디 또는 비밀번호가 올바르지 않습니다."));
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) session.invalidate();
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok(ApiResponse.ok("logged out"));
+    }
+
+    private Map<String, Object> buildUserMap(Authentication auth) {
         String role = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(a -> a.startsWith("ROLE_"))
@@ -37,7 +84,6 @@ public class AuthRestController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("username", auth.getName());
         data.put("role", role);
-
-        return ResponseEntity.ok(ApiResponse.ok(data));
+        return data;
     }
 }

@@ -6,9 +6,6 @@ spring:
     name: claude-toolkit-ui
   profiles:
     active: ${DB_TYPE:h2}
-  thymeleaf:
-    cache: false
-    encoding: UTF-8
   servlet:
     multipart:
       max-file-size: 10MB

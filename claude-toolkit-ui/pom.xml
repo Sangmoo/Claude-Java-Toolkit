@@ -12,7 +12,7 @@
 
     <artifactId>claude-toolkit-ui</artifactId>
     <name>Claude Toolkit UI</name>
-    <description>Web dashboard for SQL Advisor and Doc Generator — Spring Boot + Thymeleaf</description>
+    <description>Web dashboard for SQL Advisor and Doc Generator — Spring Boot + React</description>
 
     <dependencies>
         <dependency>
@@ -31,10 +31,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-thymeleaf</artifactId>
-        </dependency>
+        <!-- Thymeleaf 제거됨 (v4.0.0) — React SPA로 전환. SpaViewResolver가 뷰 처리 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -62,11 +59,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- Thymeleaf sec:authorize 지원 -->
-        <dependency>
-            <groupId>org.thymeleaf.extras</groupId>
-            <artifactId>thymeleaf-extras-springsecurity5</artifactId>
-        </dependency>
+        <!-- thymeleaf-extras-springsecurity5 제거됨 (v4.0.0) -->
         <!-- Actuator (헬스체크) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -87,42 +80,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- ========= v2.7.0: WebJars (로컬 번들링, 오프라인/폐쇄망 지원) ========= -->
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>webjars-locator-core</artifactId>
-            <version>0.55</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>bootstrap</artifactId>
-            <version>5.3.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars</groupId>
-            <artifactId>font-awesome</artifactId>
-            <version>6.5.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars.npm</groupId>
-            <artifactId>prismjs</artifactId>
-            <version>1.29.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars.npm</groupId>
-            <artifactId>marked</artifactId>
-            <version>12.0.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars.npm</groupId>
-            <artifactId>chart.js</artifactId>
-            <version>4.4.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.webjars.npm</groupId>
-            <artifactId>dompurify</artifactId>
-            <version>3.1.5</version>
-        </dependency>
+        <!-- WebJars 제거됨 (v4.0.0) — React 번들로 대체 (react-icons, react-markdown 등) -->
 
         <!-- v2.9.5: SnakeYAML (파이프라인 오케스트레이터 YAML 파싱) -->
         <dependency>

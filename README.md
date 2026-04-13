@@ -47,17 +47,24 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 - JDK 1.8+
 - Maven 3.6+
+- Node.js 18+ (React 빌드 — `frontend-maven-plugin`이 자동 설치하므로 선택)
 - [Anthropic API Key](https://console.anthropic.com)
 
 ### 2. Clone & Build
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-java-toolkit.git
+git clone https://github.com/Sangmoo/Claude-Java-Toolkit.git
 cd claude-java-toolkit
-mvn clean install -DskipTests
+
+# Maven 빌드 (React 프론트엔드 자동 빌드 포함)
+mvn clean package -DskipTests
 ```
 
-> **IntelliJ 사용자**: Maven 패널에서 루트 프로젝트 → `Lifecycle` → `install` 더블클릭
+`frontend-maven-plugin`이 자동으로 Node.js 설치 → `npm install` → `npm run build`를 수행합니다.
+빌드 결과물은 `claude-toolkit-ui/src/main/resources/static/app/`에 생성됩니다.
+
+> **프론트엔드만 개발할 때**: `cd claude-toolkit-ui/frontend && npm run dev` (Vite 개발 서버 5173 포트)
+> **IntelliJ 사용자**: Maven 패널에서 루트 프로젝트 → `Lifecycle` → `package` 더블클릭
 
 ### 3. Web UI 실행
 

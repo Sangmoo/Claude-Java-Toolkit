@@ -22,7 +22,7 @@ export default function FavoritesPage() {
   const toast = useToast()
 
   const load = useCallback(async () => {
-    const data = await api.get('/favorites?format=json') as FavoriteItem[] | null
+    const data = await api.get('/api/v1/favorites') as FavoriteItem[] | null
     if (data) setItems(data)
   }, [api])
 

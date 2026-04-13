@@ -15,7 +15,7 @@ export default function UsagePage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/usage?format=json') as UsageData | null
+      const data = await api.get('/api/v1/usage') as UsageData | null
       if (data) setUsage(data)
     }
     load()

@@ -857,7 +857,7 @@ JDBC URL: jdbc:oracle:thin:@//host:1521/ORCL</pre>
     <div class="reveal">
       <p class="section-eyebrow" data-i18n="install.eyebrow">설치 가이드</p>
       <h2 class="section-title" data-i18n="install.title">바로 시작하기</h2>
-      <p class="section-desc" data-i18n="install.desc">별도 서버 없이 로컬에서 바로 실행됩니다. JDK 1.8+, Maven 3.6+이 필요합니다.</p>
+      <p class="section-desc" data-i18n="install.desc">별도 서버 없이 로컬에서 바로 실행됩니다. JDK 1.8+, Maven 3.6+이 필요합니다. React 프론트엔드는 Maven 빌드 시 자동 빌드됩니다.</p>
     </div>
     <div class="install-steps reveal">
       <div class="install-step">
@@ -869,6 +869,7 @@ JDBC URL: jdbc:oracle:thin:@//host:1521/ORCL</pre>
 <span class="cmd-line">git clone https://github.com/Sangmoo/Claude-Java-Toolkit.git</span>
 <span class="cmd-line">cd Claude-Java-Toolkit</span>
 <span class="cmd-line">mvn package -DskipTests</span>
+<span class="out-line">→ React frontend auto-built (npm install + vite build)</span>
 <span class="out-line">→ BUILD SUCCESS</span></pre>
       </div>
       <div class="install-step">

@@ -26,7 +26,7 @@ export default function HistoryPage() {
   const toast = useToast()
 
   const loadHistory = useCallback(async () => {
-    const data = await api.get('/history?format=json') as HistoryItem[] | null
+    const data = await api.get('/api/v1/history') as HistoryItem[] | null
     if (data) setItems(data)
   }, [api])
 

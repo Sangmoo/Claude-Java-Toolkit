@@ -21,13 +21,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkAuth: async () => {
     try {
-      const res = await fetch('/api/v1/auth/me', {
-        credentials: 'include',
-        redirect: 'manual',
-      })
+      const res = await fetch('/api/v1/auth/me', { credentials: 'include' })
       if (res.ok) {
-        const data = await res.json()
-        set({ user: data.data ?? data, loading: false, error: null })
+        const json = await res.json()
+        set({ user: json.data ?? json, loading: false, error: null })
       } else {
         set({ user: null, loading: false, error: null })
       }
@@ -39,33 +36,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (username: string, password: string) => {
     set({ error: null })
     try {
-      const body = new URLSearchParams({ username, password })
-      const res = await fetch('/login', {
+      const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
         credentials: 'include',
-        redirect: 'manual',
       })
-      // Spring Security returns 302 on both success and failure
-      // Success: redirect to / , Failure: redirect to /login?error=true
-      // With redirect: 'manual', we get type 'opaqueredirect'
-      // After POST, try to fetch /api/v1/auth/me to confirm login
-      const check = await fetch('/api/v1/auth/me', {
-        credentials: 'include',
-        redirect: 'manual',
-      })
-      if (check.ok) {
-        const data = await check.json()
-        set({ user: data.data ?? data, error: null })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        set({ user: json.data, error: null })
         return true
       }
-      // If still not authenticated, check if response indicates error
-      if (res.type === 'opaqueredirect' || res.status === 302) {
-        set({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' })
-      } else {
-        set({ error: '로그인에 실패했습니다.' })
-      }
+      set({ error: json.error || '로그인에 실패했습니다.' })
       return false
     } catch {
       set({ error: '서버에 연결할 수 없습니다.' })
@@ -75,7 +57,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     try {
-      await fetch('/logout', { credentials: 'include' })
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
     } catch {
       // ignore
     }
