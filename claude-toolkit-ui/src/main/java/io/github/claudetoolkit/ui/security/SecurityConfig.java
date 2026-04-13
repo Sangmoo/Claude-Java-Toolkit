@@ -61,6 +61,7 @@ public class SecurityConfig {
             .authorizeRequests()
                 // 공개: 정적 리소스, 로그인, 공유 링크
                 .antMatchers("/css/**", "/js/**", "/favicon.svg",
+                             "/react/**", "/app/**",
                              "/login", "/login/2fa", "/login/2fa/**",
                              "/setup", "/setup/**",
                              "/share/**", "/actuator/**").permitAll()

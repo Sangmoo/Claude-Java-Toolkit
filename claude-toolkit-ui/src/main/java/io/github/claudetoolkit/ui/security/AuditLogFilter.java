@@ -75,8 +75,12 @@ public class AuditLogFilter extends OncePerRequestFilter {
         return path.startsWith("/css/")
             || path.startsWith("/js/")
             || path.startsWith("/favicon")
+            || path.startsWith("/react/")       // React 정적 리소스 (레거시)
+            || path.startsWith("/app/")         // React 정적 리소스
             || path.contains("/stream")         // SSE 스트리밍 (장기 연결) — /stream/*, /chat/stream 등
-            || path.startsWith("/actuator");
+            || path.startsWith("/actuator")
+            || path.startsWith("/notifications/unread-count")   // 폴링 요청 제외
+            || path.startsWith("/api/v1/auth/me");              // React 인증 확인 폴링 제외
     }
 
     private String resolveClientIp(HttpServletRequest req) {

@@ -59,6 +59,12 @@ secret.properties
 .claude/start-ui.cmd
 .claude/settings.local.json
 
+# ── React Frontend ─────────────────────────────────────────────────────────
+claude-toolkit-ui/frontend/node_modules/
+claude-toolkit-ui/frontend/node/
+claude-toolkit-ui/src/main/resources/static/react/
+claude-toolkit-ui/src/main/resources/static/app/
+
 # ── OS ─────────────────────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?

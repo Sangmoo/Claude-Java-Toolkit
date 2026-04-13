@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-2.4.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.0.0-brightgreen.svg)](#)
 
 ---
 
@@ -1567,6 +1567,66 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 **🛡️ 사용자 권한 관리 통합**
 - [x] **`review-requests` 기능 권한 추가** — `PermissionInterceptor.FEATURE_PATHS`, `AdminPermissionController.FEATURES`, `AuditLog.MENU_NAME_MAP`, 감사 로그 필터 드롭다운 모두 동기화. VIEWER/REVIEWER 사용자별 on/off 가능
 - [x] **v2.5.0 ~ v2.9.0 사용자 권한 관리 범위 점검 완료** — 안정성/보안 강화(v2.5-2.6)는 ADMIN 기능이라 제외, 채팅 세션/Markdown/WebJars(v2.7)는 기존 `chat` 권한 재사용, 모니터링/UX(v2.8)는 전역 또는 ADMIN 전용이라 제외, v2.9 신규 `review-requests`만 사용자 제어 대상으로 추가
+
+---
+
+### 🔄 v4.0.0 — React 프론트엔드 전환 (진행 중)
+
+Thymeleaf 기반 프론트엔드(69개 템플릿, ~24,000줄 HTML, ~15,000줄 JS)를
+React 18 + TypeScript + Vite 기반 SPA로 점진적 전환합니다.
+기존 REST API와 SSE 스트리밍 엔드포인트를 그대로 활용하며,
+전환 기간 동안 Thymeleaf와 React가 병행 운영됩니다.
+
+#### ✅ v4.0.0-alpha.1 — Phase 1: 프로젝트 셋업
+
+- [x] Vite + React 18 + TypeScript 프로젝트 초기화 (`claude-toolkit-ui/frontend/`)
+- [x] Vite 개발 서버 프록시 설정 (API/SSE → Spring Boot 8027 포트)
+- [x] 빌드 출력 → `static/react/` (Spring Boot 정적 리소스 서빙)
+- [x] `SpaForwardController` — `/react/**` SPA 라우팅 포워딩
+- [x] `SecurityConfig` — `/react/**` 정적 리소스 공개 허용
+- [x] `frontend-maven-plugin` — `mvn package` 시 React 자동 빌드 통합
+- [x] React Router 기본 라우팅 + `/api/v1/health` 연동 확인 페이지
+- [x] 기존 Thymeleaf UI 전체 정상 작동 유지
+
+#### ✅ v4.0.0-alpha.2 — Phase 2: 공용 인프라
+
+- [x] Layout 컴포넌트 (사이드바 7섹션 전체 메뉴, 탑바, 모바일 하단바)
+- [x] 인증 연동 (`AuthRestController` + `useAuth` + 로그인 페이지)
+- [x] 공용 훅: `useApi()`, `useSSE()`, `useToast()`
+- [x] 다크/라이트 테마 시스템 (CSS 변수, localStorage 저장)
+- [x] 글로벌 상태 관리 (Zustand — theme, auth, sidebar, toast 스토어)
+- [x] SPA 라우팅 포워딩 (`SpaForwardController`)
+- [x] Vite 프록시 설정 (API/SSE/페이지 라우트 → Spring Boot 8027)
+
+#### ✅ v4.0.0-beta.1 — Phase 3: 핵심 페이지 전환
+
+- [x] AI 채팅 (다중 세션 관리, SSE 2-step 스트리밍, Markdown 렌더링, 대화 내보내기)
+- [x] 분석 파이프라인 (목록/실행/상세 페이지, 실시간 SSE 진행률, 실행 모달)
+- [x] 대시보드 홈 (Health API 연동, 도구 카드 그리드, 인사말)
+- [x] `/notifications/unread-count` 감사 로그 제외 처리
+- [x] Markdown 스타일링 (react-markdown + remark-gfm, 코드 블록/테이블/인용)
+
+#### ✅ v4.0.0-beta.2 — Phase 4: 나머지 페이지 전환
+
+- [x] `AnalysisPageTemplate` 공용 컴포넌트 (입력/SSE 스트리밍/결과 패턴 통합)
+- [x] SQL 분석 5종 (SQL 리뷰, DB 번역, ERD 분석, 복잡도, 실행계획)
+- [x] 코드 분석/생성 8종 (코드 리뷰, 기술 문서, API 명세, 코드 변환, Mock 데이터, DB 마이그레이션, 의존성, Spring 마이그레이션)
+- [x] 도구 5종 (로그 분석기, 정규식, 커밋 메시지, 마스킹 스크립트, 민감정보 마스킹)
+- [x] 기록 페이지 (리뷰 이력 — 검색/필터/아코디언/내보내기, 즐겨찾기)
+- [x] 설정 페이지 (모델 선택, 토큰 수, 프로젝트 컨텍스트)
+- [x] Lazy loading + code splitting (각 페이지 별도 청크 자동 분리)
+- [x] 사이드바 React 라우트 전면 전환 (Thymeleaf 전용 경로만 외부 링크)
+
+#### ✅ v4.0.0 — Phase 5: React 전면 전환
+
+- [x] React base path `/react/` → `/` 루트로 전환
+- [x] 남은 Thymeleaf 전용 페이지 React 전환 (workspace, sql-batch, harness 하위, admin 등)
+- [x] 관리자 페이지 (사용자 관리, 시스템 헬스, 감사 로그) React 전환
+- [x] 기능 페이지 (검색, 사용량, 스케줄, 리뷰 요청, ROI, 프롬프트) React 전환
+- [x] SPA 라우팅 — `SpaForwardController` 루트 포워딩
+- [x] React 빌드 출력 → `static/app/` (49개 청크, lazy loading)
+- [x] Thymeleaf 레거시 호환 유지 (`/react/**` → 기존 북마크 지원)
+- [x] 전체 40+ React 페이지 완성
 
 ---
 

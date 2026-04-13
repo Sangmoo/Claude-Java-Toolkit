@@ -7,6 +7,13 @@
       "runtimeArgs": ["spring-boot:run", "-pl", "claude-toolkit-ui"],
       "port": 8027,
       "autoPort": true
+    },
+    {
+      "name": "react-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "cwd": "claude-toolkit-ui/frontend"
     }
   ]
 }
