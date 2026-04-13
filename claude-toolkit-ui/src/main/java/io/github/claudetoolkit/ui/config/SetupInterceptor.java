@@ -22,10 +22,11 @@ public class SetupInterceptor implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns(
                     "/setup", "/setup/**",
-                    "/login", "/logout",
-                    "/css/**", "/js/**", "/favicon.svg",
+                    "/login", "/login/**", "/logout",
+                    "/assets/**", "/favicon.svg", "/manifest.json",
+                    "/css/**", "/js/**",
                     "/actuator/**", "/share/**",
-                    "/error"
+                    "/error", "/api/**"
                 );
     }
 

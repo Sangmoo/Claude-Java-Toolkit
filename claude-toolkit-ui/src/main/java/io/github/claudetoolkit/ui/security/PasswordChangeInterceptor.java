@@ -35,8 +35,9 @@ public class PasswordChangeInterceptor implements WebMvcConfigurer {
                     "/login", "/login/**", "/logout",
                     "/setup", "/setup/**",
                     "/account/password", "/account/change-password",
-                    "/css/**", "/js/**", "/favicon.svg",
-                    "/actuator/**", "/error"
+                    "/assets/**", "/favicon.svg", "/manifest.json",
+                    "/css/**", "/js/**",
+                    "/actuator/**", "/error", "/api/**"
                 );
     }
 

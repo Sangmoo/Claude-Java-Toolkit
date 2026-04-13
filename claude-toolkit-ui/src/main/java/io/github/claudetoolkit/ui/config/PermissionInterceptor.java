@@ -102,11 +102,14 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         registry.addInterceptor(new PermCheckInterceptor())
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                    "/login", "/logout", "/setup", "/setup/**",
-                    "/css/**", "/js/**", "/favicon.svg",
+                    "/login", "/login/**", "/logout",
+                    "/setup", "/setup/**",
+                    "/assets/**", "/favicon.svg", "/manifest.json",
+                    "/css/**", "/js/**",
                     "/actuator/**", "/share/**", "/error",
                     "/admin/**", "/settings/**", "/security/**",
-                    "/account/**", "/stream/**"
+                    "/account/**", "/stream/**",
+                    "/api/**"
                 );
     }
 
