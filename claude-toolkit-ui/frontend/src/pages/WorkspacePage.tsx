@@ -11,6 +11,8 @@ export default function WorkspacePage() {
         description: '코드를 입력하면 여러 분석을 한번에 수행합니다.',
         feature: 'code_review',
         inputLabel: '코드 입력',
+        sourceMode: 'both',
+        allowFileUpload: true,
         inputPlaceholder: 'Java/SQL 코드를 입력하세요...',
         inputLanguage: 'java',
       }}

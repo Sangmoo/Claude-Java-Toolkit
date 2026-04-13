@@ -20,7 +20,7 @@ export default function TeamDashboardPage() {
       ])
     }
     load()
-  }, [api])
+  }, [])
 
   return (
     <>

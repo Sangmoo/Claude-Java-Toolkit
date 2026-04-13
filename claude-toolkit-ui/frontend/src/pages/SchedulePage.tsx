@@ -23,7 +23,7 @@ export default function SchedulePage() {
       if (data) setItems(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const toggleEnabled = async (item: ScheduleItem) => {
     await fetch(`/pipelines/${item.id}/schedule`, {

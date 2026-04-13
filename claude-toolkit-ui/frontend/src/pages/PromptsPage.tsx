@@ -22,7 +22,7 @@ export default function PromptsPage() {
       if (data) setPrompts(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const save = async () => {
     if (!editing) return

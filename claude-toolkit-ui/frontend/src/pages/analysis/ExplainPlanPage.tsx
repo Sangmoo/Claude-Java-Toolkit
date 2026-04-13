@@ -11,6 +11,7 @@ export default function ExplainPlanPage() {
         description: 'SQL 실행계획을 분석하여 최적화 방안을 제안합니다.',
         feature: 'explain_plan',
         inputLabel: '실행계획 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'EXPLAIN PLAN 결과를 입력하세요...',
       }}
     />

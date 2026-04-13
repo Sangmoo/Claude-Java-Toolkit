@@ -11,6 +11,7 @@ export default function SqlTranslatePage() {
         description: 'SQL 쿼리를 다른 데이터베이스 문법으로 변환합니다.',
         feature: 'sql_translate',
         inputLabel: 'SQL 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'SQL 쿼리를 입력하세요...',
         options: [
           {

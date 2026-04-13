@@ -16,7 +16,7 @@ export default function DbProfilesPage() {
       if (data) setProfiles(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const activate = async (id: number) => {
     await fetch(`/db-profiles/${id}/activate`, { method: 'POST', credentials: 'include' })

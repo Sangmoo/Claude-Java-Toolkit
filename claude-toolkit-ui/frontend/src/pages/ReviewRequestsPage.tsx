@@ -34,7 +34,7 @@ export default function ReviewRequestsPage() {
       if (data) setRequests(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const approve = async (id: number) => {
     await fetch(`/review-requests/${id}/approve`, { method: 'POST', credentials: 'include' })

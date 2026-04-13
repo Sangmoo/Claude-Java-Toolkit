@@ -15,7 +15,7 @@ export default function AuditLogPage() {
       if (data) setLogs(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const filtered = logs.filter((l) => {
     if (!filter) return true

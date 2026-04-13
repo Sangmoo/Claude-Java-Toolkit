@@ -11,6 +11,7 @@ export default function MaskGenPage() {
         description: 'DDL 기반으로 개인정보 마스킹 UPDATE 스크립트를 생성합니다.',
         feature: 'mask_gen',
         inputLabel: 'DDL 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'CREATE TABLE 문을 입력하세요...',
       }}
     />

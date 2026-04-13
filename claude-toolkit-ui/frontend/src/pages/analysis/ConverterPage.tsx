@@ -11,6 +11,8 @@ export default function ConverterPage() {
         description: 'iBatis → MyBatis, Java 버전 변환 등 코드 마이그레이션을 수행합니다.',
         feature: 'converter',
         inputLabel: '원본 코드',
+        sourceMode: 'both',
+        allowFileUpload: true,
         inputPlaceholder: 'iBatis XML 또는 변환할 코드를 입력하세요...',
         options: [
           {

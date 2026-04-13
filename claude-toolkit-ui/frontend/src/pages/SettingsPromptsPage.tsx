@@ -23,7 +23,7 @@ export default function SettingsPromptsPage() {
       if (data) setPrompts(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const save = async () => {
     if (!editing) return

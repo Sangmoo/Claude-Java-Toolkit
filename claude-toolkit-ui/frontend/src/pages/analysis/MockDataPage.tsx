@@ -11,6 +11,7 @@ export default function MockDataPage() {
         description: 'DDL 기반으로 테스트용 Mock INSERT 문을 자동 생성합니다.',
         feature: 'mock_data',
         inputLabel: 'DDL 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'CREATE TABLE 문을 입력하세요...',
       }}
     />

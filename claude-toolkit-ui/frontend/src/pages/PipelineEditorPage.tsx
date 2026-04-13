@@ -17,20 +17,46 @@ interface PipelineData {
   isBuiltin: boolean
 }
 
-const DEFAULT_YAML = `id: my-pipeline
-name: 새 파이프라인
-description: 파이프라인 설명
+const DEFAULT_YAML = `id: full-stack-review
+name: 풀 스택 코드 리뷰
+description: 코드 리뷰 → 리팩터링 → 테스트 생성 → 문서화 파이프라인
 inputLanguage: java
 
 steps:
+  # 1단계: 코드 리뷰 (입력 코드를 분석)
   - id: review
     analysis: CODE_REVIEW
     input: \${pipeline.input}
 
+  # 2단계: 리팩터링 (리뷰 결과를 참고하여 개선)
   - id: refactor
     analysis: REFACTOR
     input: \${pipeline.input}
     context: \${review.output}
+
+  # 3단계: 테스트 생성 (리팩터링된 코드 기반)
+  - id: test
+    analysis: TEST_GEN
+    input: \${refactor.output}
+    context: \${review.output}
+
+  # 4단계: 보안 감사 (조건부 — 리뷰에서 보안 이슈 발견 시)
+  - id: security
+    analysis: CODE_REVIEW_SECURITY
+    input: \${pipeline.input}
+    condition: "\${review.output}.contains('보안') || \${review.output}.contains('security')"
+
+  # 5단계: Javadoc 생성 (병렬 실행 가능)
+  - id: javadoc
+    analysis: JAVADOC_GEN
+    input: \${refactor.output}
+    parallel: true
+
+  # 6단계: 기술 문서 생성 (javadoc 완료 대기)
+  - id: doc
+    analysis: DOC_GEN
+    input: \${refactor.output}
+    dependsOn: "javadoc"
 `
 
 /** YAML → Mermaid flowchart 변환 */

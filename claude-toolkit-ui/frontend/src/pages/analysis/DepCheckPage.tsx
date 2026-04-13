@@ -11,6 +11,8 @@ export default function DepCheckPage() {
         description: 'pom.xml을 분석하여 취약점, 충돌, 업그레이드 권고를 제공합니다.',
         feature: 'dep_check',
         inputLabel: 'pom.xml 입력',
+        sourceMode: 'both',
+        allowFileUpload: true,
         inputPlaceholder: 'pom.xml 내용을 입력하세요...',
       }}
     />

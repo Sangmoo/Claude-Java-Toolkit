@@ -11,6 +11,8 @@ export default function DocGenPage() {
         description: 'Java/Oracle 소스 코드로부터 기술 문서를 자동 생성합니다.',
         feature: 'doc_gen',
         inputLabel: '코드 입력',
+        sourceMode: 'both',
+        allowFileUpload: true,
         inputPlaceholder: 'Java 클래스 또는 Oracle Package 소스를 입력하세요...',
         inputLanguage: 'java',
         options: [

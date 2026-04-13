@@ -28,7 +28,7 @@ export default function HistoryPage() {
   const loadHistory = useCallback(async () => {
     const data = await api.get('/api/v1/history') as HistoryItem[] | null
     if (data) setItems(data)
-  }, [api])
+  }, [])
 
   useEffect(() => { loadHistory() }, [loadHistory])
 

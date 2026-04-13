@@ -6,7 +6,7 @@ import {
   FaPlus, FaPaperPlane, FaTrash, FaPen, FaEraser, FaDownload,
   FaComments, FaCopy, FaCheck, FaTimes,
 } from 'react-icons/fa'
-import { useApi } from '../hooks/useApi'
+
 import { useToast } from '../hooks/useToast'
 
 interface ChatSession {
@@ -35,7 +35,6 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const esRef = useRef<EventSource | null>(null)
-  const api = useApi({ showError: true })
   const toast = useToast()
   const [params] = useSearchParams()
 
@@ -43,20 +42,19 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // Load sessions
   const loadSessions = useCallback(async () => {
-    const data = await api.get('/chat/sessions') as ChatSession[] | null
-    if (data) setSessions(data)
-  }, [api])
+    try {
+      const res = await fetch('/chat/sessions', { credentials: 'include' })
+      if (res.ok) { const data = await res.json(); if (Array.isArray(data)) setSessions(data) }
+    } catch { /* silent */ }
+  }, [])
 
-  // Load messages for a session
   const loadMessages = useCallback(async (sid: number) => {
-    const data = await api.get(`/chat/sessions/${sid}/messages`) as ChatMessage[] | null
-    if (data) {
-      setMessages(data)
-      setTimeout(scrollToBottom, 100)
-    }
-  }, [api, scrollToBottom])
+    try {
+      const res = await fetch(`/chat/sessions/${sid}/messages`, { credentials: 'include' })
+      if (res.ok) { const data = await res.json(); if (Array.isArray(data)) { setMessages(data); setTimeout(scrollToBottom, 100) } }
+    } catch { /* silent */ }
+  }, [scrollToBottom])
 
   useEffect(() => {
     loadSessions()
@@ -85,7 +83,7 @@ export default function ChatPage() {
   }, [sessions, activeId, switchSession])
 
   const createSession = async () => {
-    const data = await api.post('/chat/sessions/new') as { id: number } | null
+    const res = await fetch("/chat/sessions/new", { method: "POST", credentials: "include" }); const data = res.ok ? await res.json() : null
     if (data) {
       await loadSessions()
       switchSession(data.id)
@@ -93,7 +91,7 @@ export default function ChatPage() {
   }
 
   const deleteSession = async (id: number) => {
-    await api.post(`/chat/sessions/${id}/delete`)
+    await fetch(`/chat/sessions/${id}/delete`, { method: "POST", credentials: "include" })
     if (activeId === id) {
       setActiveId(null)
       setMessages([])
@@ -108,7 +106,7 @@ export default function ChatPage() {
 
   const confirmRename = async () => {
     if (renamingId && renameTitle.trim()) {
-      await api.post(`/chat/sessions/${renamingId}/rename`, null)
+      
       // rename expects form param, use URLSearchParams
       await fetch(`/chat/sessions/${renamingId}/rename`, {
         method: 'POST',
@@ -123,7 +121,7 @@ export default function ChatPage() {
 
   const clearSession = async () => {
     if (activeId) {
-      await api.post(`/chat/sessions/${activeId}/clear`)
+      await fetch(`/chat/sessions/${activeId}/clear`, { method: "POST", credentials: "include" })
       setMessages([])
     }
   }

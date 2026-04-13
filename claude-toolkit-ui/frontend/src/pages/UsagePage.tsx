@@ -19,7 +19,7 @@ export default function UsagePage() {
       if (data) setUsage(data)
     }
     load()
-  }, [api])
+  }, [])
 
   return (
     <>

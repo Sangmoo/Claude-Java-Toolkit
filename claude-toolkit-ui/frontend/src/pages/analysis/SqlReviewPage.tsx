@@ -11,6 +11,7 @@ export default function SqlReviewPage() {
         description: 'SQL 쿼리를 분석하여 성능, 보안, 코딩 스타일을 리뷰합니다.',
         feature: 'sql_review',
         inputLabel: 'SQL 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'SQL 쿼리를 입력하세요...',
         options: [
           {

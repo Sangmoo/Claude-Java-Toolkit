@@ -15,7 +15,7 @@ export default function SharedConfigPage() {
       if (data) setConfig(JSON.stringify(data, null, 2))
     }
     load()
-  }, [api])
+  }, [])
 
   const exportConfig = () => {
     const blob = new Blob([config], { type: 'application/json' })

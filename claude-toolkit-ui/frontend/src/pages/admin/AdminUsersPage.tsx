@@ -16,7 +16,7 @@ export default function AdminUsersPage() {
       if (data) setUsers(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const toggleEnabled = async (u: User) => {
     await fetch(`/admin/users/${u.id}/toggle`, { method: 'POST', credentials: 'include' })

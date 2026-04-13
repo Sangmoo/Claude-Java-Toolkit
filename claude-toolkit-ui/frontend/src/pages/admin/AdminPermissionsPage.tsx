@@ -16,7 +16,7 @@ export default function AdminPermissionsPage() {
       if (data) setPermissions(data)
     }
     load()
-  }, [api])
+  }, [])
 
   const toggle = async (p: Permission) => {
     await fetch('/admin/permissions/toggle', {

@@ -11,6 +11,7 @@ export default function DbMigrationPage() {
         description: 'DDL을 다른 데이터베이스 방언으로 변환합니다.',
         feature: 'db_migration',
         inputLabel: 'DDL 입력',
+        sourceMode: 'sql',
         inputPlaceholder: 'CREATE TABLE 문을 입력하세요...',
         options: [
           {

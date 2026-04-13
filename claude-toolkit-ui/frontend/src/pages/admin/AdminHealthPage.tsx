@@ -20,7 +20,7 @@ export default function AdminHealthPage() {
     load()
     const interval = setInterval(load, 30000)
     return () => clearInterval(interval)
-  }, [api])
+  }, [])
 
   if (!data) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>로딩 중...</div>
 

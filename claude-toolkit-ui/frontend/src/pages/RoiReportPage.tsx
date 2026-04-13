@@ -12,7 +12,7 @@ export default function RoiReportPage() {
       if (data) setReport(JSON.stringify(data, null, 2))
     }
     load()
-  }, [api])
+  }, [])
 
   return (
     <>
