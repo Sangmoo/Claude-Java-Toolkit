@@ -17,6 +17,15 @@
             background: var(--bg-tertiary) !important;
             color: var(--text-primary) !important;
         }
+        /* Monaco Editor 컨테이너 */
+        #monacoContainer {
+            width: 100%; height: 500px;
+            border: 1px solid var(--border-color); border-radius: 8px;
+            overflow: hidden;
+        }
+        #monacoFallback { display: none; }
+        .monaco-loaded #monacoFallback { display: none; }
+        .monaco-loaded #monacoContainer { display: block; }
         .helper-panel {
             background: var(--bg-secondary); border: 1px solid var(--border-color);
             border-radius: 10px; padding: 14px 16px;
@@ -95,14 +104,29 @@
             <!-- YAML 편집 그리드 -->
             <div class="editor-grid">
                 <div>
-                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">YAML 정의</label>
-                    <textarea id="yamlContent" class="form-control yaml-editor"
+                    <label style="font-size:.78rem;color:var(--text-sub);font-weight:600;">YAML 정의
+                        <span id="editorLabel" style="color:var(--text-muted);font-weight:400;margin-left:6px;"></span>
+                    </label>
+                    <!-- v3.0: Monaco Editor 컨테이너 -->
+                    <div id="monacoContainer"></div>
+                    <!-- Fallback: textarea (Monaco 로드 실패 시) -->
+                    <textarea id="yamlContent" class="form-control yaml-editor" id="monacoFallback"
                               th:text="${def.yamlContent}" th:disabled="${def.builtin}"></textarea>
                     <div id="editorResult" style="font-size:.76rem;margin-top:8px;"></div>
                 </div>
 
-                <!-- 도움말 패널 -->
+                <!-- v3.0: 시각적 플로우차트 미리보기 (Mermaid) -->
                 <div>
+                    <div class="helper-panel mb-3">
+                        <h6><i class="fas fa-project-diagram" style="color:#8b5cf6"></i>파이프라인 흐름도
+                            <button type="button" onclick="refreshFlowchart()" style="float:right;background:none;border:1px solid var(--border-color);color:var(--text-muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:.68rem;">
+                                <i class="fas fa-sync"></i> 갱신
+                            </button>
+                        </h6>
+                        <div id="flowchartPreview" style="min-height:80px;text-align:center;font-size:.74rem;color:var(--text-muted);">
+                            YAML을 작성하면 플로우차트가 표시됩니다
+                        </div>
+                    </div>
                     <div class="helper-panel mb-3">
                         <h6><i class="fas fa-list" style="color:#3b82f6"></i>분석 유형</h6>
                         <ul>
@@ -127,14 +151,67 @@
         </div>
     </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script th:src="@{/js/toolkit.js(v='20250411')}"></script>
 <script th:inline="javascript">
 var PIPE_ID = /*[[${def.id}]]*/ null;
 var IS_NEW = /*[[${isNew}]]*/ true;
 var IS_BUILTIN = /*[[${def.builtin}]]*/ false;
 var CURRENT_LANG = /*[[${def.inputLanguage}]]*/ 'java';
+var _monacoEditor = null;
 
 document.getElementById('pipeLang').value = CURRENT_LANG || 'java';
+
+// ── v3.0: Monaco Editor 동적 로드 ──────────────────────────────
+(function initMonaco() {
+    var monacoContainer = document.getElementById('monacoContainer');
+    var fallbackTextarea = document.getElementById('yamlContent');
+    var label = document.getElementById('editorLabel');
+
+    // Monaco CDN (jsDelivr)
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js';
+    script.onload = function() {
+        if (typeof require === 'undefined') { showFallback(); return; }
+        require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            // 다크/라이트 테마 감지
+            var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+            _monacoEditor = monaco.editor.create(monacoContainer, {
+                value: fallbackTextarea.value || '',
+                language: 'yaml',
+                theme: isDark ? 'vs-dark' : 'vs',
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                fontSize: 13,
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                tabSize: 2,
+                automaticLayout: true,
+                readOnly: IS_BUILTIN
+            });
+
+            // textarea 숨기고 Monaco 표시
+            fallbackTextarea.style.display = 'none';
+            monacoContainer.style.display = 'block';
+            if (label) label.textContent = '(Monaco Editor)';
+
+            // Monaco → textarea 동기화 (저장/검증 시 사용)
+            _monacoEditor.onDidChangeModelContent(function() {
+                fallbackTextarea.value = _monacoEditor.getValue();
+            });
+        });
+    };
+    script.onerror = showFallback;
+    document.head.appendChild(script);
+
+    function showFallback() {
+        monacoContainer.style.display = 'none';
+        fallbackTextarea.style.display = '';
+        if (label) label.textContent = '(텍스트 에디터)';
+    }
+})();
 
 function validateYaml() {
     var yaml = document.getElementById('yamlContent').value;
@@ -196,6 +273,88 @@ function escHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function(c) {
         return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
+}
+
+// ── v3.0: 시각적 플로우차트 (Mermaid) ─────────────────────────────
+(function initMermaid() {
+    if (typeof mermaid !== 'undefined') {
+        var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default', securityLevel: 'loose' });
+    }
+    // 초기 렌더링 (1초 지연 — Monaco 로드 대기)
+    setTimeout(refreshFlowchart, 1500);
+    // Monaco 변경 시 자동 갱신 (debounce 2초)
+    var _fcTimer = null;
+    setInterval(function() {
+        if (_monacoEditor) {
+            // 변경 감지는 이미 onDidChangeModelContent에서 textarea 동기화됨
+            // 2초마다 flowchart 갱신
+            clearTimeout(_fcTimer);
+            _fcTimer = setTimeout(refreshFlowchart, 500);
+        }
+    }, 3000);
+})();
+
+function refreshFlowchart() {
+    var yaml = document.getElementById('yamlContent').value;
+    if (!yaml || !yaml.trim()) {
+        document.getElementById('flowchartPreview').innerHTML =
+            '<span style="color:var(--text-muted);">YAML을 작성하면 플로우차트가 표시됩니다</span>';
+        return;
+    }
+    // 간단한 YAML → Mermaid flowchart 변환
+    try {
+        var mermaidCode = yamlToMermaid(yaml);
+        if (!mermaidCode) throw new Error('단계 없음');
+        if (typeof mermaid === 'undefined') {
+            document.getElementById('flowchartPreview').innerHTML =
+                '<pre style="font-size:.7rem;text-align:left;">' + escHtml(mermaidCode) + '</pre>';
+            return;
+        }
+        var container = document.getElementById('flowchartPreview');
+        container.innerHTML = '';
+        var graphDiv = document.createElement('div');
+        graphDiv.className = 'mermaid';
+        graphDiv.textContent = mermaidCode;
+        container.appendChild(graphDiv);
+        mermaid.run({ nodes: [graphDiv] });
+    } catch (e) {
+        document.getElementById('flowchartPreview').innerHTML =
+            '<span style="color:var(--text-muted);font-size:.72rem;">미리보기 불가: ' + escHtml(e.message) + '</span>';
+    }
+}
+
+function yamlToMermaid(yaml) {
+    // 초간단 YAML 파서 — steps 배열에서 id와 analysis만 추출
+    var steps = [];
+    var lines = yaml.split('\n');
+    var currentStep = null;
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.match(/^-\s*id:/)) {
+            if (currentStep) steps.push(currentStep);
+            currentStep = { id: line.replace(/^-\s*id:\s*/, '').trim(), analysis: '' };
+        } else if (currentStep && line.match(/^analysis:/)) {
+            currentStep.analysis = line.replace(/^analysis:\s*/, '').trim();
+        } else if (currentStep && line.match(/^condition:/)) {
+            currentStep.condition = true;
+        }
+    }
+    if (currentStep) steps.push(currentStep);
+    if (steps.length === 0) return null;
+
+    var mmd = 'graph LR\n';
+    for (var i = 0; i < steps.length; i++) {
+        var s = steps[i];
+        var label = s.id + '\\n(' + (s.analysis || '?') + ')';
+        var shape = s.condition ? '{' + label + '}' : '[' + label + ']';
+        mmd += '    ' + s.id + shape + '\n';
+        if (i > 0) {
+            var arrow = steps[i-1].condition ? '-.->|condition|' : '-->';
+            mmd += '    ' + steps[i-1].id + ' ' + arrow + ' ' + s.id + '\n';
+        }
+    }
+    return mmd;
 }
 </script>
 </body>

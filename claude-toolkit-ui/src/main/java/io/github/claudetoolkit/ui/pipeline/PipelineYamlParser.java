@@ -71,6 +71,11 @@ public class PipelineYamlParser {
             step.setInput(asString(stepMap.get("input")));
             step.setContext(asString(stepMap.get("context")));
             step.setCondition(asString(stepMap.get("condition")));
+            // v3.0: 병렬 실행
+            Object parallelObj = stepMap.get("parallel");
+            if (parallelObj instanceof Boolean) step.setParallel((Boolean) parallelObj);
+            else if ("true".equalsIgnoreCase(asString(parallelObj))) step.setParallel(true);
+            step.setDependsOn(asString(stepMap.get("dependsOn")));
 
             if (step.getId() == null || step.getId().trim().isEmpty()) {
                 throw new IllegalArgumentException("steps[" + idx + "].id는 필수입니다.");

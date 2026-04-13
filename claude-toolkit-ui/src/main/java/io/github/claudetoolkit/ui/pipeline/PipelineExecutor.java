@@ -14,6 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -127,9 +131,47 @@ public class PipelineExecutor {
             java.util.List<PipelineStepResult> stepResults =
                     stepResultRepo.findByExecutionIdOrderByStepOrderAsc(exec.getId());
 
+            // v3.0: 완료된 단계 추적 (병렬 단계 간 dependsOn 대기용)
+            final java.util.Set<String> completedStepIds =
+                    java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
             for (int i = 0; i < spec.getSteps().size(); i++) {
                 PipelineStepSpec step = spec.getSteps().get(i);
                 PipelineStepResult result = stepResults.get(i);
+
+                // v3.0: dependsOn 대기 — 지정된 단계들이 완료될 때까지 폴링
+                java.util.List<String> deps = step.getDependsOnList();
+                if (!deps.isEmpty()) {
+                    int waitMs = 0;
+                    while (!completedStepIds.containsAll(deps) && waitMs < 600_000) {
+                        try { Thread.sleep(500); waitMs += 500; } catch (InterruptedException ie) { break; }
+                    }
+                }
+
+                // v3.0: parallel 단계는 별도 스레드에서 실행
+                if (step.isParallel()) {
+                    final int idx = i;
+                    final PipelineStepSpec parallelStep = step;
+                    final PipelineStepResult parallelResult = result;
+                    final PipelineExecution execRef = exec;
+                    final PipelineContext ctxRef = ctx;
+                    Thread parallelThread = new Thread(new Runnable() {
+                        public void run() {
+                            try {
+                                executeSingleStep(parallelStep, parallelResult, execRef, ctxRef, spec);
+                                completedStepIds.add(parallelStep.getId());
+                            } catch (Throwable e) {
+                                parallelResult.markFailed(e.getMessage());
+                                stepResultRepo.save(parallelResult);
+                                broker.push(execRef.getId(), "error", buildStepPayload(parallelResult));
+                            }
+                        }
+                    });
+                    parallelThread.setDaemon(true);
+                    parallelThread.setName("pipeline-parallel-" + step.getId());
+                    parallelThread.start();
+                    continue;  // 다음 단계로 바로 넘어감 (병렬)
+                }
 
                 // 조건 평가
                 if (step.getCondition() != null && !step.getCondition().trim().isEmpty()) {
@@ -139,6 +181,7 @@ public class PipelineExecutor {
                         stepResultRepo.save(result);
                         ctx.set(step.getId() + ".executed", false);
                         ctx.set(step.getId() + ".status", "SKIPPED");
+                        completedStepIds.add(step.getId());
                         exec.incrementCompletedSteps();
                         executionRepo.save(exec);
                         broker.push(exec.getId(), "step-skipped", buildStepPayload(result));
@@ -205,6 +248,7 @@ public class PipelineExecutor {
                     ctx.set(step.getId() + ".executed", true);
                     ctx.set(step.getId() + ".status", "COMPLETED");
 
+                    completedStepIds.add(step.getId());
                     exec.incrementCompletedSteps();
                     executionRepo.save(exec);
                     broker.push(exec.getId(), "step-completed", buildStepPayload(result));
@@ -248,5 +292,61 @@ public class PipelineExecutor {
         m.put("errorMessage", result.getErrorMessage());
         m.put("durationMs",   result.getDurationMs());
         return m;
+    }
+
+    /**
+     * v3.0: 단일 단계 실행 (병렬 스레드에서도 호출 가능).
+     * 조건 평가는 호출 전에 완료된 상태.
+     */
+    private void executeSingleStep(PipelineStepSpec step, PipelineStepResult result,
+                                   PipelineExecution exec, PipelineContext ctx,
+                                   PipelineSpec spec) throws Exception {
+        result.markRunning();
+        stepResultRepo.save(result);
+        broker.push(exec.getId(), "step-start", buildStepPayload(result));
+
+        String stepInput = ctx.resolve(step.getInput());
+        String stepContext = step.getContext() != null ? ctx.resolve(step.getContext()) : null;
+        result.setInputContent(stepInput);
+        stepResultRepo.save(result);
+
+        io.github.claudetoolkit.ui.workspace.AnalysisType type =
+                io.github.claudetoolkit.ui.workspace.AnalysisType.valueOf(step.getAnalysis().toUpperCase());
+        AnalysisService svc = registry.find(type);
+        if (svc == null) throw new IllegalArgumentException("분석 서비스 없음: " + step.getAnalysis());
+
+        String lang = spec.getInputLanguage() != null ? spec.getInputLanguage() : "java";
+        io.github.claudetoolkit.ui.workspace.WorkspaceRequest req =
+                new io.github.claudetoolkit.ui.workspace.WorkspaceRequest(stepInput, lang, type,
+                        stepContext != null ? stepContext : settings.getProjectContext());
+
+        String sysPrompt = promptService.resolveSystemPrompt(svc, req);
+        String userMsg   = svc.buildUserMessage(req);
+        int    maxTokens = claudeClient.getProperties().getMaxTokens();
+
+        final StringBuilder outputBuf = new StringBuilder();
+        final String stepIdCopy = step.getId();
+        claudeClient.chatStream(sysPrompt, userMsg, maxTokens, new Consumer<String>() {
+            public void accept(String chunk) {
+                outputBuf.append(chunk);
+                Map<String, Object> payload = new LinkedHashMap<String, Object>();
+                payload.put("stepId", stepIdCopy);
+                payload.put("chunk", chunk);
+                broker.push(exec.getId(), "step-chunk", payload);
+            }
+        });
+
+        String output = outputBuf.toString();
+        result.markCompleted(output);
+        stepResultRepo.save(result);
+        ctx.set(step.getId() + ".output", output);
+        ctx.set(step.getId() + ".executed", true);
+        ctx.set(step.getId() + ".status", "COMPLETED");
+
+        synchronized (exec) {
+            exec.incrementCompletedSteps();
+            executionRepo.save(exec);
+        }
+        broker.push(exec.getId(), "step-completed", buildStepPayload(result));
     }
 }

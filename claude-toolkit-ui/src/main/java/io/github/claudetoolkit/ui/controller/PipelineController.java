@@ -298,6 +298,46 @@ public class PipelineController {
         return ResponseEntity.ok(resp);
     }
 
+    // ── v3.0: 스케줄 설정 ───────────────────────────────────────────────
+
+    @PostMapping("/{id}/schedule")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> setSchedule(
+            @PathVariable Long id,
+            @RequestParam(required = false) String cron,
+            @RequestParam(required = false) String scheduleInput,
+            @RequestParam(defaultValue = "false") boolean enabled) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            PipelineDefinition def = definitionRepo.findById(id).orElse(null);
+            if (def == null) {
+                resp.put("success", false);
+                resp.put("error", "파이프라인을 찾을 수 없습니다.");
+                return ResponseEntity.ok(resp);
+            }
+            // cron 검증
+            if (cron != null && !cron.trim().isEmpty()) {
+                try {
+                    org.springframework.scheduling.support.CronExpression.parse(cron.trim());
+                } catch (IllegalArgumentException e) {
+                    resp.put("success", false);
+                    resp.put("error", "잘못된 cron 표현식: " + e.getMessage());
+                    return ResponseEntity.ok(resp);
+                }
+            }
+            def.setScheduleCron(cron != null && !cron.trim().isEmpty() ? cron.trim() : null);
+            def.setScheduleInput(scheduleInput);
+            def.setScheduleEnabled(enabled);
+            def.touch();
+            definitionRepo.save(def);
+            resp.put("success", true);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
     // ── 기본 YAML 템플릿 ──────────────────────────────────────────────────
 
     private static final String DEFAULT_YAML =

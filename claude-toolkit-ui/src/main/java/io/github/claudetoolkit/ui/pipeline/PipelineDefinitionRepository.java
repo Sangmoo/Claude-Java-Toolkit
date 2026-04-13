@@ -16,4 +16,7 @@ public interface PipelineDefinitionRepository extends JpaRepository<PipelineDefi
     Optional<PipelineDefinition> findByName(String name);
 
     long countByIsBuiltin(boolean isBuiltin);
+
+    /** v3.0: 스케줄 활성화된 파이프라인 조회 */
+    List<PipelineDefinition> findByScheduleEnabledTrueAndScheduleCronIsNotNull();
 }

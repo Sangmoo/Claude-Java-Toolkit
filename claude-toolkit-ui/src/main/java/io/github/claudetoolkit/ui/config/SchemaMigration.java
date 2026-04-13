@@ -51,6 +51,11 @@ public class SchemaMigration implements ApplicationRunner {
         addColumnIfNotExists("APP_USER", "IP_WHITELIST",           "VARCHAR(500)");
         addColumnIfNotExists("APP_USER", "DAILY_API_LIMIT",        "INTEGER DEFAULT 0");
         addColumnIfNotExists("APP_USER", "MONTHLY_API_LIMIT",      "INTEGER DEFAULT 0");
+
+        // v3.0 — 파이프라인 스케줄링 필드
+        addColumnIfNotExists("PIPELINE_DEFINITION", "SCHEDULE_CRON",    "VARCHAR(50)");
+        addColumnIfNotExists("PIPELINE_DEFINITION", "SCHEDULE_INPUT",   "CLOB");
+        addColumnIfNotExists("PIPELINE_DEFINITION", "SCHEDULE_ENABLED", "BOOLEAN DEFAULT FALSE");
     }
 
     private void addColumnIfNotExists(String table, String column, String type) {

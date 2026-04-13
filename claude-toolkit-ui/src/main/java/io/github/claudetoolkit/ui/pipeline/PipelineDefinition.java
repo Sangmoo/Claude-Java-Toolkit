@@ -42,6 +42,18 @@ public class PipelineDefinition {
     @Column(length = 50)
     private String createdBy;
 
+    /** cron 스케줄 표현식 (v3.0). null이면 스케줄 미설정. 예: "0 0 9 * * ?" */
+    @Column(length = 50)
+    private String scheduleCron;
+
+    /** 스케줄 실행 시 사용될 기본 입력 텍스트 (v3.0) */
+    @Column(columnDefinition = "TEXT")
+    private String scheduleInput;
+
+    /** 스케줄 활성화 여부 (v3.0) */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean scheduleEnabled = false;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -73,9 +85,16 @@ public class PipelineDefinition {
     public LocalDateTime getCreatedAt()     { return createdAt; }
     public LocalDateTime getUpdatedAt()     { return updatedAt; }
 
-    public void setName(String v)        { this.name = v; }
-    public void setDescription(String v) { this.description = v; }
-    public void setYamlContent(String v) { this.yamlContent = v; }
-    public void setInputLanguage(String v){ this.inputLanguage = v; }
-    public void touch()                   { this.updatedAt = LocalDateTime.now(); }
+    public String        getScheduleCron()    { return scheduleCron; }
+    public String        getScheduleInput()   { return scheduleInput; }
+    public boolean       isScheduleEnabled()  { return scheduleEnabled; }
+
+    public void setName(String v)          { this.name = v; }
+    public void setDescription(String v)   { this.description = v; }
+    public void setYamlContent(String v)   { this.yamlContent = v; }
+    public void setInputLanguage(String v) { this.inputLanguage = v; }
+    public void setScheduleCron(String v)  { this.scheduleCron = v; }
+    public void setScheduleInput(String v) { this.scheduleInput = v; }
+    public void setScheduleEnabled(boolean v) { this.scheduleEnabled = v; }
+    public void touch()                    { this.updatedAt = LocalDateTime.now(); }
 }

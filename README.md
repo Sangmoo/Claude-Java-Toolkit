@@ -1491,6 +1491,36 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
+### ✅ v3.0.0 — 파이프라인 고도화 (스케줄링, Monaco Editor, 플로우차트, 병렬 실행)
+
+**⏰ 파이프라인 스케줄링 (cron)**
+- [x] `PipelineDefinition`에 `scheduleCron`, `scheduleInput`, `scheduleEnabled` 필드 추가
+- [x] `PipelineScheduler` — `@Scheduled(fixedRate=60s)` 매분 cron 매칭 파이프라인 자동 실행
+- [x] `POST /pipelines/{id}/schedule` — 스케줄 설정 API (cron 사전 검증)
+- [x] Spring 6-필드 `CronExpression` 기반 표현식 파싱 (초 분 시 일 월 요일)
+
+**💻 Monaco Editor 통합**
+- [x] 파이프라인 YAML 편집기에 Monaco Editor (jsDelivr CDN, v0.45.0) 적용
+- [x] YAML 문법 강조, 라인 번호, 워드 랩, 탭 사이즈 2, 자동 레이아웃
+- [x] 다크/라이트 테마 자동 감지 (vs-dark / vs)
+- [x] 내장 파이프라인은 `readOnly` 모드
+- [x] Monaco ↔ textarea 실시간 동기화 (Monaco 로드 실패 시 textarea fallback)
+
+**📊 시각적 플로우차트 미리보기**
+- [x] 편집기 우측에 Mermaid.js 기반 실시간 플로우차트 표시
+- [x] YAML → Mermaid `graph LR` 자동 변환 (단계 ID, 분석 유형, 조건 분기 시각화)
+- [x] "갱신" 버튼 + 3초 간격 자동 갱신
+- [x] 조건부 단계는 마름모 노드 `{}`, 일반 단계는 사각형 `[]`
+
+**⚡ 병렬 단계 실행**
+- [x] YAML에 `parallel: true` / `dependsOn: "stepId1,stepId2"` 필드 지원
+- [x] `PipelineExecutor`에서 `parallel: true` 단계는 별도 daemon 스레드에서 동시 실행
+- [x] `dependsOn` 대기 — 지정된 단계들이 완료될 때까지 500ms 간격 폴링 (최대 10분)
+- [x] `completedStepIds` (ConcurrentSet) 기반 동기화
+- [x] `executeSingleStep()` 헬퍼 메서드 추출 — 순차/병렬 모두 동일 로직 재사용
+
+---
+
 ### ✅ v2.9.5 — 분석 파이프라인 오케스트레이터 + DB 자동 마이그레이션
 
 **🔗 분석 파이프라인 오케스트레이터**
