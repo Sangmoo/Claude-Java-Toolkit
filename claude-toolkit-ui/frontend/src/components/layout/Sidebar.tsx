@@ -4,20 +4,8 @@ import { useSidebarStore } from '../../stores/sidebarStore'
 import { useAuthStore } from '../../stores/authStore'
 import { quickLinks, menuSections, footerItems, type MenuItem } from './sidebarMenus'
 
-// Phase 5: 모든 라우트가 React로 전환됨 — 일부 미전환 페이지만 외부 링크
-const THYMELEAF_ONLY = [
-  '/api-docs',                // API Playground (Swagger UI)
-  '/explain/dashboard',       // 성능 히스토리 (Chart.js 대시보드)
-  '/harness/dashboard',       // 품질 대시보드
-  '/admin/db-migration',      // DB 마이그레이션 가이드
-  '/admin/backup',            // 백업/복원
-  '/admin/permissions',       // 사용자 권한 관리
-  '/admin/team-dashboard',    // 팀 대시보드
-  '/settings/shared',         // 팀 설정 공유
-  '/settings/prompts',        // AI 프롬프트 관리
-  '/security',                // 보안 설정
-  '/db-profiles',             // DB 프로필
-]
+// 모든 라우트가 React로 전환 완료 — Thymeleaf 전용 경로 없음
+const THYMELEAF_ONLY: string[] = []
 
 function SidebarItem({ item, active }: { item: MenuItem; active: boolean }) {
   const closeMobile = useSidebarStore((s) => s.closeMobile)

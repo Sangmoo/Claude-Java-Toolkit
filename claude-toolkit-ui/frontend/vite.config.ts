@@ -22,6 +22,17 @@ export default defineConfig({
   build: {
     outDir: '../src/main/resources/static/app',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
+          'vendor-zustand': ['zustand'],
+          'vendor-recharts': ['recharts'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

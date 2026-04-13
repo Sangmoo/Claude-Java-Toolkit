@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { useThemeStore } from './stores/themeStore'
 import AppLayout from './components/layout/AppLayout'
+import ErrorBoundary from './components/common/ErrorBoundary'
 import LoginPage from './pages/LoginPage'
 import './styles/theme.css'
 
@@ -30,6 +31,8 @@ const SqlBatchPage = lazy(() => import('./pages/analysis/SqlBatchPage'))
 const ErdPage = lazy(() => import('./pages/analysis/ErdPage'))
 const ComplexityPage = lazy(() => import('./pages/analysis/ComplexityPage'))
 const ExplainPlanPage = lazy(() => import('./pages/analysis/ExplainPlanPage'))
+const ExplainDashboardPage = lazy(() => import('./pages/analysis/ExplainDashboardPage'))
+const HarnessDashboardPage = lazy(() => import('./pages/analysis/HarnessDashboardPage'))
 const ExplainComparePage = lazy(() => import('./pages/analysis/ExplainComparePage'))
 const DocGenPage = lazy(() => import('./pages/analysis/DocGenPage'))
 const ApiSpecPage = lazy(() => import('./pages/analysis/ApiSpecPage'))
@@ -84,6 +87,7 @@ export default function App() {
   useEffect(() => { checkAuth() }, [checkAuth])
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={<Loading />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -107,12 +111,14 @@ export default function App() {
           <Route path="/complexity" element={<ComplexityPage />} />
           <Route path="/explain" element={<ExplainPlanPage />} />
           <Route path="/explain/compare" element={<ExplainComparePage />} />
+          <Route path="/explain/dashboard" element={<ExplainDashboardPage />} />
 
           {/* Code Analysis & Generation */}
           <Route path="/workspace" element={<WorkspacePage />} />
           <Route path="/harness" element={<CodeReviewPage />} />
           <Route path="/harness/batch" element={<HarnessBatchPage />} />
           <Route path="/harness/dependency" element={<HarnessDependencyPage />} />
+          <Route path="/harness/dashboard" element={<HarnessDashboardPage />} />
           <Route path="/docgen" element={<DocGenPage />} />
           <Route path="/apispec" element={<ApiSpecPage />} />
           <Route path="/converter" element={<ConverterPage />} />
@@ -151,5 +157,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
+    </ErrorBoundary>
   )
 }
