@@ -73,9 +73,7 @@ public class SpaForwardController implements ErrorController {
     @ResponseBody
     public ResponseEntity<String> login() { return serveSpa(); }
 
-    @GetMapping("/login/2fa")
-    @ResponseBody
-    public ResponseEntity<String> login2fa() { return serveSpa(); }
+    // /login/2fa — TwoFactorController가 직접 처리 (세션 부작용 있음)
 
     @GetMapping("/setup")
     @ResponseBody
