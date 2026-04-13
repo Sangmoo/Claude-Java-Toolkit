@@ -20,10 +20,11 @@ public class TwoFactorInterceptor implements WebMvcConfigurer {
         registry.addInterceptor(new TwoFactorCheckInterceptor())
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                    "/login", "/login/2fa", "/login/2fa/**",
+                    "/login", "/login/**",
                     "/logout", "/setup", "/setup/**",
-                    "/css/**", "/js/**", "/favicon.svg",
-                    "/actuator/**", "/error"
+                    "/assets/**", "/favicon.svg", "/manifest.json",
+                    "/css/**", "/js/**",
+                    "/actuator/**", "/error", "/api/**"
                 );
     }
 
