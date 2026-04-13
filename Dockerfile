@@ -1,9 +1,9 @@
 # ═══════════════════════════════════════════════════════════════
-# Claude Java Toolkit — Multi-stage Docker Build
+# Claude Java Toolkit — Multi-stage Docker Build (JDK 1.8)
 # ═══════════════════════════════════════════════════════════════
 
-# Stage 1: Build
-FROM maven:3.8-openjdk-11-slim AS builder
+# Stage 1: Build (Maven 3.6 + JDK 8)
+FROM maven:3.6.3-jdk-8-slim AS builder
 WORKDIR /build
 COPY pom.xml .
 COPY claude-spring-boot-starter/pom.xml claude-spring-boot-starter/pom.xml
@@ -13,11 +13,12 @@ COPY claude-toolkit-ui/pom.xml claude-toolkit-ui/pom.xml
 # Download dependencies first (layer cache)
 RUN mvn dependency:go-offline -B -q 2>/dev/null || true
 COPY . .
+# frontend-maven-plugin이 Node.js 자동 설치 → npm install → npm run build
 RUN mvn package -DskipTests -pl claude-toolkit-ui -am -B && \
     ls -la /build/claude-toolkit-ui/target/*.jar
 
-# Stage 2: Runtime
-FROM eclipse-temurin:11-jre-alpine
+# Stage 2: Runtime (JRE 8)
+FROM eclipse-temurin:8-jre-alpine
 LABEL maintainer="Claude Java Toolkit"
 
 RUN apk add --no-cache curl
