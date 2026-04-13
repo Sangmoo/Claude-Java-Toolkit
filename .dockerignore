@@ -1,0 +1,31 @@
+# Dependencies & build artifacts
+**/node_modules/
+**/target/
+claude-toolkit-ui/frontend/node/
+claude-toolkit-ui/src/main/resources/static/app/
+claude-toolkit-ui/src/main/resources/static/react/
+
+# IDE
+.idea/
+*.iml
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git & CI
+.git/
+.github/
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Docs
+docs/
+
+# Env
+.env
+.env.*

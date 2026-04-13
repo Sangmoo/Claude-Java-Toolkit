@@ -37,7 +37,7 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 | [`claude-spring-boot-starter`](./claude-spring-boot-starter) | `application.yml` 설정만으로 `ClaudeClient` Bean 자동 주입. SSE 스트리밍 + 런타임 모델 전환 지원 | Library |
 | [`claude-sql-advisor`](./claude-sql-advisor) | SQL / Oracle SP 리뷰, 보안 감사, 인덱스 최적화 제안, ERD 분석, Mock 데이터 생성, DB 마이그레이션 | Library + CLI |
 | [`claude-doc-generator`](./claude-doc-generator) | 기술 문서(Oracle Package 포함), Javadoc 생성, 리팩터링 제안, 테스트 코드, API 명세, 코드 변환(iBatis 지원), 코드 리뷰, 복잡도 분석, pom.xml 의존성 분석, 데이터 마스킹, Spring 마이그레이션, 로그 분석, 정규식 생성, 커밋 메시지 생성 | Library + CLI |
-| [`claude-toolkit-ui`](./claude-toolkit-ui) | 위 기능들을 웹 브라우저에서 사용하는 통합 대시보드 | Spring Boot Web |
+| [`claude-toolkit-ui`](./claude-toolkit-ui) | 위 기능들을 웹 브라우저에서 사용하는 React SPA 대시보드 (v4.0 전환) | Spring Boot + React |
 
 ---
 
@@ -1634,6 +1634,22 @@ React 18 + TypeScript + Vite 기반 SPA로 점진적 전환합니다.
 - [x] React 빌드 출력 → `static/app/` (49개 청크, lazy loading)
 - [x] Thymeleaf 레거시 호환 유지 (`/react/**` → 기존 북마크 지원)
 - [x] 전체 40+ React 페이지 완성
+
+#### ✅ v4.1.0 — 전수 검토 + 최종 정리
+
+- [x] Thymeleaf 완전 제거 (templates 69개 삭제, toolkit.js/css 삭제, WebJars 의존성 제거)
+- [x] 56개 @Controller 페이지 GET 매핑 제거 (POST/API 유지, SpaViewResolver 뷰 포워딩)
+- [x] REST API 전환 (`/api/v1/auth/login`, `/api/v1/pipelines`, `/history`, `/favorites`)
+- [x] 2FA 전용 페이지, Setup 마법사, Share 뷰어, 404 페이지
+- [x] AI 프롬프트 관리, 팀 설정 공유, 사용자 권한 관리, 팀 대시보드, DB 마이그레이션 가이드, 백업/복원
+- [x] Monaco Editor + Mermaid 플로우차트 실시간 미리보기 파이프라인 편집기
+- [x] recharts 대시보드 (성능 히스토리, 품질 대시보드)
+- [x] 알림 SSE 실시간 구독 + 세션 타이머 60분 + 키보드 단축키 (`?` 도움말)
+- [x] i18n (한국어/영어), PWA manifest, ErrorBoundary, 파일 업로드
+- [x] Playwright E2E 5/5 통과
+- [x] `mvn clean package` JDK 1.8 빌드 검증 (JAR 내 React 119개 파일 포함 확인)
+- [x] `.dockerignore` 추가 (Docker 빌드 최적화)
+- [x] 전체 **52개 React 페이지**, **35개 컴포넌트/훅/스토어** 완성
 
 ---
 

@@ -64,11 +64,14 @@ const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePa
 
 // Special pages
 const SetupPage = lazy(() => import('./pages/SetupPage'))
+const TwoFactorPage = lazy(() => import('./pages/TwoFactorPage'))
 const ShareViewPage = lazy(() => import('./pages/ShareViewPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage'))
 const DbProfilesPage = lazy(() => import('./pages/DbProfilesPage'))
 const SecurityPage = lazy(() => import('./pages/SecurityPage'))
+const SettingsPromptsPage = lazy(() => import('./pages/SettingsPromptsPage'))
+const SharedConfigPage = lazy(() => import('./pages/SharedConfigPage'))
 
 function Loading() {
   return (
@@ -174,10 +177,13 @@ export default function App() {
           <Route path="/api-docs" element={<ApiDocsPage />} />
           <Route path="/db-profiles" element={<DbProfilesPage />} />
           <Route path="/security" element={<SecurityPage />} />
+          <Route path="/settings/prompts" element={<SettingsPromptsPage />} />
+          <Route path="/settings/shared" element={<SharedConfigPage />} />
         </Route>
 
         {/* Public routes (no auth) */}
         <Route path="/setup" element={<SetupPage />} />
+        <Route path="/login/2fa" element={<TwoFactorPage />} />
         <Route path="/share/:token" element={<ShareViewPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
