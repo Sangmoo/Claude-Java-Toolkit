@@ -27,12 +27,6 @@ public class MockDataController {
         this.historyService  = historyService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("rowCount", 10);
-        return "mockdata/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("ddl")                                        String ddl,

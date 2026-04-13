@@ -39,13 +39,6 @@ public class ComplexityController {
         this.historyService        = historyService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectConfigured", settings.isProjectConfigured());
-        model.addAttribute("currentScanPath",   settings.getProject().getScanPath());
-        return "complexity/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(
             @RequestParam(value = "sourceCode",       defaultValue = "") String  sourceCode,

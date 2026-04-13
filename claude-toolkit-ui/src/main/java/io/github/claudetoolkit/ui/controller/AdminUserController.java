@@ -4,7 +4,6 @@ import io.github.claudetoolkit.ui.security.RateLimitService;
 import io.github.claudetoolkit.ui.user.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -23,12 +22,6 @@ public class AdminUserController {
     public AdminUserController(UserService userService, RateLimitService rateLimitService) {
         this.userService      = userService;
         this.rateLimitService = rateLimitService;
-    }
-
-    @GetMapping
-    public String listUsers(Model model) {
-        model.addAttribute("users", userService.findAll());
-        return "admin/users";
     }
 
     @PostMapping("/create")

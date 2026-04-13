@@ -9,8 +9,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.security.Principal;
 
@@ -43,21 +44,8 @@ public class ShareController {
         return ResponseEntity.ok(share.getToken());
     }
 
-    /** Display a shared result page. */
-    @GetMapping("/share/{token}")
-    public String viewShare(@PathVariable String token, Model model) {
-        SharedResult share = shareRepository.findByToken(token).orElse(null);
-        if (share == null) {
-            model.addAttribute("error", "공유 링크를 찾을 수 없습니다.");
-            return "share/not-found";
-        }
-        if (share.isExpired()) {
-            model.addAttribute("error", "공유 링크가 만료되었습니다. (7일 경과)");
-            return "share/not-found";
-        }
-        model.addAttribute("share", share);
-        return "share/view";
-    }
+    // Shared result page rendering removed — SpaViewResolver handles routing.
+    // React fetches shared result data via API calls.
 
     /** Cleanup expired shares daily at 3AM. */
     @Scheduled(cron = "0 0 3 * * *")

@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -45,11 +44,6 @@ public class DbMigrationController {
         this.executor   = executor;
         this.jobRepo    = jobRepo;
         this.broker     = broker;
-    }
-
-    @GetMapping
-    public String page(Model model) {
-        return "admin/db-migration";
     }
 
     /** 현재 DB 연결 정보 (JSON) */

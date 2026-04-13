@@ -33,20 +33,12 @@ public class TwoFactorController {
         AppUser user = userRepository.findByUsername(username).orElse(null);
         if (user == null) return "redirect:/login";
 
-        if (user.isTotpEnabled()) {
-            // OTP 등록됨 → 코드 입력 페이지
-            model.addAttribute("mode", "verify");
-        } else {
-            // OTP 미등록 → QR코드 등록 페이지
+        if (!user.isTotpEnabled()) {
+            // OTP 미등록 → 시크릿 생성하여 세션에 저장 (React에서 API로 조회)
             String secret = TotpService.generateSecret();
-            String otpUri = TotpService.buildOtpAuthUri(secret, username, "Claude Toolkit");
-            model.addAttribute("mode", "setup");
-            model.addAttribute("secret", secret);
-            model.addAttribute("otpAuthUri", otpUri);
             session.setAttribute("2fa_setup_secret", secret);
         }
-        model.addAttribute("username", username);
-        return "login-2fa";
+        return "forward:/app/index.html";
     }
 
     /** OTP 코드 검증 (등록된 사용자) */

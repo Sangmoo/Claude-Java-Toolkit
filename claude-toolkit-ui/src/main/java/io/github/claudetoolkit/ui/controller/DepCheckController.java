@@ -19,11 +19,6 @@ public class DepCheckController {
         this.historyService = historyService;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        return "depcheck/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(@RequestParam String pomXml, Model model) {
         if (pomXml == null || pomXml.trim().isEmpty()) {

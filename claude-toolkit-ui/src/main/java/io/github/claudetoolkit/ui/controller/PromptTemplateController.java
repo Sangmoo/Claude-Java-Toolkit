@@ -7,7 +7,6 @@ import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
 import io.github.claudetoolkit.ui.config.PromptTemplateService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -77,17 +76,6 @@ public class PromptTemplateController {
 
     public PromptTemplateController(PromptTemplateService promptTemplateService) {
         this.promptTemplateService = promptTemplateService;
-    }
-
-    @GetMapping
-    public String showTemplates(Model model) {
-        model.addAttribute("featureCodes",   DEFAULT_PROMPTS.keySet());
-        model.addAttribute("featureLabels",  FEATURE_LABELS);
-        model.addAttribute("featureColors",  FEATURE_COLORS);
-        model.addAttribute("featureIcons",   FEATURE_ICONS);
-        model.addAttribute("defaultPrompts", DEFAULT_PROMPTS);
-        model.addAttribute("customPrompts",  promptTemplateService.getAll());
-        return "prompts/index";
     }
 
     @PostMapping("/save")

@@ -23,12 +23,6 @@ public class RefactoringController {
         this.settings = settings;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "refactor/index";
-    }
-
     @PostMapping("/generate")
     public String generate(@RequestParam String javaCode, Model model) {
         if (javaCode == null || javaCode.trim().isEmpty()) {

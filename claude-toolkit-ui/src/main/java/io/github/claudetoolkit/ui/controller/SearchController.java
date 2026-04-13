@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -75,47 +74,6 @@ public class SearchController {
         this.favoriteRepo = favoriteRepo;
     }
 
-    @GetMapping
-    public String search(
-            @RequestParam(value = "q", defaultValue = "") String q,
-            Model model) {
-
-        model.addAttribute("q", q);
-
-        if (q.trim().isEmpty()) {
-            model.addAttribute("historyResults",  new ArrayList<ReviewHistory>());
-            model.addAttribute("favoriteResults", new ArrayList<Favorite>());
-            model.addAttribute("featureResults",  new ArrayList<String[]>());
-            model.addAttribute("totalCount", 0);
-            return "search/index";
-        }
-
-        String keyword = q.trim().toLowerCase();
-
-        // History search
-        List<ReviewHistory> historyResults =
-                historyRepo.searchByKeyword(keyword, PageRequest.of(0, 20));
-
-        // Favorites search
-        List<Favorite> favoriteResults =
-                favoriteRepo.searchByKeyword(keyword, PageRequest.of(0, 20));
-
-        // Feature list search
-        List<String[]> featureResults = new ArrayList<String[]>();
-        for (String[] f : FEATURES) {
-            String searchable = (f[0] + " " + f[2] + " " + f[3]).toLowerCase();
-            if (searchable.contains(keyword)) {
-                featureResults.add(f);
-            }
-        }
-
-        int total = historyResults.size() + favoriteResults.size() + featureResults.size();
-
-        model.addAttribute("historyResults",  historyResults);
-        model.addAttribute("favoriteResults", favoriteResults);
-        model.addAttribute("featureResults",  featureResults);
-        model.addAttribute("totalCount", total);
-
-        return "search/index";
-    }
+    // Page-rendering GET method removed — SpaViewResolver handles routing.
+    // Search functionality is now handled by React via API calls.
 }

@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchItem;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.BatchStatus;
 import io.github.claudetoolkit.ui.harness.HarnessBatchService.LogEntry;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -25,11 +24,6 @@ public class HarnessBatchController {
 
     public HarnessBatchController(HarnessBatchService batchService) {
         this.batchService = batchService;
-    }
-
-    @GetMapping
-    public String index(Model model) {
-        return "harness/batch";
     }
 
     /**

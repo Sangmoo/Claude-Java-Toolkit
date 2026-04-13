@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.harness.HarnessCacheService.FileEntry;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -43,13 +42,6 @@ public class HarnessController {
         this.historyService      = historyService;
         this.sseStreamController = sseStreamController;
         this.cacheService        = cacheService;
-    }
-
-    // ── Page ─────────────────────────────────────────────────────────────────
-
-    @GetMapping
-    public String index(Model model) {
-        return "harness/index";
     }
 
     // ── Pipeline analysis ─────────────────────────────────────────────────────

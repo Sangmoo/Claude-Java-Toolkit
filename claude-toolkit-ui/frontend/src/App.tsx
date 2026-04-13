@@ -10,6 +10,7 @@ import './styles/theme.css'
 const HomePage = lazy(() => import('./pages/HomePage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const PipelinePage = lazy(() => import('./pages/PipelinePage'))
+const PipelineEditorPage = lazy(() => import('./pages/PipelineEditorPage'))
 const PipelineExecutionPage = lazy(() => import('./pages/PipelineExecutionPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'))
@@ -94,6 +95,8 @@ export default function App() {
           {/* Chat & Pipeline */}
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/pipelines" element={<PipelinePage />} />
+          <Route path="/pipelines/new" element={<PipelineEditorPage />} />
+          <Route path="/pipelines/:id" element={<PipelineEditorPage />} />
           <Route path="/pipelines/execution/:id" element={<PipelineExecutionPage />} />
 
           {/* SQL Analysis */}

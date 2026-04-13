@@ -33,12 +33,6 @@ public class LogAnalyzerController {
         this.settings           = settings;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "loganalyzer/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(
             @RequestParam("logContent")                                      String logContent,

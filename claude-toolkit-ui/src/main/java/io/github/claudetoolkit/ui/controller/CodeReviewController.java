@@ -43,13 +43,6 @@ public class CodeReviewController {
         this.promptTemplateService = promptTemplateService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectConfigured",    settings.isProjectConfigured());
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "codereview/index";
-    }
-
     @PostMapping("/review")
     public String review(
             @RequestParam("sourceCode")                                   String  sourceCode,

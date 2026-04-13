@@ -9,7 +9,6 @@ import io.github.claudetoolkit.ui.workspace.AnalysisType;
 import io.github.claudetoolkit.ui.workspace.WorkspaceRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -41,24 +40,6 @@ public class PromptController {
         this.promptService = promptService;
         this.repository    = repository;
         this.registry      = registry;
-    }
-
-    // ── 페이지 ─────────────────────────────────────────────────────────────────
-
-    @GetMapping
-    public String index(Model model) {
-        // 분석 유형 목록 + 각 유형의 활성 프롬프트 여부
-        List<Map<String, Object>> typeInfoList = new ArrayList<Map<String, Object>>();
-        for (AnalysisType type : AnalysisType.values()) {
-            Map<String, Object> info = new LinkedHashMap<String, Object>();
-            info.put("type",         type.name());
-            info.put("displayName",  type.displayName);
-            info.put("description",  type.description);
-            info.put("hasCustom",    repository.findByAnalysisTypeAndIsActiveTrue(type.name()).isPresent());
-            typeInfoList.add(info);
-        }
-        model.addAttribute("typeInfoList", typeInfoList);
-        return "settings/prompts";
     }
 
     // ── 기본 내장 프롬프트 조회 ────────────────────────────────────────────────

@@ -45,11 +45,6 @@ public class BatchController {
         this.historyService       = historyService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        return "batch/index";
-    }
-
     // ── SQL Batch Review ──────────────────────────────────────────────────────
 
     @PostMapping("/sql-review")

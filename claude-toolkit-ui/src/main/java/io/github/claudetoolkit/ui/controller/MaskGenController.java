@@ -19,11 +19,6 @@ public class MaskGenController {
         this.historyService = historyService;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        return "maskgen/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(@RequestParam String ddl, Model model) {
         if (ddl == null || ddl.trim().isEmpty()) {

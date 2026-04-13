@@ -31,12 +31,6 @@ public class RegexGeneratorController {
         this.settings              = settings;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "regex/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("description")                              String description,

@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.roi.RoiCalculator;
 import io.github.claudetoolkit.ui.roi.RoiSettings;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -24,14 +23,6 @@ public class RoiReportController {
 
     public RoiReportController(ReviewHistoryService historyService) {
         this.historyService = historyService;
-    }
-
-    /** ROI 리포트 메인 페이지 */
-    @GetMapping
-    public String index(Model model) {
-        RoiSettings settings = RoiSettings.load();
-        model.addAttribute("roiSettings", settings);
-        return "roi-report/index";
     }
 
     /** 월별 ROI 데이터 JSON */

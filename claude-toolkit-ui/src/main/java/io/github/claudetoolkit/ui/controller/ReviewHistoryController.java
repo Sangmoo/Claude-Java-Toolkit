@@ -6,7 +6,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
@@ -24,14 +23,6 @@ public class ReviewHistoryController {
 
     public ReviewHistoryController(ReviewHistoryService historyService) {
         this.historyService = historyService;
-    }
-
-    /** List all history entries */
-    @GetMapping
-    public String list(Model model) {
-        model.addAttribute("histories", historyService.findAll());
-        model.addAttribute("count",     historyService.count());
-        return "history/index";
     }
 
     /** View detail of a single entry (AJAX — returns JSON body via responseBody) */

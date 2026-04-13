@@ -4,7 +4,6 @@ import io.github.claudetoolkit.ui.share.SharedConfig;
 import io.github.claudetoolkit.ui.share.SharedConfigRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -22,14 +21,6 @@ public class SharedConfigController {
 
     public SharedConfigController(SharedConfigRepository repository) {
         this.repository = repository;
-    }
-
-    @GetMapping
-    public String index(Model model, Principal principal) {
-        String username = principal != null ? principal.getName() : "anonymous";
-        model.addAttribute("myConfigs", repository.findByCreatedByOrderByCreatedAtDesc(username));
-        model.addAttribute("publicConfigs", repository.findByIsPublicTrueOrderByCreatedAtDesc());
-        return "settings/shared";
     }
 
     @PostMapping("/save")

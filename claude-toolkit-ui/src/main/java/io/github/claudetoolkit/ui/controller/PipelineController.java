@@ -5,7 +5,6 @@ import io.github.claudetoolkit.ui.workspace.AnalysisType;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -53,41 +52,6 @@ public class PipelineController {
         this.yamlParser     = yamlParser;
         this.executor       = executor;
         this.broker         = broker;
-    }
-
-    // ── 목록 페이지 ───────────────────────────────────────────────────────
-
-    @GetMapping
-    public String listPage(Model model, Principal principal) {
-        List<PipelineDefinition> builtins = definitionRepo.findByIsBuiltinOrderByCreatedAtAsc(true);
-        List<PipelineDefinition> userDefs  = definitionRepo.findByIsBuiltinOrderByCreatedAtAsc(false);
-        model.addAttribute("builtins", builtins);
-        model.addAttribute("userDefs", userDefs);
-        return "pipelines/list";
-    }
-
-    // ── 편집기 ────────────────────────────────────────────────────────────
-
-    @GetMapping("/new")
-    public String newEditor(Model model) {
-        PipelineDefinition blank = new PipelineDefinition("", "", DEFAULT_YAML, "java", false, null);
-        model.addAttribute("def", blank);
-        model.addAttribute("isNew", true);
-        model.addAttribute("analysisTypes", AnalysisType.values());
-        return "pipelines/editor";
-    }
-
-    @GetMapping("/{id}")
-    public String editor(@PathVariable Long id, Model model) {
-        PipelineDefinition def = definitionRepo.findById(id).orElse(null);
-        if (def == null) {
-            model.addAttribute("errorMessage", "파이프라인을 찾을 수 없습니다.");
-            return "error";
-        }
-        model.addAttribute("def", def);
-        model.addAttribute("isNew", false);
-        model.addAttribute("analysisTypes", AnalysisType.values());
-        return "pipelines/editor";
     }
 
     // ── 생성 ──────────────────────────────────────────────────────────────
@@ -236,21 +200,6 @@ public class PipelineController {
             resp.put("error", e.getMessage());
         }
         return ResponseEntity.ok(resp);
-    }
-
-    // ── 실행 상세 페이지 ──────────────────────────────────────────────────
-
-    @GetMapping("/executions/{id}")
-    public String executionPage(@PathVariable Long id, Model model, Principal principal) {
-        PipelineExecution exec = executionRepo.findById(id).orElse(null);
-        if (exec == null) {
-            model.addAttribute("errorMessage", "실행 이력을 찾을 수 없습니다.");
-            return "error";
-        }
-        List<PipelineStepResult> steps = stepResultRepo.findByExecutionIdOrderByStepOrderAsc(id);
-        model.addAttribute("exec", exec);
-        model.addAttribute("steps", steps);
-        return "pipelines/execution";
     }
 
     // ── SSE 스트림 ────────────────────────────────────────────────────────

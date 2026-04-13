@@ -5,7 +5,6 @@ import io.github.claudetoolkit.ui.favorites.FavoriteService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -25,14 +24,6 @@ public class FavoriteController {
                               ReviewHistoryService historyService) {
         this.favoriteService = favoriteService;
         this.historyService  = historyService;
-    }
-
-    /** List all favorites */
-    @GetMapping
-    public String list(Model model) {
-        model.addAttribute("favorites", favoriteService.findAll());
-        model.addAttribute("count",     favoriteService.count());
-        return "favorites/index";
     }
 
     /**

@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -30,63 +29,6 @@ public class UsageController {
         this.historyService = historyService;
         this.claudeClient   = claudeClient;
         this.settings       = settings;
-    }
-
-    @GetMapping
-    public String show(Model model) {
-        List<ReviewHistory> all = historyService.findAll();
-
-        long totalRequests  = all.size();
-        long totalInputTok  = 0;
-        long totalOutputTok = 0;
-        long recordedCount  = 0;
-
-        Map<String, long[]> dailyMap = new LinkedHashMap<String, long[]>();
-
-        for (ReviewHistory h : all) {
-            if (h.getInputTokens() != null || h.getOutputTokens() != null) {
-                long in  = h.getInputTokens()  != null ? h.getInputTokens()  : 0;
-                long out = h.getOutputTokens() != null ? h.getOutputTokens() : 0;
-                totalInputTok  += in;
-                totalOutputTok += out;
-                recordedCount++;
-
-                String date = h.getCreatedAt().toLocalDate().toString();
-                long[] d = dailyMap.get(date);
-                if (d == null) d = new long[]{0, 0, 0};
-                d[0] += in; d[1] += out; d[2]++;
-                dailyMap.put(date, d);
-            }
-        }
-
-        double inputCostRate  = DEFAULT_INPUT_COST;
-        double outputCostRate = DEFAULT_OUTPUT_COST;
-        double inputCost  = totalInputTok  / 1_000_000.0 * inputCostRate;
-        double outputCost = totalOutputTok / 1_000_000.0 * outputCostRate;
-        double totalCost  = inputCost + outputCost;
-
-        Map<String, Long> typeTokenMap = new LinkedHashMap<String, Long>();
-        for (ReviewHistory h : all) {
-            if (h.getTotalTokens() > 0) {
-                Long prev = typeTokenMap.get(h.getType());
-                typeTokenMap.put(h.getType(), (prev != null ? prev : 0L) + h.getTotalTokens());
-            }
-        }
-
-        model.addAttribute("totalRequests",   totalRequests);
-        model.addAttribute("totalInputTok",   totalInputTok);
-        model.addAttribute("totalOutputTok",  totalOutputTok);
-        model.addAttribute("totalTokens",     totalInputTok + totalOutputTok);
-        model.addAttribute("recordedCount",   recordedCount);
-        model.addAttribute("inputCost",       String.format("$%.4f", inputCost));
-        model.addAttribute("outputCost",      String.format("$%.4f", outputCost));
-        model.addAttribute("totalCost",       String.format("$%.4f", totalCost));
-        model.addAttribute("totalCostKrw",    String.format("₩%,.0f", totalCost * 1350));
-        model.addAttribute("dailyMap",        dailyMap);
-        model.addAttribute("typeTokenMap",    typeTokenMap);
-        model.addAttribute("currentModel",    claudeClient.getEffectiveModel());
-        model.addAttribute("allHistory",      all);
-        return "usage/index";
     }
 
     /** 일별 집계 JSON */

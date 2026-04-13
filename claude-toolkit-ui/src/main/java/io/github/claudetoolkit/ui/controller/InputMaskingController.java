@@ -4,7 +4,6 @@ import io.github.claudetoolkit.ui.masking.SensitiveMaskingService;
 import io.github.claudetoolkit.ui.masking.SensitiveMaskingService.MaskingResult;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -26,12 +25,6 @@ public class InputMaskingController {
 
     public InputMaskingController(SensitiveMaskingService maskingService) {
         this.maskingService = maskingService;
-    }
-
-    @GetMapping
-    public String index(Model model) {
-        model.addAttribute("patterns", maskingService.getSupportedPatterns());
-        return "input-masking/index";
     }
 
     /**

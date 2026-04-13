@@ -2,8 +2,6 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -22,11 +20,6 @@ public class RestApiPlaygroundController {
         this.settings = settings;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        model.addAttribute("dbUrl",        settings.getDb().getUrl());
-        model.addAttribute("dbUsername",   settings.getDb().getUsername());
-        return "api-docs/index";
-    }
+    // All page-rendering GET methods removed — SpaViewResolver handles routing.
+    // This controller retained as placeholder; DB config is now fetched via React API calls.
 }

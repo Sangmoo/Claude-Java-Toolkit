@@ -55,12 +55,6 @@ public class ExplainPlanController {
 
     // ── Single analysis ─────────────────────────────────────────────────────
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        return "explain/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(
             @RequestParam("sqlContent") String sqlContent,
@@ -104,27 +98,6 @@ public class ExplainPlanController {
         }
 
         return "explain/index";
-    }
-
-    // ── Performance History Dashboard (v1.2) ────────────────────────────────
-
-    @GetMapping("/dashboard")
-    public String dashboard(Model model) {
-        List<ReviewHistory> entries = historyService.findExplainPlanHistory();
-        model.addAttribute("entries", entries);
-        model.addAttribute("totalCount", entries.size());
-        long withCost = entries.stream().filter(e -> e.getCostValue() != null).count();
-        model.addAttribute("withCostCount", withCost);
-        model.addAttribute("explainFavorites", favoriteService.findByType("EXPLAIN_PLAN"));
-        return "explain/dashboard";
-    }
-
-    // ── Before / After comparison (v0.9) ────────────────────────────────────
-
-    @GetMapping("/compare")
-    public String showCompareForm(Model model) {
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        return "explain/compare";
     }
 
     @PostMapping("/compare")

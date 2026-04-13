@@ -47,11 +47,6 @@ public class SqlBatchController {
         this.historyService    = historyService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        return "sql-batch/index";
-    }
-
     /**
      * Analyze SQL blocks pasted directly into the textarea.
      * Blocks are split by {@code ---} (triple dash) or double semicolon {@code ;;}.

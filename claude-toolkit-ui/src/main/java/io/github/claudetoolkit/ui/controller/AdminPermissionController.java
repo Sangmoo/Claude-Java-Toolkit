@@ -4,7 +4,6 @@ import io.github.claudetoolkit.ui.user.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -68,21 +67,6 @@ public class AdminPermissionController {
                                      UserPermissionRepository permissionRepository) {
         this.userRepository     = userRepository;
         this.permissionRepository = permissionRepository;
-    }
-
-    @GetMapping
-    public String index(Model model) {
-        model.addAttribute("users", userRepository.findAllByOrderByCreatedAtDesc());
-        // features를 JSON 문자열로 전달 (Thymeleaf 인라인 파싱 문제 회피)
-        StringBuilder json = new StringBuilder("[");
-        for (int i = 0; i < FEATURES.size(); i++) {
-            String[] f = FEATURES.get(i);
-            if (i > 0) json.append(",");
-            json.append("{\"key\":\"").append(f[0]).append("\",\"name\":\"").append(f[1]).append("\",\"category\":\"").append(f[2]).append("\"}");
-        }
-        json.append("]");
-        model.addAttribute("featuresJson", json.toString());
-        return "admin/permissions";
     }
 
     /** 특정 사용자의 권한 목록 조회 */

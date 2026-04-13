@@ -56,11 +56,6 @@ public class ChatController {
         this.sessionService = sessionService;
     }
 
-    @GetMapping
-    public String chatPage() {
-        return "chat/index";
-    }
-
     // ── 세션 CRUD ─────────────────────────────────────────────────────────────
 
     /** 현재 사용자의 세션 목록 조회 */

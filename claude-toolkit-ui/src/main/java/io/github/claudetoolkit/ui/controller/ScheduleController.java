@@ -4,7 +4,6 @@ import io.github.claudetoolkit.ui.schedule.ScheduledJob;
 import io.github.claudetoolkit.ui.schedule.ScheduleService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -16,13 +15,6 @@ public class ScheduleController {
 
     public ScheduleController(ScheduleService scheduleService) {
         this.scheduleService = scheduleService;
-    }
-
-    @GetMapping
-    public String list(Model model) {
-        model.addAttribute("jobs", scheduleService.findAll());
-        model.addAttribute("newJob", new ScheduledJob());
-        return "schedule/index";
     }
 
     @PostMapping("/save")

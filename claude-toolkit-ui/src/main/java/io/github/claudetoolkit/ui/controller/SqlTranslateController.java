@@ -34,12 +34,6 @@ public class SqlTranslateController {
         this.historyService   = historyService;
     }
 
-    /** SQL 번역 페이지 */
-    @GetMapping
-    public String index() {
-        return "sql-translate/index";
-    }
-
     /**
      * 스트림 등록 — 소스 DB, 대상 DB, SQL을 저장하고 streamId 반환.
      * sourceType 필드에 "sourceDb|targetDb" 형태로 저장해 SseStreamController에 전달.

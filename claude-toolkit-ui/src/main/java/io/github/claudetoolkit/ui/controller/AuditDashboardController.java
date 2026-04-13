@@ -25,11 +25,6 @@ public class AuditDashboardController {
         this.auditLogRepository = auditLogRepository;
     }
 
-    @GetMapping
-    public String page() {
-        return "admin/audit-dashboard";
-    }
-
     @GetMapping("/data")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> data(@RequestParam(defaultValue = "7") int days) {

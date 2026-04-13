@@ -23,12 +23,6 @@ public class JavadocController {
         this.settings = settings;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "javadoc/index";
-    }
-
     @PostMapping("/generate")
     public String generate(@RequestParam String javaSource, Model model) {
         if (javaSource == null || javaSource.trim().isEmpty()) {

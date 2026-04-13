@@ -57,17 +57,7 @@ public class SettingsController {
                 return "redirect:/security/settings-unlock?redirect=/settings";
             }
         }
-        model.addAttribute("settings", settings);
-        model.addAttribute("currentApiKeyMasked", maskApiKey(claudeProperties.getApiKey()));
-        java.util.List<String> availableModels = new java.util.ArrayList<String>();
-        availableModels.add("claude-opus-4-5");
-        availableModels.add("claude-sonnet-4-5");
-        availableModels.add("claude-sonnet-4-20250514");
-        availableModels.add("claude-haiku-4-5");
-        availableModels.add("claude-haiku-3-5");
-        model.addAttribute("availableModels", availableModels);
-        model.addAttribute("currentModel", claudeClient.getEffectiveModel());
-        return "settings/index";
+        return "forward:/app/index.html";
     }
 
     @PostMapping("/save")

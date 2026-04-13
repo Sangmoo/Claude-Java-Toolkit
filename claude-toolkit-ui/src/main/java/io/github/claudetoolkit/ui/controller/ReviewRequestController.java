@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -45,51 +44,6 @@ public class ReviewRequestController {
         this.service           = service;
         this.userRepository    = userRepository;
         this.historyRepository = historyRepository;
-    }
-
-    // ── 목록 페이지 ───────────────────────────────────────────────────────
-
-    @GetMapping
-    public String listPage(Model model, Principal principal) {
-        String username = principal.getName();
-        List<ReviewRequest> requestedByMe = service.findRequestedByMe(username);
-        List<ReviewRequest> assignedToMe  = service.findAssignedToMe(username);
-
-        model.addAttribute("requestedByMe", toViewList(requestedByMe));
-        model.addAttribute("assignedToMe",  toViewList(assignedToMe));
-        model.addAttribute("requestedCount", requestedByMe.size());
-        model.addAttribute("assignedCount",  assignedToMe.size());
-        return "review-requests/list";
-    }
-
-    // ── 상세 페이지 ───────────────────────────────────────────────────────
-
-    @GetMapping("/{id}")
-    public String detailPage(@PathVariable Long id, Model model,
-                             Principal principal, Authentication auth) {
-        ReviewRequest req = service.findById(id);
-        if (req == null) {
-            model.addAttribute("errorMessage", "요청을 찾을 수 없습니다.");
-            return "error";
-        }
-        String username = principal.getName();
-        boolean isAdmin = auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        if (!service.canAccess(req, username, isAdmin)) {
-            model.addAttribute("errorMessage", "접근 권한이 없습니다.");
-            return "error";
-        }
-
-        ReviewHistory history = historyRepository.findById(req.getHistoryId()).orElse(null);
-
-        Map<String, Object> view = toView(req);
-        model.addAttribute("req", view);
-        model.addAttribute("history", history);
-        model.addAttribute("currentUser", username);
-        model.addAttribute("canRespond",
-                req.isPending() && username.equals(req.getReviewerUsername()));
-        model.addAttribute("canDelete",
-                req.isPending() && username.equals(req.getAuthorUsername()));
-        return "review-requests/detail";
     }
 
     // ── 생성 ──────────────────────────────────────────────────────────────

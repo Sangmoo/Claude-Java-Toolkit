@@ -52,8 +52,7 @@ public class SetupController {
         if (isSetupCompleted()) {
             return "redirect:/";
         }
-        model.addAttribute("apiKeySet", claudeClient.getApiKey() != null && !claudeClient.getApiKey().isEmpty());
-        return "setup";
+        return "forward:/app/index.html";
     }
 
     /** API 키 저장 + 연결 테스트 */

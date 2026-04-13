@@ -27,11 +27,6 @@ public class MigrationController {
         this.historyService   = historyService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        return "migration/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("beforeDdl")                                   String beforeDdl,

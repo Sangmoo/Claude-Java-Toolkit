@@ -31,24 +31,6 @@ public class AccountController {
         this.encoder        = encoder;
     }
 
-    @GetMapping("/password")
-    public String passwordPage() {
-        return "account/password";
-    }
-
-    /** 내 설정 페이지 (개인 API 키, 내 정보) */
-    @GetMapping("/settings")
-    public String settingsPage(org.springframework.ui.Model model, Principal principal) {
-        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
-        if (user != null) {
-            model.addAttribute("user", user);
-            String key = user.getPersonalApiKey();
-            model.addAttribute("apiKeyMasked", key != null && key.length() > 10
-                    ? key.substring(0, 10) + "..." + key.substring(key.length() - 4) : (key != null && !key.isEmpty() ? "****" : ""));
-        }
-        return "account/settings";
-    }
-
     /** 개인 API 키 저장 */
     @PostMapping("/save-api-key")
     @ResponseBody

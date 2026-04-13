@@ -19,11 +19,6 @@ public class SpringMigrateController {
         this.historyService = historyService;
     }
 
-    @GetMapping
-    public String show(Model model) {
-        return "migrate/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(@RequestParam String sourceInput, Model model) {
         if (sourceInput == null || sourceInput.trim().isEmpty()) {

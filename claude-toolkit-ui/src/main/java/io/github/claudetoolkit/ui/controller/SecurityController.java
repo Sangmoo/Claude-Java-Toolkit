@@ -6,7 +6,6 @@ import io.github.claudetoolkit.ui.security.SecuritySettings;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
@@ -37,20 +36,6 @@ public class SecurityController {
 
     public SecurityController(AuditLogService auditLogService) {
         this.auditLogService = auditLogService;
-    }
-
-    // ── 페이지 ────────────────────────────────────────────────────────────────
-
-    @GetMapping
-    public String index(Model model) {
-        SecuritySettings settings = SecuritySettings.load();
-        model.addAttribute("apiKeyEnabled",       settings.isApiKeyEnabled());
-        model.addAttribute("apiKeySet",           settings.getApiKeyHash() != null);
-        model.addAttribute("settingsLockEnabled", settings.isSettingsLockEnabled());
-        model.addAttribute("settingsPasswordSet", settings.getSettingsPasswordHash() != null);
-        model.addAttribute("todayCount",          auditLogService.countToday());
-        model.addAttribute("hourCount",           auditLogService.countThisHour());
-        return "security/index";
     }
 
     // ── 감사 로그 JSON ────────────────────────────────────────────────────────
@@ -254,14 +239,6 @@ public class SecurityController {
     }
 
     // ── Settings 잠금 해제 ───────────────────────────────────────────────────
-
-    /** Settings 잠금 해제 페이지 */
-    @GetMapping("/settings-unlock")
-    public String settingsUnlockPage(@RequestParam(value = "redirect", defaultValue = "/settings") String redirect,
-                                     Model model) {
-        model.addAttribute("redirect", redirect);
-        return "security/settings-unlock";
-    }
 
     /** Settings 잠금 해제 처리 */
     @PostMapping("/settings-unlock")

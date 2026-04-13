@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
@@ -43,11 +42,6 @@ public class SystemHealthController {
     public SystemHealthController(ClaudeClient claudeClient, AppUserRepository userRepository) {
         this.claudeClient   = claudeClient;
         this.userRepository = userRepository;
-    }
-
-    @GetMapping
-    public String dashboard(Model model) {
-        return "admin/health";
     }
 
     /** 시스템 상태 JSON API (30초마다 갱신용) */

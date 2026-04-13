@@ -34,12 +34,6 @@ public class TestGeneratorController {
         this.settings       = settings;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "testgen/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("sourceCode")                                    String sourceCode,

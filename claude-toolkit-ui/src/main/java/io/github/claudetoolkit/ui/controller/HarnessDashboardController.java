@@ -3,7 +3,6 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -22,11 +21,6 @@ public class HarnessDashboardController {
 
     public HarnessDashboardController(ReviewHistoryService historyService) {
         this.historyService = historyService;
-    }
-
-    @GetMapping
-    public String index(Model model) {
-        return "harness/dashboard";
     }
 
     /** Returns aggregated statistics for dashboard charts. */

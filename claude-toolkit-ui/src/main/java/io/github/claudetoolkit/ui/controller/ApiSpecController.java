@@ -34,12 +34,6 @@ public class ApiSpecController {
         this.settings       = settings;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "apispec/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("sourceCode")                                       String sourceCode,

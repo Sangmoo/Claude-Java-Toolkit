@@ -14,7 +14,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -85,14 +84,6 @@ public class WorkspaceController {
         this.settings      = settings;
         this.emailService  = emailService;
         this.historyRepo   = historyRepo;
-    }
-
-    // ── 페이지 ─────────────────────────────────────────────────────────────────
-
-    @GetMapping
-    public String index(Model model) {
-        model.addAttribute("analysisTypes", AnalysisType.values());
-        return "workspace/index";
     }
 
     // ── 분석 유형 목록 JSON ────────────────────────────────────────────────────

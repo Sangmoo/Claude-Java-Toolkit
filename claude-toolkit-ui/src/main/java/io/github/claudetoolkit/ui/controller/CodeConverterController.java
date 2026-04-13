@@ -6,7 +6,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -32,13 +31,6 @@ public class CodeConverterController {
                                    ReviewHistoryService historyService) {
         this.converterService = converterService;
         this.historyService   = historyService;
-    }
-
-    /** GET /converter — 폼 표시. flash attributes에 이전 결과가 있으면 함께 표시 */
-    @GetMapping
-    public String showForm(Model model) {
-        // flash attributes(result, sourceCode, targetType 등)는 Spring이 model에 자동 병합
-        return "converter/index";
     }
 
     /** POST /converter/convert — PRG: 변환 후 redirect */

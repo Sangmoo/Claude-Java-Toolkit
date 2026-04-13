@@ -40,13 +40,6 @@ public class ErdAnalyzerController {
         this.promptTemplateService = promptTemplateService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        model.addAttribute("activeTab", "erd");
-        return "erd/index";
-    }
-
     @PostMapping("/analyze")
     public String analyze(
             @RequestParam(value = "schemaText",  defaultValue = "") String schemaText,

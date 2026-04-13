@@ -24,9 +24,6 @@ public class BackupController {
 
     private static final Path TOOLKIT_DIR = Paths.get(System.getProperty("user.home"), ".claude-toolkit");
 
-    @GetMapping
-    public String page() { return "admin/backup"; }
-
     /** ZIP 다운로드 */
     @GetMapping("/download")
     public ResponseEntity<byte[]> download() throws IOException {

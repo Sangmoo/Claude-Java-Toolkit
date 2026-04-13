@@ -4,7 +4,6 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessCacheService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -28,11 +27,6 @@ public class HarnessDependencyController {
         this.claudeClient = claudeClient;
         this.settings     = settings;
         this.cacheService = cacheService;
-    }
-
-    @GetMapping
-    public String index(Model model) {
-        return "harness/dependency";
     }
 
     @PostMapping("/analyze")

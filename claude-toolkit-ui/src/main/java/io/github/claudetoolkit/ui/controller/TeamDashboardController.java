@@ -29,11 +29,6 @@ public class TeamDashboardController {
         this.auditLogRepository = auditLogRepository;
     }
 
-    @GetMapping
-    public String page() {
-        return "admin/team-dashboard";
-    }
-
     @GetMapping("/data")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> data(@RequestParam(defaultValue = "30") int days) {

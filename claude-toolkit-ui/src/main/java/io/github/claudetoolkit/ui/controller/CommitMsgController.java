@@ -33,12 +33,6 @@ public class CommitMsgController {
         this.settings         = settings;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("projectContextActive", settings.isProjectContextSet());
-        return "commitmsg/index";
-    }
-
     @PostMapping("/generate")
     public String generate(
             @RequestParam("diffContent")                                           String diffContent,

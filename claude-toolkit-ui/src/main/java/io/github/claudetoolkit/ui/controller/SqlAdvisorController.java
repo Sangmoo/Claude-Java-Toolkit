@@ -47,13 +47,6 @@ public class SqlAdvisorController {
         this.promptTemplateService = promptTemplateService;
     }
 
-    @GetMapping
-    public String showForm(Model model) {
-        model.addAttribute("sqlTypes",    SqlType.values());
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        return "advisor/index";
-    }
-
     @PostMapping("/review")
     public String review(
             @RequestParam("sqlContent") String sqlContent,
@@ -146,15 +139,6 @@ public class SqlAdvisorController {
     public String downloadMarkdown(@RequestParam("sqlContent") String sqlContent) {
         AdvisoryResult result = sqlAdvisorService.review(sqlContent);
         return result.toMarkdown();
-    }
-
-    /** Index optimization tab — GET */
-    @GetMapping("/index")
-    public String showIndexForm(Model model) {
-        model.addAttribute("sqlTypes",    SqlType.values());
-        model.addAttribute("dbConfigured", settings.isDbConfigured());
-        model.addAttribute("activeTab",    "index");
-        return "advisor/index";
     }
 
     /** Index optimization tab — POST */
