@@ -126,7 +126,11 @@ export default function Sidebar() {
                 </div>
                 <div
                   className={`sidebar-group${isCollapsed ? ' collapsed' : ''}`}
-                  style={{ maxHeight: isCollapsed ? 0 : `${section.items.length * 36}px` }}
+                  style={{
+                    // padding(8px) + line-height(20px) = 36px 이지만 일부 환경에서 마지막
+                    // 항목이 잘리는 현상이 있어 40px + 여유 8px 로 계산
+                    maxHeight: isCollapsed ? 0 : `${section.items.length * 40 + 8}px`,
+                  }}
                 >
                   {section.items.map((item) => {
                     if (item.adminOnly && !isAdmin) return null

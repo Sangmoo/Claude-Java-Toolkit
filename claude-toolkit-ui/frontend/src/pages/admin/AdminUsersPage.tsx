@@ -98,8 +98,8 @@ export default function AdminUsersPage() {
           <thead>
             <tr style={{ background: 'var(--bg-tertiary)' }}>
               <th style={thStyle}>ID</th>
+              <th style={thStyle}>아이디</th>
               <th style={thStyle}>사용자명</th>
-              <th style={thStyle}>이름</th>
               <th style={thStyle}>이메일</th>
               <th style={thStyle}>전화번호</th>
               <th style={thStyle}>역할</th>
@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
       {editing && (
         <Modal title={`사용자 정보 수정 - ${editing.username}`} onClose={() => setEditing(null)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <Field label="표시 이름"><input value={editing.displayName || ''} onChange={(e) => setEditing({ ...editing, displayName: e.target.value })} style={inputSt} /></Field>
+            <Field label="사용자명"><input value={editing.displayName || ''} onChange={(e) => setEditing({ ...editing, displayName: e.target.value })} style={inputSt} /></Field>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <Field label="이메일"><input type="email" value={editing.email || ''} onChange={(e) => setEditing({ ...editing, email: e.target.value })} style={inputSt} /></Field>
               <Field label="전화번호"><input value={editing.phone || ''} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} style={inputSt} /></Field>
@@ -205,7 +205,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const toast = useToast()
 
   const create = async () => {
-    if (!username || !password) { toast.error('사용자명과 비밀번호 필수'); return }
+    if (!username || !password) { toast.error('아이디와 비밀번호 필수'); return }
     try {
       const res = await fetch('/admin/users/create', {
         method: 'POST',
@@ -222,9 +222,9 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   return (
     <Modal title="사용자 추가" onClose={onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <Field label="사용자명 *"><input value={username} onChange={(e) => setUsername(e.target.value)} style={inputSt} autoFocus /></Field>
+        <Field label="아이디 *"><input value={username} onChange={(e) => setUsername(e.target.value)} style={inputSt} autoFocus /></Field>
         <Field label="비밀번호 *"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputSt} /></Field>
-        <Field label="표시 이름"><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} style={inputSt} /></Field>
+        <Field label="사용자명"><input value={displayName} onChange={(e) => setDisplayName(e.target.value)} style={inputSt} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <Field label="이메일"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputSt} /></Field>
           <Field label="전화번호"><input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputSt} /></Field>

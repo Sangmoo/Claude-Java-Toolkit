@@ -179,6 +179,89 @@ public class DataRestController {
         }
     }
 
+    /**
+     * v4.2.x — 리뷰 이력 기반의 "내게 온 리뷰 / 내가 요청한 리뷰" API.
+     *
+     * <ul>
+     *   <li>tab=received: REVIEWER/ADMIN 은 PENDING 상태의 모든 타인 이력 (본인 작성 제외),
+     *       VIEWER 는 본인이 리뷰어로 할당된 항목만 (현재는 빈 리스트 — 할당 개념 없음)</li>
+     *   <li>tab=sent: 본인이 작성한 이력 전체</li>
+     * </ul>
+     */
+    @GetMapping("/review-queue")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> reviewQueue(
+            @RequestParam(defaultValue = "received") String tab,
+            Authentication auth) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        try {
+            String me = auth != null ? auth.getName() : null;
+            if (me == null) return ResponseEntity.ok(ApiResponse.ok(result));
+
+            // 현재 사용자 role 조회
+            String role = "VIEWER";
+            try {
+                Object roleObj = em.createQuery("SELECT u.role FROM AppUser u WHERE u.username = :u")
+                        .setParameter("u", me).getSingleResult();
+                if (roleObj != null) role = roleObj.toString();
+            } catch (Exception ignored) {}
+
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> list;
+            if ("sent".equals(tab)) {
+                // 내가 작성한 이력 — 전부 (상태 무관)
+                list = em.createQuery(
+                        "SELECT h FROM ReviewHistory h WHERE h.username = :u ORDER BY h.createdAt DESC",
+                        io.github.claudetoolkit.ui.history.ReviewHistory.class)
+                        .setParameter("u", me)
+                        .setMaxResults(100)
+                        .getResultList();
+            } else {
+                // 내게 온 리뷰 (received):
+                //   REVIEWER/ADMIN → 타인이 작성한 PENDING 이력 (본인 검토 대상)
+                //   VIEWER        → 본인 이력 중 REVIEWER/ADMIN 이 ACCEPTED/REJECTED 한 것 (피드백 확인용)
+                if ("REVIEWER".equals(role) || "ADMIN".equals(role)) {
+                    list = em.createQuery(
+                            "SELECT h FROM ReviewHistory h "
+                          + "WHERE h.username <> :u "
+                          + "  AND (h.reviewStatus IS NULL OR h.reviewStatus = 'PENDING') "
+                          + "ORDER BY h.createdAt DESC",
+                            io.github.claudetoolkit.ui.history.ReviewHistory.class)
+                            .setParameter("u", me)
+                            .setMaxResults(100)
+                            .getResultList();
+                } else {
+                    // VIEWER — 본인 이력 중 검토 완료된 것
+                    list = em.createQuery(
+                            "SELECT h FROM ReviewHistory h "
+                          + "WHERE h.username = :u "
+                          + "  AND h.reviewStatus IN ('ACCEPTED','REJECTED') "
+                          + "ORDER BY h.reviewedAt DESC",
+                            io.github.claudetoolkit.ui.history.ReviewHistory.class)
+                            .setParameter("u", me)
+                            .setMaxResults(100)
+                            .getResultList();
+                }
+            }
+
+            for (io.github.claudetoolkit.ui.history.ReviewHistory h : list) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",           h.getId());
+                m.put("type",         h.getType());
+                m.put("title",        h.getTitle());
+                m.put("username",     h.getUsername());
+                m.put("createdAt",    h.getCreatedAt() != null ? h.getCreatedAt().toString() : null);
+                m.put("reviewStatus", h.getReviewStatus());
+                m.put("reviewedBy",   h.getReviewedBy());
+                m.put("reviewedAt",   h.getReviewedAt() != null ? h.getReviewedAt().toString() : null);
+                m.put("reviewNote",   h.getReviewNote());
+                result.add(m);
+            }
+        } catch (Exception e) {
+            // Return whatever we have so far
+        }
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
     @GetMapping("/schedule")
     public ResponseEntity<ApiResponse<List<?>>> schedule() {
         try {

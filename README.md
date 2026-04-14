@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.0.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.2.3-brightgreen.svg)](#)
 
 ---
 
@@ -1690,6 +1690,83 @@ React 18 + TypeScript + Vite 기반 SPA로 점진적 전환합니다.
 - [x] `GlobalExceptionHandler`: 405 Method Not Allowed → React SPA 포워딩
 - [x] Vite `outDir`을 `static/` 루트로 변경 (에셋 MIME 타입 오류 해결)
 - [x] React 빌드 JS 경로 일관성 확보 (`/assets/**`)
+
+---
+
+#### ✅ v4.2.2 — 사내망 운영 이슈 정리
+
+**인프라/TLS/타임존**
+- [x] Runtime 이미지 `eclipse-temurin:8-jre-alpine` → `8-jre-jammy` (Ubuntu glibc — TLS handshake 안정)
+- [x] `docker-compose.yml` 의 `JAVA_OPTS` override 제거 — Dockerfile 기본값 보존
+- [x] TLS 설정: `-Dhttps.protocols=TLSv1.2,TLSv1.3 -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3`
+- [x] DNS 캐시 튜닝: `-Dnetworkaddress.cache.ttl=60`, `-Djava.net.preferIPv4Stack=true`
+- [x] ORA-01882 대응: `-Doracle.jdbc.timezoneAsRegion=false` + `TZ=Asia/Seoul` + `tzdata`
+- [x] `ClaudeToolkitUiApplication.main()` 에서 `System.setProperty` 로 defense-in-depth
+- [x] `ClaudeClient`: forward proxy (`CLAUDE_PROXY_HOST/PORT` 또는 `HTTPS_PROXY` env)
+- [x] `ClaudeClient.formatNetworkError()`: handshake_failure/PKIX/timeout/unknown host 한국어 변환
+- [x] `/admin/health/claude-api-diagnose` 진단 엔드포인트 + `AdminHealthPage` UI
+
+**DB 자동 이관 / 런타임 전환 / Oracle 호환**
+- [x] `DbOverrideConfig`: `data/db-override.properties` 기반 런타임 DataSource 오버라이드
+- [x] `POST /admin/db-migration/auto/switch-target` / `/switch-h2` — 재시작으로 운영 DB 전환
+- [x] `GET /admin/db-migration/auto/tables` — 19개 대상 테이블 목록 노출
+- [x] `POST /admin/db-migration/auto/validate` — 대상 DB 충돌/기존 행수 사전 검증
+- [x] Oracle URL 자동 포맷 감지: SID(`@host:port:SID`) → Service Name(`@//host:port/SVC`) fallback
+- [x] `SystemHealthController` + `DataRestController`: 활성 DB 자동 감지 — 자동 이관 후 시스템 헬스가 실제 운영 DB 정보 표시
+- [x] `SourceSelector` 프로젝트 스캔 중 상태 폴링 (부팅 직후 "Java 파일 없음" 오해 제거)
+
+**계정 / 비밀번호 / 감사로그 / 파이프라인**
+- [x] `AccountController.me` GET — 프로필 prefill
+- [x] `SecurityPage`: 현재 비밀번호 틀릴 때 명확한 에러 (이전엔 항상 "성공")
+- [x] `PasswordChangePage` 신규 (`/account/password`) — 90일 만료 배너 + "다음에 변경하기" 버튼
+- [x] `AuditLogPage` 재작성: 페이지당 20건 페이지네이션 + 기간/사용자 필터 + CSV 다운로드
+- [x] `DbMigrationGuidePage`: 대상 테이블 details + 사전 검증 결과 + 런타임 전환 버튼
+- [x] `PipelineExecutionPage` 전면 개편: 스트리밍 청크 + 탭 네비 + 진행적 `outputContent` DB 저장 + 1초 폴링 백업
+- [x] `PipelineExecutor`: `setOutputContent` setter 추가 + 300ms/1000자 throttled 저장
+- [x] `WorkspacePage` / `PipelineExecutionPage` / `CodeReviewPage`: 복사 버튼 `execCommand` fallback (HTTP IP 환경 대응)
+
+**Claude API / CSRF / 이메일**
+- [x] `SseStreamController`: 스트리밍 완료 후 `historyService.save()` 호출 (React 경로에서 이력 저장 누락 버그)
+- [x] `ReviewHistoryService.save()`: `SecurityContextHolder` 에서 username 추출해 `setUsername` 호출
+- [x] `SecurityConfig` CSRF ignore 에 `/pipelines/**`, `/email/**` 추가 (기존 누락)
+- [x] `EmailController` 신규 — `POST /email/send` (쉼표/세미콜론 구분 최대 10명), `POST /email/test`
+- [x] `EmailModal` 공용 컴포넌트 — Workspace/Pipeline/CodeReview 모달 버튼 연결
+- [x] `SettingsPage`: SMTP 카드 (Gmail 앱 비밀번호 안내 + 테스트 발송)
+
+---
+
+#### ✅ v4.2.3 — 리뷰 워크플로우 (승인/거절 + 댓글 알림)
+
+**스키마 확장**
+- [x] `ReviewHistory`: `reviewStatus` (PENDING/ACCEPTED/REJECTED), `reviewedBy`, `reviewedAt`, `reviewNote` 컬럼 추가
+- [x] `ReviewComment`: `parentId` 컬럼 추가 (대댓글 지원)
+
+**백엔드 API**
+- [x] `POST /history/{id}/review-status` — REVIEWER/ADMIN 이 리뷰 이력 승인/거절 + 작성자에게 알림
+- [x] `POST /history/{id}/comments` — `parentId` 파라미터 지원 (대댓글 → 부모 댓글 작성자 알림)
+- [x] `GET /api/v1/review-queue?tab=received|sent` — 역할 기반 리뷰 큐
+  - `received`: REVIEWER/ADMIN → 타인의 PENDING 이력, VIEWER → 본인 이력 중 검토 완료된 것
+  - `sent`: 본인이 작성한 모든 이력
+
+**UI/UX**
+- [x] `HistoryPage` 재작성:
+  - 필드 매핑 수정 (`inputContent`/`outputContent` — 이전엔 잘못된 `inputText`/`resultText` 사용)
+  - 리뷰 상태 배지 (승인됨/거절됨/검토 대기)
+  - REVIEWER/ADMIN 승인·거절 버튼 (VIEWER 는 읽기 전용)
+  - 댓글 섹션 + 대댓글 트리 (들여쓰기 구조)
+  - `copyToClipboard` 적용 (HTTP IP 복사 지원)
+- [x] `ReviewRequestsPage` 재작성:
+  - 내게 온 / 내가 요청한 탭
+  - 역할별 문구 (REVIEWER/ADMIN vs VIEWER)
+  - **승인/거절 확인 다이얼로그** ("승인하시겠습니까?" / "거절하시겠습니까?")
+  - 녹색 **승인** / 빨강 **거절** 버튼 (REVIEWER/ADMIN 만, VIEWER 는 🔒 안내)
+- [x] `AdminUsersPage` 라벨 변경: `사용자명` → `아이디`, `표시 이름` → `사용자명`
+
+**사이드바 UX**
+- [x] `Sidebar` section max-height 계산: `items.length * 36` → `items.length * 40 + 8` (마지막 항목 잘림 해결)
+
+**문서**
+- [x] `README.md` / `docs/index.html` 버전 히스토리 갱신
 
 ---
 

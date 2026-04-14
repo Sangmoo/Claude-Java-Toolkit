@@ -59,6 +59,22 @@ public class ReviewHistory {
     @Column(length = 50)
     private String username;
 
+    /** v4.2.x: 리뷰 승인 상태 — PENDING / ACCEPTED / REJECTED */
+    @Column(length = 20)
+    private String reviewStatus = "PENDING";
+
+    /** v4.2.x: 승인/거절한 리뷰어 username */
+    @Column(length = 50)
+    private String reviewedBy;
+
+    /** v4.2.x: 승인/거절 시각 */
+    @Column
+    private LocalDateTime reviewedAt;
+
+    /** v4.2.x: 승인/거절 코멘트 */
+    @Column(columnDefinition = "TEXT")
+    private String reviewNote;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -103,6 +119,16 @@ public class ReviewHistory {
     public void setAnalysisLanguage(String l)  { this.analysisLanguage = l; }
     public String getUsername()                { return username; }
     public void setUsername(String u)          { this.username = u; }
+
+    // v4.2.x: 리뷰 승인 상태
+    public String getReviewStatus()            { return reviewStatus == null ? "PENDING" : reviewStatus; }
+    public void setReviewStatus(String s)      { this.reviewStatus = s; }
+    public String getReviewedBy()              { return reviewedBy; }
+    public void setReviewedBy(String r)        { this.reviewedBy = r; }
+    public LocalDateTime getReviewedAt()       { return reviewedAt; }
+    public void setReviewedAt(LocalDateTime t) { this.reviewedAt = t; }
+    public String getReviewNote()              { return reviewNote; }
+    public void setReviewNote(String n)        { this.reviewNote = n; }
 
     public long getTotalTokens() {
         long i = inputTokens  != null ? inputTokens  : 0;

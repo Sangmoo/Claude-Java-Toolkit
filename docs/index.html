@@ -608,6 +608,28 @@ footer{
         </div>
       </div>
       <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">✅</div>
+        <div class="feat-title">리뷰 워크플로우 (v4.2.3)</div>
+        <div class="feat-desc">REVIEWER/ADMIN 이 리뷰 이력을 <strong>승인(ACCEPTED) / 거절(REJECTED)</strong> 하면 작성자에게 SSE 알림이 즉시 전달됩니다. 대댓글 트리로 토론이 가능하고, 팀 리뷰 요청 페이지는 역할 기반으로 "내게 온 리뷰 / 내가 요청한 리뷰" 탭을 분기합니다. VIEWER 는 피드백만 확인 가능하고, 승인·거절 버튼은 REVIEWER/ADMIN 전용입니다.</div>
+        <div class="feat-tags">
+          <span class="tag">✅ 승인/거절 + 알림</span>
+          <span class="tag">💬 대댓글 트리</span>
+          <span class="tag">👥 역할 기반 뷰</span>
+          <span class="tag">🔔 SSE 실시간 알림</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🛠️</div>
+        <div class="feat-title">사내망 운영 안정화 (v4.2.2)</div>
+        <div class="feat-desc">Ubuntu 기반 JRE 이미지로 전환하고 TLSv1.2/1.3 + DNS 캐시 + Forward Proxy 지원을 추가해 사내망 TLS handshake_failure 를 해결했습니다. Oracle <code>ORA-01882</code> timezone 이슈는 <code>timezoneAsRegion=false</code> + <code>TZ=Asia/Seoul</code> 로 영구 해결. 자동 이관 후 런타임 DB 전환 + 시스템 헬스 실제 DB 반영 + 분석 결과 이메일 발송(최대 10명) + Gmail SMTP 설정 UI 까지 운영 기능이 대폭 보강되었습니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🔐 TLS 1.2/1.3</span>
+          <span class="tag">🌐 Forward Proxy</span>
+          <span class="tag">🔄 런타임 DB 전환</span>
+          <span class="tag">✉️ 다수 수신자 메일</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">💎</div>
         <div class="feat-title" data-i18n="feat.chat.title">채팅 고도화 & 성능</div>
         <div class="feat-desc" data-i18n="feat.chat.desc">Markdown 렌더링(marked + Prism.js + DOMPurify XSS 방지), 다중 대화 세션 관리(DB 영속화 + 좌측 패널), 대화 내보내기(.md), WebJars 기반 정적 리소스 로컬 번들링(오프라인/폐쇄망 지원), 분석 캐시 DB 영속화(서버 재시작 후에도 캐시 유지)</div>

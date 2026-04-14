@@ -42,20 +42,22 @@ public class ReviewCommentController {
         List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
         for (ReviewComment c : comments) {
             Map<String, Object> m = new LinkedHashMap<String, Object>();
-            m.put("id", c.getId());
-            m.put("username", c.getUsername());
-            m.put("content", c.getContent());
+            m.put("id",        c.getId());
+            m.put("parentId",  c.getParentId());
+            m.put("username",  c.getUsername());
+            m.put("content",   c.getContent());
             m.put("createdAt", c.getFormattedDate());
             result.add(m);
         }
         return ResponseEntity.ok(result);
     }
 
-    /** 댓글 작성 */
+    /** 댓글 작성 (parentId 가 있으면 대댓글) */
     @PostMapping("/{historyId}/comments")
     public ResponseEntity<Map<String, Object>> addComment(
             @PathVariable long historyId,
             @RequestParam String content,
+            @RequestParam(required = false) Long parentId,
             Principal principal) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         if (content == null || content.trim().isEmpty()) {
@@ -64,23 +66,43 @@ public class ReviewCommentController {
             return ResponseEntity.ok(resp);
         }
         String username = principal.getName();
-        ReviewComment comment = new ReviewComment(historyId, username, content.trim());
+        ReviewComment comment = new ReviewComment(historyId, parentId, username, content.trim());
         commentRepository.save(comment);
 
-        // 분석 작성자에게 알림 생성 (자기 자신의 댓글은 제외)
+        // 알림 대상 결정:
+        //  - 대댓글이면 → 부모 댓글 작성자에게 알림
+        //  - 일반 댓글이면 → 분석 이력 작성자에게 알림
         try {
-            ReviewHistory history = historyRepository.findById(historyId).orElse(null);
-            if (history != null && history.getUsername() != null
-                    && !history.getUsername().isEmpty()
-                    && !username.equals(history.getUsername())) {
+            String targetUser = null;
+            String titleText;
+            if (parentId != null) {
+                ReviewComment parent = commentRepository.findById(parentId).orElse(null);
+                if (parent != null && parent.getUsername() != null
+                        && !parent.getUsername().equals(username)) {
+                    targetUser = parent.getUsername();
+                    titleText  = username + "님이 내 댓글에 답글을 남겼습니다";
+                } else {
+                    titleText = "";
+                }
+            } else {
+                ReviewHistory history = historyRepository.findById(historyId).orElse(null);
+                if (history != null && history.getUsername() != null
+                        && !history.getUsername().isEmpty()
+                        && !username.equals(history.getUsername())) {
+                    targetUser = history.getUsername();
+                    titleText  = username + "님이 댓글을 남겼습니다";
+                } else {
+                    titleText = "";
+                }
+            }
+            if (targetUser != null && !titleText.isEmpty()) {
                 Notification noti = new Notification(
-                    history.getUsername(),
-                    "COMMENT",
-                    username + "님이 댓글을 남겼습니다",
+                    targetUser,
+                    parentId != null ? "COMMENT_REPLY" : "COMMENT",
+                    titleText,
                     content.trim().length() > 80 ? content.trim().substring(0, 80) + "..." : content.trim(),
                     "/history"
                 );
-                // v2.8.0: DB 저장 + SSE 실시간 push
                 notificationPublisher.publish(noti);
             }
         } catch (Exception ignored) {
@@ -88,7 +110,7 @@ public class ReviewCommentController {
         }
 
         resp.put("success", true);
-        resp.put("id", comment.getId());
+        resp.put("id",      comment.getId());
         return ResponseEntity.ok(resp);
     }
 
