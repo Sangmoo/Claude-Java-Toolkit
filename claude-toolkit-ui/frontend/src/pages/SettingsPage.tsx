@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FaCog, FaSave, FaCheckCircle, FaTimesCircle, FaSync } from 'react-icons/fa'
+import { FaCog, FaSave, FaCheckCircle, FaTimesCircle, FaSync, FaSpinner } from 'react-icons/fa'
 import { useToast } from '../hooks/useToast'
 
 const ACCENT_COLORS = [
@@ -78,11 +78,33 @@ export default function SettingsPage() {
   }
 
   const testScan = async () => {
-    setScanTest(null)
+    setScanTest('info:캐시 상태 조회 중...')
     try {
-      const res = await fetch(`/harness/cache/files?q=.java`, { credentials: 'include' })
-      const d = await res.json()
-      setScanTest(d.totalCount > 0 ? `ok:${d.totalCount}개 Java 파일 발견` : 'error:Java 파일 없음')
+      // 1차 조회 — 캐시가 아직 로드되지 않았으면 백그라운드 스캔 트리거 + 폴링
+      let d = await (await fetch(`/harness/cache/files?q=.java`, { credentials: 'include' })).json()
+
+      // 부팅 직후엔 백그라운드 스캔 중 — loaded=false 또는 refreshing=true 면 폴링
+      if (d.refreshing || !d.loaded) {
+        setScanTest('info:프로젝트 스캔 중... 잠시 기다려주세요')
+        // 수동 refresh 트리거 (이미 진행중이면 무시됨)
+        try {
+          await fetch('/harness/cache/refresh', { method: 'POST', credentials: 'include' })
+        } catch { /* noop */ }
+        // 최대 30초 폴링 (1초 간격)
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => setTimeout(r, 1000))
+          d = await (await fetch(`/harness/cache/files?q=.java`, { credentials: 'include' })).json()
+          if (!d.refreshing && d.loaded) break
+        }
+      }
+
+      if (d.totalCount > 0) {
+        setScanTest(`ok:${d.totalCount}개 Java 파일 발견`)
+      } else if (!d.loaded || d.refreshing) {
+        setScanTest('error:스캔 시간 초과 — 잠시 후 다시 시도하거나 경로를 확인하세요')
+      } else {
+        setScanTest('error:Java 파일 없음 — 경로가 올바른지 확인하세요')
+      }
     } catch { setScanTest('error:확인 실패') }
   }
 
@@ -191,10 +213,12 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 function TestResult({ result }: { result: string | null }) {
   if (!result) return null
-  const ok = result.startsWith('ok')
+  const kind = result.startsWith('ok') ? 'ok' : result.startsWith('info') ? 'info' : 'error'
+  const color = kind === 'ok' ? 'var(--green)' : kind === 'info' ? 'var(--blue)' : 'var(--red)'
+  const message = result.substring(result.indexOf(':') + 1)
   return (
-    <div style={{ fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', color: ok ? 'var(--green)' : 'var(--red)' }}>
-      {ok ? <FaCheckCircle /> : <FaTimesCircle />} {result.split(':')[1]}
+    <div style={{ fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', color }}>
+      {kind === 'ok' ? <FaCheckCircle /> : kind === 'info' ? <FaSpinner className="spin" /> : <FaTimesCircle />} {message}
     </div>
   )
 }

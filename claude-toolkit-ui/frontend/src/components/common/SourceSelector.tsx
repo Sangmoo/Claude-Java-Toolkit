@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { FaFolderOpen, FaDatabase, FaSearch, FaFile, FaTimes } from 'react-icons/fa'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { FaFolderOpen, FaDatabase, FaSearch, FaFile, FaTimes, FaSpinner, FaSync } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 
 interface FileEntry { absolutePath: string; relativePath: string; fileName: string }
@@ -29,12 +29,22 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
   const [q, setQ] = useState('')
   const [dbTypeFilter, setDbTypeFilter] = useState('ALL')
   const [javaCatFilter, setJavaCatFilter] = useState('ALL')
+  const [fileLoaded, setFileLoaded] = useState(false)
+  const [fileRefreshing, setFileRefreshing] = useState(false)
+  const [fileTotal, setFileTotal] = useState(0)
+  const pollTimer = useRef<number | null>(null)
   const toast = useToast()
 
   const loadFiles = useCallback(async (kw: string) => {
     try {
       const res = await fetch(`/harness/cache/files?q=${encodeURIComponent(kw)}`, { credentials: 'include' })
-      if (res.ok) { const d = await res.json(); setFiles(d.files || []) }
+      if (res.ok) {
+        const d = await res.json()
+        setFiles(d.files || [])
+        setFileLoaded(!!d.loaded)
+        setFileRefreshing(!!d.refreshing)
+        setFileTotal(d.totalCount || 0)
+      }
     } catch { /* silent */ }
   }, [])
 
@@ -46,11 +56,34 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
     } catch { /* silent */ }
   }, [])
 
+  // 부팅 직후엔 백엔드가 백그라운드 스캔 중일 수 있음 — refreshing/!loaded 면
+  // 1.5초마다 자동 폴링해서 완료되면 즉시 갱신
+  useEffect(() => {
+    if (!open || tab !== 'file') return
+    if (fileLoaded && !fileRefreshing) {
+      if (pollTimer.current) { window.clearInterval(pollTimer.current); pollTimer.current = null }
+      return
+    }
+    if (pollTimer.current) return
+    pollTimer.current = window.setInterval(() => { loadFiles(q) }, 1500)
+    return () => {
+      if (pollTimer.current) { window.clearInterval(pollTimer.current); pollTimer.current = null }
+    }
+  }, [open, tab, fileLoaded, fileRefreshing, loadFiles, q])
+
   useEffect(() => {
     if (!open) return
     if (tab === 'file') loadFiles(q)
     else loadDb(q, dbTypeFilter)
   }, [open, tab, q, dbTypeFilter, loadFiles, loadDb])
+
+  const triggerRefresh = async () => {
+    setFileRefreshing(true)
+    try {
+      await fetch('/harness/cache/refresh', { method: 'POST', credentials: 'include' })
+    } catch { /* noop */ }
+    setTimeout(() => loadFiles(q), 500)
+  }
 
   // 자바 카테고리 클라이언트 필터
   const filteredFiles = (() => {
@@ -125,8 +158,20 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
             )}
 
             {/* 목록 */}
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-              {tab === 'file' ? `${filteredFiles.length}개 파일` : `${dbObjects.length}개 객체`}
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>
+                {tab === 'file'
+                  ? `${filteredFiles.length}개 파일${fileTotal > 0 ? ` (전체 캐시 ${fileTotal})` : ''}`
+                  : `${dbObjects.length}개 객체`}
+              </span>
+              {tab === 'file' && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {fileRefreshing && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--blue)' }}><FaSpinner className="spin" /> 스캔 중...</span>}
+                  <button onClick={triggerRefresh} title="캐시 새로고침" style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '2px 6px', color: 'var(--text-sub)', cursor: 'pointer', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <FaSync /> 새로고침
+                  </button>
+                </span>
+              )}
             </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {tab === 'file' ? (
@@ -138,7 +183,13 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.relativePath}</div>
                     </div>
                   </div>
-                )) : <Empty msg={javaCatFilter !== 'ALL' ? `${javaCatFilter} 필터에 매칭되는 파일이 없습니다.` : '프로젝트 스캔 경로를 Settings에서 설정해주세요.'} />
+                )) : (
+                  fileRefreshing || !fileLoaded
+                    ? <ScanProgress />
+                    : <Empty msg={javaCatFilter !== 'ALL'
+                        ? `${javaCatFilter} 필터에 매칭되는 파일이 없습니다.`
+                        : '프로젝트 스캔 경로를 Settings에서 설정하거나 새로고침 버튼을 눌러주세요.'} />
+                )
               ) : (
                 dbObjects.length > 0 ? dbObjects.map((o) => (
                   <div key={`${o.owner}.${o.name}.${o.type}`} onClick={() => selectDb(o)} style={listItem}>
@@ -172,6 +223,21 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 
 function Empty({ msg }: { msg: string }) {
   return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>{msg}</div>
+}
+
+function ScanProgress() {
+  return (
+    <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--blue)', fontSize: '13px' }}>
+      <div style={{ fontSize: '24px', marginBottom: '10px' }}>
+        <FaSpinner className="spin" />
+      </div>
+      <div style={{ fontWeight: 600, marginBottom: '4px' }}>프로젝트 스캔 중...</div>
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+        WAS 시작 직후엔 백그라운드에서 Java 파일을 인덱싱합니다.<br/>
+        완료되면 자동으로 표시됩니다 (보통 수 초 ~ 수십 초).
+      </div>
+    </div>
+  )
 }
 
 const filterChip = (active: boolean): React.CSSProperties => ({
