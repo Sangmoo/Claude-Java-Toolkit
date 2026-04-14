@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import MermaidChart from '../components/common/MermaidChart'
+import PipelineBuilder from '../components/common/PipelineBuilder'
 import {
-  FaSave, FaCheckCircle, FaProjectDiagram, FaTrash,
+  FaSave, FaCheckCircle, FaProjectDiagram, FaTrash, FaCode, FaMagic,
 } from 'react-icons/fa'
 import { useThemeStore } from '../stores/themeStore'
 import { useToast } from '../hooks/useToast'
@@ -105,6 +106,7 @@ export default function PipelineEditorPage() {
     name: '', description: '', yamlContent: DEFAULT_YAML, inputLanguage: 'java', isBuiltin: false,
   })
   const [mermaidCode, setMermaidCode] = useState('')
+  const [editorMode, setEditorMode] = useState<'yaml' | 'visual'>('visual')
   const [validating, setValidating] = useState(false)
   const [validResult, setValidResult] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -256,28 +258,46 @@ export default function PipelineEditorPage() {
 
       {/* Editor + Mermaid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', height: 'calc(100vh - 260px)', minHeight: '400px' }}>
-        {/* Monaco Editor */}
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border-color)', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-            YAML 편집기 {data.isBuiltin && '(읽기 전용)'}
+        {/* Editor (Visual / YAML 탭) */}
+        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '6px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button onClick={() => setEditorMode('visual')} style={{ ...tabBtnSt, ...(editorMode === 'visual' ? tabActiveSt : {}) }}>
+              <FaMagic /> 비주얼 빌더
+            </button>
+            <button onClick={() => setEditorMode('yaml')} style={{ ...tabBtnSt, ...(editorMode === 'yaml' ? tabActiveSt : {}) }}>
+              <FaCode /> YAML 편집기
+            </button>
+            {data.isBuiltin && <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>읽기 전용</span>}
           </div>
-          <Editor
-            height="calc(100% - 36px)"
-            language="yaml"
-            theme={theme === 'dark' ? 'vs-dark' : 'light'}
-            value={data.yamlContent}
-            onChange={onYamlChange}
-            options={{
-              readOnly: data.isBuiltin,
-              minimap: { enabled: false },
-              fontSize: 13,
-              tabSize: 2,
-              wordWrap: 'on',
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-            }}
-          />
+
+          {editorMode === 'visual' ? (
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+              <PipelineBuilder
+                onYamlGenerate={(yaml) => { setData((d) => ({ ...d, yamlContent: yaml })); setMermaidCode(yamlToMermaid(yaml)) }}
+                pipelineName={data.name}
+                pipelineDesc={data.description}
+                inputLanguage={data.inputLanguage}
+              />
+            </div>
+          ) : (
+            <Editor
+              height="calc(100% - 36px)"
+              language="yaml"
+              theme={theme === 'dark' ? 'vs-dark' : 'light'}
+              value={data.yamlContent}
+              onChange={onYamlChange}
+              options={{
+                readOnly: data.isBuiltin,
+                minimap: { enabled: false },
+                fontSize: 13,
+                tabSize: 2,
+                wordWrap: 'on',
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
+            />
+          )}
         </div>
 
         {/* Mermaid Preview */}
@@ -300,3 +320,6 @@ const btnStyle: React.CSSProperties = {
   border: '1px solid var(--border-color)', background: 'transparent',
   color: 'var(--text-sub)', cursor: 'pointer',
 }
+
+const tabBtnSt: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', border: '1px solid transparent', background: 'transparent', color: 'var(--text-muted)' }
+const tabActiveSt: React.CSSProperties = { border: '1px solid var(--accent)', background: 'var(--accent-subtle)', color: 'var(--accent)', fontWeight: 600 }
