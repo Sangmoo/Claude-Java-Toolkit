@@ -11,6 +11,10 @@ interface ThemeState {
 const getInitialTheme = (): Theme => {
   const saved = localStorage.getItem('theme')
   if (saved === 'light' || saved === 'dark') return saved
+  // OS 다크/라이트 모드 자동 감지
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  }
   return 'dark'
 }
 

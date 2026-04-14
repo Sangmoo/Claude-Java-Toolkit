@@ -3,6 +3,7 @@ import { create } from 'zustand'
 interface User {
   username: string
   role: string
+  disabledFeatures?: string[]
 }
 
 interface AuthState {
@@ -24,7 +25,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       const res = await fetch('/api/v1/auth/me', { credentials: 'include' })
       if (res.ok) {
         const json = await res.json()
-        set({ user: json.data ?? json, loading: false, error: null })
+        const user = (json.data ?? json) as User
+        // ADMIN이 아닌 경우 비활성화 기능 목록 병행 로드
+        if (user && user.role !== 'ADMIN') {
+          try {
+            const pRes = await fetch('/api/v1/auth/my-permissions', { credentials: 'include' })
+            if (pRes.ok) {
+              const pJson = await pRes.json()
+              user.disabledFeatures = pJson.data?.disabledFeatures || []
+            }
+          } catch { /* ignore */ }
+        }
+        set({ user, loading: false, error: null })
       } else {
         set({ user: null, loading: false, error: null })
       }

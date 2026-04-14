@@ -56,14 +56,33 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     setInput((prev) => prev ? prev + '\n\n// ── 추가 소스 ──\n\n' + code : code)
   }, [])
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const [dragOver, setDragOver] = useState(false)
+
+  const readFile = (file: File) => {
     const reader = new FileReader()
     reader.onload = () => { setInput(reader.result as string); toast.success(`${file.name} 로드 완료`) }
     reader.readAsText(file)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) readFile(file)
     e.target.value = ''
   }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) readFile(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!dragOver) setDragOver(true)
+  }
+
+  const handleDragLeave = () => setDragOver(false)
 
   const startAnalysis = async () => {
     if (!input.trim() || streaming) return
@@ -115,7 +134,7 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', minHeight: '60vh' }}>
+      <div className="analysis-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '16px', minHeight: '60vh' }}>
         {/* 입력 패널 */}
         <div style={panelStyle}>
           <div style={panelHeader}>
@@ -167,9 +186,22 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
           {config.extraActions && <div style={{ padding: '4px 14px' }}>{config.extraActions}</div>}
 
           <textarea
-            style={{ flex: 1, margin: '0 14px', border: 'none', resize: 'none', fontFamily: "'Consolas','Monaco',monospace", fontSize: '13px', lineHeight: '1.6', background: 'transparent', outline: 'none', color: 'var(--text-primary)' }}
+            style={{
+              flex: 1, margin: '0 14px', border: 'none', resize: 'none',
+              fontFamily: "'Consolas','Monaco',monospace", fontSize: '13px',
+              lineHeight: '1.6', outline: 'none', color: 'var(--text-primary)',
+              background: dragOver ? 'var(--accent-subtle)' : 'transparent',
+              transition: 'background 0.15s',
+            }}
             value={input} onChange={(e) => setInput(e.target.value)}
-            placeholder={config.inputPlaceholder || '코드 또는 SQL을 입력하세요...'}
+            placeholder={
+              config.allowFileUpload
+                ? (config.inputPlaceholder || '코드를 입력하거나 파일을 드래그앤드롭 하세요...')
+                : (config.inputPlaceholder || '코드 또는 SQL을 입력하세요...')
+            }
+            onDrop={config.allowFileUpload ? handleDrop : undefined}
+            onDragOver={config.allowFileUpload ? handleDragOver : undefined}
+            onDragLeave={config.allowFileUpload ? handleDragLeave : undefined}
           />
 
           <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end' }}>

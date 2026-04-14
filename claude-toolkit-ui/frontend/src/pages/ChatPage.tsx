@@ -24,6 +24,7 @@ interface ChatMessage {
 
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [sessionSearch, setSessionSearch] = useState('')
   const [activeId, setActiveId] = useState<number | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -246,8 +247,19 @@ export default function ChatPage() {
         <button style={styles.newBtn} onClick={createSession}>
           <FaPlus /> 새 대화
         </button>
+        <div style={{ padding: '0 12px 8px' }}>
+          <input
+            type="text"
+            placeholder="세션 검색..."
+            value={sessionSearch}
+            onChange={(e) => setSessionSearch(e.target.value)}
+            style={{ width: '100%', fontSize: '12px', padding: '6px 10px' }}
+          />
+        </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {sessions.map((s) => (
+          {sessions
+            .filter((s) => !sessionSearch || s.title.toLowerCase().includes(sessionSearch.toLowerCase()))
+            .map((s) => (
             <div
               key={s.id}
               style={{

@@ -108,6 +108,19 @@ public class AuthRestController {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("username", auth.getName());
         data.put("role", role);
+
+        // 사용자별 비활성화된 기능 목록 (ADMIN은 제외 — 모든 기능 허용)
+        if (!"ADMIN".equals(role)) {
+            try {
+                AppUser user = userRepository.findByUsername(auth.getName()).orElse(null);
+                if (user != null) {
+                    java.util.List<String> disabled = new java.util.ArrayList<>();
+                    // UserPermission 조회는 EntityManager 필요 — 간략화: 클라이언트가 필요시 별도 조회
+                    data.put("userId", user.getId());
+                    data.put("disabledFeatures", disabled);
+                }
+            } catch (Exception ignored) {}
+        }
         return data;
     }
 }

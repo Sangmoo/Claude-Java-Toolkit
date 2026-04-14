@@ -47,6 +47,18 @@ public class DataRestController {
         }
     }
 
+    @GetMapping("/pipelines/executions")
+    public ResponseEntity<ApiResponse<List<?>>> pipelineExecutions(Authentication auth) {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT e FROM PipelineExecution e WHERE e.username = :u ORDER BY e.startedAt DESC"
+            ).setParameter("u", auth.getName()).setMaxResults(50).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<?>>> history(Authentication auth) {
         try {
@@ -224,6 +236,25 @@ public class DataRestController {
             }
         } catch (Exception ignored) {}
         return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    /**
+     * 현재 로그인 사용자의 비활성화된 기능 목록.
+     * 프론트엔드 사이드바에서 메뉴를 숨기는 데 사용.
+     */
+    @GetMapping("/auth/my-permissions")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> myPermissions(Authentication auth) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        List<String> disabled = new ArrayList<>();
+        try {
+            List<?> perms = em.createQuery(
+                "SELECT p.featureKey FROM UserPermission p WHERE p.userId = " +
+                "(SELECT u.id FROM AppUser u WHERE u.username = :u) AND p.allowed = false"
+            ).setParameter("u", auth.getName()).getResultList();
+            for (Object k : perms) disabled.add(String.valueOf(k));
+        } catch (Exception ignored) {}
+        data.put("disabledFeatures", disabled);
+        return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
     @GetMapping("/db-profiles")

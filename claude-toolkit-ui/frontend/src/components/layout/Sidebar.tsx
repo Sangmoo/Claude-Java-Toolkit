@@ -48,6 +48,13 @@ export default function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
   const isReviewer = user?.role === 'REVIEWER' || isAdmin
+  const disabledFeatures = user?.disabledFeatures || []
+
+  const isFeatureAllowed = (item: MenuItem) => {
+    if (isAdmin) return true
+    if (!item.featureKey) return true
+    return !disabledFeatures.includes(item.featureKey)
+  }
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/' || location.pathname === ''
@@ -77,7 +84,7 @@ export default function Sidebar() {
         {/* Navigation */}
         <div className="sidebar-nav">
           {/* Quick Links */}
-          {quickLinks.map((item) => (
+          {quickLinks.filter(isFeatureAllowed).map((item) => (
             <SidebarItem
               key={item.path}
               item={item}
@@ -108,6 +115,7 @@ export default function Sidebar() {
                 >
                   {section.items.map((item) => {
                     if (item.adminOnly && !isAdmin) return null
+                    if (!isFeatureAllowed(item)) return null
                     return (
                       <SidebarItem
                         key={item.path}

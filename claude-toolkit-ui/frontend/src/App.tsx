@@ -13,6 +13,7 @@ const ChatPage = lazy(() => import('./pages/ChatPage'))
 const PipelinePage = lazy(() => import('./pages/PipelinePage'))
 const PipelineEditorPage = lazy(() => import('./pages/PipelineEditorPage'))
 const PipelineExecutionPage = lazy(() => import('./pages/PipelineExecutionPage'))
+const PipelineHistoryPage = lazy(() => import('./pages/PipelineHistoryPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
@@ -117,6 +118,7 @@ export default function App() {
           <Route path="/pipelines/new" element={<PipelineEditorPage />} />
           <Route path="/pipelines/:id" element={<PipelineEditorPage />} />
           <Route path="/pipelines/execution/:id" element={<PipelineExecutionPage />} />
+          <Route path="/pipelines/history" element={<PipelineHistoryPage />} />
 
           {/* SQL Analysis */}
           <Route path="/advisor" element={<SqlReviewPage />} />

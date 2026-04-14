@@ -1651,6 +1651,46 @@ React 18 + TypeScript + Vite 기반 SPA로 점진적 전환합니다.
 - [x] `.dockerignore` 추가 (Docker 빌드 최적화)
 - [x] 전체 **52개 React 페이지**, **35개 컴포넌트/훅/스토어** 완성
 
+#### ✅ v4.2.0 — 운영 안정화 + UX 개선
+
+**핵심 기능**
+- [x] 사용자 권한 관리 연동 — React 사이드바가 per-user 비활성 기능 자동 숨김 (`/api/v1/auth/my-permissions`)
+- [x] 파이프라인 비주얼 빌더 — 12종 분석을 버튼 클릭으로 조립 → YAML 자동 생성
+- [x] 파이프라인 실행 이력 페이지 (`/pipelines/history`)
+- [x] DB 프로필 추가 모달 — 연결 테스트 + 저장 통합 워크플로우
+- [x] DB 자동 이관 (H2 → Oracle 11g/PostgreSQL/MySQL) — 원클릭 실행 + SSE 진행률
+
+**UX 개선**
+- [x] OS 다크/라이트 모드 자동 감지 (`prefers-color-scheme`)
+- [x] SSE 자동 재연결 (exponential backoff, 최대 3회)
+- [x] 채팅 세션 검색 (실시간 필터)
+- [x] 파일 드래그앤드롭 업로드 (분석 페이지 + 시각 피드백)
+- [x] 모바일 반응형 그리드 (`repeat(auto-fit, minmax(400px, 1fr))`)
+- [x] 세련된 옵션 UI — select → pill/chip 버튼 일괄 전환
+- [x] 정규식 생성기 8종 예시 버튼 (핸드폰/주민번호/이메일/주소 등)
+
+**백엔드 REST API 보강**
+- [x] `/api/v1/auth/my-permissions` — 현재 사용자 비활성 기능 목록
+- [x] `/api/v1/db-profiles` — DB 프로필 목록
+- [x] `/api/v1/pipelines/executions` — 파이프라인 실행 이력
+- [x] `/api/v1/explain/dashboard`, `/api/v1/harness/dashboard` — 대시보드 데이터
+- [x] `/api/v1/admin/team-dashboard`, `/api/v1/admin/health/data` — 관리자 통계
+- [x] `/api/v1/admin/users`, `/audit-logs`, `/permissions` — 관리자 목록 API
+- [x] `/api/v1/review-requests`, `/schedule`, `/roi-report`, `/prompts`, `/settings/prompts`, `/settings/shared`, `/search`
+
+**인터셉터 정비** (5개 인터셉터의 `/assets/**`, `/api/**`, `/chat/**`, `/stream/**` 제외)
+- [x] `PermissionInterceptor`, `SetupInterceptor`, `PasswordChangeInterceptor`
+- [x] `PasswordExpiryInterceptor`, `TwoFactorInterceptor`
+
+**핵심 버그 수정**
+- [x] `useApi` 훅 안정적 참조 (useEffect 무한 루프 방지)
+- [x] 15개 페이지 `[api]` 의존성 → `[]` (Failed to fetch 무한 반복 해결)
+- [x] `AuthRestController`: ADMIN 로그인 시 `require2fa=true` 반환 → 2FA 페이지 이동
+- [x] `TwoFactorController`: `ResponseEntity<String>` 반환 (redirect 문자열 버그 수정)
+- [x] `GlobalExceptionHandler`: 405 Method Not Allowed → React SPA 포워딩
+- [x] Vite `outDir`을 `static/` 루트로 변경 (에셋 MIME 타입 오류 해결)
+- [x] React 빌드 JS 경로 일관성 확보 (`/assets/**`)
+
 ---
 
 ## 🤝 기여
