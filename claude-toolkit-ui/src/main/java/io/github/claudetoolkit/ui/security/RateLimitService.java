@@ -2,46 +2,41 @@ package io.github.claudetoolkit.ui.security;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.ZoneId;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 사용자별 API 호출 빈도 제한 서비스.
+ * 사용자별 API 호출 빈도 제한 서비스 (v4.2.1 — DB 영속화).
  *
- * <p>메모리 기반 추적:
  * <ul>
- *   <li>분당/시간당 제한: 최근 1시간 타임스탬프 리스트</li>
- *   <li>일일/월간 제한: 일자별 카운트 맵 (메모리 효율)</li>
+ *   <li>분당/시간당 제한: 메모리 기반 최근 1시간 타임스탬프 (재시작 시 리셋 허용)</li>
+ *   <li>일일/월간 제한: {@link UserApiUsage} DB 테이블 기반 영속화</li>
  * </ul>
- *
- * <p>v2.6.0: 일일/월간 API 한도 추가.
  */
 @Service
 public class RateLimitService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-    /** username → 최근 1시간 호출 타임스탬프 (분/시간 체크용) */
-    private final ConcurrentHashMap<String, CopyOnWriteArrayList<Long>> callHistory =
-            new ConcurrentHashMap<String, CopyOnWriteArrayList<Long>>();
+    private final UserApiUsageRepository usageRepo;
 
-    /** username → 일자별 호출 카운트 (일일/월간 체크용) */
-    private final ConcurrentHashMap<String, ConcurrentHashMap<LocalDate, AtomicInteger>> dailyCounts =
-            new ConcurrentHashMap<String, ConcurrentHashMap<LocalDate, AtomicInteger>>();
+    /** username → 최근 1시간 호출 타임스탬프 (분/시간 체크용, 메모리) */
+    private final ConcurrentHashMap<String, CopyOnWriteArrayList<Long>> callHistory =
+            new ConcurrentHashMap<>();
+
+    public RateLimitService(UserApiUsageRepository usageRepo) {
+        this.usageRepo = usageRepo;
+    }
 
     /**
-     * API 호출을 기록하고 제한 초과 여부를 반환합니다 (분/시간만 체크).
-     * @deprecated v2.6.0: 일일/월간 한도도 함께 체크하려면
-     *     {@link #checkAndRecord(String, int, int, int, int)} 사용
+     * @deprecated v2.6.0: 일일/월간 한도 포함 버전 사용
      */
     @Deprecated
     public String checkAndRecord(String username, int limitPerMinute, int limitPerHour) {
@@ -50,47 +45,34 @@ public class RateLimitService {
 
     /**
      * API 호출을 기록하고 모든 제한(분/시/일/월) 초과 여부를 반환합니다.
+     * 일일/월간 카운트는 DB에 영속화되어 재시작 후에도 유지됩니다.
      *
-     * @param username       사용자명
-     * @param limitPerMinute 분당 제한 (0=무제한)
-     * @param limitPerHour   시간당 제한 (0=무제한)
-     * @param dailyLimit     일일 제한 (0=무제한)
-     * @param monthlyLimit   월간 제한 (0=무제한)
-     * @return null이면 허용, 문자열이면 제한 사유
+     * @return null = 허용, 문자열 = 제한 사유
      */
+    @Transactional
     public String checkAndRecord(String username, int limitPerMinute, int limitPerHour,
                                  int dailyLimit, int monthlyLimit) {
         if (limitPerMinute <= 0 && limitPerHour <= 0 && dailyLimit <= 0 && monthlyLimit <= 0) {
-            return null; // 전부 무제한
+            return null;
         }
 
         long now = System.currentTimeMillis();
         LocalDate today = LocalDate.now(KST);
-        YearMonth thisMonth = YearMonth.from(today);
 
-        // ── 분/시간 체크 ──────────────────────────────────────────
+        // ── 분/시간 체크 (메모리) ──────────────────────────────────
         if (limitPerMinute > 0 || limitPerHour > 0) {
-            CopyOnWriteArrayList<Long> history = callHistory.get(username);
-            if (history == null) {
-                history = new CopyOnWriteArrayList<Long>();
-                CopyOnWriteArrayList<Long> existing = callHistory.putIfAbsent(username, history);
-                if (existing != null) history = existing;
-            }
+            CopyOnWriteArrayList<Long> history = callHistory.computeIfAbsent(username, k -> new CopyOnWriteArrayList<>());
 
             // 1시간 이전 기록 정리
             long oneHourAgo = now - 3600_000;
-            List<Long> toRemove = new java.util.ArrayList<Long>();
-            for (Long t : history) {
-                if (t < oneHourAgo) toRemove.add(t);
-            }
+            List<Long> toRemove = new java.util.ArrayList<>();
+            for (Long t : history) if (t < oneHourAgo) toRemove.add(t);
             history.removeAll(toRemove);
 
             if (limitPerMinute > 0) {
                 long oneMinAgo = now - 60_000;
                 int countMin = 0;
-                for (Long t : history) {
-                    if (t >= oneMinAgo) countMin++;
-                }
+                for (Long t : history) if (t >= oneMinAgo) countMin++;
                 if (countMin >= limitPerMinute) {
                     return "분당 호출 제한 초과 (" + limitPerMinute + "회/분)";
                 }
@@ -102,88 +84,72 @@ public class RateLimitService {
             history.add(now);
         }
 
-        // ── 일/월 체크 ────────────────────────────────────────────
+        // ── 일/월 체크 (DB 영속화) ─────────────────────────────────
         if (dailyLimit > 0 || monthlyLimit > 0) {
-            ConcurrentHashMap<LocalDate, AtomicInteger> userDaily = dailyCounts.get(username);
-            if (userDaily == null) {
-                userDaily = new ConcurrentHashMap<LocalDate, AtomicInteger>();
-                ConcurrentHashMap<LocalDate, AtomicInteger> existing = dailyCounts.putIfAbsent(username, userDaily);
-                if (existing != null) userDaily = existing;
-            }
-
-            if (dailyLimit > 0) {
-                AtomicInteger dayCount = userDaily.get(today);
-                int currentDay = dayCount == null ? 0 : dayCount.get();
-                if (currentDay >= dailyLimit) {
-                    return "일일 호출 제한 초과 (" + dailyLimit + "회/일)";
-                }
-            }
-
-            if (monthlyLimit > 0) {
-                int monthTotal = 0;
-                for (Map.Entry<LocalDate, AtomicInteger> e : userDaily.entrySet()) {
-                    if (YearMonth.from(e.getKey()).equals(thisMonth)) {
-                        monthTotal += e.getValue().get();
+            try {
+                if (dailyLimit > 0) {
+                    int todayCount = usageRepo.findByUsernameAndUsageDate(username, today)
+                            .map(UserApiUsage::getRequestCount).orElse(0);
+                    if (todayCount >= dailyLimit) {
+                        return "일일 호출 제한 초과 (" + dailyLimit + "회/일)";
                     }
                 }
-                if (monthTotal >= monthlyLimit) {
-                    return "월간 호출 제한 초과 (" + monthlyLimit + "회/월)";
-                }
-            }
 
-            // 일자별 카운트 증가
-            AtomicInteger counter = userDaily.get(today);
-            if (counter == null) {
-                counter = new AtomicInteger(0);
-                AtomicInteger existing = userDaily.putIfAbsent(today, counter);
-                if (existing != null) counter = existing;
+                if (monthlyLimit > 0) {
+                    LocalDate monthStart = today.withDayOfMonth(1);
+                    LocalDate monthEnd = today.withDayOfMonth(today.lengthOfMonth());
+                    Long monthTotal = usageRepo.sumRequestsBetween(username, monthStart, monthEnd);
+                    int monthCount = monthTotal != null ? monthTotal.intValue() : 0;
+                    if (monthCount >= monthlyLimit) {
+                        return "월간 호출 제한 초과 (" + monthlyLimit + "회/월)";
+                    }
+                }
+
+                // 카운트 증가 (upsert)
+                UserApiUsage usage = usageRepo.findByUsernameAndUsageDate(username, today)
+                        .orElseGet(() -> new UserApiUsage(username, today));
+                usage.increment();
+                usageRepo.save(usage);
+            } catch (Exception e) {
+                // DB 오류 시 허용 (안전 fallback) — 서비스 중단 방지
+                return null;
             }
-            counter.incrementAndGet();
         }
 
         return null;
     }
 
     /**
-     * 사용자의 현재 사용량 통계를 반환합니다 (v2.6.0).
-     * @return {"today": N, "thisMonth": N}
+     * 사용자의 현재 사용량 통계 — 실시간 DB 조회.
+     * @return {today: int, thisMonth: int}
      */
     public Map<String, Integer> getUsageStats(String username) {
-        Map<String, Integer> stats = new LinkedHashMap<String, Integer>();
+        Map<String, Integer> stats = new LinkedHashMap<>();
         stats.put("today", 0);
         stats.put("thisMonth", 0);
 
-        ConcurrentHashMap<LocalDate, AtomicInteger> userDaily = dailyCounts.get(username);
-        if (userDaily == null) return stats;
+        try {
+            LocalDate today = LocalDate.now(KST);
+            int todayCount = usageRepo.findByUsernameAndUsageDate(username, today)
+                    .map(UserApiUsage::getRequestCount).orElse(0);
+            stats.put("today", todayCount);
 
-        LocalDate today = LocalDate.now(KST);
-        YearMonth thisMonth = YearMonth.from(today);
-        int todayCount = 0;
-        int monthCount = 0;
-        for (Map.Entry<LocalDate, AtomicInteger> e : userDaily.entrySet()) {
-            if (e.getKey().equals(today)) {
-                todayCount = e.getValue().get();
-            }
-            if (YearMonth.from(e.getKey()).equals(thisMonth)) {
-                monthCount += e.getValue().get();
-            }
-        }
-        stats.put("today", todayCount);
-        stats.put("thisMonth", monthCount);
+            LocalDate monthStart = today.withDayOfMonth(1);
+            LocalDate monthEnd = today.withDayOfMonth(today.lengthOfMonth());
+            Long monthTotal = usageRepo.sumRequestsBetween(username, monthStart, monthEnd);
+            stats.put("thisMonth", monthTotal != null ? monthTotal.intValue() : 0);
+        } catch (Exception ignored) {}
+
         return stats;
     }
 
-    /** 매일 새벽 3시 KST: 32일 이전 일자별 카운트 정리 */
+    /** 매일 새벽 3시 KST: 100일 이전 사용량 기록 정리 */
     @Scheduled(cron = "0 0 3 * * ?")
-    public void cleanupOldDailyCounts() {
-        LocalDate cutoff = LocalDate.now(KST).minusDays(32);
-        for (ConcurrentHashMap<LocalDate, AtomicInteger> userDaily : dailyCounts.values()) {
-            Iterator<Map.Entry<LocalDate, AtomicInteger>> it = userDaily.entrySet().iterator();
-            while (it.hasNext()) {
-                if (it.next().getKey().isBefore(cutoff)) {
-                    it.remove();
-                }
-            }
-        }
+    @Transactional
+    public void cleanupOldUsage() {
+        try {
+            LocalDate cutoff = LocalDate.now(KST).minusDays(100);
+            usageRepo.deleteByUsageDateBefore(cutoff);
+        } catch (Exception ignored) {}
     }
 }

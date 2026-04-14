@@ -76,6 +76,24 @@ public class PermissionInterceptor implements WebMvcConfigurer {
                     "/sql-translate/init", "/harness/analyze", "/codereview/review",
                     "/github-pr/analyze", "/git-diff/analyze"));
 
+    /**
+     * Rate limit 대상 여부 판정.
+     * 정확 일치 외에도 /stream/init, /harness/stream-init 등 React SPA에서 호출하는
+     * 모든 분석 실행 엔드포인트에 제한을 적용합니다.
+     */
+    private static boolean isRateLimited(String path, String method) {
+        if (!"POST".equalsIgnoreCase(method)) return false;
+        if (RATE_LIMIT_PATHS.contains(path)) return true;
+        // React SPA가 호출하는 분석 스트림 시작 엔드포인트들
+        if ("/stream/init".equals(path)) return true;
+        if ("/harness/stream-init".equals(path)) return true;
+        if ("/explain/stream-init".equals(path)) return true;
+        if ("/chat/send".equals(path)) return true;
+        // 기타 분석 실행 POST
+        if (path.startsWith("/pipelines/") && path.endsWith("/run")) return true;
+        return false;
+    }
+
     private final AppUserRepository userRepository;
     private final UserPermissionRepository permissionRepository;
     private final io.github.claudetoolkit.ui.security.RateLimitService rateLimitService;
@@ -155,17 +173,14 @@ public class PermissionInterceptor implements WebMvcConfigurer {
                 }
             }
 
-            // 사용자별 API 키 적용 (POST 분석 실행 시)
-            // ThreadLocal 기반 오버라이드 → 공유 빈 수정 없이 요청별 격리
-            if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
+            // 사용자별 API 키 적용 + Rate Limit 체크 (POST 분석 실행 시)
+            if (isRateLimited(path, request.getMethod())) {
                 String personalKey = user.getPersonalApiKey();
                 if (personalKey != null && !personalKey.trim().isEmpty()) {
                     claudeClient.setApiKeyOverride(personalKey.trim());
                 }
-            }
 
-            // Rate Limit 체크 (POST 분석 실행 요청에만 적용) — v2.6.0: 일일/월간 한도 포함
-            if ("POST".equalsIgnoreCase(request.getMethod()) && RATE_LIMIT_PATHS.contains(path)) {
+                // Rate Limit 체크 — v4.2.1: DB 영속화된 일일/월간 한도 포함
                 String reason = rateLimitService.checkAndRecord(
                         user.getUsername(),
                         user.getRateLimitPerMinute(), user.getRateLimitPerHour(),

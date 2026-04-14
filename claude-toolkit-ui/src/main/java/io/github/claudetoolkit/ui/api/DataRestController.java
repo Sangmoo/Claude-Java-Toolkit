@@ -2,6 +2,9 @@ package io.github.claudetoolkit.ui.api;
 
 import io.github.claudetoolkit.ui.chat.ChatSessionService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.security.RateLimitService;
+import io.github.claudetoolkit.ui.user.AppUser;
+import io.github.claudetoolkit.ui.user.AppUserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -32,10 +35,17 @@ public class DataRestController {
 
     private final ChatSessionService chatSessionService;
     private final ToolkitSettings toolkitSettings;
+    private final RateLimitService rateLimitService;
+    private final AppUserRepository userRepository;
 
-    public DataRestController(ChatSessionService chatSessionService, ToolkitSettings toolkitSettings) {
+    public DataRestController(ChatSessionService chatSessionService,
+                              ToolkitSettings toolkitSettings,
+                              RateLimitService rateLimitService,
+                              AppUserRepository userRepository) {
         this.chatSessionService = chatSessionService;
         this.toolkitSettings = toolkitSettings;
+        this.rateLimitService = rateLimitService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/pipelines")
@@ -92,10 +102,29 @@ public class DataRestController {
     @GetMapping("/usage")
     public ResponseEntity<ApiResponse<Map<String, Object>>> usage(Authentication auth) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("todayCount", 0);
-        data.put("monthCount", 0);
-        data.put("dailyLimit", 0);
-        data.put("monthlyLimit", 0);
+        try {
+            Map<String, Integer> stats = rateLimitService.getUsageStats(auth.getName());
+            data.put("todayCount", stats.get("today"));
+            data.put("monthCount", stats.get("thisMonth"));
+
+            AppUser user = userRepository.findByUsername(auth.getName()).orElse(null);
+            if (user != null) {
+                data.put("dailyLimit", user.getDailyApiLimit());
+                data.put("monthlyLimit", user.getMonthlyApiLimit());
+                data.put("rateLimitPerMinute", user.getRateLimitPerMinute());
+                data.put("rateLimitPerHour", user.getRateLimitPerHour());
+            } else {
+                data.put("dailyLimit", 0);
+                data.put("monthlyLimit", 0);
+                data.put("rateLimitPerMinute", 0);
+                data.put("rateLimitPerHour", 0);
+            }
+        } catch (Exception e) {
+            data.put("todayCount", 0);
+            data.put("monthCount", 0);
+            data.put("dailyLimit", 0);
+            data.put("monthlyLimit", 0);
+        }
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
