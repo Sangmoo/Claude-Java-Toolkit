@@ -58,6 +58,9 @@ function AutoMigrationPanel() {
   const [progress, setProgress] = useState('')
   const [testResult, setTestResult] = useState<string | null>(null)
   const [currentDb, setCurrentDb] = useState('')
+  const [completed, setCompleted] = useState(false)
+  const [overrideActive, setOverrideActive] = useState(false)
+  const [switching, setSwitching] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const toast = useToast()
 
@@ -65,7 +68,48 @@ function AutoMigrationPanel() {
     fetch('/admin/db-migration/current', { credentials: 'include' })
       .then((r) => r.json()).then((d) => { if (d.dbType) setCurrentDb(`${d.dbType} (${d.url || 'H2 파일'})`) })
       .catch(() => {})
+    fetch('/admin/db-migration/auto/override-status', { credentials: 'include' })
+      .then((r) => r.json()).then((d) => setOverrideActive(!!d.active))
+      .catch(() => {})
   }, [])
+
+  const switchToTarget = async () => {
+    if (!confirm('대상 DB 로 전환합니다. 서비스가 3초 후 재시작됩니다. 계속하시겠습니까?')) return
+    setSwitching(true)
+    try {
+      const res = await fetch('/admin/db-migration/auto/switch-target', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ targetType, host, port, dbName, username, password }),
+        credentials: 'include',
+      })
+      const d = await res.json()
+      if (d.success) {
+        toast.success(d.message || '전환 요청 성공 — 재시작 대기')
+      } else {
+        toast.error(d.error || '전환 실패')
+        setSwitching(false)
+      }
+    } catch { toast.error('전환 요청 실패'); setSwitching(false) }
+  }
+
+  const switchToH2 = async () => {
+    if (!confirm('H2 로 복귀합니다. 서비스가 3초 후 재시작됩니다. 계속하시겠습니까?')) return
+    setSwitching(true)
+    try {
+      const res = await fetch('/admin/db-migration/auto/switch-h2', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const d = await res.json()
+      if (d.success) {
+        toast.success(d.message || 'H2 복귀 요청 성공 — 재시작 대기')
+      } else {
+        toast.error(d.error || '복귀 실패')
+        setSwitching(false)
+      }
+    } catch { toast.error('복귀 요청 실패'); setSwitching(false) }
+  }
 
   const testConnection = async () => {
     setTestResult(null)
@@ -100,8 +144,8 @@ function AutoMigrationPanel() {
         es.onmessage = (e) => {
           setProgress(e.data)
           if (e.data.includes('완료') || e.data.includes('COMPLETED')) {
-            es.close(); esRef.current = null; setRunning(false)
-            toast.success('이관 완료!')
+            es.close(); esRef.current = null; setRunning(false); setCompleted(true)
+            toast.success('이관 완료! 이제 "대상 DB 로 전환" 버튼을 누르면 운영 DB 가 전환됩니다.')
           }
           if (e.data.includes('실패') || e.data.includes('FAILED')) {
             es.close(); esRef.current = null; setRunning(false)
@@ -171,6 +215,31 @@ function AutoMigrationPanel() {
             {progress}
           </div>
         )}
+
+        {/* 런타임 DB 전환 패널 */}
+        <div style={{ marginTop: '12px', padding: '14px', borderRadius: '10px', background: 'var(--bg-primary)', border: '1px dashed var(--border-color)' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>🔁 운영 DB 런타임 전환</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.6 }}>
+            이관이 완료된 후 "<strong>대상 DB 로 전환</strong>" 을 누르면 서비스가 재시작되며 앞으로의 모든 요청은 대상 DB 를 사용합니다.<br/>
+            언제든 "<strong>H2 로 복귀</strong>" 버튼으로 다시 로컬 H2 로 되돌릴 수 있습니다. (재시작 정책 필요 — Docker compose 권장)
+            {overrideActive && <div style={{ marginTop: '6px', color: 'var(--accent)' }}>현재 대상 DB 오버라이드가 활성화 되어 있습니다.</div>}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={switchToTarget}
+              disabled={!completed || switching || running || !host || !dbName || !username}
+              title={!completed ? '먼저 이관을 완료하세요' : ''}
+              style={{ ...primaryBtn, opacity: (!completed || switching || running) ? 0.5 : 1 }}>
+              <FaExchangeAlt /> 대상 DB 로 전환
+            </button>
+            <button
+              onClick={switchToH2}
+              disabled={switching || running}
+              style={{ ...outlineBtn, opacity: (switching || running) ? 0.5 : 1 }}>
+              <FaSync /> H2 로 복귀
+            </button>
+          </div>
+        </div>
       </div>
     </>
   )

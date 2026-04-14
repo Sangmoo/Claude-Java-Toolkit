@@ -1,5 +1,5 @@
-import { useLocation, Link } from 'react-router-dom'
-import { FaRobot, FaChevronLeft, FaChevronDown } from 'react-icons/fa'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
+import { FaRobot, FaChevronLeft, FaChevronDown, FaUserEdit, FaKey } from 'react-icons/fa'
 import { useSidebarStore } from '../../stores/sidebarStore'
 import { useAuthStore } from '../../stores/authStore'
 import { quickLinks, menuSections, footerItems, type MenuItem } from './sidebarMenus'
@@ -43,6 +43,7 @@ function SidebarItem({ item, active }: { item: MenuItem; active: boolean }) {
 
 export default function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { collapsed, mobileOpen, toggleCollapse, closeMobile, sections, toggleSection } =
     useSidebarStore()
   const user = useAuthStore((s) => s.user)
@@ -159,11 +160,25 @@ export default function Sidebar() {
           })}
 
           {user && (
-            <div className="sidebar-user-info">
-              <span>{user.username}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                ({user.role})
-              </span>
+            <div className="sidebar-user-info" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.username}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{user.role}</span>
+              </div>
+              <button
+                onClick={() => { navigate('/account'); closeMobile() }}
+                title="내 정보 수정"
+                style={userIconBtn}
+              >
+                <FaUserEdit />
+              </button>
+              <button
+                onClick={() => { navigate('/security'); closeMobile() }}
+                title="비밀번호 변경"
+                style={userIconBtn}
+              >
+                <FaKey />
+              </button>
             </div>
           )}
 
@@ -192,4 +207,17 @@ export default function Sidebar() {
       )}
     </>
   )
+}
+
+const userIconBtn: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid var(--border-color)',
+  borderRadius: '6px',
+  padding: '4px 6px',
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+  fontSize: '11px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }

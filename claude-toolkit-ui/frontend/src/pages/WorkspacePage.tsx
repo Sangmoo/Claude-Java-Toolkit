@@ -100,7 +100,8 @@ export default function WorkspacePage() {
     setTasks(initialTasks)
 
     // 병렬 실행: 각 기능마다 별도의 /stream/init → /stream/{id}
-    const promises = Array.from(selected).map(async (featureKey) => {
+    const promises = Array.from(selected).map((featureKey) => new Promise<'completed' | 'failed'>(async (resolve) => {
+      let acc = ''
       try {
         const res = await fetch('/stream/init', {
           method: 'POST',
@@ -108,65 +109,66 @@ export default function WorkspacePage() {
           body: new URLSearchParams({
             feature: featureKey,
             input: input.trim(),
-            language,
-            sourceType: language === 'java' ? 'Java' : 'SQL',
+            sourceType: language === 'java' ? 'java' : 'sql',
           }),
           credentials: 'include',
         })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        const sid = data.streamId || data.id
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '')
+          throw new Error(`HTTP ${res.status}${errText ? ': ' + errText.slice(0, 80) : ''}`)
+        }
+        // 백엔드는 plain text UUID 반환 (JSON 아님)
+        const sid = (await res.text()).trim()
         if (!sid) throw new Error('스트림 ID 없음')
 
-        // SSE 연결
-        return new Promise<void>((resolve) => {
-          let acc = ''
-          const es = new EventSource(`/stream/${sid}`, { withCredentials: true })
-          sourcesRef.current[featureKey] = es
+        let finished = false
+        const es = new EventSource(`/stream/${sid}`, { withCredentials: true })
+        sourcesRef.current[featureKey] = es
 
-          es.onmessage = (e) => {
-            if (e.data === '[DONE]' || e.data === 'done') {
-              es.close()
-              delete sourcesRef.current[featureKey]
-              setTasks((prev) => ({ ...prev, [featureKey]: { ...prev[featureKey], status: 'completed' } }))
-              resolve()
-              return
-            }
-            acc += e.data + '\n'
-            setTasks((prev) => ({ ...prev, [featureKey]: { ...prev[featureKey], result: acc } }))
-          }
+        const finish = (status: 'completed' | 'failed', error?: string) => {
+          if (finished) return
+          finished = true
+          es.close()
+          delete sourcesRef.current[featureKey]
+          setTasks((prev) => ({ ...prev, [featureKey]: { ...prev[featureKey], status, error, result: acc } }))
+          resolve(status)
+        }
 
-          es.addEventListener('error_msg', (ev: MessageEvent) => {
-            es.close()
-            delete sourcesRef.current[featureKey]
-            setTasks((prev) => ({ ...prev, [featureKey]: { ...prev[featureKey], status: 'failed', error: ev.data } }))
-            resolve()
-          })
-
-          es.onerror = () => {
-            es.close()
-            delete sourcesRef.current[featureKey]
-            setTasks((prev) => {
-              const cur = prev[featureKey]
-              if (cur.status === 'running') {
-                return { ...prev, [featureKey]: { ...cur, status: cur.result ? 'completed' : 'failed', error: cur.result ? undefined : '연결 오류' } }
-              }
-              return prev
-            })
-            resolve()
-          }
-        })
+        es.onmessage = (e) => {
+          if (e.data === '[DONE]' || e.data === 'done') { finish('completed'); return }
+          acc += e.data + '\n'
+          setTasks((prev) => ({ ...prev, [featureKey]: { ...prev[featureKey], result: acc } }))
+        }
+        es.addEventListener('done', () => finish('completed'))
+        es.addEventListener('error_msg', (ev: MessageEvent) => finish('failed', ev.data || '분석 중 오류'))
+        es.onerror = () => {
+          if (finished) return
+          // 결과가 있으면 성공, 없으면 실패
+          if (acc.trim().length > 0) finish('completed')
+          else finish('failed', 'SSE 연결 오류')
+        }
       } catch (err) {
         setTasks((prev) => ({
           ...prev,
-          [featureKey]: { ...prev[featureKey], status: 'failed', error: err instanceof Error ? err.message : '오류' },
+          [featureKey]: { ...prev[featureKey], status: 'failed', error: err instanceof Error ? err.message : '오류', result: acc },
         }))
+        resolve('failed')
       }
-    })
+    }))
 
-    await Promise.all(promises)
+    const results = await Promise.all(promises)
     setRunning(false)
-    toast.success('모든 분석이 완료되었습니다.')
+
+    // ⭐ 실제 결과 상태 기반으로 토스트 메시지 결정
+    const successCount = results.filter((r) => r === 'completed').length
+    const failCount = results.filter((r) => r === 'failed').length
+    if (failCount === 0 && successCount > 0) {
+      toast.success(`모든 분석이 성공했습니다. (${successCount}개)`)
+    } else if (successCount === 0) {
+      toast.error(`모든 분석이 실패했습니다. (${failCount}개)`)
+    } else {
+      toast.warning(`분석 완료 — 성공 ${successCount}개, 실패 ${failCount}개`)
+    }
   }
 
   const copyResult = (key: string) => {

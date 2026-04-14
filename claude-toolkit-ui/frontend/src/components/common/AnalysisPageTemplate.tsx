@@ -89,9 +89,31 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     setResult('')
     setStreaming(true)
     try {
-      const params: Record<string, string> = { feature: config.feature, input: input.trim() }
-      if (config.inputLanguage) params.language = config.inputLanguage
-      config.options?.forEach((o) => { if (optionValues[o.name]) params[o.name] = optionValues[o.name] })
+      // 백엔드 /stream/init은 feature, input, input2, sourceType 4개 파라미터만 받음
+      const params: Record<string, string> = {
+        feature: config.feature,
+        input: input.trim(),
+      }
+      // inputLanguage → sourceType (백엔드 기대 파라미터명)
+      if (config.inputLanguage) params.sourceType = config.inputLanguage
+      // options를 sourceType/input2에 매핑 (config.optionMapping 존재 시 우선)
+      config.options?.forEach((o) => {
+        const v = optionValues[o.name]
+        if (!v) return
+        // 특수 옵션명 처리: sourceDb → input2, targetDb → sourceType 등
+        if (o.name === 'sourceDb') params.input2 = v
+        else if (o.name === 'targetDb') params.sourceType = v
+        else if (o.name === 'language') params.sourceType = v
+        else if (o.name === 'templateHint') params.input2 = v
+        else if (o.name === 'reviewType' || o.name === 'analysisType') {
+          // 리뷰/분석 유형은 feature 교체가 필요하면 별도 처리
+          // 기본: sourceType에 전달
+          params.sourceType = v
+        } else {
+          // 일반 파라미터는 input2에 JSON으로 전달 (레거시 호환)
+          params[o.name] = v
+        }
+      })
 
       const res = await fetch(config.endpoint || '/stream/init', {
         method: 'POST',
@@ -99,9 +121,15 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         body: new URLSearchParams(params),
         credentials: 'include',
       })
-      if (!res.ok) { toast.error('분석 요청 실패'); setStreaming(false); return }
-      const data = await res.json()
-      const sid = data.streamId || data.id
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        toast.error(`분석 요청 실패 (${res.status})${errText ? ': ' + errText.slice(0, 100) : ''}`)
+        setStreaming(false)
+        return
+      }
+
+      // 백엔드는 plain text UUID 반환 (JSON이 아님)
+      const sid = (await res.text()).trim()
       if (!sid) { toast.error('스트림 ID 없음'); setStreaming(false); return }
 
       let acc = ''
@@ -111,9 +139,16 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         if (e.data === '[DONE]' || e.data === 'done') { es.close(); esRef.current = null; setStreaming(false); return }
         acc += e.data + '\n'; setResult(acc)
       }
+      es.addEventListener('done', () => { es.close(); esRef.current = null; setStreaming(false) })
       es.addEventListener('error_msg', (ev: MessageEvent) => { toast.error(ev.data); es.close(); esRef.current = null; setStreaming(false) })
-      es.onerror = () => { es.close(); esRef.current = null; setStreaming(false) }
-    } catch { toast.error('분석 오류'); setStreaming(false) }
+      es.onerror = () => {
+        // 정상 종료된 경우 acc에 내용이 있음
+        es.close(); esRef.current = null; setStreaming(false)
+      }
+    } catch (e) {
+      toast.error('분석 오류: ' + (e instanceof Error ? e.message : String(e)))
+      setStreaming(false)
+    }
   }
 
   const copyResult = () => { navigator.clipboard.writeText(result); setCopied(true); setTimeout(() => setCopied(false), 2000) }

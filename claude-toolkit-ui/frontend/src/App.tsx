@@ -71,6 +71,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage'))
 const DbProfilesPage = lazy(() => import('./pages/DbProfilesPage'))
 const SecurityPage = lazy(() => import('./pages/SecurityPage'))
+const AccountPage = lazy(() => import('./pages/AccountPage'))
 const SettingsPromptsPage = lazy(() => import('./pages/SettingsPromptsPage'))
 const SharedConfigPage = lazy(() => import('./pages/SharedConfigPage'))
 
@@ -179,6 +180,7 @@ export default function App() {
           <Route path="/api-docs" element={<ApiDocsPage />} />
           <Route path="/db-profiles" element={<DbProfilesPage />} />
           <Route path="/security" element={<SecurityPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/settings/prompts" element={<SettingsPromptsPage />} />
           <Route path="/settings/shared" element={<SharedConfigPage />} />
         </Route>
