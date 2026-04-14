@@ -174,14 +174,14 @@ export default function WorkspacePage() {
 
   const copyResult = async (key: string) => {
     const text = tasks[key]?.result || ''
-    if (!text) return
+    if (!text) { toast.error('복사할 결과가 없습니다.'); return }
     const ok = await copyToClipboard(text)
     if (ok) {
       setCopiedKey(key)
-      setTimeout(() => setCopiedKey(null), 2000)
-      toast.success('클립보드에 복사되었습니다.')
+      setTimeout(() => setCopiedKey((cur) => cur === key ? null : cur), 3000)
+      toast.success(`${tasks[key]?.label || '결과'} 가 클립보드에 복사되었습니다.`)
     } else {
-      toast.error('복사 실패 — 브라우저가 차단했습니다.')
+      toast.error('복사 실패 — 브라우저 권한을 확인해주세요.')
     }
   }
 
@@ -347,9 +347,14 @@ export default function WorkspacePage() {
                   {task.status === 'completed' && <FaCheckCircle style={{ color: 'var(--green)', fontSize: '12px' }} />}
                   {task.status === 'failed' && <FaTimesCircle style={{ color: 'var(--red)', fontSize: '12px' }} />}
                   {task.result && (
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      <button onClick={() => copyResult(task.feature)} style={miniBtn} title="복사">
-                        {copiedKey === task.feature ? <FaCheck style={{ color: 'var(--green)' }} /> : <FaCopy />}
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => copyResult(task.feature)}
+                        style={copiedKey === task.feature ? copiedBtn : miniBtn}
+                        title="결과 복사">
+                        {copiedKey === task.feature
+                          ? <><FaCheck style={{ color: 'var(--green)' }} /> <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green)' }}>복사됨</span></>
+                          : <><FaCopy /> <span style={{ fontSize: '11px' }}>복사</span></>}
                       </button>
                       <button onClick={() => exportResult(task.feature)} style={miniBtn} title="MD 내려받기"><FaDownload /></button>
                       <button onClick={() => printResult(task.feature)} style={miniBtn} title="PDF 인쇄/저장"><FaFilePdf /></button>
@@ -387,4 +392,15 @@ const chipBtn = (active: boolean): React.CSSProperties => ({
   color: active ? 'var(--accent)' : 'var(--text-sub)', fontWeight: active ? 600 : 400,
 })
 const smallBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px', color: 'var(--text-sub)', cursor: 'pointer', fontSize: '12px' }
-const miniBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px', fontSize: '11px' }
+const miniBtn: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '4px',
+  background: 'none', border: '1px solid var(--border-color)',
+  color: 'var(--text-sub)', cursor: 'pointer',
+  padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+}
+const copiedBtn: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '4px',
+  background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.4)',
+  color: 'var(--green)', cursor: 'pointer',
+  padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+}

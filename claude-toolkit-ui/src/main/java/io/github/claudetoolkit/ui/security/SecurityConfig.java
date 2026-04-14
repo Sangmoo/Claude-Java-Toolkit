@@ -56,7 +56,9 @@ public class SecurityConfig {
                     "/usage/**", "/account/**", "/login/2fa/**",
                     "/github-pr/**", "/git-diff/**",
                     "/notifications/**", "/history/*/comments/**",
-                    "/chat/**"
+                    "/chat/**",
+                    // v4.2.x: 분석 파이프라인 — POST /pipelines/{id}/run 등
+                    "/pipelines/**"
                 )
             .and()
 
