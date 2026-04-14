@@ -6,10 +6,20 @@ interface FileEntry { absolutePath: string; relativePath: string; fileName: stri
 interface DbObject { name: string; type: string; owner: string }
 
 interface SourceSelectorProps {
-  /** 'java' = Java 파일만, 'sql' = DB 객체만, 'both' = 둘 다 */
   mode: 'java' | 'sql' | 'both'
   onSelect: (code: string, lang: 'java' | 'sql') => void
 }
+
+const DB_TYPES = ['ALL', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'TRIGGER']
+const JAVA_CATEGORIES = [
+  { key: 'ALL', label: '전체', pattern: null },
+  { key: 'Controller', label: 'Controller', pattern: /controller/i },
+  { key: 'Service', label: 'Service', pattern: /service(impl)?/i },
+  { key: 'DAO', label: 'DAO', pattern: /dao|mapper/i },
+  { key: 'VO', label: 'VO/DTO', pattern: /vo\.java$|dto\.java$|entity/i },
+  { key: 'Config', label: 'Config', pattern: /config/i },
+  { key: 'Util', label: 'Util', pattern: /util/i },
+]
 
 export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) {
   const [tab, setTab] = useState<'file' | 'db'>(mode === 'sql' ? 'db' : 'file')
@@ -17,6 +27,8 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
   const [files, setFiles] = useState<FileEntry[]>([])
   const [dbObjects, setDbObjects] = useState<DbObject[]>([])
   const [q, setQ] = useState('')
+  const [dbTypeFilter, setDbTypeFilter] = useState('ALL')
+  const [javaCatFilter, setJavaCatFilter] = useState('ALL')
   const toast = useToast()
 
   const loadFiles = useCallback(async (kw: string) => {
@@ -26,9 +38,10 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
     } catch { /* silent */ }
   }, [])
 
-  const loadDb = useCallback(async (kw: string) => {
+  const loadDb = useCallback(async (kw: string, type: string) => {
     try {
-      const res = await fetch(`/harness/cache/db-objects?q=${encodeURIComponent(kw)}`, { credentials: 'include' })
+      const typeParam = type === 'ALL' ? '' : `&type=${type}`
+      const res = await fetch(`/harness/cache/db-objects?q=${encodeURIComponent(kw)}${typeParam}`, { credentials: 'include' })
       if (res.ok) { const d = await res.json(); setDbObjects(d.objects || []) }
     } catch { /* silent */ }
   }, [])
@@ -36,8 +49,16 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
   useEffect(() => {
     if (!open) return
     if (tab === 'file') loadFiles(q)
-    else loadDb(q)
-  }, [open, tab, q, loadFiles, loadDb])
+    else loadDb(q, dbTypeFilter)
+  }, [open, tab, q, dbTypeFilter, loadFiles, loadDb])
+
+  // 자바 카테고리 클라이언트 필터
+  const filteredFiles = (() => {
+    if (javaCatFilter === 'ALL') return files
+    const cat = JAVA_CATEGORIES.find((c) => c.key === javaCatFilter)
+    if (!cat?.pattern) return files
+    return files.filter((f) => cat.pattern!.test(f.fileName) || cat.pattern!.test(f.relativePath))
+  })()
 
   const selectFile = async (f: FileEntry) => {
     const res = await fetch(`/harness/cache/file-content?path=${encodeURIComponent(f.absolutePath)}`, { credentials: 'include' })
@@ -83,10 +104,33 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                 value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
             </div>
 
+            {/* 필터 */}
+            {tab === 'file' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+                {JAVA_CATEGORIES.map((c) => (
+                  <button key={c.key} onClick={() => setJavaCatFilter(c.key)} style={filterChip(javaCatFilter === c.key)}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {tab === 'db' && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
+                {DB_TYPES.map((t) => (
+                  <button key={t} onClick={() => setDbTypeFilter(t)} style={filterChip(dbTypeFilter === t)}>
+                    {t === 'ALL' ? '전체' : t}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* 목록 */}
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              {tab === 'file' ? `${filteredFiles.length}개 파일` : `${dbObjects.length}개 객체`}
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {tab === 'file' ? (
-                files.length > 0 ? files.map((f) => (
+                filteredFiles.length > 0 ? filteredFiles.map((f) => (
                   <div key={f.absolutePath} onClick={() => selectFile(f)} style={listItem}>
                     <FaFile style={{ color: 'var(--accent)', flexShrink: 0, fontSize: '12px' }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -94,7 +138,7 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.relativePath}</div>
                     </div>
                   </div>
-                )) : <Empty msg="프로젝트 스캔 경로를 Settings에서 설정해주세요." />
+                )) : <Empty msg={javaCatFilter !== 'ALL' ? `${javaCatFilter} 필터에 매칭되는 파일이 없습니다.` : '프로젝트 스캔 경로를 Settings에서 설정해주세요.'} />
               ) : (
                 dbObjects.length > 0 ? dbObjects.map((o) => (
                   <div key={`${o.owner}.${o.name}.${o.type}`} onClick={() => selectDb(o)} style={listItem}>
@@ -104,7 +148,7 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{o.owner} · {o.type}</div>
                     </div>
                   </div>
-                )) : <Empty msg="Oracle DB를 Settings에서 설정해주세요." />
+                )) : <Empty msg={dbTypeFilter !== 'ALL' ? `${dbTypeFilter} 타입 객체가 없습니다.` : 'Oracle DB를 Settings에서 설정해주세요.'} />
               )}
             </div>
           </div>
@@ -130,8 +174,15 @@ function Empty({ msg }: { msg: string }) {
   return <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>{msg}</div>
 }
 
+const filterChip = (active: boolean): React.CSSProperties => ({
+  padding: '3px 10px', borderRadius: '12px', fontSize: '11px', cursor: 'pointer',
+  border: `1px solid ${active ? 'var(--accent)' : 'var(--border-color)'}`,
+  background: active ? 'var(--accent-subtle)' : 'transparent',
+  color: active ? 'var(--accent)' : 'var(--text-sub)', fontWeight: active ? 600 : 400,
+})
+
 const triggerBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px', color: 'var(--text-sub)', cursor: 'pointer', fontSize: '12px' }
 const overlay: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500 }
-const modal: React.CSSProperties = { background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)', padding: '20px', width: 'min(600px, 90vw)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }
+const modal: React.CSSProperties = { background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-color)', padding: '20px', width: 'min(650px, 90vw)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }
 const iconBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '16px' }
 const listItem: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', marginBottom: '2px' }

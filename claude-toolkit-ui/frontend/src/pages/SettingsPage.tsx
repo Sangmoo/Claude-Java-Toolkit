@@ -28,9 +28,22 @@ export default function SettingsPage() {
   const toast = useToast()
 
   useEffect(() => {
-    fetch('/api/v1/health', { credentials: 'include' })
+    // 저장된 전체 설정 로드
+    fetch('/api/v1/settings', { credentials: 'include' })
       .then((r) => r.json())
-      .then((j) => { if (j.data) setClaudeModel(j.data.claudeModel || '') })
+      .then((j) => {
+        if (j.data) {
+          const d = j.data
+          if (d.claudeModel) setClaudeModel(d.claudeModel)
+          if (d.dbUrl) setDbUrl(d.dbUrl)
+          if (d.dbUsername) setDbUsername(d.dbUsername)
+          if (d.scanPath) setScanPath(d.scanPath)
+          if (d.projectContext) setProjectContext(d.projectContext)
+          if (d.accentColor) setAccentColor(d.accentColor)
+          if (d.slackWebhookUrl) setSlackWebhookUrl(d.slackWebhookUrl)
+          if (d.teamsWebhookUrl) setTeamsWebhookUrl(d.teamsWebhookUrl)
+        }
+      })
       .catch(() => {})
   }, [])
 

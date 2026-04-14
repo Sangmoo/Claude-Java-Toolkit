@@ -56,9 +56,23 @@ export default function Sidebar() {
     return !disabledFeatures.includes(item.featureKey)
   }
 
+  // 모든 사이드바 경로를 수집 (더 구체적인 경로 우선 매칭용)
+  const allPaths: string[] = [
+    ...quickLinks.map((i) => i.path),
+    ...menuSections.flatMap((s) => s.items.map((i) => i.path)),
+    ...footerItems.map((i) => i.path),
+  ]
+
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/' || location.pathname === ''
-    return location.pathname.startsWith(path)
+    const cur = location.pathname
+    if (cur === path) return true
+    // 하위 경로(/path/...)인 경우 active
+    if (!cur.startsWith(path + '/')) return false
+    // 단, 더 구체적인(긴) 매칭 path가 존재하면 이 path는 active 아님
+    // 예: /settings와 /settings/prompts 둘 다 있을 때 /settings/prompts만 active
+    const moreSpecific = allPaths.some((p) => p !== path && p.startsWith(path + '/') && (cur === p || cur.startsWith(p + '/')))
+    return !moreSpecific
   }
 
   const sidebarClass = [

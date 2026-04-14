@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.api;
 
 import io.github.claudetoolkit.ui.chat.ChatSessionService;
+import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -30,9 +31,11 @@ public class DataRestController {
     private EntityManager em;
 
     private final ChatSessionService chatSessionService;
+    private final ToolkitSettings toolkitSettings;
 
-    public DataRestController(ChatSessionService chatSessionService) {
+    public DataRestController(ChatSessionService chatSessionService, ToolkitSettings toolkitSettings) {
         this.chatSessionService = chatSessionService;
+        this.toolkitSettings = toolkitSettings;
     }
 
     @GetMapping("/pipelines")
@@ -239,8 +242,32 @@ public class DataRestController {
     }
 
     /**
+     * ToolkitSettings 전체 값 (마스킹된 비밀번호/API키)
+     * React Settings 페이지 초기 로드용.
+     */
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> settingsData() {
+        Map<String, Object> data = new LinkedHashMap<>();
+        try {
+            data.put("dbUrl", toolkitSettings.getDb().getUrl());
+            data.put("dbUsername", toolkitSettings.getDb().getUsername());
+            data.put("scanPath", toolkitSettings.getProject().getScanPath());
+            data.put("projectContext", toolkitSettings.getProjectContext());
+            data.put("claudeModel", toolkitSettings.getClaudeModel());
+            data.put("accentColor", toolkitSettings.getAccentColor());
+            data.put("slackWebhookUrl", toolkitSettings.getSlackWebhookUrl());
+            data.put("teamsWebhookUrl", toolkitSettings.getTeamsWebhookUrl());
+            data.put("jiraBaseUrl", toolkitSettings.getJiraBaseUrl());
+            data.put("jiraProjectKey", toolkitSettings.getJiraProjectKey());
+            data.put("jiraEmail", toolkitSettings.getJiraEmail());
+            data.put("emailHost", toolkitSettings.getEmail().getHost());
+            data.put("emailFrom", toolkitSettings.getEmail().getFrom());
+        } catch (Exception ignored) {}
+        return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    /**
      * 현재 로그인 사용자의 비활성화된 기능 목록.
-     * 프론트엔드 사이드바에서 메뉴를 숨기는 데 사용.
      */
     @GetMapping("/auth/my-permissions")
     public ResponseEntity<ApiResponse<Map<String, Object>>> myPermissions(Authentication auth) {
