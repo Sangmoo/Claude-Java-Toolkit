@@ -1247,7 +1247,7 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### ✅ v1.8.0 (현재)
+### ✅ v1.8.0
 
 **🛡️ 하네스 4단계 파이프라인 — Verifier 추가**
 - [x] **검증자(Verifier) 단계** — Analyst → Builder → Reviewer → **Verifier** 4단계 완성
