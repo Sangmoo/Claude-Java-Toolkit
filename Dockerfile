@@ -27,8 +27,10 @@ LABEL maintainer="Claude Java Toolkit"
 
 # 루트 CA 최신화 + curl
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
+    apt-get install -y --no-install-recommends curl ca-certificates tzdata && \
     update-ca-certificates && \
+    ln -snf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
+    echo "Asia/Seoul" > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -55,13 +57,17 @@ ENV CLAUDE_API_KEY="" \
     HTTP_PROXY="" \
     HTTPS_PROXY="" \
     NO_PROXY="localhost,127.0.0.1" \
+    TZ="Asia/Seoul" \
     JAVA_OPTS="-Xmx512m \
 -Dhttps.protocols=TLSv1.2,TLSv1.3 \
 -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3 \
 -Djava.net.preferIPv4Stack=true \
 -Dnetworkaddress.cache.ttl=60 \
 -Dnetworkaddress.cache.negative.ttl=10 \
--Dsun.security.ssl.allowUnsafeRenegotiation=true"
+-Dsun.security.ssl.allowUnsafeRenegotiation=true \
+-Duser.timezone=Asia/Seoul \
+-Doracle.jdbc.timezoneAsRegion=false \
+-Doracle.jdbc.autoCommitSpecCompliant=false"
 
 EXPOSE 8027
 

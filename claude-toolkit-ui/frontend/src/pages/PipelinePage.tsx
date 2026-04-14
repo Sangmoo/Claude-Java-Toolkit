@@ -63,24 +63,40 @@ export default function PipelinePage() {
       })
       const res = await fetch(`/pipelines/${runModal.id}/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
         body,
         credentials: 'include',
       })
-      if (res.ok) {
-        const data = await res.json()
-        toast.success('파이프라인 실행을 시작했습니다.')
-        setRunModal(null)
-        if (data.executionId) {
-          navigate(`/pipelines/execution/${data.executionId}`)
-        }
-      } else {
-        toast.error('실행 시작 실패')
+
+      // 응답 본문을 텍스트로 먼저 받아서 JSON 파싱 실패도 안전하게 처리
+      const raw = await res.text()
+      let data: { success?: boolean; error?: string; executionId?: number } | null = null
+      try { data = JSON.parse(raw) } catch { /* HTML 응답 등 */ }
+
+      if (!res.ok || !data) {
+        const hint = !data
+          ? `서버가 JSON 을 반환하지 않음 (HTTP ${res.status}). 인증/권한 또는 인터셉터 차단 가능성.`
+          : `HTTP ${res.status}`
+        toast.error(`실행 시작 실패 — ${hint}`)
+        return
       }
-    } catch {
-      toast.error('실행 중 오류 발생')
+      if (data.success === false) {
+        toast.error(data.error || '실행 시작 실패 — 알 수 없는 오류')
+        return
+      }
+      toast.success('파이프라인 실행을 시작했습니다.')
+      setRunModal(null)
+      if (data.executionId) {
+        navigate(`/pipelines/execution/${data.executionId}`)
+      }
+    } catch (e) {
+      toast.error('실행 요청 실패: ' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setRunning(false)
     }
-    setRunning(false)
   }
 
   const deletePipeline = async (id: number) => {

@@ -3,8 +3,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   FaLayerGroup, FaPlay, FaSpinner, FaCopy, FaCheck, FaDownload, FaEraser,
-  FaTimes, FaCheckCircle, FaTimesCircle,
+  FaTimes, FaCheckCircle, FaTimesCircle, FaFilePdf,
 } from 'react-icons/fa'
+import { copyToClipboard, printAsHtml, markdownToHtml } from '../utils/clipboard'
 import { useToast } from '../hooks/useToast'
 import SourceSelector from '../components/common/SourceSelector'
 
@@ -171,10 +172,17 @@ export default function WorkspacePage() {
     }
   }
 
-  const copyResult = (key: string) => {
-    navigator.clipboard.writeText(tasks[key]?.result || '')
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(null), 2000)
+  const copyResult = async (key: string) => {
+    const text = tasks[key]?.result || ''
+    if (!text) return
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 2000)
+      toast.success('클립보드에 복사되었습니다.')
+    } else {
+      toast.error('복사 실패 — 브라우저가 차단했습니다.')
+    }
   }
 
   const exportResult = (key: string) => {
@@ -200,6 +208,24 @@ export default function WorkspacePage() {
     a.download = `workspace_all_${new Date().toISOString().slice(0, 10)}.md`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  /** 단일 결과를 PDF 인쇄 다이얼로그로 (사용자가 'PDF 로 저장' 선택) */
+  const printResult = (key: string) => {
+    const task = tasks[key]
+    if (!task || !task.result) return
+    const html = `<h1>${task.icon} ${task.label}</h1>` + markdownToHtml(task.result)
+    printAsHtml(html, `${task.label} - 분석 결과`)
+  }
+
+  /** 전체 결과를 한 문서로 PDF 인쇄 */
+  const printAll = () => {
+    const html = Object.values(tasks)
+      .filter((t) => t.result)
+      .map((t) => `<h1>${t.icon} ${t.label}</h1>` + markdownToHtml(t.result) + '<hr/>')
+      .join('\n')
+    if (!html) { toast.warning('인쇄할 결과가 없습니다.'); return }
+    printAsHtml(html, `통합 워크스페이스 분석 결과`)
   }
 
   return (
@@ -301,7 +327,10 @@ export default function WorkspacePage() {
             <h3 style={{ fontSize: '14px', fontWeight: 700 }}>
               분석 결과 ({Object.values(tasks).filter((t) => t.status === 'completed').length}/{Object.keys(tasks).length})
             </h3>
-            <button onClick={exportAll} style={smallBtn}><FaDownload /> 전체 내보내기</button>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={exportAll} style={smallBtn} title="전체 결과를 .md 파일로 내려받기"><FaDownload /> 전체 MD</button>
+              <button onClick={printAll} style={smallBtn} title="전체 결과를 PDF 로 인쇄/저장"><FaFilePdf /> 전체 PDF</button>
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 450px), 1fr))', gap: '12px' }}>
@@ -319,10 +348,11 @@ export default function WorkspacePage() {
                   {task.status === 'failed' && <FaTimesCircle style={{ color: 'var(--red)', fontSize: '12px' }} />}
                   {task.result && (
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      <button onClick={() => copyResult(task.feature)} style={miniBtn}>
+                      <button onClick={() => copyResult(task.feature)} style={miniBtn} title="복사">
                         {copiedKey === task.feature ? <FaCheck style={{ color: 'var(--green)' }} /> : <FaCopy />}
                       </button>
-                      <button onClick={() => exportResult(task.feature)} style={miniBtn}><FaDownload /></button>
+                      <button onClick={() => exportResult(task.feature)} style={miniBtn} title="MD 내려받기"><FaDownload /></button>
+                      <button onClick={() => printResult(task.feature)} style={miniBtn} title="PDF 인쇄/저장"><FaFilePdf /></button>
                     </div>
                   )}
                 </div>
