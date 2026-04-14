@@ -6,6 +6,15 @@ interface HealthData {
   jvmHeapUsed: string; jvmHeapMax: string; heapUsagePercent: number
   uptime: string; threadCount: number; javaVersion: string; osName: string
   dbFileSize: string; diskFreeSpace: string; apiStatus: string; userCount: number
+  // 자동 이관 + 런타임 전환 반영용 (v4.2.x)
+  dbType?: string
+  dbProduct?: string
+  dbVersion?: string
+  dbUrl?: string
+  dbUsername?: string
+  dbConnected?: boolean
+  dbError?: string
+  dbOverrideActive?: boolean
 }
 
 export default function AdminHealthPage() {
@@ -59,9 +68,23 @@ export default function AdminHealthPage() {
           </div>
         </Card>
         <Card icon={<FaDatabase style={{ color: '#f59e0b' }} />} title="데이터베이스">
-          <Stat label="DB 파일" value={data.dbFileSize} />
+          <Stat label="유형" value={dbBadge(data)} />
+          {data.dbProduct && <Stat label="제품" value={data.dbProduct} />}
+          {data.dbUrl && <Stat label="URL" value={data.dbUrl} />}
+          {data.dbUsername && <Stat label="계정" value={data.dbUsername} />}
+          <Stat label="DB 파일/크기" value={data.dbFileSize} />
           <Stat label="디스크 여유" value={data.diskFreeSpace} />
           <Stat label="등록 사용자" value={String(data.userCount)} />
+          {data.dbOverrideActive && (
+            <div style={{ marginTop: '6px', padding: '6px 10px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '6px', fontSize: '11px', color: '#8b5cf6' }}>
+              🔁 자동 이관으로 전환된 운영 DB 사용 중
+            </div>
+          )}
+          {data.dbConnected === false && (
+            <div style={{ marginTop: '6px', padding: '6px 10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', fontSize: '11px', color: 'var(--red)' }}>
+              ⚠ DB 연결 실패: {data.dbError || 'unknown'}
+            </div>
+          )}
         </Card>
         <Card icon={<FaServer style={{ color: 'var(--text-muted)' }} />} title="시스템 정보">
           <Stat label="Java" value={data.javaVersion} />
@@ -112,11 +135,18 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
   )
 }
 
+function dbBadge(d: HealthData): string {
+  const t = (d.dbType || 'unknown').toUpperCase()
+  if (d.dbConnected === false) return `${t} (연결 실패)`
+  if (d.dbVersion) return `${t} ${d.dbVersion.split(/\s+/)[0]}`
+  return t
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-      <span style={{ fontWeight: 500 }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px', gap: '8px' }}>
+      <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontWeight: 500, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>{value}</span>
     </div>
   )
 }

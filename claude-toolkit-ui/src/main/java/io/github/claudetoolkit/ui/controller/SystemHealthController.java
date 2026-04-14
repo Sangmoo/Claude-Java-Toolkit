@@ -8,10 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -36,12 +39,16 @@ public class SystemHealthController {
 
     private static final Logger log = LoggerFactory.getLogger(SystemHealthController.class);
 
-    private final ClaudeClient     claudeClient;
+    private final ClaudeClient      claudeClient;
     private final AppUserRepository userRepository;
+    private final DataSource        dataSource;
 
-    public SystemHealthController(ClaudeClient claudeClient, AppUserRepository userRepository) {
+    public SystemHealthController(ClaudeClient claudeClient,
+                                  AppUserRepository userRepository,
+                                  DataSource dataSource) {
         this.claudeClient   = claudeClient;
         this.userRepository = userRepository;
+        this.dataSource     = dataSource;
     }
 
     /**
@@ -100,36 +107,70 @@ public class SystemHealthController {
         jvm.put("availableProcessors", rt.availableProcessors());
         data.put("jvm", jvm);
 
-        // ── H2 DB 파일 크기 ──
+        // ── 활성 DB 정보 (H2 / Oracle / MySQL / PostgreSQL 자동 감지) ──
+        // 자동 이관 + 런타임 전환 기능 사용 시, 현재 운영 중인 실제 DB 가
+        // 무엇인지 정확히 보여준다. H2 일 때만 파일 경로/크기를 함께 표시.
         Map<String, Object> database = new LinkedHashMap<String, Object>();
-        try {
-            String home = System.getProperty("user.home");
-            File dbFile = new File(home + "/.claude-toolkit/history-db.mv.db");
-            if (dbFile.exists()) {
-                long size = dbFile.length();
-                database.put("path",      dbFile.getAbsolutePath());
-                database.put("sizeBytes", size);
-                database.put("sizeMb",    String.format("%.2f", size / (1024.0 * 1024.0)));
-                database.put("exists",    true);
+        String dbType = "unknown";
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData md = conn.getMetaData();
+            String product = md.getDatabaseProductName();
+            String version = md.getDatabaseProductVersion();
+            String url     = maskJdbcUrl(md.getURL());
+            String dbUser  = md.getUserName();
+            String driver  = md.getDriverName() + " " + md.getDriverVersion();
 
-                // 디스크 여유 공간
-                File disk = dbFile.getParentFile();
-                if (disk != null && disk.exists()) {
-                    long free = disk.getFreeSpace();
-                    long total = disk.getTotalSpace();
-                    database.put("diskFreeBytes", free);
-                    database.put("diskTotalBytes", total);
-                    database.put("diskFreeGb",  String.format("%.1f", free / (1024.0 * 1024.0 * 1024.0)));
-                    database.put("diskTotalGb", String.format("%.1f", total / (1024.0 * 1024.0 * 1024.0)));
-                    database.put("diskUsagePercent", total > 0 ? (int)((total - free) * 100 / total) : 0);
-                }
-            } else {
-                database.put("exists", false);
-                database.put("note",   "H2 파일이 아직 생성되지 않았거나 외부 DB 사용 중");
-            }
+            dbType = detectDbType(product);
+            database.put("type",           dbType);
+            database.put("productName",    product);
+            database.put("productVersion", version);
+            database.put("url",            url);
+            database.put("username",       dbUser);
+            database.put("driver",         driver);
+            database.put("connected",      true);
         } catch (Exception e) {
-            database.put("error", e.getMessage());
+            log.warn("[SystemHealth] DB 메타데이터 조회 실패: {}", e.getMessage());
+            database.put("connected", false);
+            database.put("error",     e.getMessage());
         }
+
+        // H2 인 경우에만 파일 경로/크기 노출 (외부 DB 는 의미 없음)
+        if ("h2".equals(dbType)) {
+            try {
+                String home = System.getProperty("user.home");
+                File dbFile = new File(home + "/.claude-toolkit/history-db.mv.db");
+                if (dbFile.exists()) {
+                    long size = dbFile.length();
+                    database.put("filePath",   dbFile.getAbsolutePath());
+                    database.put("fileBytes",  size);
+                    database.put("fileMb",     String.format("%.2f", size / (1024.0 * 1024.0)));
+                    database.put("fileExists", true);
+
+                    File disk = dbFile.getParentFile();
+                    if (disk != null && disk.exists()) {
+                        long free = disk.getFreeSpace();
+                        long total = disk.getTotalSpace();
+                        database.put("diskFreeBytes",    free);
+                        database.put("diskTotalBytes",   total);
+                        database.put("diskFreeGb",       String.format("%.1f", free / (1024.0 * 1024.0 * 1024.0)));
+                        database.put("diskTotalGb",      String.format("%.1f", total / (1024.0 * 1024.0 * 1024.0)));
+                        database.put("diskUsagePercent", total > 0 ? (int)((total - free) * 100 / total) : 0);
+                    }
+                } else {
+                    database.put("fileExists", false);
+                }
+            } catch (Exception e) {
+                database.put("fileError", e.getMessage());
+            }
+        } else if (database.get("connected") == Boolean.TRUE) {
+            // 외부 DB: 사이즈/디스크 정보 의미 없음 — 명시
+            database.put("note", "외부 DB 사용 중 — 디스크/파일 정보는 DB 서버에서 확인하세요.");
+        }
+
+        // 오버라이드 활성 여부 (자동 이관으로 전환된 상태인지)
+        File overrideFile = new File("data/db-override.properties");
+        database.put("overrideActive", overrideFile.exists());
+
         data.put("database", database);
 
         // ── Claude API 상태 ──
@@ -174,5 +215,24 @@ public class SystemHealthController {
         if (hours > 0)   return hours + "시간 " + minutes + "분 " + seconds + "초";
         if (minutes > 0) return minutes + "분 " + seconds + "초";
         return seconds + "초";
+    }
+
+    /** JDBC URL 의 패스워드 마스킹 */
+    private String maskJdbcUrl(String url) {
+        if (url == null) return "";
+        return url.replaceAll("password=([^&;]*)", "password=****")
+                  .replaceAll(":[^:@/]+@", ":****@");
+    }
+
+    /** Database product name → 짧은 타입 식별자 */
+    private String detectDbType(String product) {
+        if (product == null) return "unknown";
+        String lower = product.toLowerCase();
+        if (lower.contains("h2"))         return "h2";
+        if (lower.contains("mysql"))      return "mysql";
+        if (lower.contains("postgresql")) return "postgresql";
+        if (lower.contains("postgres"))   return "postgresql";
+        if (lower.contains("oracle"))     return "oracle";
+        return "unknown";
     }
 }

@@ -37,15 +37,18 @@ public class DataRestController {
     private final ToolkitSettings toolkitSettings;
     private final RateLimitService rateLimitService;
     private final AppUserRepository userRepository;
+    private final javax.sql.DataSource dataSource;
 
     public DataRestController(ChatSessionService chatSessionService,
                               ToolkitSettings toolkitSettings,
                               RateLimitService rateLimitService,
-                              AppUserRepository userRepository) {
+                              AppUserRepository userRepository,
+                              javax.sql.DataSource dataSource) {
         this.chatSessionService = chatSessionService;
         this.toolkitSettings = toolkitSettings;
         this.rateLimitService = rateLimitService;
         this.userRepository = userRepository;
+        this.dataSource = dataSource;
     }
 
     @GetMapping("/pipelines")
@@ -358,13 +361,83 @@ public class DataRestController {
         data.put("threadCount", Thread.activeCount());
         data.put("javaVersion", System.getProperty("java.version"));
         data.put("osName", System.getProperty("os.name") + " " + System.getProperty("os.arch"));
-        data.put("dbFileSize", "H2 File");
+
+        // ── 활성 DB 자동 감지 (자동 이관 + 런타임 전환 반영) ──
+        // 이전엔 "H2 File" 문자열을 하드코딩했던 자리. 이제 실제 운영 DB 로
+        // 부터 메타데이터를 가져온다.
+        String dbType = "unknown";
+        String dbDisplay = "(미연결)";
+        try (java.sql.Connection conn = dataSource.getConnection()) {
+            java.sql.DatabaseMetaData md = conn.getMetaData();
+            String product = md.getDatabaseProductName();
+            String version = md.getDatabaseProductVersion();
+            dbType = detectDbType(product);
+            data.put("dbType",        dbType);
+            data.put("dbProduct",     product);
+            data.put("dbVersion",     version);
+            data.put("dbUrl",         maskJdbcUrl(md.getURL()));
+            data.put("dbUsername",    md.getUserName());
+            data.put("dbConnected",   true);
+
+            if ("h2".equals(dbType)) {
+                java.io.File h2 = new java.io.File(System.getProperty("user.home") + "/.claude-toolkit/history-db.mv.db");
+                if (h2.exists()) {
+                    long size = h2.length();
+                    dbDisplay = String.format("H2 (%.2f MB)", size / (1024.0 * 1024.0));
+                    data.put("dbFilePath", h2.getAbsolutePath());
+                    data.put("dbFileBytes", size);
+                } else {
+                    dbDisplay = "H2 (파일 미생성)";
+                }
+            } else {
+                // 외부 DB — 제품명 + 호스트 표시
+                dbDisplay = product + " — " + extractHost(md.getURL());
+            }
+        } catch (Exception e) {
+            data.put("dbConnected", false);
+            data.put("dbError",     e.getMessage());
+            dbDisplay = "(연결 실패)";
+        }
+        // 호환성 위해 기존 필드명 유지 + 새 필드 추가
+        data.put("dbFileSize",  dbDisplay);
         data.put("diskFreeSpace", new java.io.File("/").getFreeSpace() / 1073741824 + " GB");
+
+        // 자동 이관 후 런타임 오버라이드가 활성 상태인지
+        data.put("dbOverrideActive", new java.io.File("data/db-override.properties").exists());
+
         data.put("apiStatus", "UP");
         try {
             long userCount = ((Number) em.createQuery("SELECT COUNT(u) FROM AppUser u").getSingleResult()).longValue();
             data.put("userCount", userCount);
         } catch (Exception e) { data.put("userCount", 0); }
         return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    private String detectDbType(String product) {
+        if (product == null) return "unknown";
+        String l = product.toLowerCase();
+        if (l.contains("h2"))         return "h2";
+        if (l.contains("mysql"))      return "mysql";
+        if (l.contains("postgresql")) return "postgresql";
+        if (l.contains("postgres"))   return "postgresql";
+        if (l.contains("oracle"))     return "oracle";
+        return "unknown";
+    }
+
+    private String maskJdbcUrl(String url) {
+        if (url == null) return "";
+        return url.replaceAll("password=([^&;]*)", "password=****")
+                  .replaceAll(":[^:@/]+@", ":****@");
+    }
+
+    private String extractHost(String url) {
+        if (url == null) return "";
+        // jdbc:oracle:thin:@HOST:PORT:SID  → HOST:PORT
+        // jdbc:oracle:thin:@//HOST:PORT/SVC → HOST:PORT
+        // jdbc:mysql://HOST:PORT/DB → HOST:PORT
+        // jdbc:postgresql://HOST:PORT/DB → HOST:PORT
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "@/{0,2}([^:/]+:\\d+)").matcher(url);
+        return m.find() ? m.group(1) : url;
     }
 }
