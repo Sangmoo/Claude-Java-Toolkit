@@ -53,7 +53,10 @@ public class ClaudeProperties {
     public int getTimeoutSeconds() { return timeoutSeconds; }
     public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
 
-    public String getBaseUrl() { return baseUrl; }
+    /** baseUrl. 빈 문자열·null 이면 기본값(api.anthropic.com) 반환. */
+    public String getBaseUrl() {
+        return (baseUrl == null || baseUrl.trim().isEmpty()) ? "https://api.anthropic.com" : baseUrl.trim();
+    }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
 
     public String getApiVersion() { return apiVersion; }

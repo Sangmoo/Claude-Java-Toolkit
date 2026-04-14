@@ -6,7 +6,7 @@ services:
       - "${PORT:-8027}:8027"
     environment:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
-      - CLAUDE_BASE_URL=${CLAUDE_BASE_URL:-}
+      - CLAUDE_BASE_URL=${CLAUDE_BASE_URL:-https://api.anthropic.com}
       - CLAUDE_PROXY_HOST=${CLAUDE_PROXY_HOST:-}
       - CLAUDE_PROXY_PORT=${CLAUDE_PROXY_PORT:-0}
       - DB_TYPE=${DB_TYPE:-h2}
