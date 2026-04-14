@@ -23,6 +23,9 @@ claude:
   model: claude-sonnet-4-20250514
   max-tokens: 8192
   timeout-seconds: 120
+  base-url: ${CLAUDE_BASE_URL:https://api.anthropic.com}
+  proxy-host: ${CLAUDE_PROXY_HOST:}   # 사내망에서 forward proxy 경유 시 지정
+  proxy-port: ${CLAUDE_PROXY_PORT:0}  # 0 = 미설정
 
 # ── Claude Toolkit settings ────────────────────────────────────────────────
 # These can also be provided via environment variables or updated at runtime

@@ -6,13 +6,20 @@ services:
       - "${PORT:-8027}:8027"
     environment:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CLAUDE_BASE_URL=${CLAUDE_BASE_URL:-}
+      - CLAUDE_PROXY_HOST=${CLAUDE_PROXY_HOST:-}
+      - CLAUDE_PROXY_PORT=${CLAUDE_PROXY_PORT:-0}
       - DB_TYPE=${DB_TYPE:-h2}
       - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-3306}
       - DB_NAME=${DB_NAME:-claude_toolkit}
       - DB_USERNAME=${DB_USERNAME:-claude}
       - DB_PASSWORD=${DB_PASSWORD:-claude1234}
-      - JAVA_OPTS=${JAVA_OPTS:--Xmx512m}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+      # JAVA_OPTS 는 Dockerfile 의 기본값 (TLS/DNS 튜닝 포함) 을 사용한다.
+      # 커스텀 옵션이 필요할 때만 override — 기본값을 덮지 않도록 주의.
     volumes:
       - toolkit-data:/root/.claude-toolkit
       # Windows 드라이브를 컨테이너에 마운트 (읽기 전용)

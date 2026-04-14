@@ -10,6 +10,8 @@ import okhttp3.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import javax.net.ssl.SSLHandshakeException;
 
 /**
  * Core HTTP client for Anthropic Claude API.
@@ -59,10 +62,12 @@ public class ClaudeClient {
         this.properties   = properties;
         this.objectMapper = new ObjectMapper();
 
-        // JDK 1.8 (Alpine) 환경에서 api.anthropic.com 과의 TLS handshake_failure 대응:
-        // 최신 TLS(1.2/1.3)만 명시적으로 허용하고, 구 ciphers 는 MODERN/COMPATIBLE 순으로
-        // 폴백한다. 이 설정이 없으면 일부 JDK 8 배포판이 구형 cipher 를 먼저 시도하다가
-        // Anthropic 서버에게 거절되어 handshake_failure 로 실패한다.
+        // ──────────────────────────────────────────────────────────────────
+        //  JDK 8 + 사내망 환경에서 api.anthropic.com 과의 TLS 이슈 방지
+        // ──────────────────────────────────────────────────────────────────
+        //  • MODERN_TLS(TLSv1.3/1.2) 와 COMPATIBLE_TLS(TLSv1.2) 를 fallback 으로
+        //  • 필요하면 system property 로 주입된 proxy 를 사용
+        //  • 프록시 host/port 가 application.yml 에 명시되어 있으면 그것을 우선
         ConnectionSpec modern = new ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
                 .tlsVersions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
                 .build();
@@ -70,13 +75,78 @@ public class ClaudeClient {
                 .tlsVersions(TlsVersion.TLS_1_2)
                 .build();
 
-        this.httpClient   = new OkHttpClient.Builder()
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .connectTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .writeTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .connectionSpecs(Arrays.asList(modern, compatible))
-                .retryOnConnectionFailure(true)
-                .build();
+                .retryOnConnectionFailure(true);
+
+        // ── 프록시 설정 (application.yml > 환경변수 순) ──
+        String proxyHost = properties.getProxyHost();
+        Integer proxyPort = properties.getProxyPort();
+
+        // 환경변수 HTTPS_PROXY/HTTP_PROXY 지원
+        if ((proxyHost == null || proxyHost.isEmpty()) && proxyPort == null) {
+            String envProxy = System.getenv("HTTPS_PROXY");
+            if (envProxy == null || envProxy.isEmpty()) envProxy = System.getenv("HTTP_PROXY");
+            if (envProxy != null && !envProxy.isEmpty()) {
+                try {
+                    // http://host:port 또는 http://user:pw@host:port
+                    String stripped = envProxy.replaceFirst("^https?://", "");
+                    int atIdx = stripped.indexOf('@');
+                    if (atIdx >= 0) stripped = stripped.substring(atIdx + 1);
+                    int colon = stripped.indexOf(':');
+                    if (colon > 0) {
+                        proxyHost = stripped.substring(0, colon);
+                        proxyPort = Integer.parseInt(stripped.substring(colon + 1).replaceAll("/.*$", ""));
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        if (proxyHost != null && !proxyHost.isEmpty() && proxyPort != null && proxyPort > 0) {
+            builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost, proxyPort)));
+        }
+
+        this.httpClient = builder.build();
+    }
+
+    /**
+     * 현재 설정된 Claude API 연결 상태를 반환한다 — 진단용.
+     * 실제 Claude API 호출 없이 TCP/TLS 연결만 테스트.
+     */
+    public String diagnose() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("baseUrl=").append(properties.getBaseUrl()).append('\n');
+        sb.append("model=").append(getEffectiveModel()).append('\n');
+        String key = getEffectiveApiKey();
+        sb.append("apiKey=").append(key == null || key.isEmpty() ? "<none>" : (key.substring(0, Math.min(10, key.length())) + "...")).append('\n');
+        sb.append("proxyHost=").append(properties.getProxyHost() == null ? "<none>" : properties.getProxyHost()).append('\n');
+        sb.append("proxyPort=").append(properties.getProxyPort() == null ? "<none>" : properties.getProxyPort()).append('\n');
+        sb.append("jdk.tls.client.protocols=").append(System.getProperty("jdk.tls.client.protocols", "<default>")).append('\n');
+        sb.append("https.protocols=").append(System.getProperty("https.protocols", "<default>")).append('\n');
+
+        // HEAD 요청으로 TCP+TLS 연결만 테스트
+        try {
+            Request req = new Request.Builder()
+                    .url(properties.getBaseUrl() + "/v1/messages")
+                    .header("x-api-key", key == null ? "" : key)
+                    .header("anthropic-version", properties.getApiVersion())
+                    .head()
+                    .build();
+            try (Response r = httpClient.newCall(req).execute()) {
+                sb.append("probe=OK http=").append(r.code()).append('\n');
+            }
+        } catch (SSLHandshakeException ssl) {
+            sb.append("probe=TLS_FAIL message=").append(ssl.getMessage()).append('\n');
+            Throwable cause = ssl.getCause();
+            if (cause != null) sb.append("cause=").append(cause.getClass().getSimpleName()).append(": ").append(cause.getMessage()).append('\n');
+        } catch (Exception e) {
+            sb.append("probe=FAIL class=").append(e.getClass().getSimpleName()).append(" message=").append(e.getMessage()).append('\n');
+            Throwable cause = e.getCause();
+            if (cause != null) sb.append("cause=").append(cause.getClass().getSimpleName()).append(": ").append(cause.getMessage()).append('\n');
+        }
+        return sb.toString();
     }
 
     // ── Model override ───────────────────────────────────────────────────────
@@ -224,8 +294,34 @@ public class ClaudeClient {
                 return claudeResponse;
             }
         } catch (IOException e) {
-            throw new ClaudeApiException("Failed to call Claude API", e);
+            throw new ClaudeApiException(formatNetworkError(e), e);
         }
+    }
+
+    /**
+     * 네트워크/TLS 오류를 사용자가 이해할 수 있는 메시지로 변환한다.
+     */
+    private String formatNetworkError(Throwable e) {
+        String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        String lower = msg.toLowerCase();
+        if (lower.contains("handshake_failure") || lower.contains("handshake failure")) {
+            return "Claude API 연결 실패 — TLS 핸드셰이크 오류. 사내망 프록시 또는 방화벽에서 api.anthropic.com 을 차단 중일 수 있습니다. " +
+                   "Settings 화면에서 claude.proxy-host/port 를 설정하거나 HTTPS_PROXY 환경변수를 지정하세요. " +
+                   "원본: " + msg;
+        }
+        if (lower.contains("unable to find valid certification path") || lower.contains("pkix")) {
+            return "Claude API 연결 실패 — 인증서 검증 실패. 사내 TLS 가로채기 프록시의 루트 인증서를 컨테이너 truststore 에 추가해야 합니다. 원본: " + msg;
+        }
+        if (lower.contains("connection refused") || lower.contains("no route") || lower.contains("unreachable")) {
+            return "Claude API 연결 실패 — 네트워크 경로 없음. 컨테이너에서 외부 인터넷으로 나가는 경로가 차단되어 있습니다. 원본: " + msg;
+        }
+        if (lower.contains("timed out") || lower.contains("timeout")) {
+            return "Claude API 연결 실패 — 타임아웃. 네트워크가 느리거나 프록시가 응답하지 않습니다. 원본: " + msg;
+        }
+        if (lower.contains("unknown host") || lower.contains("name or service not known")) {
+            return "Claude API 연결 실패 — DNS 조회 실패. 컨테이너에서 api.anthropic.com 을 resolve 할 수 없습니다. 원본: " + msg;
+        }
+        return "Claude API 호출 실패 — " + msg;
     }
 
     // ── Streaming chat (SSE) ─────────────────────────────────────────────────
@@ -333,15 +429,23 @@ public class ClaudeClient {
 
         String stopReason = "end_turn";
 
-        try (Response response = streamClient.newCall(httpRequest).execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
-                String body = response.body() != null ? response.body().string() : "";
+        Response response;
+        try {
+            response = streamClient.newCall(httpRequest).execute();
+        } catch (IOException e) {
+            // TLS/네트워크 레벨 실패 — 사용자가 이해 가능한 메시지로 변환
+            throw new ClaudeApiException(formatNetworkError(e), e);
+        }
+
+        try (Response r = response) {
+            if (!r.isSuccessful() || r.body() == null) {
+                String body = r.body() != null ? r.body().string() : "";
                 throw new ClaudeApiException(
-                        "Claude streaming API error: HTTP " + response.code() + " - " + body);
+                        "Claude streaming API error: HTTP " + r.code() + " - " + body);
             }
 
             BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(response.body().byteStream(), StandardCharsets.UTF_8));
+                    new InputStreamReader(r.body().byteStream(), StandardCharsets.UTF_8));
             String line;
             while ((line = reader.readLine()) != null) {
                 if (!line.startsWith("data: ")) continue;

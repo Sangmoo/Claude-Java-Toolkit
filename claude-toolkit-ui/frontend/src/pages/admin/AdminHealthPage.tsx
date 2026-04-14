@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FaHeartbeat, FaServer, FaDatabase, FaMemory } from 'react-icons/fa'
+import { FaHeartbeat, FaServer, FaDatabase, FaMemory, FaStethoscope, FaSpinner } from 'react-icons/fa'
 import { useApi } from '../../hooks/useApi'
 
 interface HealthData {
@@ -10,7 +10,22 @@ interface HealthData {
 
 export default function AdminHealthPage() {
   const [data, setData] = useState<HealthData | null>(null)
+  const [diagReport, setDiagReport] = useState<string>('')
+  const [diagLoading, setDiagLoading] = useState(false)
   const api = useApi()
+
+  const runDiagnose = async () => {
+    setDiagLoading(true)
+    setDiagReport('')
+    try {
+      const res = await fetch('/admin/health/claude-api-diagnose', { credentials: 'include' })
+      const d = await res.json()
+      setDiagReport(d.success ? (d.report || '(empty)') : ('오류: ' + (d.error || 'unknown')))
+    } catch (e) {
+      setDiagReport('요청 실패: ' + (e instanceof Error ? e.message : String(e)))
+    }
+    setDiagLoading(false)
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -52,6 +67,37 @@ export default function AdminHealthPage() {
           <Stat label="Java" value={data.javaVersion} />
           <Stat label="OS" value={data.osName} />
         </Card>
+      </div>
+
+      {/* Claude API 연결 진단 */}
+      <div style={{ marginTop: '24px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 600 }}>
+            <FaStethoscope style={{ color: '#8b5cf6' }} /> Claude API 연결 진단
+          </div>
+          <button onClick={runDiagnose} disabled={diagLoading} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 14px', borderRadius: '6px',
+            background: 'var(--accent)', color: '#fff', border: 'none',
+            fontSize: '12px', fontWeight: 600, cursor: diagLoading ? 'not-allowed' : 'pointer',
+            opacity: diagLoading ? 0.6 : 1,
+          }}>
+            {diagLoading ? <><FaSpinner className="spin" /> 진단 중...</> : '진단 실행'}
+          </button>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.6 }}>
+          TLS 핸드셰이크·DNS·프록시 경로를 종합 확인합니다. <code>handshake_failure</code> 가 나오면
+          사내망 프록시(<code>CLAUDE_PROXY_HOST/PORT</code>) 또는 베이스 URL(<code>CLAUDE_BASE_URL</code>)
+          설정이 필요할 수 있습니다.
+        </p>
+        {diagReport && (
+          <pre style={{
+            background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+            borderRadius: '6px', padding: '12px', fontSize: '11.5px',
+            fontFamily: 'Consolas, Monaco, monospace', whiteSpace: 'pre-wrap',
+            maxHeight: '280px', overflowY: 'auto', margin: 0,
+          }}>{diagReport}</pre>
+        )}
       </div>
     </>
   )

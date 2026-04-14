@@ -17,11 +17,19 @@ COPY . .
 RUN mvn package -DskipTests -pl claude-toolkit-ui -am -B && \
     ls -la /build/claude-toolkit-ui/target/*.jar
 
-# Stage 2: Runtime (JRE 8)
-FROM eclipse-temurin:8-jre-alpine
+# Stage 2: Runtime (JRE 8) — Ubuntu (Jammy) 기반
+# ── 중요: Alpine(musl) 대신 Ubuntu(glibc) 기반 이미지를 사용.
+#    Alpine + JDK 8 조합에서 api.anthropic.com 과의 TLS 핸드셰이크가
+#    "Received fatal alert: handshake_failure" 로 실패하는 이슈가 있어
+#    Debian/Ubuntu glibc + 최신 ca-certificates 로 변경.
+FROM eclipse-temurin:8-jre-jammy
 LABEL maintainer="Claude Java Toolkit"
 
-RUN apk add --no-cache curl ca-certificates && update-ca-certificates
+# 루트 CA 최신화 + curl
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /build/claude-toolkit-ui/target/claude-toolkit-ui-*.jar app.jar
@@ -30,7 +38,13 @@ COPY --from=builder /build/claude-toolkit-ui/target/claude-toolkit-ui-*.jar app.
 VOLUME /root/.claude-toolkit
 
 # 환경변수
+#
+#  • TLS: JDK 8 기본 프로토콜을 TLSv1.2/1.3 으로 고정
+#  • DNS: getaddrinfo 캐시 비활성화 — 컨테이너 네트워크 DNS 변경 즉시 반영
+#  • IPv4 우선: 사내망 IPv6 경로가 막혀있을 때의 hang 방지
+#  • Proxy: HTTP(S)_PROXY 는 사내망용 forward proxy 설정 (선택)
 ENV CLAUDE_API_KEY="" \
+    CLAUDE_BASE_URL="" \
     SPRING_PROFILES_ACTIVE="h2" \
     DB_TYPE="h2" \
     DB_HOST="localhost" \
@@ -38,7 +52,16 @@ ENV CLAUDE_API_KEY="" \
     DB_NAME="" \
     DB_USERNAME="" \
     DB_PASSWORD="" \
-    JAVA_OPTS="-Xmx512m -Dhttps.protocols=TLSv1.2,TLSv1.3 -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3 -Djava.net.preferIPv4Stack=true"
+    HTTP_PROXY="" \
+    HTTPS_PROXY="" \
+    NO_PROXY="localhost,127.0.0.1" \
+    JAVA_OPTS="-Xmx512m \
+-Dhttps.protocols=TLSv1.2,TLSv1.3 \
+-Djdk.tls.client.protocols=TLSv1.2,TLSv1.3 \
+-Djava.net.preferIPv4Stack=true \
+-Dnetworkaddress.cache.ttl=60 \
+-Dnetworkaddress.cache.negative.ttl=10 \
+-Dsun.security.ssl.allowUnsafeRenegotiation=true"
 
 EXPOSE 8027
 

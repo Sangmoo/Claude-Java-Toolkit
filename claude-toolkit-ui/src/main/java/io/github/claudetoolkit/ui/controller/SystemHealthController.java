@@ -44,6 +44,24 @@ public class SystemHealthController {
         this.userRepository = userRepository;
     }
 
+    /**
+     * Claude API 연결 진단 — 실제 네트워크/TLS 상태 확인용 (ADMIN 전용).
+     * 사내망에서 handshake_failure 등 이슈 발생 시 정확한 원인을 확인.
+     */
+    @GetMapping("/claude-api-diagnose")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> diagnoseClaudeApi() {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        try {
+            resp.put("success", true);
+            resp.put("report",  claudeClient.diagnose());
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+        return ResponseEntity.ok(resp);
+    }
+
     /** 시스템 상태 JSON API (30초마다 갱신용) */
     @GetMapping("/data")
     @ResponseBody
