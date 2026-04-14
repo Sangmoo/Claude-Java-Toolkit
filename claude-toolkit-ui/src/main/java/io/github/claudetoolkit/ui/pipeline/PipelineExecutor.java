@@ -228,6 +228,19 @@ public class PipelineExecutor {
                     String userMsg   = svc.buildUserMessage(req);
                     int    maxTokens = claudeClient.getProperties().getMaxTokens();
 
+                    // ── 파이프라인 컨텍스트 전파 (v4.2.4 버그 수정) ────────────
+                    // AnalysisService.buildUserMessage 구현체들이 request.getProjectContext()
+                    // 를 읽지 않아 이전 단계 결과가 Claude 까지 도달하지 못함.
+                    // stepContext(이전 단계 결과) 를 userMsg 앞에 직접 prepend 하여
+                    // 연쇄 파이프라인이 실제로 단계 간 컨텍스트를 공유하도록 보장.
+                    if (stepContext != null && !stepContext.trim().isEmpty()) {
+                        userMsg = stepContext + "\n\n---\n\n" + userMsg;
+                    }
+                    log.info("[Pipeline] 단계 실행: exec={}, step={}, inputLen={}, contextLen={}",
+                            exec.getId(), step.getId(),
+                            stepInput == null ? 0 : stepInput.length(),
+                            stepContext == null ? 0 : stepContext.length());
+
                     // 스트리밍 실행 — 진행적 DB 저장 (300ms 또는 1000자마다)
                     final StringBuilder outputBuf = new StringBuilder();
                     final String stepIdCopy = step.getId();
@@ -257,6 +270,15 @@ public class PipelineExecutor {
                     });
 
                     String output = outputBuf.toString();
+                    // v4.2.4: 빈 응답 방어 — Claude 가 0 청크로 끝나면 사용자가 원인 파악 가능하도록
+                    if (output == null || output.trim().isEmpty()) {
+                        log.warn("[Pipeline] 단계가 빈 응답으로 종료됨: exec={}, step={} — 원인: Claude 응답 0 청크",
+                                exec.getId(), step.getId());
+                        output = "(AI 응답이 비어 있습니다. 입력이 너무 길거나 모델이 응답을 거부했을 수 있습니다. "
+                               + "다른 단계 결과나 로그를 확인해 보세요.)";
+                    }
+                    log.info("[Pipeline] 단계 완료: exec={}, step={}, outputLen={}",
+                            exec.getId(), step.getId(), output.length());
                     result.markCompleted(output);
                     stepResultRepo.save(result);
                     ctx.set(step.getId() + ".output", output);
@@ -339,6 +361,15 @@ public class PipelineExecutor {
         String userMsg   = svc.buildUserMessage(req);
         int    maxTokens = claudeClient.getProperties().getMaxTokens();
 
+        // v4.2.4: 파이프라인 컨텍스트 전파 (AnalysisService 가 projectContext 무시하는 문제 대응)
+        if (stepContext != null && !stepContext.trim().isEmpty()) {
+            userMsg = stepContext + "\n\n---\n\n" + userMsg;
+        }
+        log.info("[Pipeline] 병렬 단계 실행: exec={}, step={}, inputLen={}, contextLen={}",
+                exec.getId(), step.getId(),
+                stepInput == null ? 0 : stepInput.length(),
+                stepContext == null ? 0 : stepContext.length());
+
         final StringBuilder outputBuf = new StringBuilder();
         final String stepIdCopy = step.getId();
         final long[] lastSave   = { System.currentTimeMillis() };
@@ -367,6 +398,12 @@ public class PipelineExecutor {
         });
 
         String output = outputBuf.toString();
+        // v4.2.4: 빈 응답 방어 — Claude 가 0 청크로 끝나는 경우 사용자가 원인 파악 가능하도록
+        if (output == null || output.trim().isEmpty()) {
+            log.warn("[Pipeline] 단계가 빈 응답으로 종료됨: exec={}, step={} — 원인: Claude 응답 0 청크", exec.getId(), step.getId());
+            output = "(AI 응답이 비어 있습니다. 입력이 너무 길거나 모델이 응답을 거부했을 수 있습니다. "
+                   + "다른 단계 결과나 로그를 확인해 보세요.)";
+        }
         result.markCompleted(output);
         stepResultRepo.save(result);
         ctx.set(step.getId() + ".output", output);
