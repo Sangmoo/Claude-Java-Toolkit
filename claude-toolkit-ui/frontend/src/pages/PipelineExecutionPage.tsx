@@ -89,10 +89,24 @@ export default function PipelineExecutionPage() {
     }
   }, [id, toast])
 
+  // RUNNING 동안만 폴링하기 위한 ref (effect 재구성을 피해 EventSource 가 끊기지 않게)
+  const statusRef = useRef<string>('RUNNING')
+  statusRef.current = data?.status || 'RUNNING'
+
   useEffect(() => {
     loadData()
 
-    // SSE 구독 — step-chunk 로 실시간 출력 누적
+    // 폴링 백업 — SSE 가 어떤 이유로든 청크를 놓쳐도 1초마다 DB 의 진행적 저장본을 가져옴.
+    // 백엔드 PipelineExecutor 가 매 ~300ms / 1000자마다 outputContent 를 저장하므로
+    // 폴링만으로도 (살짝 지연된) 실시간 스트리밍처럼 보임.
+    const pollInterval = window.setInterval(() => {
+      const s = statusRef.current
+      if (s === 'RUNNING' || s === 'PENDING') {
+        loadData()
+      }
+    }, 1000)
+
+    // SSE 구독 — step-chunk 로 실시간 출력 누적 (성공 시 폴링보다 더 부드럽게)
     const es = new EventSource(`/pipelines/executions/${id}/stream`, { withCredentials: true })
     esRef.current = es
 
@@ -124,6 +138,7 @@ export default function PipelineExecutionPage() {
     es.onerror = () => { loadData() }
 
     return () => {
+      window.clearInterval(pollInterval)
       es.close()
       esRef.current = null
     }

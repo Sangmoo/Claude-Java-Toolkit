@@ -3,9 +3,13 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
+import io.github.claudetoolkit.ui.history.ReviewHistory;
+import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
 import io.github.claudetoolkit.ui.service.AnalysisCacheService;
 import io.github.claudetoolkit.ui.translate.SqlTranslateService;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -50,22 +54,65 @@ public class SseStreamController {
     private final ConcurrentHashMap<String, StreamInput> pending =
             new ConcurrentHashMap<String, StreamInput>();
 
-    private final ClaudeClient         claudeClient;
-    private final ToolkitSettings      settings;
-    private final HarnessReviewService harnessService;
-    private final SqlTranslateService   translateService;
-    private final AnalysisCacheService cacheService;
+    private final ClaudeClient            claudeClient;
+    private final ToolkitSettings         settings;
+    private final HarnessReviewService    harnessService;
+    private final SqlTranslateService     translateService;
+    private final AnalysisCacheService    cacheService;
+    private final ReviewHistoryRepository historyRepo;
 
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
                                HarnessReviewService harnessService,
                                SqlTranslateService translateService,
-                               AnalysisCacheService cacheService) {
+                               AnalysisCacheService cacheService,
+                               ReviewHistoryRepository historyRepo) {
         this.claudeClient     = claudeClient;
         this.settings         = settings;
         this.harnessService   = harnessService;
         this.translateService = translateService;
         this.cacheService     = cacheService;
+        this.historyRepo      = historyRepo;
+    }
+
+    /**
+     * v4.2.x — 백그라운드 스레드에서 사용할 username 캡처.
+     * GET /stream/{id} 의 request 스레드에서 호출되어야 한다.
+     */
+    private String currentUsername() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * v4.2.x — 스트리밍 완료 후 리뷰 이력 저장.
+     * 백그라운드 스레드에서 호출되므로 SecurityContext 가 비어 있어
+     * username 은 인자로 받는다.
+     */
+    private void saveHistory(String feature, String input, String result, String username) {
+        if (input == null || input.trim().isEmpty()) return;
+        if (result == null || result.trim().isEmpty()) return;
+        try {
+            String type  = (feature == null || feature.isEmpty() ? "STREAM" : feature.toUpperCase());
+            String title = buildHistoryTitle(input);
+            long inTok   = claudeClient.getLastInputTokens();
+            long outTok  = claudeClient.getLastOutputTokens();
+            ReviewHistory h = new ReviewHistory(type, title, input, result, null,
+                    inTok > 0 ? inTok : null, outTok > 0 ? outTok : null);
+            h.setUsername(username);
+            historyRepo.save(h);
+        } catch (Exception ignored) {}
+    }
+
+    private String buildHistoryTitle(String input) {
+        String first = input.trim().split("\n")[0].trim();
+        if (first.isEmpty()) first = input.trim().substring(0, Math.min(50, input.trim().length()));
+        return first.length() > 60 ? first.substring(0, 57) + "..." : first;
     }
 
     // ── Direct registration (for internal use, no HTTP round-trip) ──────────
@@ -120,6 +167,8 @@ public class SseStreamController {
     public SseEmitter stream(@PathVariable String id) {
         final SseEmitter emitter = new SseEmitter(180_000L);
         final StreamInput input  = pending.remove(id);
+        // 리뷰 이력 저장에 사용 — 백그라운드 스레드 진입 전에 capture
+        final String capturedUser = currentUsername();
 
         if (input == null) {
             try { emitter.send(SseEmitter.event().name("error_msg").data("Invalid or expired stream ID")); }
@@ -151,16 +200,19 @@ public class SseStreamController {
                 try {
                     // ── 하네스: Analyst→Builder→Reviewer 3단계 분리 스트리밍 ────────────
                     if ("harness_review".equals(input.feature)) {
+                        final StringBuilder harnessBuf = new StringBuilder();
                         harnessService.analyzeStream(
                                 input.input,
                                 input.sourceType,  // sourceType에 language("java"/"sql")가 담김
                                 input.input2,      // input2에 templateHint가 담김
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
+                                        harnessBuf.append(chunk);
                                         try { sendSseData(emitter, chunk); }
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
+                        saveHistory("harness_review", input.input, harnessBuf.toString(), capturedUser);
                         emitter.send(SseEmitter.event().name("done").data("ok"));
                         try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                         emitter.complete();
@@ -178,14 +230,19 @@ public class SseStreamController {
                             sysPrompt = sysPrompt + "\n\n[프로젝트 컨텍스트]\n" + memo;
                         }
                         String userMsg = translateService.buildUserMessage(input.input, sourceDb, targetDb);
+                        final StringBuilder translateBuf = new StringBuilder();
                         claudeClient.chatStream(sysPrompt, userMsg,
                                 claudeClient.getProperties().getMaxTokens(),
                                 new Consumer<String>() {
                                     public void accept(String chunk) {
+                                        translateBuf.append(chunk);
                                         try { sendSseData(emitter, chunk); }
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
+                        saveHistory("sql_translate",
+                                "[" + sourceDb + " → " + targetDb + "]\n" + input.input,
+                                translateBuf.toString(), capturedUser);
                         emitter.send(SseEmitter.event().name("done").data("ok"));
                         try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                         emitter.complete();
@@ -214,6 +271,8 @@ public class SseStreamController {
                     if (resultBuf.length() > 0) {
                         cacheService.put(input.feature, input.input, resultBuf.toString());
                     }
+                    // v4.2.x: 리뷰 이력 저장 (백엔드는 이전엔 SSE 경로에서 저장 안 했음)
+                    saveHistory(input.feature, input.input, resultBuf.toString(), capturedUser);
                     emitter.send(SseEmitter.event().name("done").data("ok"));
                     try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                     emitter.complete();

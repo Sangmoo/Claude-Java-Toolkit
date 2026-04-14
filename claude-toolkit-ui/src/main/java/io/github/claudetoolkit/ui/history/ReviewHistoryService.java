@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.history;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +46,7 @@ public class ReviewHistoryService {
         String title = buildTitle(inputContent);
         ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue,
                 inputTok > 0 ? inputTok : null, outputTok > 0 ? outputTok : null);
+        h.setUsername(currentUsername());  // v4.2.x: GET /history 가 username 으로 필터링하므로 필수
         repository.save(h);
 
         // Prune oldest if over limit
@@ -73,6 +76,7 @@ public class ReviewHistoryService {
         h.setOriginalCode(originalCode);
         h.setImprovedCode(improvedCode);
         h.setAnalysisLanguage(language);
+        h.setUsername(currentUsername());  // v4.2.x
         ReviewHistory saved = repository.save(h);
         while (repository.count() > MAX_HISTORY) {
             ReviewHistory oldest = repository.findTopByOrderByCreatedAtAsc();
@@ -137,6 +141,17 @@ public class ReviewHistoryService {
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
+
+    /** SecurityContext 에서 현재 로그인 사용자명 추출 — 백그라운드 스레드에서는 null */
+    private String currentUsername() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
 
     private String buildTitle(String input) {
         if (input == null || input.trim().isEmpty()) return "(빈 입력)";

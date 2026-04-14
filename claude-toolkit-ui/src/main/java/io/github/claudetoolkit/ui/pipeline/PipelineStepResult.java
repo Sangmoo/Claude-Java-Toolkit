@@ -82,6 +82,11 @@ public class PipelineStepResult {
         }
     }
 
+    /** v4.2.x: 스트리밍 도중 진행적 저장 — 상태는 RUNNING 유지 */
+    public void setOutputContent(String content) {
+        this.outputContent = content;
+    }
+
     public void markFailed(String errorMessage) {
         this.status       = STATUS_FAILED;
         this.errorMessage = errorMessage != null

@@ -228,9 +228,12 @@ public class PipelineExecutor {
                     String userMsg   = svc.buildUserMessage(req);
                     int    maxTokens = claudeClient.getProperties().getMaxTokens();
 
-                    // 스트리밍 실행
+                    // 스트리밍 실행 — 진행적 DB 저장 (300ms 또는 1000자마다)
                     final StringBuilder outputBuf = new StringBuilder();
                     final String stepIdCopy = step.getId();
+                    final long[] lastSave   = { System.currentTimeMillis() };
+                    final int[]  lastLen    = { 0 };
+                    final PipelineStepResult resultRef = result;
                     claudeClient.chatStream(sysPrompt, userMsg, maxTokens, new Consumer<String>() {
                         public void accept(String chunk) {
                             outputBuf.append(chunk);
@@ -238,6 +241,18 @@ public class PipelineExecutor {
                             payload.put("stepId", stepIdCopy);
                             payload.put("chunk", chunk);
                             broker.push(exec.getId(), "step-chunk", payload);
+
+                            // 폴링 fallback 을 위한 진행적 저장
+                            long now = System.currentTimeMillis();
+                            int  len = outputBuf.length();
+                            if (now - lastSave[0] > 300 || len - lastLen[0] > 1000) {
+                                try {
+                                    resultRef.setOutputContent(outputBuf.toString());
+                                    stepResultRepo.save(resultRef);
+                                    lastSave[0] = now;
+                                    lastLen[0]  = len;
+                                } catch (Exception ignored) {}
+                            }
                         }
                     });
 
@@ -326,6 +341,9 @@ public class PipelineExecutor {
 
         final StringBuilder outputBuf = new StringBuilder();
         final String stepIdCopy = step.getId();
+        final long[] lastSave   = { System.currentTimeMillis() };
+        final int[]  lastLen    = { 0 };
+        final PipelineStepResult resultRef = result;
         claudeClient.chatStream(sysPrompt, userMsg, maxTokens, new Consumer<String>() {
             public void accept(String chunk) {
                 outputBuf.append(chunk);
@@ -333,6 +351,18 @@ public class PipelineExecutor {
                 payload.put("stepId", stepIdCopy);
                 payload.put("chunk", chunk);
                 broker.push(exec.getId(), "step-chunk", payload);
+
+                // 폴링 fallback 을 위한 진행적 저장
+                long now = System.currentTimeMillis();
+                int  len = outputBuf.length();
+                if (now - lastSave[0] > 300 || len - lastLen[0] > 1000) {
+                    try {
+                        resultRef.setOutputContent(outputBuf.toString());
+                        stepResultRepo.save(resultRef);
+                        lastSave[0] = now;
+                        lastLen[0]  = len;
+                    } catch (Exception ignored) {}
+                }
             }
         });
 
