@@ -3,9 +3,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   FaCodeBranch, FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser,
+  FaFilePdf, FaEnvelope,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from '../../components/common/SourceSelector'
+import { copyToClipboard, printAsHtml, markdownToHtml } from '../../utils/clipboard'
+import EmailModal from '../../components/common/EmailModal'
 
 const TEMPLATE_HINTS = [
   { value: '', label: '균형 (기본)' },
@@ -23,6 +26,7 @@ export default function CodeReviewPage() {
   const [result, setResult] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
 
   const esRef = useRef<EventSource | null>(null)
   const toast = useToast()
@@ -92,10 +96,16 @@ export default function CodeReviewPage() {
     }
   }
 
-  const copyResult = () => {
-    navigator.clipboard.writeText(result)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const copyResult = async () => {
+    if (!result) { toast.error('복사할 결과가 없습니다.'); return }
+    const ok = await copyToClipboard(result)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 3000)
+      toast.success('클립보드에 복사되었습니다.')
+    } else {
+      toast.error('복사 실패 — 브라우저 권한을 확인해주세요.')
+    }
   }
 
   const exportResult = () => {
@@ -106,6 +116,11 @@ export default function CodeReviewPage() {
     a.download = `harness_review_${new Date().toISOString().slice(0, 10)}.md`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const printResult = () => {
+    if (!result) { toast.warning('인쇄할 결과가 없습니다.'); return }
+    printAsHtml('<h1>코드 리뷰 하네스 결과</h1>' + markdownToHtml(result), '코드 리뷰 하네스 - 분석 결과')
   }
 
   return (
@@ -174,10 +189,12 @@ export default function CodeReviewPage() {
             </span>
             {result && (
               <div style={{ display: 'flex', gap: '6px' }}>
-                <button style={smallBtn} onClick={copyResult}>
-                  {copied ? <FaCheck style={{ color: 'var(--green)' }} /> : <FaCopy />}
+                <button style={smallBtn} onClick={copyResult} title="복사">
+                  {copied ? <><FaCheck style={{ color: 'var(--green)' }} /> <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 700 }}>복사됨</span></> : <><FaCopy /> 복사</>}
                 </button>
-                <button style={smallBtn} onClick={exportResult}><FaDownload /></button>
+                <button style={smallBtn} onClick={exportResult} title="MD 내려받기"><FaDownload /> MD</button>
+                <button style={smallBtn} onClick={printResult} title="PDF 인쇄/저장"><FaFilePdf /> PDF</button>
+                <button style={{ ...smallBtn, color: 'var(--accent)', borderColor: 'var(--accent)' }} onClick={() => setEmailOpen(true)} title="이메일 발송"><FaEnvelope /> 이메일</button>
               </div>
             )}
           </div>
@@ -196,6 +213,15 @@ export default function CodeReviewPage() {
           </div>
         </div>
       </div>
+
+      {/* 이메일 발송 모달 */}
+      <EmailModal
+        open={emailOpen}
+        onClose={() => setEmailOpen(false)}
+        defaultSubject="[Claude Toolkit] 코드 리뷰 하네스 결과"
+        content={result}
+        contentLabel="코드 리뷰 결과"
+      />
     </>
   )
 }

@@ -292,8 +292,14 @@ public class DataRestController {
             data.put("jiraBaseUrl", toolkitSettings.getJiraBaseUrl());
             data.put("jiraProjectKey", toolkitSettings.getJiraProjectKey());
             data.put("jiraEmail", toolkitSettings.getJiraEmail());
-            data.put("emailHost", toolkitSettings.getEmail().getHost());
-            data.put("emailFrom", toolkitSettings.getEmail().getFrom());
+            data.put("emailHost",     toolkitSettings.getEmail().getHost());
+            data.put("emailPort",     toolkitSettings.getEmail().getPort());
+            data.put("emailUsername", toolkitSettings.getEmail().getUsername());
+            data.put("emailFrom",     toolkitSettings.getEmail().getFrom());
+            data.put("emailTls",      toolkitSettings.getEmail().isTls());
+            // 비밀번호는 노출 안 함 — 설정되어 있는지 여부만
+            data.put("emailPasswordSet", toolkitSettings.getEmail().getPassword() != null
+                    && !toolkitSettings.getEmail().getPassword().isEmpty());
         } catch (Exception ignored) {}
         return ResponseEntity.ok(ApiResponse.ok(data));
     }

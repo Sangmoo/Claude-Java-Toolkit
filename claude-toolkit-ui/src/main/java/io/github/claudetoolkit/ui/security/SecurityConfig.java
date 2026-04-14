@@ -58,7 +58,9 @@ public class SecurityConfig {
                     "/notifications/**", "/history/*/comments/**",
                     "/chat/**",
                     // v4.2.x: 분석 파이프라인 — POST /pipelines/{id}/run 등
-                    "/pipelines/**"
+                    "/pipelines/**",
+                    // v4.2.x: 이메일 발송 (다수 수신자)
+                    "/email/**"
                 )
             .and()
 

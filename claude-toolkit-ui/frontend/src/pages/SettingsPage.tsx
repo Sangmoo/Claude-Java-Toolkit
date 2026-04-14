@@ -21,6 +21,16 @@ export default function SettingsPage() {
   const [accentColor, setAccentColor] = useState('#f97316')
   const [slackWebhookUrl, setSlackWebhookUrl] = useState('')
   const [teamsWebhookUrl, setTeamsWebhookUrl] = useState('')
+  // SMTP / Email
+  const [emailHost, setEmailHost] = useState('smtp.gmail.com')
+  const [emailPort, setEmailPort] = useState('587')
+  const [emailUsername, setEmailUsername] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [emailFrom, setEmailFrom] = useState('')
+  const [emailTls, setEmailTls] = useState(true)
+  const [emailPasswordSet, setEmailPasswordSet] = useState(false)
+  const [emailTestTo, setEmailTestTo] = useState('')
+  const [emailTest, setEmailTest] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [apiTest, setApiTest] = useState<string | null>(null)
   const [dbTest, setDbTest] = useState<string | null>(null)
@@ -42,6 +52,12 @@ export default function SettingsPage() {
           if (d.accentColor) setAccentColor(d.accentColor)
           if (d.slackWebhookUrl) setSlackWebhookUrl(d.slackWebhookUrl)
           if (d.teamsWebhookUrl) setTeamsWebhookUrl(d.teamsWebhookUrl)
+          if (d.emailHost) setEmailHost(d.emailHost)
+          if (d.emailPort) setEmailPort(String(d.emailPort))
+          if (d.emailUsername) setEmailUsername(d.emailUsername)
+          if (d.emailFrom) setEmailFrom(d.emailFrom)
+          if (typeof d.emailTls === 'boolean') setEmailTls(d.emailTls)
+          if (d.emailPasswordSet) setEmailPasswordSet(true)
         }
       })
       .catch(() => {})
@@ -53,11 +69,29 @@ export default function SettingsPage() {
       const p = new URLSearchParams({
         claudeModel, claudeApiKey, dbUrl, dbUsername, dbPassword,
         scanPath, projectContext, accentColor, slackWebhookUrl, teamsWebhookUrl,
+        emailHost, emailPort, emailUsername, emailPassword, emailFrom,
+        emailTls: String(emailTls),
       })
       await fetch('/settings/save', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: p, credentials: 'include' })
       toast.success('설정이 저장되었습니다.')
+      if (emailPassword) { setEmailPasswordSet(true); setEmailPassword('') }
     } catch { toast.error('저장 실패') }
     setSaving(false)
+  }
+
+  const testEmail = async () => {
+    setEmailTest('info:테스트 발송 중...')
+    try {
+      const res = await fetch('/email/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ to: emailTestTo }),
+        credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (d?.success) setEmailTest(`ok:${d.sentTo} 로 발송 성공`)
+      else setEmailTest(`error:${d?.error || '발송 실패'}`)
+    } catch { setEmailTest('error:발송 요청 실패') }
   }
 
   const testApi = async () => {
@@ -162,6 +196,46 @@ export default function SettingsPage() {
         <Card title="🔔 알림 연동">
           <Field label="Slack Webhook URL"><input placeholder="https://hooks.slack.com/services/..." value={slackWebhookUrl} onChange={(e) => setSlackWebhookUrl(e.target.value)} style={inputSt} /></Field>
           <Field label="Teams Webhook URL"><input placeholder="https://outlook.office.com/webhook/..." value={teamsWebhookUrl} onChange={(e) => setTeamsWebhookUrl(e.target.value)} style={inputSt} /></Field>
+        </Card>
+
+        {/* SMTP / 이메일 발송 */}
+        <Card title="✉️ 이메일 (SMTP) — 분석 결과 발송">
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '8px' }}>
+            <Field label="SMTP 호스트">
+              <input placeholder="smtp.gmail.com" value={emailHost} onChange={(e) => setEmailHost(e.target.value)} style={inputSt} />
+            </Field>
+            <Field label="포트">
+              <input placeholder="587" value={emailPort} onChange={(e) => setEmailPort(e.target.value)} style={inputSt} />
+            </Field>
+          </div>
+          <Field label="사용자 (Gmail 주소)">
+            <input placeholder="your.account@gmail.com" value={emailUsername} onChange={(e) => setEmailUsername(e.target.value)} style={inputSt} />
+          </Field>
+          <Field label={`비밀번호 (Gmail 앱 비밀번호 권장)${emailPasswordSet ? ' — 저장됨, 변경 시에만 입력' : ''}`}>
+            <input type="password" placeholder={emailPasswordSet ? '••••••••••• (변경 시에만 입력)' : '앱 비밀번호 16자'} value={emailPassword} onChange={(e) => setEmailPassword(e.target.value)} style={inputSt} />
+          </Field>
+          <Field label="발신자 표시 (선택)">
+            <input placeholder="Claude Toolkit <noreply@example.com>" value={emailFrom} onChange={(e) => setEmailFrom(e.target.value)} style={inputSt} />
+          </Field>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-sub)' }}>
+            <input type="checkbox" checked={emailTls} onChange={(e) => setEmailTls(e.target.checked)} />
+            STARTTLS 사용 (Gmail/대부분의 SMTP 는 활성화 필요)
+          </label>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            💡 <strong>Gmail 앱 비밀번호:</strong> 일반 계정 비밀번호는 거부됩니다. Google 계정 → 보안 → 2단계 인증 활성화 → "앱 비밀번호" 에서 16자 비밀번호 발급 후 사용하세요.
+            <br/>호스트 <code>smtp.gmail.com</code>, 포트 <code>587</code>, STARTTLS 가 표준입니다.
+          </div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="email"
+              placeholder="테스트 발송 받을 이메일 (비워두면 발신자에게 발송)"
+              value={emailTestTo}
+              onChange={(e) => setEmailTestTo(e.target.value)}
+              style={{ ...inputSt, flex: 1, minWidth: '180px' }}
+            />
+            <button onClick={testEmail} style={testBtn}><FaSync /> 테스트 발송</button>
+          </div>
+          <TestResult result={emailTest} />
         </Card>
 
         {/* UI */}

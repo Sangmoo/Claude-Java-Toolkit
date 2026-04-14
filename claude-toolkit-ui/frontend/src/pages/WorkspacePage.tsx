@@ -3,9 +3,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   FaLayerGroup, FaPlay, FaSpinner, FaCopy, FaCheck, FaDownload, FaEraser,
-  FaTimes, FaCheckCircle, FaTimesCircle, FaFilePdf,
+  FaTimes, FaCheckCircle, FaTimesCircle, FaFilePdf, FaEnvelope,
 } from 'react-icons/fa'
 import { copyToClipboard, printAsHtml, markdownToHtml } from '../utils/clipboard'
+import EmailModal from '../components/common/EmailModal'
 import { useToast } from '../hooks/useToast'
 import SourceSelector from '../components/common/SourceSelector'
 
@@ -42,6 +43,7 @@ export default function WorkspacePage() {
   const [tasks, setTasks] = useState<Record<string, RunningTask>>({})
   const [running, setRunning] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [emailOpen, setEmailOpen] = useState<{ key: string | 'all' } | null>(null)
   const sourcesRef = useRef<Record<string, EventSource>>({})
   const toast = useToast()
 
@@ -330,6 +332,7 @@ export default function WorkspacePage() {
             <div style={{ display: 'flex', gap: '6px' }}>
               <button onClick={exportAll} style={smallBtn} title="전체 결과를 .md 파일로 내려받기"><FaDownload /> 전체 MD</button>
               <button onClick={printAll} style={smallBtn} title="전체 결과를 PDF 로 인쇄/저장"><FaFilePdf /> 전체 PDF</button>
+              <button onClick={() => setEmailOpen({ key: 'all' })} style={{ ...smallBtn, color: 'var(--accent)', borderColor: 'var(--accent)' }} title="전체 결과를 이메일로 발송"><FaEnvelope /> 전체 이메일</button>
             </div>
           </div>
 
@@ -358,6 +361,7 @@ export default function WorkspacePage() {
                       </button>
                       <button onClick={() => exportResult(task.feature)} style={miniBtn} title="MD 내려받기"><FaDownload /></button>
                       <button onClick={() => printResult(task.feature)} style={miniBtn} title="PDF 인쇄/저장"><FaFilePdf /></button>
+                      <button onClick={() => setEmailOpen({ key: task.feature })} style={miniBtn} title="이메일 발송"><FaEnvelope /></button>
                     </div>
                   )}
                 </div>
@@ -381,6 +385,23 @@ export default function WorkspacePage() {
           </div>
         </>
       )}
+
+      {/* 이메일 발송 모달 */}
+      <EmailModal
+        open={emailOpen !== null}
+        onClose={() => setEmailOpen(null)}
+        defaultSubject={
+          emailOpen?.key === 'all'
+            ? '[Claude Toolkit] 통합 워크스페이스 분석 결과'
+            : emailOpen ? `[Claude Toolkit] ${tasks[emailOpen.key]?.label || '워크스페이스'} 결과` : ''
+        }
+        content={
+          emailOpen?.key === 'all'
+            ? Object.values(tasks).map((t) => `# ${t.icon} ${t.label}\n\n${t.result}\n\n---\n`).join('\n')
+            : emailOpen ? (tasks[emailOpen.key]?.result || '') : ''
+        }
+        contentLabel={emailOpen?.key === 'all' ? '전체 워크스페이스 결과' : '분석 결과'}
+      />
     </>
   )
 }
