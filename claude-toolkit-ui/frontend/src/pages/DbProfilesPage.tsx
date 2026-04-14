@@ -12,14 +12,14 @@ export default function DbProfilesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const data = await api.get('/api/v1/prompts') as DbProfile[] | null
+      const data = await api.get('/api/v1/db-profiles') as DbProfile[] | null
       if (data) setProfiles(data)
     }
     load()
   }, [])
 
   const activate = async (id: number) => {
-    await fetch(`/db-profiles/${id}/activate`, { method: 'POST', credentials: 'include' })
+    await fetch(`/db-profiles/${id}/apply`, { method: 'POST', credentials: 'include' })
     setProfiles((prev) => prev.map((p) => ({ ...p, active: p.id === id })))
     toast.success('DB 프로필 활성화')
   }

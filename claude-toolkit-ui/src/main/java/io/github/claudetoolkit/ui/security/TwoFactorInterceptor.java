@@ -24,7 +24,8 @@ public class TwoFactorInterceptor implements WebMvcConfigurer {
                     "/logout", "/setup", "/setup/**",
                     "/assets/**", "/favicon.svg", "/manifest.json",
                     "/css/**", "/js/**",
-                    "/actuator/**", "/error", "/api/**"
+                    "/actuator/**", "/error", "/api/**",
+                    "/chat/**", "/stream/**"
                 );
     }
 

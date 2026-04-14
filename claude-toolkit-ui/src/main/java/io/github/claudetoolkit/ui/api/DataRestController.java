@@ -226,6 +226,40 @@ public class DataRestController {
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
+    @GetMapping("/db-profiles")
+    public ResponseEntity<ApiResponse<List<?>>> dbProfiles() {
+        try {
+            List<?> list = em.createQuery("SELECT p FROM DbProfile p ORDER BY p.id").getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/explain/dashboard")
+    public ResponseEntity<ApiResponse<List<?>>> explainDashboard() {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT h FROM ReviewHistory h WHERE h.menuName LIKE '%실행계획%' OR h.menuName LIKE '%EXPLAIN%' ORDER BY h.createdAt DESC"
+            ).setMaxResults(30).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    @GetMapping("/harness/dashboard")
+    public ResponseEntity<ApiResponse<List<?>>> harnessDashboard() {
+        try {
+            List<?> list = em.createQuery(
+                "SELECT h FROM ReviewHistory h WHERE h.menuName LIKE '%하네스%' OR h.menuName LIKE '%HARNESS%' OR h.menuName LIKE '%코드리뷰%' ORDER BY h.createdAt DESC"
+            ).setMaxResults(30).getResultList();
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
     @GetMapping("/admin/health/data")
     public ResponseEntity<ApiResponse<Map<String, Object>>> systemHealth() {
         Map<String, Object> data = new LinkedHashMap<>();
