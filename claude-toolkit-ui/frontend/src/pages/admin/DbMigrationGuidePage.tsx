@@ -61,6 +61,18 @@ function AutoMigrationPanel() {
   const [completed, setCompleted] = useState(false)
   const [overrideActive, setOverrideActive] = useState(false)
   const [switching, setSwitching] = useState(false)
+  const [tableNames, setTableNames] = useState<string[]>([])
+  const [validateResult, setValidateResult] = useState<null | {
+    success: boolean
+    error?: string
+    existingTables?: number
+    totalTables?: number
+    totalExistingRows?: number
+    conflict?: boolean
+    hint?: string
+    tables?: { table: string; exists: boolean; rowCount: number }[]
+  }>(null)
+  const [validating, setValidating] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const toast = useToast()
 
@@ -71,7 +83,32 @@ function AutoMigrationPanel() {
     fetch('/admin/db-migration/auto/override-status', { credentials: 'include' })
       .then((r) => r.json()).then((d) => setOverrideActive(!!d.active))
       .catch(() => {})
+    fetch('/admin/db-migration/auto/tables', { credentials: 'include' })
+      .then((r) => r.json()).then((d) => { if (d.success && d.tables) setTableNames(d.tables) })
+      .catch(() => {})
   }, [])
+
+  const validateMigration = async () => {
+    if (!host || !dbName || !username) { toast.error('연결 정보를 모두 입력해주세요.'); return }
+    setValidating(true); setValidateResult(null)
+    try {
+      const res = await fetch('/admin/db-migration/auto/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ targetType, host, port, dbName, username, password }),
+        credentials: 'include',
+      })
+      const d = await res.json()
+      setValidateResult(d)
+      if (d.success) {
+        if (d.conflict) toast.warning('충돌 가능성이 발견되었습니다 — 결과를 확인하세요.')
+        else toast.success('충돌 없음 — 이관이 안전합니다.')
+      } else {
+        toast.error(d.error || '검증 실패')
+      }
+    } catch { toast.error('검증 요청 실패') }
+    setValidating(false)
+  }
 
   const switchToTarget = async () => {
     if (!confirm('대상 DB 로 전환합니다. 서비스가 3초 후 재시작됩니다. 계속하시겠습니까?')) return
@@ -197,12 +234,60 @@ function AutoMigrationPanel() {
           기존 데이터 덮어쓰기 (타겟 DB에 데이터가 있으면 삭제 후 이관)
         </label>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button onClick={testConnection} style={outlineBtn}><FaSync /> 연결 테스트</button>
+          <button onClick={validateMigration} disabled={validating || running} style={{ ...outlineBtn, opacity: (validating || running) ? 0.5 : 1 }}>
+            {validating ? <><FaSpinner className="spin" /> 검증 중...</> : <><FaCheckCircle /> 사전 검증</>}
+          </button>
           <button onClick={startMigration} disabled={running} style={{ ...primaryBtn, opacity: running ? 0.5 : 1 }}>
             {running ? <><FaSpinner className="spin" /> 이관 중...</> : <><FaPlay /> 이관 시작</>}
           </button>
         </div>
+
+        {/* 사전 검증 결과 */}
+        {validateResult && validateResult.success && (
+          <div style={{
+            padding: '12px', borderRadius: '8px',
+            background: validateResult.conflict ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)',
+            border: `1px solid ${validateResult.conflict ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.3)'}`,
+            fontSize: '12px',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '4px', color: validateResult.conflict ? '#f59e0b' : 'var(--green)' }}>
+              {validateResult.conflict ? '⚠ 충돌 가능성 발견' : '✓ 충돌 없음'}
+            </div>
+            <div style={{ color: 'var(--text-sub)', marginBottom: '6px' }}>
+              {validateResult.hint} (총 {validateResult.totalTables}개 중 {validateResult.existingTables}개 이미 존재 · 기존 데이터 {validateResult.totalExistingRows?.toLocaleString()}건)
+            </div>
+            {validateResult.tables && validateResult.tables.filter((t) => t.exists).length > 0 && (
+              <details style={{ marginTop: '6px' }}>
+                <summary style={{ cursor: 'pointer', fontSize: '11px', color: 'var(--text-muted)' }}>충돌 테이블 보기</summary>
+                <div style={{ marginTop: '6px', maxHeight: '160px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '11px' }}>
+                  {validateResult.tables.filter((t) => t.exists).map((t) => (
+                    <div key={t.table} style={{ padding: '2px 0' }}>
+                      • <strong>{t.table}</strong> — {t.rowCount.toLocaleString()}건
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* 이관 대상 테이블 목록 */}
+        {tableNames.length > 0 && (
+          <details style={{ padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
+            <summary style={{ cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text-sub)' }}>
+              📋 자동 이관 대상 테이블 — 총 {tableNames.length}개 (대상 DB 와 이름이 겹치는지 확인)
+            </summary>
+            <div style={{
+              marginTop: '8px',
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '4px 10px',
+              fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-muted)',
+            }}>
+              {tableNames.map((t, i) => <div key={t}>{i + 1}. {t}</div>)}
+            </div>
+          </details>
+        )}
 
         {testResult && (
           <div style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', color: testResult.startsWith('ok') ? 'var(--green)' : 'var(--red)' }}>

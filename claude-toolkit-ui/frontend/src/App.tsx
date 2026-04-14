@@ -66,6 +66,7 @@ const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePa
 // Special pages
 const SetupPage = lazy(() => import('./pages/SetupPage'))
 const TwoFactorPage = lazy(() => import('./pages/TwoFactorPage'))
+const PasswordChangePage = lazy(() => import('./pages/PasswordChangePage'))
 const ShareViewPage = lazy(() => import('./pages/ShareViewPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const ApiDocsPage = lazy(() => import('./pages/ApiDocsPage'))
@@ -188,6 +189,7 @@ export default function App() {
         {/* Public routes (no auth) */}
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/login/2fa" element={<TwoFactorPage />} />
+        <Route path="/account/password" element={<PasswordChangePage />} />
         <Route path="/share/:token" element={<ShareViewPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

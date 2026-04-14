@@ -12,11 +12,10 @@ export default function AccountPage() {
   const toast = useToast()
 
   useEffect(() => {
-    // 내 정보 로드 (기존 account GET 엔드포인트 활용)
-    fetch('/account', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+    fetch('/account/me', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
-        if (d) {
+        if (d && d.success) {
           setDisplayName(d.displayName || '')
           setEmail(d.email || '')
           setPhone(d.phone || '')
@@ -28,14 +27,15 @@ export default function AccountPage() {
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/account/update', {
+      const res = await fetch('/account/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ displayName, email, phone }),
         credentials: 'include',
       })
-      if (res.ok) toast.success('정보가 저장되었습니다.')
-      else toast.error('저장 실패')
+      const d = await res.json().catch(() => null)
+      if (res.ok && d && d.success) toast.success('정보가 저장되었습니다.')
+      else toast.error(d?.error || '저장 실패')
     } catch { toast.error('오류 발생') }
     setSaving(false)
   }

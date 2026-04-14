@@ -5,6 +5,7 @@ import {
   FaSpinner,
 } from 'react-icons/fa'
 import { useToast } from '../hooks/useToast'
+import SourceSelector from '../components/common/SourceSelector'
 
 interface Pipeline {
   id: number
@@ -136,15 +137,21 @@ export default function PipelinePage() {
       {runModal && (
         <div style={styles.modalOverlay} onClick={() => setRunModal(null)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>
-              <FaPlay style={{ color: 'var(--accent)', marginRight: '8px' }} />
-              {runModal.name} 실행
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '16px', margin: 0 }}>
+                <FaPlay style={{ color: 'var(--accent)', marginRight: '8px' }} />
+                {runModal.name} 실행
+              </h3>
+              <SourceSelector
+                mode={runModal.inputLanguage === 'sql' ? 'sql' : 'both'}
+                onSelect={(code) => setRunInput((prev) => prev ? prev + '\n\n' + code : code)}
+              />
+            </div>
             <textarea
               style={{ ...styles.runTextarea }}
               value={runInput}
               onChange={(e) => setRunInput(e.target.value)}
-              placeholder="분석할 코드 또는 SQL을 입력하세요..."
+              placeholder="분석할 코드 또는 SQL을 입력하거나, 위 '소스 선택' 버튼으로 파일/DB 객체를 불러오세요..."
               rows={12}
               autoFocus
             />

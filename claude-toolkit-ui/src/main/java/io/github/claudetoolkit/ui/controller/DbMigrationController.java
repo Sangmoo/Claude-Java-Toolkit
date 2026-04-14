@@ -107,6 +107,31 @@ public class DbMigrationController {
     // v2.9.5: 자동 이관
     // ═══════════════════════════════════════════════════════════════
 
+    /** 자동 이관 대상 테이블 목록 — 대상 DB 와 충돌 확인용 */
+    @GetMapping("/auto/tables")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> migrationTables() {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("success", true);
+        resp.put("tables",  executor.getMigrationTableNames());
+        resp.put("count",   executor.getMigrationTableNames().size());
+        return ResponseEntity.ok(resp);
+    }
+
+    /** 이관 사전 검증 — 대상 DB 의 테이블 충돌/데이터 존재 여부 확인 */
+    @PostMapping("/auto/validate")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> validateBeforeMigration(
+            @RequestParam String targetType,
+            @RequestParam String host,
+            @RequestParam int port,
+            @RequestParam String dbName,
+            @RequestParam String username,
+            @RequestParam String password) {
+        Map<String, Object> resp = executor.validateTarget(targetType, host, port, dbName, username, password);
+        return ResponseEntity.ok(resp);
+    }
+
     /** 타겟 DB 연결 테스트 */
     @PostMapping("/auto/test-connection")
     @ResponseBody

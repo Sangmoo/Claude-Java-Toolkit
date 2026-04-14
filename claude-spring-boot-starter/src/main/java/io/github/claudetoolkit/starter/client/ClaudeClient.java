@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -57,10 +58,24 @@ public class ClaudeClient {
     public ClaudeClient(ClaudeProperties properties) {
         this.properties   = properties;
         this.objectMapper = new ObjectMapper();
+
+        // JDK 1.8 (Alpine) 환경에서 api.anthropic.com 과의 TLS handshake_failure 대응:
+        // 최신 TLS(1.2/1.3)만 명시적으로 허용하고, 구 ciphers 는 MODERN/COMPATIBLE 순으로
+        // 폴백한다. 이 설정이 없으면 일부 JDK 8 배포판이 구형 cipher 를 먼저 시도하다가
+        // Anthropic 서버에게 거절되어 handshake_failure 로 실패한다.
+        ConnectionSpec modern = new ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+                .tlsVersions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
+                .build();
+        ConnectionSpec compatible = new ConnectionSpec.Builder(ConnectionSpec.COMPATIBLE_TLS)
+                .tlsVersions(TlsVersion.TLS_1_2)
+                .build();
+
         this.httpClient   = new OkHttpClient.Builder()
                 .connectTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .readTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .writeTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
+                .connectionSpecs(Arrays.asList(modern, compatible))
+                .retryOnConnectionFailure(true)
                 .build();
     }
 

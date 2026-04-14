@@ -42,7 +42,7 @@ public class PasswordExpiryInterceptor implements WebMvcConfigurer {
                     "/login", "/login/**", "/logout",
                     "/setup", "/setup/**",
                     "/account/password", "/account/change-password",
-                    "/account/snooze-password",
+                    "/account/snooze-password", "/account/me", "/account/save-profile",
                     "/assets/**", "/favicon.svg", "/manifest.json",
                     "/css/**", "/js/**",
                     "/actuator/**", "/error", "/api/**"

@@ -21,7 +21,7 @@ RUN mvn package -DskipTests -pl claude-toolkit-ui -am -B && \
 FROM eclipse-temurin:8-jre-alpine
 LABEL maintainer="Claude Java Toolkit"
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl ca-certificates && update-ca-certificates
 
 WORKDIR /app
 COPY --from=builder /build/claude-toolkit-ui/target/claude-toolkit-ui-*.jar app.jar
@@ -38,7 +38,7 @@ ENV CLAUDE_API_KEY="" \
     DB_NAME="" \
     DB_USERNAME="" \
     DB_PASSWORD="" \
-    JAVA_OPTS="-Xmx512m"
+    JAVA_OPTS="-Xmx512m -Dhttps.protocols=TLSv1.2,TLSv1.3 -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3 -Djava.net.preferIPv4Stack=true"
 
 EXPOSE 8027
 

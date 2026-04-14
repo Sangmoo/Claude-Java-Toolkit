@@ -31,6 +31,32 @@ public class AccountController {
         this.encoder        = encoder;
     }
 
+    /** 내 정보 조회 — 프로필 화면 로딩용 */
+    @GetMapping("/me")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> me(Principal principal) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (principal == null) {
+            resp.put("success", false);
+            resp.put("error", "로그인이 필요합니다.");
+            return ResponseEntity.ok(resp);
+        }
+        AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user == null) {
+            resp.put("success", false);
+            resp.put("error", "사용자 없음");
+            return ResponseEntity.ok(resp);
+        }
+        resp.put("success",     true);
+        resp.put("username",    user.getUsername());
+        resp.put("displayName", user.getDisplayName() != null ? user.getDisplayName() : "");
+        resp.put("email",       user.getEmail()       != null ? user.getEmail()       : "");
+        resp.put("phone",       user.getPhone()       != null ? user.getPhone()       : "");
+        resp.put("role",        user.getRole());
+        resp.put("totpEnabled", user.getTotpSecret() != null && !user.getTotpSecret().isEmpty());
+        return ResponseEntity.ok(resp);
+    }
+
     /** 개인 API 키 저장 */
     @PostMapping("/save-api-key")
     @ResponseBody

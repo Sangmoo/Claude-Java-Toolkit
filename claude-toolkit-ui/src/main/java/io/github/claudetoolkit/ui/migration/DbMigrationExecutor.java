@@ -57,6 +57,75 @@ public class DbMigrationExecutor {
         this.broker           = broker;
     }
 
+    /** 자동 이관 시 INSERT 순서대로 처리되는 테이블 목록 (외부 노출용) */
+    public List<String> getMigrationTableNames() {
+        return Collections.unmodifiableList(TABLES_IN_ORDER);
+    }
+
+    /**
+     * 이관 사전 검증 — 대상 DB 에 이관 대상 테이블 중 이미 존재하는 것이 있는지,
+     * 데이터가 들어 있는 것이 있는지 확인한다.
+     */
+    public Map<String, Object> validateTarget(String targetType, String host, int port,
+                                              String dbName, String user, String password) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        List<Map<String, Object>> tableReports = new ArrayList<Map<String, Object>>();
+        int existingCount = 0;
+        long totalExistingRows = 0;
+        try {
+            DriverManagerDataSource target = buildTargetDataSource(targetType, host, port, dbName, user, password);
+            try (Connection c = target.getConnection()) {
+                DatabaseMetaData md = c.getMetaData();
+                String schema = c.getSchema();
+                for (String table : TABLES_IN_ORDER) {
+                    Map<String, Object> info = new LinkedHashMap<String, Object>();
+                    info.put("table", table);
+                    boolean exists = false;
+                    long rowCount = 0;
+                    // Oracle 등 대문자 식별자 고려 — 대소문자 모두 시도
+                    String[] candidates = new String[]{ table, table.toUpperCase() };
+                    for (String name : candidates) {
+                        try (ResultSet rs = md.getTables(null, schema, name, new String[]{"TABLE"})) {
+                            if (rs.next()) { exists = true; break; }
+                        }
+                    }
+                    info.put("exists", exists);
+                    if (exists) {
+                        existingCount++;
+                        try (Statement st = c.createStatement();
+                             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table)) {
+                            if (rs.next()) rowCount = rs.getLong(1);
+                        } catch (Exception ignored) {
+                            try (Statement st = c.createStatement();
+                                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table.toUpperCase())) {
+                                if (rs.next()) rowCount = rs.getLong(1);
+                            } catch (Exception ignore2) {}
+                        }
+                        totalExistingRows += rowCount;
+                    }
+                    info.put("rowCount", rowCount);
+                    tableReports.add(info);
+                }
+            }
+            resp.put("success",            true);
+            resp.put("totalTables",        TABLES_IN_ORDER.size());
+            resp.put("existingTables",     existingCount);
+            resp.put("totalExistingRows",  totalExistingRows);
+            resp.put("conflict",           existingCount > 0);
+            resp.put("hint", existingCount == 0
+                    ? "충돌 없음 — 안전하게 이관할 수 있습니다."
+                    : (totalExistingRows > 0
+                        ? "이미 데이터가 들어 있는 테이블이 있습니다. '기존 데이터 덮어쓰기' 옵션이 필요합니다."
+                        : "테이블 스키마는 존재하지만 빈 상태입니다. 그대로 이관 가능합니다."));
+            resp.put("tables", tableReports);
+        } catch (Exception e) {
+            log.warn("[DbMigration] 사전 검증 실패: {}", e.getMessage());
+            resp.put("success", false);
+            resp.put("error",   e.getMessage());
+        }
+        return resp;
+    }
+
     /** 연결 테스트 (비블로킹) */
     public Map<String, Object> testConnection(String targetType, String host, int port,
                                                String dbName, String user, String password) {

@@ -9,6 +9,7 @@ export default function SecurityPage() {
   const toast = useToast()
 
   const changePw = async () => {
+    if (!currentPw) { toast.error('현재 비밀번호를 입력하세요.'); return }
     if (newPw !== confirmPw) { toast.error('새 비밀번호가 일치하지 않습니다.'); return }
     if (newPw.length < 8) { toast.error('비밀번호는 8자 이상이어야 합니다.'); return }
     try {
@@ -18,8 +19,14 @@ export default function SecurityPage() {
         body: new URLSearchParams({ currentPassword: currentPw, newPassword: newPw }),
         credentials: 'include',
       })
-      if (res.ok) { toast.success('비밀번호가 변경되었습니다.'); setCurrentPw(''); setNewPw(''); setConfirmPw('') }
-      else toast.error('비밀번호 변경 실패')
+      // 백엔드는 항상 200을 반환하면서 success/error 필드로 결과를 알려준다.
+      const d = await res.json().catch(() => null)
+      if (res.ok && d && d.success === true) {
+        toast.success('비밀번호가 변경되었습니다.')
+        setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      } else {
+        toast.error(d?.error || '비밀번호 변경 실패')
+      }
     } catch { toast.error('오류 발생') }
   }
 
