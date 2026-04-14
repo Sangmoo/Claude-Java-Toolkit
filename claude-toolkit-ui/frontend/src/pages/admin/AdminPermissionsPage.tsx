@@ -1,6 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { FaUserLock, FaSave } from 'react-icons/fa'
-import { useApi } from '../../hooks/useApi'
 import { useToast } from '../../hooks/useToast'
 
 interface User { id: number; username: string; role: string; enabled: boolean }
@@ -74,48 +73,66 @@ const FEATURES = [
 
 export default function AdminPermissionsPage() {
   const [users, setUsers] = useState<User[]>([])
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [permissions, setPermissions] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
-  const api = useApi()
   const toast = useToast()
 
+  // 사용자 목록 로드 (1회만)
   useEffect(() => {
-    api.get('/api/v1/admin/users').then((data) => {
-      if (data) {
-        const list = (data as User[]).filter((u) => u.role !== 'ADMIN')
+    fetch('/api/v1/admin/users', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((json) => {
+        const list = ((json.data ?? json) as User[]).filter((u) => u.role !== 'ADMIN')
         setUsers(list)
-        if (list.length > 0 && !selectedUser) setSelectedUser(list[0])
-      }
-    })
+        if (list.length > 0) setSelectedUserId((prev) => prev ?? list[0].id)
+      })
+      .catch(() => { /* silent */ })
   }, [])
 
-  const loadPermissions = useCallback(async (userId: number) => {
-    try {
-      const res = await fetch(`/admin/permissions/${userId}`, { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        const perms: Record<string, boolean> = {}
-        Object.keys(data).forEach((k) => { perms[k] = data[k] === 'true' || data[k] === true })
-        setPermissions(perms)
-      }
-    } catch { toast.error('권한 로드 실패') }
-  }, [toast])
-
+  // selectedUserId 변경 시에만 권한 재로드 (toast 의존성 제거 → 무한 리렌더 방지)
   useEffect(() => {
-    if (selectedUser) loadPermissions(selectedUser.id)
-  }, [selectedUser, loadPermissions])
+    if (selectedUserId == null) return
+    let cancelled = false
+    fetch(`/admin/permissions/${selectedUserId}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const perms: Record<string, boolean> = {}
+        // 모든 FEATURES 키를 기본 true로 초기화
+        FEATURES.forEach((cat) => {
+          cat.items.forEach((item) => { perms[item.key] = true })
+        })
+        // DB 응답으로 덮어쓰기 (Map<String, Boolean> 또는 {"key": "true"} 형식 모두 대응)
+        if (data && typeof data === 'object') {
+          Object.keys(data).forEach((k) => {
+            const v = data[k]
+            perms[k] = v === true || v === 'true'
+          })
+        }
+        setPermissions(perms)
+      })
+      .catch(() => { /* silent */ })
+    return () => { cancelled = true }
+  }, [selectedUserId])
+
+  const selectedUser = users.find((u) => u.id === selectedUserId) || null
 
   const toggleFeature = (key: string) => {
-    setPermissions((prev) => ({ ...prev, [key]: !(prev[key] ?? true) }))
+    setPermissions((prev) => {
+      const cur = prev[key] ?? true
+      return { ...prev, [key]: !cur }
+    })
   }
 
   const toggleAll = (category: string, enabled: boolean) => {
     const cat = FEATURES.find((c) => c.category === category)
     if (!cat) return
-    const next = { ...permissions }
-    cat.items.forEach((item) => { next[item.key] = enabled })
-    setPermissions(next)
+    setPermissions((prev) => {
+      const next = { ...prev }
+      cat.items.forEach((item) => { next[item.key] = enabled })
+      return next
+    })
   }
 
   const save = async () => {
@@ -153,7 +170,7 @@ export default function AdminPermissionsPage() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {users.map((u) => (
-              <button key={u.id} onClick={() => setSelectedUser(u)} style={{
+              <button key={u.id} onClick={() => setSelectedUserId(u.id)} style={{
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px',
                 borderRadius: '6px', fontSize: '13px', cursor: 'pointer', textAlign: 'left',
                 border: '1px solid transparent',

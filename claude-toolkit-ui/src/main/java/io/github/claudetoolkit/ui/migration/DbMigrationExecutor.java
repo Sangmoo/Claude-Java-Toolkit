@@ -26,6 +26,7 @@ public class DbMigrationExecutor {
     private static final List<String> TABLES_IN_ORDER = Arrays.asList(
         "app_user",
         "user_permission",
+        "user_api_usage",       // v4.2.1 — 사용자별 API 사용량 영속화
         "audit_log",
         "review_history",
         "review_comment",
@@ -40,7 +41,8 @@ public class DbMigrationExecutor {
         "pipeline_definition",
         "pipeline_execution",
         "pipeline_step_result",
-        "db_migration_job"
+        "db_migration_job",
+        "db_profile"            // v2.9.x — DB 프로필 (누락됨)
     );
 
     private final DataSource                   sourceDataSource;
