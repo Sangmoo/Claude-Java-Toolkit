@@ -354,7 +354,9 @@ public class DbMigrationExecutor {
                 driverClass = "com.mysql.cj.jdbc.Driver";
                 break;
             case "oracle":
-                url = String.format("jdbc:oracle:thin:@//%s:%d/%s", host, port, dbName);
+                // Oracle 은 dbName 이 SID 인지 Service Name 인지 알 수 없으므로
+                // 두 포맷을 모두 시도해 실제로 연결되는 URL 을 사용한다.
+                url = resolveOracleUrl(host, port, dbName, user, password);
                 driverClass = "oracle.jdbc.OracleDriver";
                 break;
             default:
@@ -365,6 +367,57 @@ public class DbMigrationExecutor {
         ds.setUsername(user);
         ds.setPassword(password);
         return ds;
+    }
+
+    /**
+     * Oracle JDBC URL 자동 해석.
+     * <p>SID 포맷({@code @host:port:SID}) 을 먼저 시도하고, 실패하면 Service Name
+     * 포맷({@code @//host:port/SERVICE}) 으로 fallback. Oracle 11g 의 SID 와
+     * 12c+ 의 PDB Service Name 을 모두 지원한다.
+     *
+     * <p>여기서 발견한 working URL 은 호출자가 그대로 DataSource URL 로 사용한다.
+     */
+    private String resolveOracleUrl(String host, int port, String dbName, String user, String password) {
+        String sidUrl     = String.format("jdbc:oracle:thin:@%s:%d:%s",   host, port, dbName);
+        String serviceUrl = String.format("jdbc:oracle:thin:@//%s:%d/%s", host, port, dbName);
+
+        // 1) SID 포맷 시도
+        try {
+            DriverManagerDataSource probe = new DriverManagerDataSource();
+            probe.setDriverClassName("oracle.jdbc.OracleDriver");
+            probe.setUrl(sidUrl);
+            probe.setUsername(user);
+            probe.setPassword(password);
+            try (Connection c = probe.getConnection()) {
+                if (c != null) {
+                    log.info("[DbMigration] Oracle 연결 성공 (SID 포맷): {}", sidUrl);
+                    return sidUrl;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[DbMigration] Oracle SID 포맷 실패 ({}): {}", sidUrl, e.getMessage());
+        }
+
+        // 2) Service Name 포맷 fallback
+        try {
+            DriverManagerDataSource probe = new DriverManagerDataSource();
+            probe.setDriverClassName("oracle.jdbc.OracleDriver");
+            probe.setUrl(serviceUrl);
+            probe.setUsername(user);
+            probe.setPassword(password);
+            try (Connection c = probe.getConnection()) {
+                if (c != null) {
+                    log.info("[DbMigration] Oracle 연결 성공 (Service Name 포맷): {}", serviceUrl);
+                    return serviceUrl;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[DbMigration] Oracle Service Name 포맷 실패 ({}): {}", serviceUrl, e.getMessage());
+        }
+
+        // 둘 다 실패 — 그래도 SID 포맷을 반환해서 호출자가 의미있는 에러를 받도록 함
+        log.warn("[DbMigration] Oracle 두 포맷 모두 실패. 기본값 반환: {}", sidUrl);
+        return sidUrl;
     }
 
     private String buildMaskedUrl(String targetType, String host, int port, String dbName) {

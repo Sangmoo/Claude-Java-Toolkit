@@ -239,9 +239,12 @@ public class DbMigrationController {
                     dialect = "org.hibernate.dialect.MySQL8Dialect";
                     break;
                 case "oracle":
-                    url     = String.format("jdbc:oracle:thin:@//%s:%d/%s", host, port, dbName);
+                    // SID 포맷을 우선 시도 → 실패 시 Service Name 포맷 fallback
+                    url     = resolveOracleUrlForSwitch(host, port, dbName, username, password);
                     driver  = "oracle.jdbc.OracleDriver";
-                    dialect = "org.hibernate.dialect.Oracle12cDialect";
+                    // Oracle 11g(SID 사용) 는 Oracle10gDialect, 12c+ 는 Oracle12cDialect 가
+                    // 더 안전하지만 11g 환경에서도 12c Dialect 가 호환되므로 그대로 둔다.
+                    dialect = "org.hibernate.dialect.Oracle10gDialect";
                     break;
                 default:
                     resp.put("success", false);
@@ -329,6 +332,29 @@ public class DbMigrationController {
             } catch (Exception ignored) {}
         }
         return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Oracle JDBC URL 자동 해석 (SID → Service Name fallback).
+     * DriverManager 를 직접 사용해 두 포맷을 차례로 시도한다.
+     */
+    private String resolveOracleUrlForSwitch(String host, int port, String dbName,
+                                             String user, String pw) {
+        String sidUrl     = String.format("jdbc:oracle:thin:@%s:%d:%s",   host, port, dbName);
+        String serviceUrl = String.format("jdbc:oracle:thin:@//%s:%d/%s", host, port, dbName);
+        try (Connection ignored = java.sql.DriverManager.getConnection(sidUrl, user, pw)) {
+            log.info("[DbSwitch] Oracle SID 포맷으로 연결 성공: {}", sidUrl);
+            return sidUrl;
+        } catch (Exception e1) {
+            log.debug("[DbSwitch] Oracle SID 포맷 실패: {}", e1.getMessage());
+            try (Connection ignored = java.sql.DriverManager.getConnection(serviceUrl, user, pw)) {
+                log.info("[DbSwitch] Oracle Service Name 포맷으로 연결 성공: {}", serviceUrl);
+                return serviceUrl;
+            } catch (Exception e2) {
+                log.warn("[DbSwitch] Oracle 두 포맷 모두 실패: {}", e2.getMessage());
+                return sidUrl; // 호출자가 의미있는 에러 받도록
+            }
+        }
     }
 
     private void scheduleRestart() {
