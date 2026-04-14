@@ -1577,12 +1577,14 @@ curl -X POST http://localhost:8027/api/v1/sql/review \
 
 ---
 
-### 🔄 v4.0.0 — React 프론트엔드 전환 (진행 중)
+### ✅ v4.0.0 — React 프론트엔드 전환 (완료)
 
 Thymeleaf 기반 프론트엔드(69개 템플릿, ~24,000줄 HTML, ~15,000줄 JS)를
-React 18 + TypeScript + Vite 기반 SPA로 점진적 전환합니다.
-기존 REST API와 SSE 스트리밍 엔드포인트를 그대로 활용하며,
-전환 기간 동안 Thymeleaf와 React가 병행 운영됩니다.
+React 18 + TypeScript + Vite 기반 SPA로 **전면 전환했습니다**. Phase 1~5
+를 거쳐 v4.1.0 시점에 Thymeleaf 가 완전히 제거되었고 (템플릿 0개, pom.xml
+의존성 제거), 이후 v4.2.x 운영 안정화 라인이 이어지고 있습니다. 현재 64개
+React 페이지 + 공용 컴포넌트/훅/스토어 35+ 개가 전체 UI 를 담당하며
+Spring Boot 백엔드의 REST API + SSE 스트리밍 엔드포인트를 그대로 사용합니다.
 
 #### ✅ v4.0.0-alpha.1 — Phase 1: 프로젝트 셋업
 
