@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.pipeline;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.history.ReviewHistory;
+import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
 import io.github.claudetoolkit.ui.prompt.PromptService;
 import io.github.claudetoolkit.ui.workspace.AnalysisService;
 import io.github.claudetoolkit.ui.workspace.AnalysisServiceRegistry;
@@ -52,6 +54,7 @@ public class PipelineExecutor {
     private final PromptService                 promptService;
     private final ClaudeClient                  claudeClient;
     private final ToolkitSettings                settings;
+    private final ReviewHistoryRepository       historyRepo;
 
     public PipelineExecutor(PipelineDefinitionRepository definitionRepo,
                             PipelineExecutionRepository executionRepo,
@@ -62,7 +65,8 @@ public class PipelineExecutor {
                             AnalysisServiceRegistry registry,
                             PromptService promptService,
                             ClaudeClient claudeClient,
-                            ToolkitSettings settings) {
+                            ToolkitSettings settings,
+                            ReviewHistoryRepository historyRepo) {
         this.definitionRepo      = definitionRepo;
         this.executionRepo       = executionRepo;
         this.stepResultRepo      = stepResultRepo;
@@ -73,6 +77,7 @@ public class PipelineExecutor {
         this.promptService       = promptService;
         this.claudeClient        = claudeClient;
         this.settings            = settings;
+        this.historyRepo         = historyRepo;
     }
 
     /**
@@ -305,6 +310,8 @@ public class PipelineExecutor {
 
             exec.markCompleted();
             executionRepo.save(exec);
+            // v4.2.5: 파이프라인 전체 실행 결과를 ReviewHistory 에 저장
+            saveHistoryForExecution(exec, spec);
             broker.push(exec.getId(), "done", "ok");
             broker.closeAll(exec.getId());
 
@@ -329,6 +336,61 @@ public class PipelineExecutor {
         m.put("errorMessage", result.getErrorMessage());
         m.put("durationMs",   result.getDurationMs());
         return m;
+    }
+
+    /**
+     * v4.2.5: 파이프라인 전체 실행 결과를 ReviewHistory 에 저장.
+     *
+     * <p>파이프라인은 {@code /stream/init} 경로가 아닌 {@link ClaudeClient#chatStream}
+     * 을 직접 호출하기 때문에 {@code SseStreamController.saveHistory()} 가 호출되지
+     * 않아 리뷰 이력이 남지 않는 버그가 있었음. 파이프라인 완료 후 모든 단계 결과를
+     * 하나의 마크다운 문서로 합쳐 ReviewHistory 에 저장한다.
+     */
+    private void saveHistoryForExecution(PipelineExecution exec, PipelineSpec spec) {
+        try {
+            java.util.List<PipelineStepResult> steps =
+                    stepResultRepo.findByExecutionIdOrderByStepOrderAsc(exec.getId());
+
+            StringBuilder combined = new StringBuilder();
+            combined.append("# ").append(exec.getPipelineName()).append("\n\n");
+            combined.append("**실행 ID**: ").append(exec.getId())
+                    .append("  ·  **단계 수**: ").append(exec.getTotalSteps())
+                    .append("  ·  **완료 단계**: ").append(exec.getCompletedSteps())
+                    .append("\n\n---\n\n");
+            for (PipelineStepResult s : steps) {
+                combined.append("## [").append(s.getStepOrder() + 1).append("] ")
+                        .append(s.getStepId())
+                        .append(" — ").append(s.getAnalysisType())
+                        .append(" (").append(s.getStatus()).append(")\n\n");
+                if (s.getOutputContent() != null && !s.getOutputContent().trim().isEmpty()) {
+                    combined.append(s.getOutputContent()).append("\n\n");
+                } else if (s.getSkipReason() != null && !s.getSkipReason().isEmpty()) {
+                    combined.append("_(건너뜀: ").append(s.getSkipReason()).append(")_\n\n");
+                } else if (s.getErrorMessage() != null && !s.getErrorMessage().isEmpty()) {
+                    combined.append("_(오류: ").append(s.getErrorMessage()).append(")_\n\n");
+                } else {
+                    combined.append("_(결과 없음)_\n\n");
+                }
+                combined.append("---\n\n");
+            }
+
+            String input     = exec.getInputText() != null ? exec.getInputText() : "";
+            String output    = combined.toString();
+            String type      = "PIPELINE";
+            String title     = exec.getPipelineName() != null
+                    ? exec.getPipelineName() + " (파이프라인)"
+                    : "파이프라인 실행";
+            if (title.length() > 60) title = title.substring(0, 57) + "...";
+
+            ReviewHistory h = new ReviewHistory(type, title, input, output);
+            h.setUsername(exec.getUsername());   // 실행자 — exec 엔티티에 저장되어 있음
+            historyRepo.save(h);
+            log.info("[Pipeline] ReviewHistory 저장 완료: exec={}, historyId={}, user={}",
+                    exec.getId(), h.getId(), exec.getUsername());
+        } catch (Exception e) {
+            log.warn("[Pipeline] ReviewHistory 저장 실패: exec={}, error={}",
+                    exec.getId(), e.getMessage());
+        }
     }
 
     /**
