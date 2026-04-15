@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { normalizeBuilderSection, harnessMdComponents } from '../../utils/harnessMarkdown'
 import {
   FaCodeBranch, FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser,
   FaFilePdf, FaEnvelope, FaSearch, FaWrench, FaClipboardCheck, FaShieldAlt,
@@ -44,6 +45,9 @@ type StageBuffers = Record<Exclude<StageKey, 'all'>, string>
 const EMPTY_BUFFERS: StageBuffers = {
   analyst: '', builder: '', reviewer: '', verifier: '',
 }
+
+// 마크다운 전처리 로직은 utils/harnessMarkdown.tsx 로 이동 (v4.2.7).
+// normalizeBuilderSection / harnessMdComponents 는 거기서 import.
 
 export default function CodeReviewPage() {
   const [code, setCode] = useState('')
@@ -268,7 +272,14 @@ export default function CodeReviewPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '16px', minHeight: '70vh' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))',
+        gap: '16px',
+        // 화면 높이에 맞춰 고정 — 내용이 길어지면 각 패널 내부에서만 스크롤
+        height: 'calc(100vh - 160px)',
+        minHeight: '520px',
+      }}>
         {/* ── 좌측: 입력 ── */}
         <div style={panelStyle}>
           <div style={panelHeaderStyle}>
@@ -299,7 +310,7 @@ export default function CodeReviewPage() {
           </div>
 
           <textarea
-            style={{ flex: 1, margin: '0 14px', border: 'none', resize: 'none', fontFamily: 'Consolas, Monaco, monospace', fontSize: '13px', lineHeight: '1.6', background: 'transparent', outline: 'none', color: 'var(--text-primary)' }}
+            style={{ flex: 1, minHeight: 0, margin: '0 14px', border: 'none', resize: 'none', fontFamily: 'Consolas, Monaco, monospace', fontSize: '13px', lineHeight: '1.6', background: 'transparent', outline: 'none', color: 'var(--text-primary)' }}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Java/SQL 코드를 입력하거나 위 '소스 선택' 버튼으로 파일/DB 객체를 로드하세요..."
@@ -371,13 +382,17 @@ export default function CodeReviewPage() {
           </div>
 
           {/* 활성 탭 본문 */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px', minHeight: 0 }}>
             {(() => {
-              const text = stageContent(activeTab)
+              const raw = stageContent(activeTab)
+              // Builder 구간 중첩 펜스 정리 — builder 단독 탭과 전체 탭 모두 적용
+              const text = (activeTab === 'builder' || activeTab === 'all')
+                ? normalizeBuilderSection(raw)
+                : raw
               if (text) {
                 return (
                   <div className="markdown-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={harnessMdComponents}>{text}</ReactMarkdown>
                     {streaming && activeTab !== 'all' && STAGES.find((s) => s.key === activeTab)?.num === activeStreamingStage && (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent)', fontSize: '12px', marginTop: '8px' }}>
                         <FaSpinner className="spin" /> 스트리밍 중...

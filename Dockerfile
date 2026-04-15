@@ -10,8 +10,15 @@ COPY claude-spring-boot-starter/pom.xml claude-spring-boot-starter/pom.xml
 COPY claude-sql-advisor/pom.xml claude-sql-advisor/pom.xml
 COPY claude-doc-generator/pom.xml claude-doc-generator/pom.xml
 COPY claude-toolkit-ui/pom.xml claude-toolkit-ui/pom.xml
-# Download dependencies first (layer cache)
-RUN mvn dependency:go-offline -B -q 2>/dev/null || true
+# Best-effort pre-download of external dependencies for Docker layer caching.
+#
+# NOTE: dependency:go-offline 은 멀티모듈 빌드에서 내부 SNAPSHOT 모듈
+# (claude-spring-boot-starter) 을 찾을 수 없어 실패하지만, 이 단계에서 이미 다운받은
+# 외부 의존성(Spring Boot / Oracle JDBC / 기타) 은 .m2 캐시에 남아 다음 레이어에서
+# 재사용된다. 다음 줄의 `mvn package -am` 이 올바른 모듈 순서로 실제 빌드를 수행하므로
+# 여기의 실패는 최종 결과물에 영향을 주지 않는다 — 로그만 거슬리지 않도록 stdout/stderr
+# 을 모두 /dev/null 로 돌리고 exit 0 보장.
+RUN mvn dependency:go-offline -B -q >/dev/null 2>&1 || true
 COPY . .
 # frontend-maven-plugin이 Node.js 자동 설치 → npm install → npm run build
 RUN mvn package -DskipTests -pl claude-toolkit-ui -am -B && \

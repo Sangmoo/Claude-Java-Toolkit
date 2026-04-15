@@ -1,0 +1,38 @@
+# v4.2.7 — 스모크 테스트용 프로파일
+# 인메모리 H2 로 격리된 DB 사용. 외부 Claude API / Oracle 의존 없음.
+spring:
+  datasource:
+    url: jdbc:h2:mem:claude-toolkit-test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+
+# Claude API 는 더미 — ClaudeClient 가 실제 호출하지 않도록 bean 주입시 mock 처리
+claude:
+  api:
+    key: test-key
+    base-url: http://localhost:0
+
+toolkit:
+  db:
+    url: ""
+    username: ""
+    password: ""
+  project:
+    scan-path: ""
+  history:
+    max: 50
+  favorites:
+    max: 50
+
+# 테스트에서 OracleDbHealthIndicator 의 백그라운드 프로브가 돌지 않도록 로깅만 낮춤
+logging:
+  level:
+    io.github.claudetoolkit: WARN

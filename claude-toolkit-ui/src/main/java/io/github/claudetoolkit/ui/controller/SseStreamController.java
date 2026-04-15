@@ -5,6 +5,7 @@ import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
+import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
 import io.github.claudetoolkit.ui.service.AnalysisCacheService;
 import io.github.claudetoolkit.ui.translate.SqlTranslateService;
 import org.springframework.http.MediaType;
@@ -60,19 +61,22 @@ public class SseStreamController {
     private final SqlTranslateService     translateService;
     private final AnalysisCacheService    cacheService;
     private final ReviewHistoryRepository historyRepo;
+    private final PendingReviewNotifier   pendingReviewNotifier;
 
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
                                HarnessReviewService harnessService,
                                SqlTranslateService translateService,
                                AnalysisCacheService cacheService,
-                               ReviewHistoryRepository historyRepo) {
-        this.claudeClient     = claudeClient;
-        this.settings         = settings;
-        this.harnessService   = harnessService;
-        this.translateService = translateService;
-        this.cacheService     = cacheService;
-        this.historyRepo      = historyRepo;
+                               ReviewHistoryRepository historyRepo,
+                               PendingReviewNotifier pendingReviewNotifier) {
+        this.claudeClient          = claudeClient;
+        this.settings              = settings;
+        this.harnessService        = harnessService;
+        this.translateService      = translateService;
+        this.cacheService          = cacheService;
+        this.historyRepo           = historyRepo;
+        this.pendingReviewNotifier = pendingReviewNotifier;
     }
 
     /**
@@ -105,7 +109,9 @@ public class SseStreamController {
             ReviewHistory h = new ReviewHistory(type, title, input, result, null,
                     inTok > 0 ? inTok : null, outTok > 0 ? outTok : null);
             h.setUsername(username);
-            historyRepo.save(h);
+            ReviewHistory saved = historyRepo.save(h);
+            // v4.2.7: VIEWER 작성 이력이면 REVIEWER/ADMIN 에 대기 알림
+            if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
         } catch (Exception ignored) {}
     }
 

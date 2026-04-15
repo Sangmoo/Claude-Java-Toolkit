@@ -656,6 +656,22 @@ button {
   50% { opacity: 0.3; }
 }
 
+/* v4.2.7: 모달 공용 페이드/스케일 인 애니메이션 */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-body-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.modal-overlay {
+  animation: modal-overlay-in 0.15s ease-out;
+}
+.modal-body {
+  animation: modal-body-in 0.18s ease-out;
+}
+
 /* ── Markdown Body ── */
 .markdown-body {
   font-size: 14px;

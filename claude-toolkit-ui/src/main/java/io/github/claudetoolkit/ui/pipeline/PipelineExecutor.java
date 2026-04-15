@@ -4,6 +4,8 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
+import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
+import org.springframework.beans.factory.annotation.Autowired;
 import io.github.claudetoolkit.ui.prompt.PromptService;
 import io.github.claudetoolkit.ui.workspace.AnalysisService;
 import io.github.claudetoolkit.ui.workspace.AnalysisServiceRegistry;
@@ -55,6 +57,10 @@ public class PipelineExecutor {
     private final ClaudeClient                  claudeClient;
     private final ToolkitSettings                settings;
     private final ReviewHistoryRepository       historyRepo;
+
+    /** v4.2.7 — VIEWER 생성 이력 → REVIEWER/ADMIN 대기 알림. 선택 주입으로 구성 순서 의존 제거. */
+    @Autowired(required = false)
+    private PendingReviewNotifier pendingReviewNotifier;
 
     public PipelineExecutor(PipelineDefinitionRepository definitionRepo,
                             PipelineExecutionRepository executionRepo,
@@ -393,9 +399,11 @@ public class PipelineExecutor {
 
             ReviewHistory h = new ReviewHistory(type, title, input, output);
             h.setUsername(exec.getUsername());   // 실행자 — exec 엔티티에 저장되어 있음
-            historyRepo.save(h);
+            ReviewHistory saved = historyRepo.save(h);
             log.info("[Pipeline] ReviewHistory 저장 완료: exec={}, historyId={}, user={}",
-                    exec.getId(), h.getId(), exec.getUsername());
+                    exec.getId(), saved.getId(), exec.getUsername());
+            // v4.2.7: VIEWER 작성이면 REVIEWER/ADMIN 에 대기 알림
+            if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
         } catch (Exception e) {
             log.warn("[Pipeline] ReviewHistory 저장 실패: exec={}, error={}",
                     exec.getId(), e.getMessage());

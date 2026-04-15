@@ -1,9 +1,26 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
-  FaUserCheck, FaCheckCircle, FaTimesCircle, FaClock, FaInbox, FaPaperPlane, FaEye,
+  FaUserCheck, FaCheckCircle, FaTimesCircle, FaClock, FaInbox, FaPaperPlane, FaEye, FaTimes,
 } from 'react-icons/fa'
 import { useToast } from '../hooks/useToast'
 import { useAuthStore } from '../stores/authStore'
+import { formatDate } from '../utils/date'
+import ReviewActionDialog, { ReviewNoteCard } from '../components/common/ReviewActionDialog'
+
+// v4.2.7: 이력 상세 모달에 쓰는 fetch 응답 타입.
+// ReviewHistoryController.detail() 이 반환하는 필드 집합과 맞춤.
+interface HistoryDetail {
+  id:       string
+  type:     string
+  typeCode: string
+  title:    string
+  date:     string
+  input:    string
+  output:   string
+}
 
 interface ReviewItem {
   id: number
@@ -24,6 +41,22 @@ export default function ReviewRequestsPage() {
   const toast = useToast()
   const user = useAuthStore((s) => s.user)
   const canReview = user?.role === 'ADMIN' || user?.role === 'REVIEWER'
+  // v4.2.7: 알림 링크(/review-requests?historyId=N)로 진입시 해당 카드로 스크롤 + 하이라이트
+  const [searchParams] = useSearchParams()
+  const targetHistoryId = (() => {
+    const raw = searchParams.get('historyId')
+    const n = raw != null ? parseInt(raw, 10) : NaN
+    return Number.isFinite(n) ? n : null
+  })()
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  // v4.2.7: 이력 상세 모달 — 리뷰어가 승인/거절 전에 VIEWER 가 생성한 이력 본문을
+  // 볼 수 있도록 팀 리뷰 요청 페이지 내에서 팝업으로 연다.
+  const [detailItem, setDetailItem]       = useState<ReviewItem | null>(null)
+  const [detailData, setDetailData]       = useState<HistoryDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  // v4.2.7: 승인/거절 확정 다이얼로그 (코멘트 입력 포함)
+  const [reviewDialog, setReviewDialog] = useState<{ item: ReviewItem; action: 'ACCEPTED' | 'REJECTED' } | null>(null)
 
   const load = useCallback(async (currentTab: 'received' | 'sent') => {
     setLoading(true)
@@ -40,26 +73,94 @@ export default function ReviewRequestsPage() {
 
   useEffect(() => { load(tab) }, [tab, load])
 
-  const handleReview = async (item: ReviewItem, status: 'ACCEPTED' | 'REJECTED') => {
+  // v4.2.7: 목록 로드 후 targetHistoryId 가 있으면 해당 카드로 스크롤 + 3초 하이라이트
+  // 대상 이력이 다른 탭에 있을 수 있으므로 현재 탭에서 찾지 못하면 반대 탭으로 전환한다.
+  const triedOtherTab = useRef(false)
+  useEffect(() => {
+    if (targetHistoryId == null || loading) return
+    const found = items.find((i) => i.id === targetHistoryId)
+    if (!found) {
+      if (!triedOtherTab.current) {
+        triedOtherTab.current = true
+        setTab((t) => (t === 'received' ? 'sent' : 'received'))
+      }
+      return
+    }
+    // 카드 DOM 이 렌더된 뒤에 스크롤
+    requestAnimationFrame(() => {
+      const el = cardRefs.current[targetHistoryId]
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightId(targetHistoryId)
+        // 3초 뒤 하이라이트 제거
+        setTimeout(() => setHighlightId((h) => (h === targetHistoryId ? null : h)), 3000)
+      }
+    })
+  }, [targetHistoryId, items, loading])
+
+  // v4.2.7: 버튼 클릭 → 다이얼로그 오픈 (코멘트 입력 가능)
+  const openReviewDialog = (item: ReviewItem, action: 'ACCEPTED' | 'REJECTED') => {
+    setReviewDialog({ item, action })
+  }
+  // 다이얼로그 확정 시 실제 API 호출
+  const submitReview = async (item: ReviewItem, status: 'ACCEPTED' | 'REJECTED', note: string) => {
     const actionLabel = status === 'ACCEPTED' ? '승인' : '거절'
-    if (!confirm(`${actionLabel}하시겠습니까?`)) return
     try {
       const res = await fetch(`/history/${item.id}/review-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ status }),
+        body: new URLSearchParams({ status, note }),
         credentials: 'include',
       })
       const d = await res.json().catch(() => null)
       if (d?.success) {
         toast.success(`${actionLabel}되었습니다.`)
-        // received 탭은 PENDING 만 보이므로 처리 후 목록에서 제거됨 → 재로드
         load(tab)
+        // 상세 모달/다이얼로그 모두 닫기
+        setDetailItem(null); setDetailData(null)
       } else {
         toast.error(d?.error || `${actionLabel} 실패`)
       }
-    } catch { toast.error(`${actionLabel} 요청 실패`) }
+    } catch {
+      toast.error(`${actionLabel} 요청 실패`)
+    } finally {
+      setReviewDialog(null)
+    }
   }
+
+  // v4.2.7: "이력 상세" 클릭 → 모달 오픈 + /history/{id}/detail 로드
+  const openDetail = async (item: ReviewItem) => {
+    setDetailItem(item)
+    setDetailData(null)
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/history/${item.id}/detail`, { credentials: 'include' })
+      if (!res.ok) {
+        toast.error('이력을 불러올 수 없습니다.')
+        setDetailLoading(false)
+        return
+      }
+      const data = await res.json() as HistoryDetail & { error?: string }
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        setDetailData(data)
+      }
+    } catch {
+      toast.error('이력 상세 요청 실패')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+  const closeDetail = () => { setDetailItem(null); setDetailData(null); setDetailLoading(false) }
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    if (!detailItem) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [detailItem])
 
   return (
     <>
@@ -96,7 +197,18 @@ export default function ReviewRequestsPage() {
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>로딩 중...</div>
         )}
         {!loading && items.map((item) => (
-          <div key={item.id} style={{ padding: '14px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+          <div
+            key={item.id}
+            ref={(el) => { cardRefs.current[item.id] = el }}
+            style={{
+              padding: '14px 16px',
+              background: highlightId === item.id ? 'rgba(139,92,246,0.12)' : 'var(--bg-secondary)',
+              border: highlightId === item.id ? '2px solid #8b5cf6' : '1px solid var(--border-color)',
+              borderRadius: '10px',
+              boxShadow: highlightId === item.id ? '0 0 0 4px rgba(139,92,246,0.15)' : 'none',
+              transition: 'background 0.3s, border 0.3s, box-shadow 0.3s',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
               <StatusBadge status={item.reviewStatus} />
               <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
@@ -114,23 +226,25 @@ export default function ReviewRequestsPage() {
               )}
               {item.reviewedAt && <span>검토 시각: {formatDate(item.reviewedAt)}</span>}
             </div>
-            {item.reviewNote && (
-              <div style={{ fontSize: '12px', color: 'var(--text-sub)', fontStyle: 'italic', marginTop: '6px', padding: '6px 10px', background: 'var(--bg-primary)', borderRadius: '6px' }}>
-                "{item.reviewNote}"
-              </div>
-            )}
+            {/* v4.2.7: 리뷰 코멘트 친화적 카드 표시 (모든 사용자 열람) */}
+            <ReviewNoteCard
+              status={item.reviewStatus}
+              reviewedBy={item.reviewedBy}
+              reviewedAt={item.reviewedAt ? formatDate(item.reviewedAt) : undefined}
+              note={item.reviewNote}
+            />
 
             {/* 액션 영역 */}
             <div style={{ display: 'flex', gap: '6px', marginTop: '10px', alignItems: 'center' }}>
-              <a href={`/history`} style={viewBtn}>
+              <button onClick={() => openDetail(item)} style={viewBtn} type="button">
                 <FaEye /> 이력 상세
-              </a>
+              </button>
               {tab === 'received' && canReview && item.reviewStatus === 'PENDING' && (
                 <>
-                  <button onClick={() => handleReview(item, 'ACCEPTED')} style={acceptBtn}>
+                  <button onClick={() => openReviewDialog(item, 'ACCEPTED')} style={acceptBtn}>
                     <FaCheckCircle /> 승인
                   </button>
-                  <button onClick={() => handleReview(item, 'REJECTED')} style={rejectBtn}>
+                  <button onClick={() => openReviewDialog(item, 'REJECTED')} style={rejectBtn}>
                     <FaTimesCircle /> 거절
                   </button>
                 </>
@@ -154,6 +268,120 @@ export default function ReviewRequestsPage() {
           </div>
         )}
       </div>
+
+      {/* v4.2.7: 이력 상세 모달 — VIEWER 가 작성한 이력 본문을 팀 리뷰 요청 페이지에서 직접 확인 */}
+      {detailItem && (
+        <div
+          className="modal-overlay"
+          onClick={closeDetail}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '20px',
+          }}
+        >
+          <div
+            className="modal-body"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+              borderRadius: '12px', width: 'min(920px, 96vw)', maxHeight: '90vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 10px 50px rgba(0,0,0,0.4)',
+            }}
+          >
+            {/* 모달 헤더 */}
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid var(--border-color)',
+              display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0,
+            }}>
+              <StatusBadge status={detailItem.reviewStatus} />
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                {detailItem.type}
+              </span>
+              <h3 style={{ flex: 1, fontSize: '15px', fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {detailItem.title || '(제목 없음)'}
+              </h3>
+              <button
+                onClick={closeDetail}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '4px 8px' }}
+                title="닫기 (Esc)"
+                type="button"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* 메타 정보 */}
+            <div style={{
+              padding: '8px 18px', borderBottom: '1px solid var(--border-color)',
+              fontSize: '12px', color: 'var(--text-muted)',
+              display: 'flex', gap: '14px', flexWrap: 'wrap', flexShrink: 0,
+            }}>
+              <span>작성자: <strong style={{ color: 'var(--text-sub)' }}>{detailItem.username || '-'}</strong></span>
+              <span>작성 시각: {formatDate(detailItem.createdAt)}</span>
+              {detailItem.reviewedBy && <span>검토자: <strong style={{ color: 'var(--text-sub)' }}>{detailItem.reviewedBy}</strong></span>}
+              {detailItem.reviewedAt && <span>검토 시각: {formatDate(detailItem.reviewedAt)}</span>}
+            </div>
+
+            {/* 본문 */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px', minHeight: 0 }}>
+              {detailLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>로딩 중...</div>
+              ) : detailData ? (
+                <>
+                  {/* v4.2.7: 이미 검토된 이력이라면 최상단에 리뷰어의 코멘트 카드 먼저 노출 */}
+                  <ReviewNoteCard
+                    status={detailItem.reviewStatus}
+                    reviewedBy={detailItem.reviewedBy}
+                    reviewedAt={detailItem.reviewedAt ? formatDate(detailItem.reviewedAt) : undefined}
+                    note={detailItem.reviewNote}
+                  />
+                  <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', marginTop: '14px' }}>입력</h4>
+                  <pre style={{
+                    background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px',
+                    fontSize: '12px', marginBottom: '14px', whiteSpace: 'pre-wrap',
+                    maxHeight: '260px', overflow: 'auto',
+                  }}>
+                    {detailData.input}
+                  </pre>
+                  <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>분석 결과</h4>
+                  <div className="markdown-body" style={{ fontSize: '13px' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailData.output || ''}</ReactMarkdown>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>이력 내용을 불러올 수 없습니다.</div>
+              )}
+            </div>
+
+            {/* 푸터 — 승인/거절 */}
+            {canReview && detailItem.reviewStatus === 'PENDING' && (
+              <div style={{
+                padding: '12px 18px', borderTop: '1px solid var(--border-color)',
+                display: 'flex', gap: '8px', justifyContent: 'flex-end', flexShrink: 0,
+              }}>
+                <button onClick={() => openReviewDialog(detailItem, 'ACCEPTED')} style={acceptBtn} type="button">
+                  <FaCheckCircle /> 승인
+                </button>
+                <button onClick={() => openReviewDialog(detailItem, 'REJECTED')} style={rejectBtn} type="button">
+                  <FaTimesCircle /> 거절
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* v4.2.7: 승인/거절 확정 다이얼로그 (코멘트 입력) */}
+      {reviewDialog && (
+        <ReviewActionDialog
+          action={reviewDialog.action}
+          targetTitle={reviewDialog.item.title || '(제목 없음)'}
+          onConfirm={(note) => submitReview(reviewDialog.item, reviewDialog.action, note)}
+          onCancel={() => setReviewDialog(null)}
+        />
+      )}
     </>
   )
 }
@@ -188,19 +416,14 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function formatDate(s?: string): string {
-  if (!s) return ''
-  try {
-    const d = new Date(s)
-    return d.toLocaleString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-  } catch { return s }
-}
+// formatDate 는 utils/date.ts 로 이동 (v4.2.7)
 
 const viewBtn: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '4px',
+  display: 'inline-flex', alignItems: 'center', gap: '4px',
   padding: '5px 12px', borderRadius: '6px', fontSize: '11px',
   border: '1px solid var(--border-color)', background: 'transparent',
   color: 'var(--text-sub)', cursor: 'pointer', textDecoration: 'none',
+  fontFamily: 'inherit',
 }
 const acceptBtn: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: '4px',

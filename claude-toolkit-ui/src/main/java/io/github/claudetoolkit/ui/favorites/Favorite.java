@@ -36,6 +36,21 @@ public class Favorite {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * v4.2.7 — 소유자. DataRestController.favorites() 가 f.username = :u 로
+     * 필터하는데 이 필드가 없어서 기존에 모든 즐겨찾기가 빈 목록으로 반환되던 버그가 있었다.
+     */
+    @Column(length = 100)
+    private String username;
+
+    /**
+     * v4.2.7 — 이력에서 별표(star)로 저장된 경우의 원본 ReviewHistory ID.
+     * 프론트엔드에서 이력 목록의 별 아이콘을 "즐겨찾기됨" 상태로 표시하기 위해 사용.
+     * 직접 저장(/favorites/save) 경로에서는 null.
+     */
+    @Column(name = "history_id")
+    private Long historyId;
+
     /** Required by JPA — do not use directly */
     protected Favorite() {}
 
@@ -120,4 +135,10 @@ public class Favorite {
 
     public LocalDateTime getCreatedAt()        { return createdAt; }
     public void setCreatedAt(LocalDateTime v)  { this.createdAt = v; }
+
+    public String getUsername()                { return username; }
+    public void setUsername(String username)   { this.username = username; }
+
+    public Long getHistoryId()                 { return historyId; }
+    public void setHistoryId(Long historyId)   { this.historyId = historyId; }
 }

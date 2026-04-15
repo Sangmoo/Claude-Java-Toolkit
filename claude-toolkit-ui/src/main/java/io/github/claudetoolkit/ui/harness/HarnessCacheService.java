@@ -1,11 +1,12 @@
 package io.github.claudetoolkit.ui.harness;
 
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -38,6 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service
 public class HarnessCacheService {
 
+    private static final Logger log = LoggerFactory.getLogger(HarnessCacheService.class);
+
     private static final int MAX_FILES   = 5_000;
     private static final int MAX_OBJECTS = 3_000;
 
@@ -61,19 +64,37 @@ public class HarnessCacheService {
         this.settings = settings;
     }
 
-    // ── Startup init (runs after all @PostConstruct beans are ready) ──────────
-
-    @EventListener(ApplicationReadyEvent.class)
+    // ── Startup init ──────────────────────────────────────────────────────────
+    //
+    // v4.2.7: 기존엔 @EventListener(ApplicationReadyEvent) 에서 백그라운드 스레드로
+    // 스캔했기 때문에, WAS 가 응답을 받기 시작한 직후 사용자가 "소스 선택" 을 누르면
+    // 캐시가 아직 비어 있어 "적용 중..." 이 뜨는 불편이 있었다.
+    //
+    // 변경: @PostConstruct 로 이동 → Spring 컨텍스트가 완전히 초기화되기 전, 따라서
+    //       Tomcat 이 포트를 바인딩하기 전에 refreshFileCache / refreshDbCache 가
+    //       인라인 실행되어 서비스가 "ready" 로 보일 때 이미 캐시가 가득 차 있다.
+    //
+    // 트레이드오프: 프로젝트 경로가 크거나 DB 가 느리면 그만큼 기동이 늦어지지만,
+    //   파일 스캔은 MAX_FILES=5000 상한이 있고 DB 는 connect/read 타임아웃이 3초이므로
+    //   실제로는 수백 ms ~ 수초 정도다. 예외는 포착해서 스캔 하나가 실패해도 WAS 가
+    //   기동되는 것을 막지 않는다.
+    @PostConstruct
     public void initOnStartup() {
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                refreshFileCache();
-                refreshDbCache();
-            }
-        });
-        t.setDaemon(true);
-        t.setName("harness-cache-init");
-        t.start();
+        long start = System.currentTimeMillis();
+        log.info("[HarnessCache] 시작시 캐시 프리로드 중...");
+        try {
+            refreshFileCache();
+        } catch (Exception e) {
+            log.warn("[HarnessCache] 파일 캐시 프리로드 실패: {}", e.getMessage());
+        }
+        try {
+            refreshDbCache();
+        } catch (Exception e) {
+            log.warn("[HarnessCache] DB 캐시 프리로드 실패: {}", e.getMessage());
+        }
+        long elapsed = System.currentTimeMillis() - start;
+        log.info("[HarnessCache] 시작시 캐시 프리로드 완료: {}ms, files={}, dbObjects={}",
+                elapsed, cachedFiles.size(), cachedDbObjects.size());
     }
 
     /**

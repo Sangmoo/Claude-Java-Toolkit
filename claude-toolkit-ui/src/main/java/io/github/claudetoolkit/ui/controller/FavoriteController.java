@@ -4,6 +4,9 @@ import io.github.claudetoolkit.ui.favorites.Favorite;
 import io.github.claudetoolkit.ui.favorites.FavoriteService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,21 +34,35 @@ public class FavoriteController {
      * Called via POST from any result page or the history page.
      */
     @PostMapping("/star")
-    public String star(
+    @ResponseBody
+    public Map<String, Object> star(
             @RequestParam("historyId")                          long   historyId,
             @RequestParam(value = "title",   defaultValue = "") String title,
             @RequestParam(value = "tag",     defaultValue = "") String tag,
-            @RequestParam(value = "redirect",defaultValue = "/history") String redirect) {
+            Authentication auth) {
 
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
         ReviewHistory h = historyService.findById(historyId);
-        if (h != null) {
-            favoriteService.save(h.getType(),
-                    title.isEmpty() ? h.getTitle() : title,
-                    tag,
-                    h.getInputContent(),
-                    h.getOutputContent());
+        if (h == null) {
+            result.put("success", false);
+            result.put("error",   "이력을 찾을 수 없습니다.");
+            return result;
         }
-        return "redirect:" + redirect;
+        // v4.2.7: 로그인 사용자를 owner 로 저장하고 historyId 를 보존해야
+        // /api/v1/favorites 조회(username 필터)와 프론트의 별표 반영 상태 체크가 동작한다.
+        String owner = (auth != null) ? auth.getName() : null;
+        Favorite saved = favoriteService.save(
+                h.getType(),
+                title.isEmpty() ? h.getTitle() : title,
+                tag,
+                h.getInputContent(),
+                h.getOutputContent(),
+                owner,
+                Long.valueOf(historyId));
+        result.put("success",    true);
+        result.put("favoriteId", saved.getId());
+        result.put("historyId",  historyId);
+        return result;
     }
 
     /**
@@ -58,9 +75,11 @@ public class FavoriteController {
             @RequestParam(value = "tag",     defaultValue = "") String tag,
             @RequestParam("inputContent")                       String inputContent,
             @RequestParam("outputContent")                      String outputContent,
-            @RequestParam(value = "redirect",defaultValue = "/favorites") String redirect) {
+            @RequestParam(value = "redirect",defaultValue = "/favorites") String redirect,
+            Authentication auth) {
 
-        favoriteService.save(type, title, tag, inputContent, outputContent);
+        String owner = (auth != null) ? auth.getName() : null;
+        favoriteService.save(type, title, tag, inputContent, outputContent, owner, null);
         return "redirect:" + redirect;
     }
 
@@ -80,12 +99,33 @@ public class FavoriteController {
         return map;
     }
 
-    /** Delete a single favorite */
+    /**
+     * Delete a single favorite.
+     *
+     * <p>v4.2.7 — 소유자 체크 + JSON 응답. 본인 소유가 아니면 HTTP 403.
+     * 기존엔 `@PathVariable id` 만 받고 redirect 를 돌려 누구든 남의 즐겨찾기를
+     * 삭제할 수 있는 구멍이었다.
+     */
     @PostMapping("/{id}/delete")
-    public String delete(@PathVariable long id,
-                         @RequestParam(value = "redirect", defaultValue = "/favorites") String redirect) {
-        favoriteService.deleteById(id);
-        return "redirect:" + redirect;
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable long id,
+                                                       Authentication auth) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        String owner = (auth != null) ? auth.getName() : null;
+        if (owner == null) {
+            resp.put("success", false);
+            resp.put("error",   "로그인이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(resp);
+        }
+        if (!favoriteService.isOwnedBy(id, owner)) {
+            resp.put("success", false);
+            resp.put("error",   "본인의 즐겨찾기만 삭제할 수 있습니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
+        boolean ok = favoriteService.deleteById(id);
+        resp.put("success", ok);
+        if (!ok) resp.put("error", "즐겨찾기를 찾을 수 없습니다.");
+        return ResponseEntity.ok(resp);
     }
 
     /** Clear all favorites */

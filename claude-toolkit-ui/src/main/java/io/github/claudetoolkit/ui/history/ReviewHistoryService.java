@@ -1,6 +1,9 @@
 package io.github.claudetoolkit.ui.history;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,17 +15,31 @@ import java.util.List;
 /**
  * Review history service backed by H2 file database (JPA).
  *
- * Persists up to MAX_HISTORY entries. Oldest entries are automatically
+ * Persists up to maxHistory entries. Oldest entries are automatically
  * pruned when the limit is exceeded. Data survives server restarts.
  */
 @Service
 @Transactional
 public class ReviewHistoryService {
 
-    private static final int MAX_HISTORY = 100;
+    /**
+     * v4.2.7 — 이력 상한을 설정(`toolkit.history.max`) 으로 외부화.
+     * 기본 200 (이전 하드코딩값 100 대비 상향). `application.yml` 또는
+     * `TOOLKIT_HISTORY_MAX` 환경변수로 조정 가능.
+     */
+    @Value("${toolkit.history.max:200}")
+    private int maxHistory;
 
     private final ReviewHistoryRepository repository;
     private final ClaudeClient            claudeClient;
+
+    /**
+     * v4.2.7 — VIEWER 생성 이력에 대한 REVIEWER/ADMIN 알림 발행.
+     * 순환 의존성 우려는 없지만 setter 주입으로 두어 PipelineExecutor 등 타 서비스
+     * 쪽에서도 동일한 빈을 받게 한다.
+     */
+    @Autowired(required = false)
+    private PendingReviewNotifier pendingReviewNotifier;
 
     public ReviewHistoryService(ReviewHistoryRepository repository, ClaudeClient claudeClient) {
         this.repository   = repository;
@@ -47,10 +64,10 @@ public class ReviewHistoryService {
         ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue,
                 inputTok > 0 ? inputTok : null, outputTok > 0 ? outputTok : null);
         h.setUsername(currentUsername());  // v4.2.x: GET /history 가 username 으로 필터링하므로 필수
-        repository.save(h);
+        ReviewHistory saved = repository.save(h);
 
         // Prune oldest if over limit
-        while (repository.count() > MAX_HISTORY) {
+        while (repository.count() > maxHistory) {
             ReviewHistory oldest = repository.findTopByOrderByCreatedAtAsc();
             if (oldest != null) {
                 repository.delete(oldest);
@@ -58,6 +75,8 @@ public class ReviewHistoryService {
                 break;
             }
         }
+        // v4.2.7: VIEWER 가 생성한 이력이면 REVIEWER/ADMIN 에게 대기 알림
+        if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
     }
 
     /**
@@ -78,18 +97,20 @@ public class ReviewHistoryService {
         h.setAnalysisLanguage(language);
         h.setUsername(currentUsername());  // v4.2.x
         ReviewHistory saved = repository.save(h);
-        while (repository.count() > MAX_HISTORY) {
+        while (repository.count() > maxHistory) {
             ReviewHistory oldest = repository.findTopByOrderByCreatedAtAsc();
             if (oldest != null) repository.delete(oldest);
             else break;
         }
+        // v4.2.7: VIEWER 가 생성한 하네스 결과면 REVIEWER/ADMIN 에게 대기 알림
+        if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
         return saved;
     }
 
-    /** Return all history entries (most recent first, max MAX_HISTORY). */
+    /** Return all history entries (most recent first, max maxHistory). */
     @Transactional(readOnly = true)
     public List<ReviewHistory> findAll() {
-        return repository.findRecentEntries(PageRequest.of(0, MAX_HISTORY));
+        return repository.findRecentEntries(PageRequest.of(0, maxHistory));
     }
 
     /** Return all EXPLAIN_PLAN entries sorted by time (for dashboard chart). */

@@ -75,28 +75,75 @@ public class DataRestController {
         }
     }
 
+    /**
+     * v4.2.7 — 이력 목록 조회. 페이징 지원.
+     *
+     * <p>기존 프론트 호환: `?page`/`?size` 생략시 첫 200건 반환 (기존엔 100건).
+     * 새 클라이언트는 `?page=0&size=20` 형태로 요청하고 `X-Total-Count` 헤더와
+     * `hasMore` 파생 필드로 다음 페이지 존재 여부를 알 수 있다.
+     *
+     * <p>프론트가 이전 "전체 배열" 응답 포맷을 그대로 사용하므로 data 는 계속
+     * List 이며, 메타 정보는 HTTP 헤더로 전달 (응답 스키마 변경 최소화).
+     */
     @GetMapping("/history")
-    public ResponseEntity<ApiResponse<List<?>>> history(Authentication auth) {
+    public ResponseEntity<ApiResponse<List<?>>> history(
+            Authentication auth,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", required = false) Integer page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", required = false) Integer size) {
         try {
+            int effectiveSize = (size != null && size > 0) ? Math.min(size, 500) : 200;
+            int effectivePage = (page != null && page >= 0) ? page : 0;
+            int offset = effectivePage * effectiveSize;
+
+            long total = ((Number) em.createQuery(
+                "SELECT COUNT(h) FROM ReviewHistory h WHERE h.username = :u"
+            ).setParameter("u", auth.getName()).getSingleResult()).longValue();
+
             List<?> list = em.createQuery(
                 "SELECT h FROM ReviewHistory h WHERE h.username = :u ORDER BY h.createdAt DESC"
             ).setParameter("u", auth.getName())
-             .setMaxResults(100)
+             .setFirstResult(offset)
+             .setMaxResults(effectiveSize)
              .getResultList();
-            return ResponseEntity.ok(ApiResponse.ok(list));
+            boolean hasMore = (offset + list.size()) < total;
+            return ResponseEntity.ok()
+                    .header("X-Total-Count", String.valueOf(total))
+                    .header("X-Has-More",   String.valueOf(hasMore))
+                    .header("X-Page",       String.valueOf(effectivePage))
+                    .header("X-Page-Size",  String.valueOf(effectiveSize))
+                    .body(ApiResponse.ok(list));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
 
     @GetMapping("/favorites")
-    public ResponseEntity<ApiResponse<List<?>>> favorites(Authentication auth) {
+    public ResponseEntity<ApiResponse<List<?>>> favorites(
+            Authentication auth,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", required = false) Integer page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", required = false) Integer size) {
         try {
+            int effectiveSize = (size != null && size > 0) ? Math.min(size, 500) : 500;
+            int effectivePage = (page != null && page >= 0) ? page : 0;
+            int offset = effectivePage * effectiveSize;
+
+            long total = ((Number) em.createQuery(
+                "SELECT COUNT(f) FROM Favorite f WHERE f.username = :u"
+            ).setParameter("u", auth.getName()).getSingleResult()).longValue();
+
             List<?> list = em.createQuery(
                 "SELECT f FROM Favorite f WHERE f.username = :u ORDER BY f.createdAt DESC"
             ).setParameter("u", auth.getName())
+             .setFirstResult(offset)
+             .setMaxResults(effectiveSize)
              .getResultList();
-            return ResponseEntity.ok(ApiResponse.ok(list));
+            boolean hasMore = (offset + list.size()) < total;
+            return ResponseEntity.ok()
+                    .header("X-Total-Count", String.valueOf(total))
+                    .header("X-Has-More",   String.valueOf(hasMore))
+                    .header("X-Page",       String.valueOf(effectivePage))
+                    .header("X-Page-Size",  String.valueOf(effectiveSize))
+                    .body(ApiResponse.ok(list));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
@@ -129,6 +176,31 @@ public class DataRestController {
             data.put("monthlyLimit", 0);
         }
         return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    // ── Mention candidates ─────────────────────────────────────────
+    //
+    // v4.2.7: 댓글 @멘션 자동완성용. 로그인된 모든 사용자가 호출 가능하며
+    // 민감 정보는 제외하고 username / displayName / role / enabled 만 반환한다.
+    @GetMapping("/users/mentions")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> mentionCandidates() {
+        try {
+            List<AppUser> users = em.createQuery(
+                "SELECT u FROM AppUser u WHERE u.enabled = true ORDER BY u.username",
+                AppUser.class
+            ).getResultList();
+            List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
+            for (AppUser u : users) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("username",    u.getUsername());
+                m.put("displayName", u.getDisplayName() != null ? u.getDisplayName() : u.getUsername());
+                m.put("role",        u.getRole() != null ? u.getRole() : "VIEWER");
+                list.add(m);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(list));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.<Map<String, Object>>emptyList()));
+        }
     }
 
     // ── Admin APIs ─────────────────────────────────────────────────

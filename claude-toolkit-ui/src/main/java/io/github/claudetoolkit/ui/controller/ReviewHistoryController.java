@@ -3,11 +3,13 @@ package io.github.claudetoolkit.ui.controller;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -45,11 +47,29 @@ public class ReviewHistoryController {
         return map;
     }
 
-    /** Delete a single entry */
+    /**
+     * Delete a single entry.
+     *
+     * <p>v4.2.7: VIEWER 권한은 이력 삭제 금지 — 요청이 들어와도 403 으로 거부한다.
+     * 프론트엔드가 삭제 아이콘을 숨기더라도 API 는 독립적으로 권한을 강제해야
+     * 브라우저 DevTools/curl 등 우회 경로를 막을 수 있다.
+     */
     @PostMapping("/{id}/delete")
-    public String delete(@PathVariable long id) {
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> delete(
+            @PathVariable long id,
+            HttpServletRequest request) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        // ADMIN/REVIEWER 는 허용, 그 외(VIEWER/anonymous)는 거부
+        boolean allowed = request.isUserInRole("ADMIN") || request.isUserInRole("REVIEWER");
+        if (!allowed) {
+            resp.put("success", false);
+            resp.put("error",   "VIEWER 권한은 리뷰 이력을 삭제할 수 없습니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
         historyService.deleteById(id);
-        return "redirect:/history";
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
     }
 
     /** Clear all history */

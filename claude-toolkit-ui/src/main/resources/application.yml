@@ -37,6 +37,11 @@ toolkit:
     password: ${ORACLE_DB_PASSWORD:}
   project:
     scan-path: ${PROJECT_SCAN_PATH:}      # e.g. C:/workspace/my-project/src/main/java
+  # v4.2.7: 이력/즐겨찾기 보관 상한 설정화
+  history:
+    max: ${TOOLKIT_HISTORY_MAX:200}       # 전체 리뷰 이력 상한 (초과시 가장 오래된 것부터 제거)
+  favorites:
+    max: ${TOOLKIT_FAVORITES_MAX:500}     # 전체 즐겨찾기 상한
 
 # ── Actuator / Health ─────────────────────────────────────────────────────
 management:

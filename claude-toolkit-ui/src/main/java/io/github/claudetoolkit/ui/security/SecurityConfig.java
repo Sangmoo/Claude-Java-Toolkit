@@ -78,8 +78,12 @@ public class SecurityConfig {
                              "/login", "/login/2fa", "/login/2fa/**",
                              "/setup", "/setup/**",
                              "/share/**", "/actuator/**").permitAll()
-                // ADMIN 전용
+                // ADMIN 전용 — Thymeleaf 관리 페이지
                 .antMatchers("/admin/**").hasRole("ADMIN")
+                // v4.2.7: ADMIN 전용 REST API (/api/v1/admin/users, /audit-logs, /permissions)
+                // — 기존에는 "/admin/**" 규칙이 "/api/v1/admin/**" 을 매칭하지 않아
+                //   사실상 VIEWER/REVIEWER 도 호출 가능했던 구멍을 막는다.
+                .antMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // REVIEWER+: 프롬프트 편집
                 .antMatchers("/settings/prompts", "/settings/prompts/**").hasAnyRole("ADMIN", "REVIEWER")
                 // ADMIN 전용: 설정, 보안

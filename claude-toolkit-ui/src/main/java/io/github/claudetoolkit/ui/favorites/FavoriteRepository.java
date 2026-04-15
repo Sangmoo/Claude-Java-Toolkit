@@ -29,4 +29,13 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
 
     /** Oldest entry (for trimming when MAX_FAVORITES is exceeded) */
     Favorite findTopByOrderByCreatedAtAsc();
+
+    /**
+     * v4.2.7 — 같은 사용자 + 같은 이력에 대한 기존 즐겨찾기 조회.
+     * /favorites/star 호출시 중복 저장을 막기 위해 사용.
+     */
+    @Query("SELECT f FROM Favorite f WHERE f.username = :username AND f.historyId = :historyId")
+    java.util.Optional<Favorite> findByUsernameAndHistoryId(
+            @org.springframework.data.repository.query.Param("username") String username,
+            @org.springframework.data.repository.query.Param("historyId") Long historyId);
 }
