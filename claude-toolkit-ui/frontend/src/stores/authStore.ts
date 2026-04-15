@@ -63,7 +63,20 @@ export const useAuthStore = create<AuthState>((set) => ({
           window.location.href = '/login/2fa'
           return false
         }
-        set({ user: json.data, error: null })
+        // v4.2.6: 로그인 직후 disabledFeatures 즉시 fetch (사이드바가 권한 토글을
+        // 새로고침 없이 바로 반영하도록). 이전엔 checkAuth() 안에서만 호출되어
+        // 첫 로그인 시 disabledFeatures 가 비어 있어 권한 OFF 메뉴가 그대로 보였음.
+        const user = json.data as User
+        if (user && user.role !== 'ADMIN') {
+          try {
+            const pRes = await fetch('/api/v1/auth/my-permissions', { credentials: 'include' })
+            if (pRes.ok) {
+              const pJson = await pRes.json()
+              user.disabledFeatures = pJson.data?.disabledFeatures || []
+            }
+          } catch { /* ignore */ }
+        }
+        set({ user, error: null })
         return true
       }
       set({ error: json.error || '로그인에 실패했습니다.' })
