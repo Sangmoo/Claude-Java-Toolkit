@@ -180,6 +180,160 @@ public class DataRestController {
     }
 
     /**
+     * v4.2.6 — 리뷰 이력 대시보드 데이터.
+     *
+     * <p>요청 파라미터:
+     * <ul>
+     *   <li>{@code days} (선택, 기본 7): 1/3/7/30 일 프리셋. {@code from/to} 가 있으면 무시됨.</li>
+     *   <li>{@code from} (선택): 시작일 (yyyy-MM-dd)</li>
+     *   <li>{@code to} (선택): 종료일 (yyyy-MM-dd)</li>
+     * </ul>
+     *
+     * <p>응답:
+     * <pre>{
+     *   totalCount, pendingCount, acceptedCount, rejectedCount,
+     *   pendingPercent, acceptedPercent, rejectedPercent,
+     *   dailyTrend: [{date, pending, accepted, rejected}, ...],
+     *   byType:     [{type, pending, accepted, rejected}, ...],
+     *   byReviewer: [{username, accepted, rejected, total}, ...],
+     *   from, to, days
+     * }</pre>
+     */
+    @GetMapping("/admin/review-dashboard")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reviewDashboard(
+            @RequestParam(required = false) Integer days,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        try {
+            // ── 기간 결정 ─────────────────────────────────────────
+            java.time.LocalDate today = java.time.LocalDate.now();
+            java.time.LocalDate fromDate;
+            java.time.LocalDate toDate;
+            if (from != null && !from.isEmpty()) {
+                fromDate = java.time.LocalDate.parse(from);
+                toDate   = (to != null && !to.isEmpty()) ? java.time.LocalDate.parse(to) : today;
+            } else {
+                int d = (days != null && days > 0) ? days : 7;
+                toDate   = today;
+                fromDate = today.minusDays(d - 1L);
+            }
+            java.time.LocalDateTime fromDt = fromDate.atStartOfDay();
+            java.time.LocalDateTime toDt   = toDate.plusDays(1).atStartOfDay();
+
+            // ── 기간 내 이력 조회 ─────────────────────────────────
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> list = em.createQuery(
+                    "SELECT h FROM ReviewHistory h "
+                  + "WHERE h.createdAt >= :from AND h.createdAt < :to "
+                  + "ORDER BY h.createdAt DESC",
+                    io.github.claudetoolkit.ui.history.ReviewHistory.class)
+                .setParameter("from", fromDt)
+                .setParameter("to",   toDt)
+                .getResultList();
+
+            // ── 1. 전체 카운트 + 비율 ────────────────────────────
+            long total = list.size();
+            long pending = 0, accepted = 0, rejected = 0;
+            // ── 2. 일별 트렌드 (날짜 키 사전 채움) ───────────────
+            Map<String, long[]> daily = new LinkedHashMap<>();   // [pending, accepted, rejected]
+            for (java.time.LocalDate d = fromDate; !d.isAfter(toDate); d = d.plusDays(1)) {
+                daily.put(d.toString(), new long[]{ 0, 0, 0 });
+            }
+            // ── 3. 타입별 ────────────────────────────────────────
+            Map<String, long[]> byType = new LinkedHashMap<>();
+            // ── 4. 리뷰어별 (작성자 != 검토자, 본인 검토 제외) ──
+            Map<String, long[]> byReviewer = new LinkedHashMap<>(); // [accepted, rejected]
+
+            for (io.github.claudetoolkit.ui.history.ReviewHistory h : list) {
+                String status = h.getReviewStatus();
+                if (status == null || status.isEmpty()) status = "PENDING";
+                if ("ACCEPTED".equals(status))      accepted++;
+                else if ("REJECTED".equals(status)) rejected++;
+                else                                pending++;
+
+                // 일별
+                String dayKey = h.getCreatedAt().toLocalDate().toString();
+                long[] dayBucket = daily.get(dayKey);
+                if (dayBucket != null) {
+                    if ("ACCEPTED".equals(status))      dayBucket[1]++;
+                    else if ("REJECTED".equals(status)) dayBucket[2]++;
+                    else                                dayBucket[0]++;
+                }
+
+                // 타입별
+                String type = h.getType() != null ? h.getType() : "UNKNOWN";
+                long[] typeBucket = byType.computeIfAbsent(type, k -> new long[]{ 0, 0, 0 });
+                if ("ACCEPTED".equals(status))      typeBucket[1]++;
+                else if ("REJECTED".equals(status)) typeBucket[2]++;
+                else                                typeBucket[0]++;
+
+                // 리뷰어별
+                if (h.getReviewedBy() != null && !h.getReviewedBy().isEmpty()) {
+                    long[] revBucket = byReviewer.computeIfAbsent(h.getReviewedBy(), k -> new long[]{ 0, 0 });
+                    if ("ACCEPTED".equals(status))      revBucket[0]++;
+                    else if ("REJECTED".equals(status)) revBucket[1]++;
+                }
+            }
+
+            data.put("totalCount",      total);
+            data.put("pendingCount",    pending);
+            data.put("acceptedCount",   accepted);
+            data.put("rejectedCount",   rejected);
+            data.put("pendingPercent",  total > 0 ? Math.round(pending  * 1000.0 / total) / 10.0 : 0.0);
+            data.put("acceptedPercent", total > 0 ? Math.round(accepted * 1000.0 / total) / 10.0 : 0.0);
+            data.put("rejectedPercent", total > 0 ? Math.round(rejected * 1000.0 / total) / 10.0 : 0.0);
+
+            // dailyTrend → List<Map>
+            List<Map<String, Object>> trend = new ArrayList<>();
+            for (Map.Entry<String, long[]> e : daily.entrySet()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("date",     e.getKey());
+                m.put("pending",  e.getValue()[0]);
+                m.put("accepted", e.getValue()[1]);
+                m.put("rejected", e.getValue()[2]);
+                m.put("total",    e.getValue()[0] + e.getValue()[1] + e.getValue()[2]);
+                trend.add(m);
+            }
+            data.put("dailyTrend", trend);
+
+            // byType → List<Map> (총합 내림차순)
+            List<Map<String, Object>> typeList = new ArrayList<>();
+            for (Map.Entry<String, long[]> e : byType.entrySet()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("type",     e.getKey());
+                m.put("pending",  e.getValue()[0]);
+                m.put("accepted", e.getValue()[1]);
+                m.put("rejected", e.getValue()[2]);
+                m.put("total",    e.getValue()[0] + e.getValue()[1] + e.getValue()[2]);
+                typeList.add(m);
+            }
+            typeList.sort((a, b) -> Long.compare((Long) b.get("total"), (Long) a.get("total")));
+            data.put("byType", typeList);
+
+            // byReviewer → List<Map> (총합 내림차순)
+            List<Map<String, Object>> revList = new ArrayList<>();
+            for (Map.Entry<String, long[]> e : byReviewer.entrySet()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("username", e.getKey());
+                m.put("accepted", e.getValue()[0]);
+                m.put("rejected", e.getValue()[1]);
+                m.put("total",    e.getValue()[0] + e.getValue()[1]);
+                revList.add(m);
+            }
+            revList.sort((a, b) -> Long.compare((Long) b.get("total"), (Long) a.get("total")));
+            data.put("byReviewer", revList);
+
+            data.put("from", fromDate.toString());
+            data.put("to",   toDate.toString());
+            data.put("days", java.time.temporal.ChronoUnit.DAYS.between(fromDate, toDate) + 1);
+        } catch (Exception e) {
+            data.put("error", e.getMessage());
+        }
+        return ResponseEntity.ok(ApiResponse.ok(data));
+    }
+
+    /**
      * v4.2.x — 리뷰 이력 기반의 "내게 온 리뷰 / 내가 요청한 리뷰" API.
      *
      * <ul>

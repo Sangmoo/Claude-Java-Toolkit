@@ -4,7 +4,7 @@ import {
   FaLayerGroup, FaProjectDiagram, FaDatabase, FaLanguage, FaChartBar,
   FaSitemap, FaColumns, FaChartLine, FaCodeBranch,
   FaFileAlt, FaCode, FaExchangeAlt, FaTable, FaRandom, FaCubes, FaRocket,
-  FaHistory, FaStar, FaCalendarCheck, FaUserCheck,
+  FaHistory, FaStar, FaCalendarCheck, FaUserCheck, FaChartPie,
   FaPlug,
   FaBug, FaEyeSlash, FaUserShield,
   FaUsersCog, FaUserLock, FaShareAlt, FaShieldAlt, FaHeartbeat,
@@ -80,6 +80,7 @@ export const menuSections: MenuSection[] = [
       { label: 'ROI 리포트', path: '/roi-report', icon: FaChartLine, color: '#f59e0b', featureKey: 'roi-report' },
       { label: '분석 스케줄링', path: '/schedule', icon: FaCalendarCheck, color: '#f59e0b', featureKey: 'schedule' },
       { label: '팀 리뷰 요청', path: '/review-requests', icon: FaUserCheck, color: '#8b5cf6', featureKey: 'review-requests' },
+      { label: '리뷰 대시보드', path: '/admin/review-dashboard', icon: FaChartPie, color: '#8b5cf6' },
     ],
   },
   {

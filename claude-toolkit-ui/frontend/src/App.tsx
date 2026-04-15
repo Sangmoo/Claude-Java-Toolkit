@@ -61,6 +61,7 @@ const AdminHealthPage = lazy(() => import('./pages/admin/AdminHealthPage'))
 const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'))
 const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'))
 const TeamDashboardPage = lazy(() => import('./pages/admin/TeamDashboardPage'))
+const ReviewDashboardPage = lazy(() => import('./pages/admin/ReviewDashboardPage'))
 const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePage'))
 
 // Special pages
@@ -174,6 +175,7 @@ export default function App() {
           <Route path="/admin/audit-dashboard" element={<AuditLogPage />} />
           <Route path="/admin/permissions" element={<AdminPermissionsPage />} />
           <Route path="/admin/team-dashboard" element={<TeamDashboardPage />} />
+          <Route path="/admin/review-dashboard" element={<ReviewDashboardPage />} />
           <Route path="/admin/db-migration" element={<DbMigrationGuidePage />} />
           <Route path="/admin/backup" element={<AdminBackupPage />} />
 
