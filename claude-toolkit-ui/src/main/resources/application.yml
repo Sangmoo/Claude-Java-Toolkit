@@ -47,6 +47,11 @@ management:
   endpoint:
     health:
       show-details: always
+      # v4.2.6: 헬스 결과 캐싱 — 30초 동안 같은 결과 재사용
+      # OracleDbHealthIndicator 등 외부 의존성 검사가 자주 호출되어 워커 스레드를
+      # 묶지 않도록 함. Indicator 자체에도 60초 캐시가 있어서 이중 보호.
+      cache:
+        time-to-live: 30s
 
 logging:
   level:

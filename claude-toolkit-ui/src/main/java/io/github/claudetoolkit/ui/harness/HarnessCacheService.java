@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -161,8 +162,7 @@ public class HarnessCacheService {
             String errorMsg = null;
             try {
                 Class.forName("oracle.jdbc.OracleDriver");
-                conn = DriverManager.getConnection(
-                        db.getUrl(), db.getUsername(), db.getPassword());
+                conn = openOracleConnection(db);
                 // ROWNUM 서브쿼리 방식 — Oracle 11g 이하에서도 동작
                 // (FETCH FIRST N ROWS ONLY 는 Oracle 12c+ 전용이라 ORA-00933 발생)
                 String sql =
@@ -258,8 +258,7 @@ public class HarnessCacheService {
         Connection conn = null;
         try {
             Class.forName("oracle.jdbc.OracleDriver");
-            conn = DriverManager.getConnection(
-                    db.getUrl(), db.getUsername(), db.getPassword());
+            conn = openOracleConnection(db);
             PreparedStatement ps = conn.prepareStatement(
                 "SELECT TEXT FROM ALL_SOURCE "
               + "WHERE NAME = ? AND TYPE = ? "
@@ -399,5 +398,25 @@ public class HarnessCacheService {
         public String name;
         public String type;
         public String owner;
+    }
+
+    /**
+     * v4.2.6: Oracle Connection 헬퍼 — 짧은 timeout 으로 빠르게 실패.
+     *
+     * <p>이전엔 raw {@code DriverManager.getConnection(url, user, pw)} 로 연결해서
+     * Oracle 서버가 죽었거나 네트워크가 느리면 OS TCP timeout (75초~수 분) 까지
+     * Tomcat 워커 스레드가 묶여 다른 요청들이 응답 못 받았음.
+     * 이제 oracle.net.CONNECT_TIMEOUT(3초) + oracle.jdbc.ReadTimeout(3초) 명시 +
+     * DriverManager.setLoginTimeout(3) 으로 빠른 실패 보장.
+     */
+    private static Connection openOracleConnection(ToolkitSettings.Db db) throws java.sql.SQLException {
+        DriverManager.setLoginTimeout(3);
+        Properties props = new Properties();
+        props.setProperty("user",     db.getUsername() != null ? db.getUsername() : "");
+        props.setProperty("password", db.getPassword() != null ? db.getPassword() : "");
+        props.setProperty("oracle.net.CONNECT_TIMEOUT", "3000");
+        props.setProperty("oracle.jdbc.ReadTimeout",    "10000");
+        props.setProperty("oracle.net.READ_TIMEOUT",    "10000");
+        return DriverManager.getConnection(db.getUrl(), props);
     }
 }
