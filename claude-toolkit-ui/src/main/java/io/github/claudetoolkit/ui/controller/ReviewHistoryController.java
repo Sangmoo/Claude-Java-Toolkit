@@ -72,11 +72,24 @@ public class ReviewHistoryController {
         return ResponseEntity.ok(resp);
     }
 
-    /** Clear all history */
+    /**
+     * Clear <b>all</b> history across <b>all</b> users.
+     *
+     * <p>v4.2.7 — 감사 결과: 전사 데이터 삭제 기능. 기존엔 권한 체크 없이 누구든
+     * 호출 가능했다. ADMIN 전용으로 제한. 프론트 사용처 없음.
+     */
     @PostMapping("/clear")
-    public String clear() {
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> clear(HttpServletRequest request) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        if (!request.isUserInRole("ADMIN")) {
+            resp.put("success", false);
+            resp.put("error",   "ADMIN 권한이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
         historyService.clear();
-        return "redirect:/history";
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
     }
 
     /**

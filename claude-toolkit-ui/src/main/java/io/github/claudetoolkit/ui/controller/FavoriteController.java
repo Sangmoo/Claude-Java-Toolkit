@@ -128,10 +128,24 @@ public class FavoriteController {
         return ResponseEntity.ok(resp);
     }
 
-    /** Clear all favorites */
+    /**
+     * Clear <b>all</b> favorites across <b>all</b> users.
+     *
+     * <p>v4.2.7 — 감사 결과: 이 엔드포인트는 전사 데이터를 삭제하는 위험한 기능인데
+     * 기존엔 권한 체크 없이 모든 로그인 사용자가 호출 가능했다. ADMIN 전용으로 제한.
+     * 프론트 사용처 없음 — 레거시/운영용 엔드포인트로만 유지.
+     */
     @PostMapping("/clear")
-    public String clear() {
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> clear(javax.servlet.http.HttpServletRequest request) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!request.isUserInRole("ADMIN")) {
+            resp.put("success", false);
+            resp.put("error",   "ADMIN 권한이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
         favoriteService.clear();
-        return "redirect:/favorites";
+        resp.put("success", true);
+        return ResponseEntity.ok(resp);
     }
 }

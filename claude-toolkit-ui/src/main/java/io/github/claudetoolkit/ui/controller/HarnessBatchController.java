@@ -125,12 +125,23 @@ public class HarnessBatchController {
         return result;
     }
 
-    /** Clear completed batch from memory. */
+    /**
+     * Clear completed batch from memory.
+     *
+     * <p>v4.2.7 — ADMIN/REVIEWER 만 허용. 배치 상태는 팀 공유 데이터이므로
+     * VIEWER 가 우연히 삭제하지 못하도록 권한을 제한.
+     */
     @DeleteMapping("/status/{batchId}")
     @ResponseBody
-    public Map<String, Object> clear(@PathVariable String batchId) {
-        batchService.clearStatus(batchId);
+    public Map<String, Object> clear(@PathVariable String batchId,
+                                     javax.servlet.http.HttpServletRequest request) {
         Map<String, Object> r = new LinkedHashMap<String, Object>();
+        if (!(request.isUserInRole("ADMIN") || request.isUserInRole("REVIEWER"))) {
+            r.put("success", false);
+            r.put("error",   "ADMIN 또는 REVIEWER 권한이 필요합니다.");
+            return r;
+        }
+        batchService.clearStatus(batchId);
         r.put("success", true);
         return r;
     }
@@ -156,12 +167,22 @@ public class HarnessBatchController {
         return result;
     }
 
-    /** DELETE /harness/batch/history/{id} — delete a single history record */
+    /**
+     * DELETE /harness/batch/history/{id} — delete a single history record.
+     *
+     * <p>v4.2.7 — ADMIN/REVIEWER 만 허용. 배치 이력은 팀 공유 데이터.
+     */
     @DeleteMapping("/history/{id}")
     @ResponseBody
-    public Map<String, Object> deleteHistory(@PathVariable long id) {
-        batchService.deleteHistory(id);
+    public Map<String, Object> deleteHistory(@PathVariable long id,
+                                             javax.servlet.http.HttpServletRequest request) {
         Map<String, Object> r = new LinkedHashMap<String, Object>();
+        if (!(request.isUserInRole("ADMIN") || request.isUserInRole("REVIEWER"))) {
+            r.put("success", false);
+            r.put("error",   "ADMIN 또는 REVIEWER 권한이 필요합니다.");
+            return r;
+        }
+        batchService.deleteHistory(id);
         r.put("success", true);
         return r;
     }

@@ -8,11 +8,15 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import javax.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -81,7 +85,31 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleBadRequest(IllegalArgumentException ex,
                                               HttpServletRequest request) {
         log.warn("잘못된 요청: {} {} — {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
-        return jsonError(ex.getMessage(), HttpStatus.BAD_REQUEST);
+        return jsonError(ex.getMessage(), HttpStatus.BAD_REQUEST, request);
+    }
+
+    /**
+     * v4.2.7 — 필수 쿼리/폼 파라미터 누락 처리.
+     * 예전엔 Exception.class 로 잡혀서 500 으로 내려갔지만 실제론 400 이어야 한다.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<?> handleMissingParam(MissingServletRequestParameterException ex,
+                                                 HttpServletRequest request) {
+        String message = "필수 파라미터 누락: '" + ex.getParameterName() + "' (" + ex.getParameterType() + ")";
+        log.warn("파라미터 누락: {} {} — {}", request.getMethod(), request.getRequestURI(), message);
+        return jsonError(message, HttpStatus.BAD_REQUEST, request);
+    }
+
+    /**
+     * v4.2.7 — 파라미터 타입 불일치 (예: long id 에 문자열 전달). 400 으로 반환.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                 HttpServletRequest request) {
+        String typeName = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
+        String message = "파라미터 형식 오류: '" + ex.getName() + "' 은(는) " + typeName + " 타입이어야 합니다.";
+        log.warn("타입 불일치: {} {} — {}", request.getMethod(), request.getRequestURI(), message);
+        return jsonError(message, HttpStatus.BAD_REQUEST, request);
     }
 
     @ExceptionHandler(Exception.class)
@@ -146,10 +174,33 @@ public class GlobalExceptionHandler {
             || (accept != null && accept.contains("application/json") && !accept.contains("text/html"));
     }
 
-    private ResponseEntity<Map<String, Object>> jsonError(String message, HttpStatus status) {
+    /**
+     * v4.2.7 — 표준화된 에러 응답 shape. 기존 필드(`success`, `error`) 는 그대로 유지하여
+     * 프론트 파싱 로직을 깨지 않으면서, 관측성을 위해 추가 필드를 포함한다:
+     * <ul>
+     *   <li>{@code status} — HTTP 상태 코드 (int)</li>
+     *   <li>{@code timestamp} — 서버 시각 (yyyy-MM-dd HH:mm:ss)</li>
+     *   <li>{@code path} — 요청 URI</li>
+     * </ul>
+     *
+     * <p>이 shape 는 모든 {@code @ExceptionHandler} 메서드에서 일관되게 사용되므로,
+     * 프론트에서 {@code res.error} 외에 타임스탬프/상태 코드를 활용할 수 있다.
+     */
+    private ResponseEntity<Map<String, Object>> jsonError(String message, HttpStatus status,
+                                                           HttpServletRequest request) {
         Map<String, Object> body = new LinkedHashMap<String, Object>();
-        body.put("success", false);
-        body.put("error", message);
+        body.put("success",   false);
+        body.put("status",    status.value());
+        body.put("error",     message);
+        body.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        if (request != null) {
+            body.put("path",  request.getRequestURI());
+        }
         return ResponseEntity.status(status).body(body);
+    }
+
+    /** v4.2.7 — 호환용 오버로드 (request 없을 때) */
+    private ResponseEntity<Map<String, Object>> jsonError(String message, HttpStatus status) {
+        return jsonError(message, status, null);
     }
 }
