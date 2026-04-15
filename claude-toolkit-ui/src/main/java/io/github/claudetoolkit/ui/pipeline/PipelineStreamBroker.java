@@ -67,7 +67,10 @@ public class PipelineStreamBroker {
         for (SseEmitter emitter : list) {
             try {
                 emitter.send(SseEmitter.event().name(eventName).data(data));
-            } catch (Exception e) {
+            } catch (Throwable t) {
+                // v4.2.5: Throwable 로 확장 — IOException(Broken pipe), IllegalStateException
+                // (response already committed/closed), Spring async dispatch 단계에서 발생할 수
+                // 있는 그 외 RuntimeException 까지 전부 흡수하여 백그라운드 스레드를 안전하게 보호.
                 dead.add(emitter);
             }
         }

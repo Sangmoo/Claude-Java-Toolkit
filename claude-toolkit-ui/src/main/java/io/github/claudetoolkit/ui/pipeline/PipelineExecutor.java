@@ -247,18 +247,27 @@ public class PipelineExecutor {
                             stepContext == null ? 0 : stepContext.length());
 
                     // 스트리밍 실행 — 진행적 DB 저장 (300ms 또는 1000자마다)
+                    // v4.2.5: chatStreamWithContinuation 사용 — Claude 응답이 max_tokens
+                    // 한도에 닿아 중간에 잘리면 자동으로 최대 3회 "이어서 작성해주세요" 로
+                    // 다음 turn 을 요청해 받는다. 긴 코드 생성 단계에서 잘림 방지.
                     final StringBuilder outputBuf = new StringBuilder();
                     final String stepIdCopy = step.getId();
                     final long[] lastSave   = { System.currentTimeMillis() };
                     final int[]  lastLen    = { 0 };
                     final PipelineStepResult resultRef = result;
-                    claudeClient.chatStream(sysPrompt, userMsg, maxTokens, new Consumer<String>() {
+                    claudeClient.chatStreamWithContinuation(sysPrompt, userMsg, maxTokens, 3, new Consumer<String>() {
                         public void accept(String chunk) {
                             outputBuf.append(chunk);
                             Map<String, Object> payload = new LinkedHashMap<String, Object>();
                             payload.put("stepId", stepIdCopy);
                             payload.put("chunk", chunk);
-                            broker.push(exec.getId(), "step-chunk", payload);
+                            // broker.push 가 동기적으로 던지는 IOException 은 자체 catch 에서
+                            // 처리되지만, 비동기 dispatch 단계에서 발생하는 ClientAbortException 은
+                            // GlobalExceptionHandler 가 흡수한다. 여기서 예외가 올라와도 청크 처리는
+                            // 계속되도록 추가 try 로 감싼다.
+                            try {
+                                broker.push(exec.getId(), "step-chunk", payload);
+                            } catch (Exception ignored) { /* 클라이언트 disconnect 무시 */ }
 
                             // 폴링 fallback 을 위한 진행적 저장
                             long now = System.currentTimeMillis();
@@ -437,13 +446,16 @@ public class PipelineExecutor {
         final long[] lastSave   = { System.currentTimeMillis() };
         final int[]  lastLen    = { 0 };
         final PipelineStepResult resultRef = result;
-        claudeClient.chatStream(sysPrompt, userMsg, maxTokens, new Consumer<String>() {
+        // v4.2.5: chatStreamWithContinuation — max_tokens 잘림 자동 이어받기 (최대 3회)
+        claudeClient.chatStreamWithContinuation(sysPrompt, userMsg, maxTokens, 3, new Consumer<String>() {
             public void accept(String chunk) {
                 outputBuf.append(chunk);
                 Map<String, Object> payload = new LinkedHashMap<String, Object>();
                 payload.put("stepId", stepIdCopy);
                 payload.put("chunk", chunk);
-                broker.push(exec.getId(), "step-chunk", payload);
+                try {
+                    broker.push(exec.getId(), "step-chunk", payload);
+                } catch (Exception ignored) { /* 클라이언트 disconnect 무시 */ }
 
                 // 폴링 fallback 을 위한 진행적 저장
                 long now = System.currentTimeMillis();

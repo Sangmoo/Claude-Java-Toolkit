@@ -86,11 +86,51 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGeneral(Exception ex, HttpServletRequest request) {
+        // ── 클라이언트 disconnect (Broken pipe) 는 정상 동작의 일부 ──
+        // SSE 스트리밍 중 사용자가 페이지 이탈/탭 종료/네트워크 끊김으로
+        // 소켓이 닫히면 다음 chunk write 가 실패하면서 ClientAbortException /
+        // IOException("Broken pipe") 이 발생. 이는 오류가 아니라 정상적인 종료
+        // 시그널이므로 ERROR 가 아니라 DEBUG 로 낮추고, 응답 본문 쓰기도 건너뛴다
+        // (소켓이 이미 닫혀 있어 본문 쓰기도 또 다시 실패하기 때문 — 'Failure in
+        // @ExceptionHandler' 2차 WARN 발생 원인).
+        if (isClientDisconnect(ex)) {
+            log.debug("[SSE] 클라이언트 연결 종료: {} {}", request.getMethod(), request.getRequestURI());
+            // null 반환 시 Spring 은 추가 응답을 쓰지 않음 (이미 응답 헤더가 commit 되어
+            // 있을 수도 있고, 어차피 소켓이 닫혀 있어 쓰기가 실패하므로 안전).
+            return null;
+        }
+
         log.error("서버 오류: {} {} — {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
         if (isApiRequest(request)) {
             return jsonError("서버 오류: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return serveSpa();
+    }
+
+    /**
+     * 클라이언트 disconnect 로 인한 예외인지 판정.
+     * - org.apache.catalina.connector.ClientAbortException
+     * - java.io.IOException("Broken pipe") / IOException("Connection reset")
+     * - cause chain 의 어느 곳에라도 위 두 가지가 있으면 true
+     */
+    private boolean isClientDisconnect(Throwable t) {
+        Throwable cur = t;
+        int depth = 0;
+        while (cur != null && depth++ < 10) {
+            String name = cur.getClass().getName();
+            if (name.equals("org.apache.catalina.connector.ClientAbortException")) return true;
+            String msg = cur.getMessage();
+            if (msg != null) {
+                String lower = msg.toLowerCase();
+                if (lower.contains("broken pipe")
+                        || lower.contains("connection reset")
+                        || lower.contains("connection was aborted")) {
+                    return true;
+                }
+            }
+            cur = cur.getCause();
+        }
+        return false;
     }
 
     // ── helpers ──
