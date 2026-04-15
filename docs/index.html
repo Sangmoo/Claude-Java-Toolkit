@@ -722,6 +722,51 @@ footer{
           <span class="tag">🔶 Oracle 11g 지원</span>
         </div>
       </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">💬</div>
+        <div class="feat-title">댓글 @멘션 & 피드백</div>
+        <div class="feat-desc">댓글에 <code>@</code> 입력시 사용자 드롭다운이 뜨고 화살표/엔터로 선택하면 <code>@username</code> 배지로 강조됩니다. 멘션된 사용자에겐 실시간 SSE 알림이 전달되고, 이메일 형식(<code>a@b.com</code>) 은 멘션으로 잡히지 않습니다. 리뷰 승인/거절 시에는 선택적 코멘트를 남길 수 있고, 모든 사용자가 친화적인 <strong>리뷰 노트 카드</strong>로 피드백을 확인합니다 (상태별 색상 + 리뷰어 아바타).</div>
+        <div class="feat-tags">
+          <span class="tag">@ 멘션 자동완성</span>
+          <span class="tag">🔔 멘션 알림</span>
+          <span class="tag">💬 승인 코멘트</span>
+          <span class="tag">🎨 노트 카드</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🔔</div>
+        <div class="feat-title">알림 센터 고도화</div>
+        <div class="feat-desc">드롭다운의 각 알림에 ✕ 버튼으로 개별 삭제가 가능하고, 헤더의 <strong>"전체 삭제"</strong> 로 일괄 비우기가 가능합니다. VIEWER 가 이력을 생성하면 REVIEWER/ADMIN 전원에게 "검토 대기" 알림이 실시간 전달되고, 링크를 클릭하면 팀 리뷰 요청 페이지에서 해당 카드가 <strong>보라색 글로우</strong>로 하이라이트됩니다. 시각은 "N분 전 / 어제 / 3일 전" 같은 상대 표기로 자동 전환됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🗑️ 개별/전체 삭제</span>
+          <span class="tag">📨 VIEWER 대기 알림</span>
+          <span class="tag">🔦 카드 하이라이트</span>
+          <span class="tag">⏱️ 상대 시간</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">⭐</div>
+        <div class="feat-title">이력 & 즐겨찾기 관리</div>
+        <div class="feat-desc">리뷰 이력과 즐겨찾기 모두에서 <strong>검색, 다중 선택, 일괄 내보내기(.md), 일괄 삭제</strong>가 가능합니다. 이력 상세 모달로 팀 리뷰 요청 페이지에서 VIEWER 작성 본문을 바로 확인하고 승인/거절할 수 있고, 50 건 단위로 <strong>"더 보기"</strong> 버튼으로 점진적 로드합니다. 별 아이콘 재클릭으로 즐겨찾기 토글 해제, <code>(username, historyId)</code> 조합으로 중복 저장도 자동 방지됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🔍 검색 필터</span>
+          <span class="tag">☑️ 다중 선택</span>
+          <span class="tag">📥 일괄 내보내기</span>
+          <span class="tag">📄 페이지네이션</span>
+          <span class="tag">⭐ 토글 즐겨찾기</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🛡️</div>
+        <div class="feat-title">보안 강화 & 회귀 방지</div>
+        <div class="feat-desc"><code>/api/v1/admin/**</code> 역할 게이팅, <code>FavoriteController.delete</code> 소유자 체크, <code>ReviewHistoryController.delete</code> VIEWER 차단, 댓글 삭제 ADMIN 허용 등 Phase 1 라운드에서 권한 구멍을 정리했습니다. JUnit + MockMvc 기반 <strong>스모크 테스트 16 개</strong>와 Playwright E2E 4 개가 자동으로 회귀를 감지하고, <code>@WithMockUser</code> 로 VIEWER/REVIEWER/ADMIN 각각의 경로 접근 정책을 매 빌드마다 검증합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🔐 RBAC 전수 감사</span>
+          <span class="tag">🧪 JUnit 16 개</span>
+          <span class="tag">🌐 Playwright E2E</span>
+          <span class="tag">✅ 회귀 방지</span>
+        </div>
+      </div>
     </div>
 
     <!-- 기능 탭 상세 -->
