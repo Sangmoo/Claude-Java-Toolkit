@@ -123,8 +123,12 @@ public class HarnessReviewService {
         String codeBlock = isSql ? "sql" : "java";
         String memo      = settings.getProjectContext();
 
+        // v4.2.6: 단계 경계를 명시적으로 알리는 sentinel 마커.
+        // 프론트엔드 CodeReviewPage 가 이 마커를 보고 stage 버퍼를 전환한다.
+        // 마커는 단독 라인이며 마크다운 렌더링에선 보이지 않도록 스트립됨.
+
         // ── 1단계: Analyst ────────────────────────────────────────────────────
-        onChunk.accept("## 📋 분석 요약\n");
+        onChunk.accept("[[HARNESS_STAGE:1]]\n## 📋 분석 요약\n");
         final StringBuilder analysisBuf = new StringBuilder();
         claudeClient.chatStream(
                 applyTemplateHint(withMemo(buildAnalystSystem(language), memo), templateHint),
@@ -139,7 +143,7 @@ public class HarnessReviewService {
         String analysis = analysisBuf.toString().trim();
 
         // ── 2단계: Builder — 이어쓰기로 대형 SP도 완전 출력 보장 ──────────────
-        onChunk.accept("\n\n## 🔧 개선된 코드\n```" + codeBlock + "\n");
+        onChunk.accept("\n\n[[HARNESS_STAGE:2]]\n## 🔧 개선된 코드\n```" + codeBlock + "\n");
         final StringBuilder improvedBuf = new StringBuilder();
         claudeClient.chatStreamWithContinuation(
                 withMemo(buildBuilderSystem(language), memo),
@@ -155,7 +159,7 @@ public class HarnessReviewService {
         onChunk.accept("\n```\n");
 
         // ── 3단계: Reviewer ───────────────────────────────────────────────────
-        onChunk.accept("\n");
+        onChunk.accept("\n[[HARNESS_STAGE:3]]\n");
         claudeClient.chatStream(
                 withMemo(buildReviewerSystem(language), memo),
                 buildReviewerUser(code, improved, analysis, language),
@@ -163,7 +167,7 @@ public class HarnessReviewService {
                 onChunk);
 
         // ── 4단계: Verifier ───────────────────────────────────────────────────
-        onChunk.accept("\n\n");
+        onChunk.accept("\n\n[[HARNESS_STAGE:4]]\n");
         claudeClient.chatStream(
                 withMemo(buildVerifierSystem(language), memo),
                 buildVerifierUser(code, improved, analysis, language),

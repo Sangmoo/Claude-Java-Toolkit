@@ -212,7 +212,9 @@ public class SseStreamController {
                                         catch (IOException e) { emitter.completeWithError(e); }
                                     }
                                 });
-                        saveHistory("harness_review", input.input, harnessBuf.toString(), capturedUser);
+                        // v4.2.6: 단계 마커는 UI 전용이므로 이력 저장 시 제거
+                        String harnessSaved = harnessBuf.toString().replaceAll("\\[\\[HARNESS_STAGE:\\d+\\]\\]\\n?", "");
+                        saveHistory("harness_review", input.input, harnessSaved, capturedUser);
                         emitter.send(SseEmitter.event().name("done").data("ok"));
                         try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                         emitter.complete();
