@@ -63,6 +63,7 @@ const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'))
 const TeamDashboardPage = lazy(() => import('./pages/admin/TeamDashboardPage'))
 const ReviewDashboardPage = lazy(() => import('./pages/admin/ReviewDashboardPage'))
 const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePage'))
+const AdminEndpointStatsPage = lazy(() => import('./pages/admin/AdminEndpointStatsPage'))
 
 // Special pages
 const SetupPage = lazy(() => import('./pages/SetupPage'))
@@ -178,6 +179,7 @@ export default function App() {
           <Route path="/admin/review-dashboard" element={<ReviewDashboardPage />} />
           <Route path="/admin/db-migration" element={<DbMigrationGuidePage />} />
           <Route path="/admin/backup" element={<AdminBackupPage />} />
+          <Route path="/admin/endpoint-stats" element={<AdminEndpointStatsPage />} />
 
           {/* Special */}
           <Route path="/api-docs" element={<ApiDocsPage />} />

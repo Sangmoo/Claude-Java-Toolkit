@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import {
   FaHistory, FaSearch, FaTrash, FaStar, FaCopy, FaCheck,
   FaChevronDown, FaChevronUp, FaDownload, FaCheckCircle, FaTimesCircle, FaClock,
-  FaReply, FaComment, FaPaperPlane, FaFileExport,
+  FaReply, FaComment, FaPaperPlane, FaFileExport, FaShareAlt,
 } from 'react-icons/fa'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
@@ -13,6 +13,7 @@ import { copyToClipboard } from '../utils/clipboard'
 import { formatDate, formatRelative } from '../utils/date'
 import MentionInput, { type MentionCandidate } from '../components/common/MentionInput'
 import ReviewActionDialog, { ReviewNoteCard } from '../components/common/ReviewActionDialog'
+import { markdownCodeComponents } from '../components/common/CopyableCodeBlock'
 
 interface HistoryItem {
   id: number
@@ -172,6 +173,31 @@ export default function HistoryPage() {
       }
     } catch {
       toast.error('삭제 요청 실패')
+    }
+  }
+
+  // v4.2.8: 공유 링크 생성 — 7일간 유효한 read-only 링크 + 단축 URL
+  // 생성 즉시 링크를 클립보드에 복사.
+  const shareHistory = async (item: HistoryItem) => {
+    try {
+      const res = await fetch(`/history/${item.id}/share`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d?.success && d?.shareUrl) {
+        const fullUrl = `${window.location.origin}${d.shareUrl}`
+        const ok = await copyToClipboard(fullUrl)
+        if (ok) {
+          toast.success(`공유 링크 복사됨 (${d.remaining})`)
+        } else {
+          toast.info(`공유 링크: ${fullUrl}`)
+        }
+      } else {
+        toast.error(d?.error || '공유 링크 생성 실패')
+      }
+    } catch {
+      toast.error('요청 실패')
     }
   }
 
@@ -488,6 +514,14 @@ export default function HistoryPage() {
                   >
                     <FaStar />
                   </button>
+                  {/* v4.2.8: 공유 링크 (7일간 유효, 로그인 없이 접근 가능) */}
+                  <button
+                    style={{ ...iconBtnStyle, color: 'var(--blue)' }}
+                    onClick={(e) => { e.stopPropagation(); shareHistory(item) }}
+                    title="공유 링크 복사 (7일 유효)"
+                  >
+                    <FaShareAlt />
+                  </button>
                   {/* v4.2.7: VIEWER 권한은 삭제 아이콘 자체를 렌더하지 않음 */}
                   {canDelete && (
                     <button
@@ -548,7 +582,7 @@ export default function HistoryPage() {
                   </pre>
                   <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>결과</h4>
                   <div className="markdown-body" style={{ fontSize: '13px' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.outputContent || ''}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>{item.outputContent || ''}</ReactMarkdown>
                   </div>
 
                   {/* 댓글 섹션 */}

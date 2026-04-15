@@ -36,13 +36,28 @@ public class SharedResult {
     public SharedResult() {}
 
     public SharedResult(Long historyId, String type, String title, String inputContent, String outputContent) {
-        this.token         = UUID.randomUUID().toString();
+        // v4.2.8: Short URL — UUID 36자 → 10자 Base62 로 축소.
+        // 62^10 = 839 억 조합 → 운영 규모에선 충돌 걱정 없음.
+        // 10자: /share/ABc123XyZq 같은 URL
+        this.token         = generateShortToken(10);
         this.type          = type;
         this.title         = title;
         this.inputContent  = inputContent;
         this.outputContent = outputContent;
         this.createdAt     = LocalDateTime.now();
         this.expiresAt     = LocalDateTime.now().plusDays(7);
+    }
+
+    private static final char[] ALPHABET =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".toCharArray();
+    private static final java.security.SecureRandom RNG = new java.security.SecureRandom();
+
+    private static String generateShortToken(int length) {
+        char[] buf = new char[length];
+        for (int i = 0; i < length; i++) {
+            buf[i] = ALPHABET[RNG.nextInt(ALPHABET.length)];
+        }
+        return new String(buf);
     }
 
     public boolean isExpired() {

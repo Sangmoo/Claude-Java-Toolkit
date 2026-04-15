@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useApi } from '../hooks/useApi'
+import { formatRelative } from '../utils/date'
 import {
   FaDatabase, FaFileAlt, FaComments, FaProjectDiagram,
-  FaCode, FaHistory, FaChartBar, FaBug,
+  FaCode, FaHistory, FaChartBar, FaBug, FaUsers, FaCheckCircle, FaTimesCircle, FaClock,
 } from 'react-icons/fa'
 
 interface HealthData {
@@ -12,6 +13,16 @@ interface HealthData {
   claudeModel: string
   apiKeySet: boolean
   dbConfigured: boolean
+}
+
+// v4.2.8: 팀 활동 피드
+interface TeamActivity {
+  id:           number
+  type:         string
+  title:        string
+  username:     string
+  reviewStatus: string | null
+  createdAt:    string
 }
 
 const toolCards = [
@@ -29,11 +40,21 @@ export default function HomePage() {
   const user = useAuthStore((s) => s.user)
   const { data: health, get } = useApi<HealthData>({ showError: false })
   const [greeting, setGreeting] = useState('')
+  // v4.2.8: 팀 활동 피드
+  const [teamActivity, setTeamActivity] = useState<TeamActivity[]>([])
 
   useEffect(() => {
     get('/api/v1/health')
     const h = new Date().getHours()
     setGreeting(h < 12 ? '좋은 아침입니다' : h < 18 ? '좋은 오후입니다' : '좋은 저녁입니다')
+    // 팀 활동 — 로그인 후 1회만 로드
+    fetch('/api/v1/team-activity', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => {
+        const list = (j?.data ?? j) as TeamActivity[]
+        if (Array.isArray(list)) setTeamActivity(list)
+      })
+      .catch(() => { /* silent */ })
   }, [get])
 
   return (
@@ -109,6 +130,59 @@ export default function HomePage() {
           )
         })}
       </div>
+
+      {/* v4.2.8: 팀 활동 피드 */}
+      {teamActivity.length > 0 && (
+        <div style={{
+          marginTop: '32px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '22px',
+        }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FaUsers style={{ color: '#8b5cf6' }} /> 팀 활동 피드
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>
+              — 최근 {teamActivity.length}건
+            </span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {teamActivity.slice(0, 10).map((a) => {
+              const statusIcon = a.reviewStatus === 'ACCEPTED'
+                ? <FaCheckCircle style={{ color: 'var(--green)', fontSize: '11px' }} />
+                : a.reviewStatus === 'REJECTED'
+                  ? <FaTimesCircle style={{ color: 'var(--red)', fontSize: '11px' }} />
+                  : <FaClock style={{ color: 'var(--yellow)', fontSize: '11px' }} />
+              return (
+                <a key={a.id} href="/review-requests" style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '8px 12px', borderRadius: '8px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  textDecoration: 'none', color: 'inherit',
+                  fontSize: '12px',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-subtle)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-primary)' }}
+                >
+                  {statusIcon}
+                  <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                    {a.type}
+                  </span>
+                  <strong style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '11px' }}>@{a.username}</strong>
+                  <span style={{ flex: 1, color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {a.title || '(제목 없음)'}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>
+                    {formatRelative(a.createdAt)}
+                  </span>
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </>
   )
 }

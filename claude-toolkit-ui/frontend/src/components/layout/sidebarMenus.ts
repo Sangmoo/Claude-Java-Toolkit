@@ -111,6 +111,7 @@ export const menuSections: MenuSection[] = [
       { label: '팀 설정 공유', path: '/settings/shared', icon: FaShareAlt, color: '#ef4444' },
       { label: '팀 대시보드', path: '/admin/team-dashboard', icon: FaChartLine, color: '#3b82f6' },
       { label: '감사 로그', path: '/admin/audit-dashboard', icon: FaShieldAlt, color: '#f59e0b' },
+      { label: '엔드포인트 통계', path: '/admin/endpoint-stats', icon: FaChartLine, color: '#3b82f6' },
       { label: '시스템 헬스', path: '/admin/health', icon: FaHeartbeat, color: '#ef4444' },
       { label: 'DB 마이그레이션 가이드', path: '/admin/db-migration', icon: FaExchangeAlt, color: '#3b82f6' },
     ],

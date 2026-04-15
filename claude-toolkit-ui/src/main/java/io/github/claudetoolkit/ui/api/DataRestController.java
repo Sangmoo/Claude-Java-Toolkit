@@ -178,6 +178,141 @@ public class DataRestController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    // ── Endpoint usage stats (v4.2.8 — B2) ────────────────────────
+    //
+    // AuditLog 테이블을 집계해서 기간별 엔드포인트 사용 통계를 반환.
+    // /api/v1/admin/** 은 ADMIN 만 접근 가능 (SecurityConfig).
+    @GetMapping("/admin/endpoint-stats")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> endpointStats(
+            @org.springframework.web.bind.annotation.RequestParam(value = "days", defaultValue = "7") int days) {
+        try {
+            int effectiveDays = Math.max(1, Math.min(days, 365));
+            java.time.LocalDateTime since = java.time.LocalDateTime.now().minusDays(effectiveDays);
+
+            // Top endpoints (by count)
+            @SuppressWarnings("unchecked")
+            List<Object[]> topEndpoints = em.createQuery(
+                "SELECT a.endpoint, COUNT(a) FROM AuditLog a " +
+                "WHERE a.createdAt >= :since " +
+                "GROUP BY a.endpoint " +
+                "ORDER BY COUNT(a) DESC"
+            ).setParameter("since", since).setMaxResults(30).getResultList();
+
+            List<Map<String, Object>> endpointRows = new ArrayList<Map<String, Object>>();
+            for (Object[] row : topEndpoints) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("endpoint", row[0]);
+                m.put("count",    ((Number) row[1]).longValue());
+                endpointRows.add(m);
+            }
+
+            // Top users (by count)
+            @SuppressWarnings("unchecked")
+            List<Object[]> topUsers = em.createQuery(
+                "SELECT a.username, COUNT(a) FROM AuditLog a " +
+                "WHERE a.createdAt >= :since AND a.username IS NOT NULL " +
+                "GROUP BY a.username " +
+                "ORDER BY COUNT(a) DESC"
+            ).setParameter("since", since).setMaxResults(15).getResultList();
+
+            List<Map<String, Object>> userRows = new ArrayList<Map<String, Object>>();
+            for (Object[] row : topUsers) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("username", row[0]);
+                m.put("count",    ((Number) row[1]).longValue());
+                userRows.add(m);
+            }
+
+            // Status code breakdown
+            @SuppressWarnings("unchecked")
+            List<Object[]> statusBreakdown = em.createQuery(
+                "SELECT a.statusCode, COUNT(a) FROM AuditLog a " +
+                "WHERE a.createdAt >= :since " +
+                "GROUP BY a.statusCode " +
+                "ORDER BY a.statusCode"
+            ).setParameter("since", since).getResultList();
+
+            List<Map<String, Object>> statusRows = new ArrayList<Map<String, Object>>();
+            for (Object[] row : statusBreakdown) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("status", row[0] != null ? row[0] : 0);
+                m.put("count",  ((Number) row[1]).longValue());
+                statusRows.add(m);
+            }
+
+            // Daily trend
+            @SuppressWarnings("unchecked")
+            List<Object[]> dailyTrend = em.createQuery(
+                "SELECT FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd'), COUNT(a) " +
+                "FROM AuditLog a WHERE a.createdAt >= :since " +
+                "GROUP BY FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd') " +
+                "ORDER BY FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd')"
+            ).setParameter("since", since).getResultList();
+
+            List<Map<String, Object>> dailyRows = new ArrayList<Map<String, Object>>();
+            for (Object[] row : dailyTrend) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("date",  row[0]);
+                m.put("count", ((Number) row[1]).longValue());
+                dailyRows.add(m);
+            }
+
+            long total = ((Number) em.createQuery(
+                "SELECT COUNT(a) FROM AuditLog a WHERE a.createdAt >= :since"
+            ).setParameter("since", since).getSingleResult()).longValue();
+
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("days",          effectiveDays);
+            data.put("total",         total);
+            data.put("topEndpoints",  endpointRows);
+            data.put("topUsers",      userRows);
+            data.put("statusCodes",   statusRows);
+            data.put("dailyTrend",    dailyRows);
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            Map<String, Object> empty = new LinkedHashMap<String, Object>();
+            empty.put("error", e.getMessage());
+            return ResponseEntity.ok(ApiResponse.ok(empty));
+        }
+    }
+
+    // ── Team activity feed ─────────────────────────────────────────
+    //
+    // v4.2.8: 홈 대시보드에 표시할 팀 전체 최근 활동 피드.
+    // - 본인 이외의 사용자들이 최근 만든 이력 목록
+    // - 제한된 필드만 반환 (outputContent 제외 — 페이로드 최소화)
+    // - 최대 20건
+    @GetMapping("/team-activity")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> teamActivity(Authentication auth) {
+        try {
+            String currentUser = auth != null ? auth.getName() : null;
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> list =
+                (List<io.github.claudetoolkit.ui.history.ReviewHistory>) em.createQuery(
+                    "SELECT h FROM ReviewHistory h " +
+                    "WHERE h.username IS NOT NULL AND h.username <> '' AND h.username <> :me " +
+                    "ORDER BY h.createdAt DESC"
+                ).setParameter("me", currentUser != null ? currentUser : "")
+                 .setMaxResults(20)
+                 .getResultList();
+
+            List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+            for (io.github.claudetoolkit.ui.history.ReviewHistory h : list) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("id",           h.getId());
+                m.put("type",         h.getType());
+                m.put("title",        h.getTitle());
+                m.put("username",     h.getUsername());
+                m.put("reviewStatus", h.getReviewStatus());
+                m.put("createdAt",    h.getCreatedAt() != null ? h.getCreatedAt().toString() : null);
+                result.add(m);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(result));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.ok(Collections.<Map<String, Object>>emptyList()));
+        }
+    }
+
     // ── Mention candidates ─────────────────────────────────────────
     //
     // v4.2.7: 댓글 @멘션 자동완성용. 로그인된 모든 사용자가 호출 가능하며
@@ -653,15 +788,119 @@ public class DataRestController {
         }
     }
 
+    /**
+     * v4.2.8 — 품질 대시보드 데이터.
+     *
+     * HARNESS_REVIEW / CODE_REVIEW / SQL_REVIEW 이력을 집계하여:
+     *  - severity 분포 (HIGH/MEDIUM/LOW) — 출력 텍스트의 `[SEVERITY: X]` 마커 카운트
+     *  - 카테고리 분포 — 설계/성능/보안/가독성/기타 키워드 매칭
+     *  - histories — 드릴다운용 원본 이력 목록 (id, title, 해당 severities/categories 포함)
+     *
+     * 기간 필터: from/to (YYYY-MM-DD). 미지정시 최근 30일.
+     */
     @GetMapping("/harness/dashboard")
-    public ResponseEntity<ApiResponse<List<?>>> harnessDashboard() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> harnessDashboard(
+            @org.springframework.web.bind.annotation.RequestParam(value = "from", required = false) String fromStr,
+            @org.springframework.web.bind.annotation.RequestParam(value = "to",   required = false) String toStr) {
         try {
-            List<?> list = em.createQuery(
-                "SELECT h FROM ReviewHistory h WHERE h.menuName LIKE '%하네스%' OR h.menuName LIKE '%HARNESS%' OR h.menuName LIKE '%코드리뷰%' ORDER BY h.createdAt DESC"
-            ).setMaxResults(30).getResultList();
-            return ResponseEntity.ok(ApiResponse.ok(list));
+            java.time.LocalDateTime from = (fromStr != null && !fromStr.isEmpty())
+                    ? java.time.LocalDate.parse(fromStr).atStartOfDay()
+                    : java.time.LocalDateTime.now().minusDays(30);
+            java.time.LocalDateTime to = (toStr != null && !toStr.isEmpty())
+                    ? java.time.LocalDate.parse(toStr).atTime(23, 59, 59)
+                    : java.time.LocalDateTime.now();
+
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> list =
+                (List<io.github.claudetoolkit.ui.history.ReviewHistory>) em.createQuery(
+                    "SELECT h FROM ReviewHistory h " +
+                    "WHERE h.createdAt BETWEEN :from AND :to " +
+                    "  AND (h.type = 'HARNESS_REVIEW' OR h.type = 'CODE_REVIEW' OR h.type = 'SQL_REVIEW') " +
+                    "ORDER BY h.createdAt DESC"
+                ).setParameter("from", from)
+                 .setParameter("to",   to)
+                 .setMaxResults(500)
+                 .getResultList();
+
+            // 집계
+            Map<String, Long> severityMap = new LinkedHashMap<String, Long>();
+            severityMap.put("HIGH",   0L);
+            severityMap.put("MEDIUM", 0L);
+            severityMap.put("LOW",    0L);
+
+            Map<String, Long> categoryMap = new LinkedHashMap<String, Long>();
+            categoryMap.put("성능",   0L);
+            categoryMap.put("보안",   0L);
+            categoryMap.put("가독성", 0L);
+            categoryMap.put("설계",   0L);
+            categoryMap.put("기타",   0L);
+
+            List<Map<String, Object>> historyRows = new ArrayList<Map<String, Object>>();
+            java.util.regex.Pattern severityRe =
+                java.util.regex.Pattern.compile("\\[SEVERITY:\\s*(HIGH|MEDIUM|LOW)", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+            for (io.github.claudetoolkit.ui.history.ReviewHistory h : list) {
+                String out = h.getOutputContent() != null ? h.getOutputContent() : "";
+
+                // severity
+                Set<String> itemSeverities = new LinkedHashSet<String>();
+                java.util.regex.Matcher m = severityRe.matcher(out);
+                while (m.find()) {
+                    String sev = m.group(1).toUpperCase();
+                    severityMap.put(sev, severityMap.getOrDefault(sev, 0L) + 1);
+                    itemSeverities.add(sev);
+                }
+
+                // 카테고리 키워드 매칭
+                Set<String> itemCategories = new LinkedHashSet<String>();
+                String lower = out.toLowerCase();
+                if (lower.contains("성능") || lower.contains("performance") || lower.contains("n+1"))   itemCategories.add("성능");
+                if (lower.contains("보안") || lower.contains("security") || lower.contains("injection")) itemCategories.add("보안");
+                if (lower.contains("가독") || lower.contains("readability") || lower.contains("네이밍")) itemCategories.add("가독성");
+                if (lower.contains("설계") || lower.contains("design") || lower.contains("아키텍"))     itemCategories.add("설계");
+                if (itemCategories.isEmpty()) itemCategories.add("기타");
+                for (String c : itemCategories) {
+                    categoryMap.put(c, categoryMap.getOrDefault(c, 0L) + 1);
+                }
+
+                Map<String, Object> row = new LinkedHashMap<String, Object>();
+                row.put("id",         h.getId());
+                row.put("type",       h.getType());
+                row.put("title",      h.getTitle());
+                row.put("username",   h.getUsername());
+                row.put("createdAt",  h.getCreatedAt() != null ? h.getCreatedAt().toString() : null);
+                row.put("severities", new ArrayList<String>(itemSeverities));
+                row.put("categories", new ArrayList<String>(itemCategories));
+                historyRows.add(row);
+            }
+
+            List<Map<String, Object>> severityList = new ArrayList<Map<String, Object>>();
+            for (Map.Entry<String, Long> e : severityMap.entrySet()) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("category", e.getKey());
+                m.put("count",    e.getValue());
+                severityList.add(m);
+            }
+            List<Map<String, Object>> categoryList = new ArrayList<Map<String, Object>>();
+            for (Map.Entry<String, Long> e : categoryMap.entrySet()) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("category", e.getKey());
+                m.put("count",    e.getValue());
+                categoryList.add(m);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("from",       from.toLocalDate().toString());
+            data.put("to",         to.toLocalDate().toString());
+            data.put("totalCount", (long) list.size());
+            data.put("severity",   severityList);
+            data.put("categories", categoryList);
+            data.put("histories",  historyRows);
+            return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+            Map<String, Object> empty = new LinkedHashMap<String, Object>();
+            empty.put("error", e.getMessage());
+            return ResponseEntity.ok(ApiResponse.ok(empty));
         }
     }
 

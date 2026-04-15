@@ -6,6 +6,7 @@ import {
   FaSearch, FaDownload, FaFileExport,
 } from 'react-icons/fa'
 import { useToast } from '../hooks/useToast'
+import { markdownCodeComponents } from '../components/common/CopyableCodeBlock'
 
 // v4.2.7: 백엔드 Favorite 엔티티의 실제 직렬화 필드명과 일치시킴.
 // 기존 interface 는 menuName/inputText/resultText 로 잘못 매핑되어
@@ -268,7 +269,7 @@ export default function FavoritesPage() {
                   )}
                   <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>결과</h4>
                   <div className="markdown-body" style={{ fontSize: '13px' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.outputContent || '_(내용 없음)_'}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>{item.outputContent || '_(내용 없음)_'}</ReactMarkdown>
                   </div>
                 </div>
               )}

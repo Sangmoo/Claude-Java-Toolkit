@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast'
 import { useAuthStore } from '../stores/authStore'
 import { formatDate } from '../utils/date'
 import ReviewActionDialog, { ReviewNoteCard } from '../components/common/ReviewActionDialog'
+import { markdownCodeComponents } from '../components/common/CopyableCodeBlock'
 
 // v4.2.7: 이력 상세 모달에 쓰는 fetch 응답 타입.
 // ReviewHistoryController.detail() 이 반환하는 필드 집합과 맞춤.
@@ -347,7 +348,7 @@ export default function ReviewRequestsPage() {
                   </pre>
                   <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>분석 결과</h4>
                   <div className="markdown-body" style={{ fontSize: '13px' }}>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{detailData.output || ''}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>{detailData.output || ''}</ReactMarkdown>
                   </div>
                 </>
               ) : (

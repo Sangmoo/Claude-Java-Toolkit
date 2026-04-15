@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Components } from 'react-markdown'
+import { FaCopy, FaCheck } from 'react-icons/fa'
+import { copyToClipboard } from './clipboard'
 
 /**
  * v4.2.7 — 코드 리뷰 하네스 결과 마크다운 전처리 & 렌더 유틸.
@@ -89,7 +91,62 @@ const VERDICT_COLORS: Record<VerdictKind, { color: string; bg: string; icon: str
 }
 
 /**
- * ReactMarkdown 커스텀 컴포넌트: `**판정**: VERIFIED (...)` 문단을 배지 박스로 강조.
+ * v4.2.8 — ReactMarkdown `components.code` 오버라이드.
+ * 블록 코드 우측 상단에 언어 라벨 + 복사 버튼 오버레이.
+ * inline code 는 기본 스타일 유지.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CodeBlockWithCopy({ inline, className, children }: any) {
+  const [copied, setCopied] = useState(false)
+  if (inline) {
+    return <code className={className}>{children}</code>
+  }
+  const text = flattenChildren(children as ReactNode)
+  const lang = (className || '').replace(/^language-/, '') || 'text'
+  const handleCopy = async () => {
+    if (await copyToClipboard(text)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+  return (
+    <div style={{ position: 'relative', margin: '8px 0' }}>
+      <div style={{
+        position: 'absolute', top: '6px', right: '6px',
+        display: 'flex', alignItems: 'center', gap: '6px', zIndex: 1,
+      }}>
+        <span style={{
+          fontSize: '10px', fontWeight: 600, textTransform: 'uppercase',
+          color: 'var(--text-muted)',
+          padding: '2px 6px', borderRadius: '4px',
+          background: 'rgba(0,0,0,0.3)',
+          letterSpacing: '0.05em',
+        }}>{lang}</span>
+        <button
+          onClick={handleCopy}
+          title={copied ? '복사됨' : '클립보드에 복사'}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            padding: '3px 8px', borderRadius: '5px',
+            background: copied ? 'rgba(34,197,94,0.2)' : 'rgba(0,0,0,0.4)',
+            color: copied ? 'var(--green)' : '#e2e8f0',
+            border: '1px solid',
+            borderColor: copied ? 'var(--green)' : 'rgba(255,255,255,0.15)',
+            cursor: 'pointer',
+            fontSize: '10px', fontWeight: 600,
+            transition: 'all 0.15s',
+          }}>
+          {copied ? <><FaCheck /> 복사됨</> : <><FaCopy /> 복사</>}
+        </button>
+      </div>
+      <pre style={{ margin: 0 }}><code className={className}>{children}</code></pre>
+    </div>
+  )
+}
+
+/**
+ * ReactMarkdown 커스텀 컴포넌트: `**판정**: VERIFIED (...)` 문단을 배지 박스로 강조 +
+ * v4.2.8 부터 모든 코드 블록에 복사 버튼 추가.
  * CodeReviewPage 에서 `components={harnessMdComponents}` 로 주입한다.
  */
 export const harnessMdComponents: Components = {
@@ -122,4 +179,6 @@ export const harnessMdComponents: Components = {
     }
     return <p {...props}>{children}</p>
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  code: CodeBlockWithCopy as any,
 }

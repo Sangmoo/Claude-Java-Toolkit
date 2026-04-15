@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import MobileBottomNav from './MobileBottomNav'
 import ToastContainer from '../common/ToastContainer'
+import CommandPalette from '../common/CommandPalette'
 import { useSidebarStore } from '../../stores/sidebarStore'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 
@@ -29,6 +30,9 @@ export default function AppLayout() {
       </main>
       <MobileBottomNav />
       <ToastContainer />
+
+      {/* v4.2.8: Cmd+K / Ctrl+K 전역 커맨드 팔레트 */}
+      <CommandPalette />
 
       {/* 키보드 단축키 모달 */}
       {showHelp && (

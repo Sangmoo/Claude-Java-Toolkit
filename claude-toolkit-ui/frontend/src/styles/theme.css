@@ -35,6 +35,98 @@
   --accent-subtle:  rgba(234,88,12,0.08);
 }
 
+/* ── v4.2.8: 컬러 프리셋 (data-theme 에 덧붙는 data-preset 속성으로 적용) ── */
+
+/* Dracula — 다크 · 보라 accent */
+[data-preset="dracula"] {
+  --bg-primary:     #282a36;
+  --bg-secondary:   #343746;
+  --bg-tertiary:    #2a2c38;
+  --border-color:   #44475a;
+  --text-primary:   #f8f8f2;
+  --text-sub:       #e3e3d7;
+  --text-muted:     #6272a4;
+  --input-bg:       #21222c;
+  --accent:         #bd93f9;
+  --accent-hover:   #a377f0;
+  --accent-subtle:  rgba(189,147,249,0.15);
+}
+
+/* Nord — 다크 · 한류 블루 accent */
+[data-preset="nord"] {
+  --bg-primary:     #2e3440;
+  --bg-secondary:   #3b4252;
+  --bg-tertiary:    #353b48;
+  --border-color:   #4c566a;
+  --text-primary:   #eceff4;
+  --text-sub:       #d8dee9;
+  --text-muted:     #81a1c1;
+  --input-bg:       #272b35;
+  --accent:         #88c0d0;
+  --accent-hover:   #6aa9bb;
+  --accent-subtle:  rgba(136,192,208,0.15);
+}
+
+/* Solarized Dark — 따뜻한 다크 · 황색 accent */
+[data-preset="solarized-dark"] {
+  --bg-primary:     #002b36;
+  --bg-secondary:   #073642;
+  --bg-tertiary:    #03303b;
+  --border-color:   #586e75;
+  --text-primary:   #eee8d5;
+  --text-sub:       #93a1a1;
+  --text-muted:     #839496;
+  --input-bg:       #00252e;
+  --accent:         #b58900;
+  --accent-hover:   #a07700;
+  --accent-subtle:  rgba(181,137,0,0.15);
+}
+
+/* Solarized Light — 크림 · 황색 accent */
+[data-preset="solarized-light"] {
+  --bg-primary:     #fdf6e3;
+  --bg-secondary:   #eee8d5;
+  --bg-tertiary:    #f5ecc9;
+  --border-color:   #93a1a1;
+  --text-primary:   #073642;
+  --text-sub:       #586e75;
+  --text-muted:     #839496;
+  --input-bg:       #fdf6e3;
+  --accent:         #b58900;
+  --accent-hover:   #8e6a00;
+  --accent-subtle:  rgba(181,137,0,0.12);
+}
+
+/* GitHub Light — 친숙한 라이트 · 파랑 accent */
+[data-preset="github-light"] {
+  --bg-primary:     #ffffff;
+  --bg-secondary:   #f6f8fa;
+  --bg-tertiary:    #eaeef2;
+  --border-color:   #d0d7de;
+  --text-primary:   #1f2328;
+  --text-sub:       #424a53;
+  --text-muted:     #6e7781;
+  --input-bg:       #ffffff;
+  --accent:         #0969da;
+  --accent-hover:   #0550ae;
+  --accent-subtle:  rgba(9,105,218,0.08);
+}
+
+/* Monokai — 다크 · 분홍 accent */
+[data-preset="monokai"] {
+  --bg-primary:     #272822;
+  --bg-secondary:   #2f3029;
+  --bg-tertiary:    #2a2b24;
+  --border-color:   #49483e;
+  --text-primary:   #f8f8f2;
+  --text-sub:       #cfcfc2;
+  --text-muted:     #75715e;
+  --input-bg:       #1f201a;
+  --accent:         #f92672;
+  --accent-hover:   #d81e5f;
+  --accent-subtle:  rgba(249,38,114,0.15);
+}
+
 /* ── Reset & Global ── */
 *,
 *::before,

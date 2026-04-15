@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { normalizeBuilderSection, harnessMdComponents } from '../../utils/harnessMarkdown'
+import QuestionReformer from '../../components/common/QuestionReformer'
 import {
   FaCodeBranch, FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser,
   FaFilePdf, FaEnvelope, FaSearch, FaWrench, FaClipboardCheck, FaShieldAlt,
@@ -316,7 +317,9 @@ export default function CodeReviewPage() {
             placeholder="Java/SQL 코드를 입력하거나 위 '소스 선택' 버튼으로 파일/DB 객체를 로드하세요..."
           />
 
-          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+            {/* v4.2.8: 질문 리포머 — 모호한 입력을 Claude 가 명료화 */}
+            <QuestionReformer value={code} onUpdate={setCode} />
             <button onClick={startAnalysis} disabled={streaming || !code.trim()} style={{ ...analyzeBtn, opacity: streaming || !code.trim() ? 0.5 : 1 }}>
               {streaming ? <><FaSpinner className="spin" /> 분석 중 (4단계)...</> : <><FaPlay /> 4단계 분석 시작</>}
             </button>
