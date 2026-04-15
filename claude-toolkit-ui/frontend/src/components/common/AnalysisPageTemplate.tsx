@@ -15,6 +15,13 @@ export interface AnalysisOption {
   placeholder?: string
 }
 
+export interface AnalysisInputExample {
+  /** 버튼 라벨 */
+  label: string
+  /** 버튼 클릭 시 textarea 에 채워질 값 */
+  value: string
+}
+
 export interface AnalysisPageConfig {
   title: string
   icon: IconType
@@ -29,8 +36,15 @@ export interface AnalysisPageConfig {
   allowFileUpload?: boolean
   /** 소스 선택 모드: 'java' | 'sql' | 'both' | undefined(비활성) */
   sourceMode?: 'java' | 'sql' | 'both'
-  /** 옵션 버튼 아래 추가 컨텐츠 (예시 버튼 등) */
+  /** 옵션 버튼 아래 추가 컨텐츠 (커스텀 element) */
   extraActions?: React.ReactNode
+  /**
+   * v4.2.6: 입력 예시 칩 — 클릭하면 입력 textarea 가 즉시 채워짐.
+   * navigator.clipboard 를 쓰지 않으므로 HTTP IP 환경에서도 안정 동작.
+   */
+  inputExamples?: AnalysisInputExample[]
+  /** 예시 칩 좌측에 표시할 라벨 (기본: '예시:') */
+  inputExamplesLabel?: string
 }
 
 export default function AnalysisPageTemplate({ config }: { config: AnalysisPageConfig }) {
@@ -219,6 +233,29 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
           )}
 
           {config.extraActions && <div style={{ padding: '4px 14px' }}>{config.extraActions}</div>}
+
+          {/* v4.2.6: 입력 예시 칩 — 클릭 시 textarea 즉시 채움 */}
+          {config.inputExamples && config.inputExamples.length > 0 && (
+            <div style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '4px', lineHeight: '24px' }}>
+                {config.inputExamplesLabel || '예시 (클릭→입력):'}
+              </span>
+              {config.inputExamples.map((ex) => (
+                <button
+                  key={ex.label}
+                  type="button"
+                  onClick={() => setInput(ex.value)}
+                  title={ex.value}
+                  style={{
+                    padding: '4px 12px', borderRadius: '14px', fontSize: '11px', cursor: 'pointer',
+                    border: '1px solid var(--border-color)', background: 'var(--bg-primary)',
+                    color: 'var(--text-sub)', transition: 'all 0.15s',
+                  }}>
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <textarea
             style={{
