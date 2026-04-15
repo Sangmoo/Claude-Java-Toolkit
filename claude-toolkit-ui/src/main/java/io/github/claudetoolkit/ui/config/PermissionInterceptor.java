@@ -55,6 +55,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("roi-report",    "/roi-report");
         FEATURE_PATHS.put("schedule",      "/schedule");
         FEATURE_PATHS.put("review-requests", "/review-requests");
+        FEATURE_PATHS.put("review-dashboard", "/admin/review-dashboard");
         // 도구
         FEATURE_PATHS.put("loganalyzer",   "/loganalyzer");
         FEATURE_PATHS.put("regex",         "/regex");

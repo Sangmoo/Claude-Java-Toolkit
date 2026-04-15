@@ -47,6 +47,7 @@ public class AdminPermissionController {
         new String[]{"roi-report",     "ROI 리포트",         "기록"},
         new String[]{"schedule",       "분석 스케줄링",       "기록"},
         new String[]{"review-requests","팀 리뷰 요청",        "기록"},
+        new String[]{"review-dashboard","리뷰 대시보드",       "기록"},
         // 도구
         new String[]{"loganalyzer",  "로그 분석기",        "도구"},
         new String[]{"regex",        "정규식 생성기",      "도구"},
