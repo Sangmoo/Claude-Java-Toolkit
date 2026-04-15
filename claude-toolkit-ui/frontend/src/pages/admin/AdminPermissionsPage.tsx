@@ -3,80 +3,27 @@ import { FaUserLock, FaSave } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 
 interface User { id: number; username: string; role: string; enabled: boolean }
-
-// AdminPermissionController의 FEATURE_PATHS와 동일한 목록 (ADMIN 전용 메뉴 제외)
-const FEATURES = [
-  {
-    category: '채팅',
-    items: [{ key: 'chat', label: 'AI 채팅' }],
-  },
-  {
-    category: '분석',
-    items: [
-      { key: 'workspace', label: '통합 워크스페이스' },
-      { key: 'pipelines', label: '분석 파이프라인' },
-      { key: 'advisor', label: 'SQL 리뷰' },
-      { key: 'sql-translate', label: 'SQL DB 번역' },
-      { key: 'sql-batch', label: '배치 SQL 분석' },
-      { key: 'erd', label: 'ERD 분석' },
-      { key: 'complexity', label: '복잡도 분석' },
-      { key: 'explain', label: '실행계획 분석' },
-      { key: 'harness', label: '코드 리뷰 하네스' },
-      { key: 'codereview', label: '코드 리뷰' },
-    ],
-  },
-  {
-    category: '생성',
-    items: [
-      { key: 'docgen', label: '기술 문서' },
-      { key: 'testgen', label: '테스트 생성' },
-      { key: 'apispec', label: 'API 명세' },
-      { key: 'converter', label: '코드 변환' },
-      { key: 'mockdata', label: 'Mock 데이터' },
-      { key: 'migration', label: 'DB 마이그레이션' },
-      { key: 'batch', label: 'Batch 처리' },
-      { key: 'depcheck', label: '의존성 분석' },
-      { key: 'migrate', label: 'Spring 마이그레이션' },
-    ],
-  },
-  {
-    category: '기록',
-    items: [
-      { key: 'history', label: '리뷰 이력' },
-      { key: 'favorites', label: '즐겨찾기' },
-      { key: 'usage', label: '사용량 모니터링' },
-      { key: 'roi-report', label: 'ROI 리포트' },
-      { key: 'schedule', label: '분석 스케줄링' },
-      { key: 'review-requests', label: '팀 리뷰 요청' },
-    ],
-  },
-  {
-    category: '도구',
-    items: [
-      { key: 'loganalyzer', label: '로그 분석기' },
-      { key: 'regex', label: '정규식 생성기' },
-      { key: 'commitmsg', label: '커밋 메시지' },
-      { key: 'maskgen', label: '마스킹 스크립트' },
-      { key: 'input-masking', label: '민감정보 마스킹' },
-      { key: 'github-pr', label: 'GitHub PR 리뷰' },
-      { key: 'git-diff', label: 'Git Diff 분석' },
-    ],
-  },
-  {
-    category: '기타',
-    items: [
-      { key: 'prompts', label: '프롬프트 템플릿' },
-      { key: 'search', label: '글로벌 검색' },
-    ],
-  },
-]
+interface FeatureItem { key: string; label: string }
+interface FeatureCategory { category: string; items: FeatureItem[] }
 
 export default function AdminPermissionsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [permissions, setPermissions] = useState<Record<string, boolean>>({})
+  const [features, setFeatures] = useState<FeatureCategory[]>([])
   const [saving, setSaving] = useState(false)
   const toast = useToast()
+
+  // v4.2.6: 기능 목록은 백엔드 GET /admin/permissions/features 에서 동적 로드
+  // (이전엔 프론트와 백엔드 두 곳에 하드코딩되어 있어 동기화 누락이 잦았음)
+  useEffect(() => {
+    fetch('/admin/permissions/features', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : [])
+      .then((list: FeatureCategory[]) => {
+        if (Array.isArray(list)) setFeatures(list)
+      })
+      .catch(() => { /* silent */ })
+  }, [])
 
   // 사용자 목록 로드 (1회만)
   useEffect(() => {
@@ -99,8 +46,8 @@ export default function AdminPermissionsPage() {
       .then((data) => {
         if (cancelled) return
         const perms: Record<string, boolean> = {}
-        // 모든 FEATURES 키를 기본 true로 초기화
-        FEATURES.forEach((cat) => {
+        // 모든 features 키를 기본 true로 초기화
+        features.forEach((cat) => {
           cat.items.forEach((item) => { perms[item.key] = true })
         })
         // DB 응답으로 덮어쓰기 (Map<String, Boolean> 또는 {"key": "true"} 형식 모두 대응)
@@ -114,7 +61,7 @@ export default function AdminPermissionsPage() {
       })
       .catch(() => { /* silent */ })
     return () => { cancelled = true }
-  }, [selectedUserId])
+  }, [selectedUserId, features])
 
   const selectedUser = users.find((u) => u.id === selectedUserId) || null
 
@@ -126,7 +73,7 @@ export default function AdminPermissionsPage() {
   }
 
   const toggleAll = (category: string, enabled: boolean) => {
-    const cat = FEATURES.find((c) => c.category === category)
+    const cat = features.find((c) => c.category === category)
     if (!cat) return
     setPermissions((prev) => {
       const next = { ...prev }
@@ -204,7 +151,7 @@ export default function AdminPermissionsPage() {
                 </button>
               </div>
 
-              {FEATURES.map((cat) => (
+              {features.map((cat) => (
                 <div key={cat.category} style={{ marginBottom: '20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{cat.category}</span>

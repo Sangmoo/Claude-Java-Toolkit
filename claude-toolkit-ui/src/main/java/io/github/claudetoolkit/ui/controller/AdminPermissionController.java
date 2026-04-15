@@ -70,6 +70,38 @@ public class AdminPermissionController {
         this.permissionRepository = permissionRepository;
     }
 
+    /**
+     * v4.2.6 — 관리 가능한 전체 기능 목록을 카테고리별로 그룹핑해서 반환.
+     *
+     * <p>프론트엔드 AdminPermissionsPage 가 이 API 를 호출해 토글 UI 를 동적으로
+     * 그린다. 백엔드 FEATURES 에 항목을 추가하면 프론트도 자동으로 반영됨
+     * (이전엔 두 곳에 하드코딩되어 있어서 동기화가 빠지면 버그가 발생).
+     */
+    @GetMapping("/features")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> listFeatures() {
+        // 카테고리 → items[] 로 그룹핑 (선언 순서 유지)
+        Map<String, List<Map<String, String>>> grouped = new LinkedHashMap<String, List<Map<String, String>>>();
+        for (String[] f : FEATURES) {
+            String key      = f[0];
+            String label    = f[1];
+            String category = f[2];
+            List<Map<String, String>> items = grouped.computeIfAbsent(category, k -> new ArrayList<Map<String, String>>());
+            Map<String, String> item = new LinkedHashMap<String, String>();
+            item.put("key",   key);
+            item.put("label", label);
+            items.add(item);
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (Map.Entry<String, List<Map<String, String>>> e : grouped.entrySet()) {
+            Map<String, Object> cat = new LinkedHashMap<String, Object>();
+            cat.put("category", e.getKey());
+            cat.put("items",    e.getValue());
+            result.add(cat);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     /** 특정 사용자의 권한 목록 조회 */
     @GetMapping("/{userId}")
     @ResponseBody
