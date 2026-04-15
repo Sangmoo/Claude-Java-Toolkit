@@ -55,8 +55,14 @@ public class SecurityConfig {
                     "/roi-report/**", "/prompts/**", "/favorites/**",
                     "/usage/**", "/account/**", "/login/2fa/**",
                     "/github-pr/**", "/git-diff/**",
-                    "/notifications/**", "/history/*/comments/**",
+                    "/notifications/**",
                     "/chat/**",
+                    // v4.2.x: 리뷰 이력 관련 POST 전체
+                    //   - /history/{id}/share         : 공유 링크 생성
+                    //   - /history/{id}/comments/**   : 댓글/대댓글
+                    //   - /history/{id}/review-status : 승인/거절 (v4.2.3)
+                    //   - /history/{id}/delete        : 삭제
+                    "/history/**",
                     // v4.2.x: 분석 파이프라인 — POST /pipelines/{id}/run 등
                     "/pipelines/**",
                     // v4.2.x: 이메일 발송 (다수 수신자)
