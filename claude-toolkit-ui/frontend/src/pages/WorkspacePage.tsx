@@ -258,7 +258,7 @@ export default function WorkspacePage() {
           </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <SourceSelector
-              mode={language === 'sql' ? 'sql' : 'both'}
+              mode="both"
               onSelect={(code, lang) => { setInput(code); if (lang === 'sql') setLanguage('sql'); else setLanguage('java') }}
             />
             <button onClick={() => setInput('')} style={smallBtn}><FaEraser /> 초기화</button>
