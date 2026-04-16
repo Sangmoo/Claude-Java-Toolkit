@@ -77,7 +77,7 @@ public class SecurityConfig {
                              "/api/v1/auth/login",          // React JSON 로그인
                              "/login", "/login/2fa", "/login/2fa/**",
                              "/setup", "/setup/**",
-                             "/share/**", "/actuator/**").permitAll()
+                             "/share/**", "/api/v1/share/**", "/actuator/**").permitAll()
                 // ADMIN 전용 — Thymeleaf 관리 페이지
                 .antMatchers("/admin/**").hasRole("ADMIN")
                 // v4.2.7: ADMIN 전용 REST API (/api/v1/admin/users, /audit-logs, /permissions)

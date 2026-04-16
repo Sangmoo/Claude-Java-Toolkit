@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
-import { FaChartLine, FaCalendarAlt, FaTimes } from 'react-icons/fa'
+import { FaChartLine, FaCalendarAlt, FaTimes, FaEye } from 'react-icons/fa'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import { formatRelative } from '../../utils/date'
+import { markdownCodeComponents } from '../../components/common/CopyableCodeBlock'
+import { useToast } from '../../hooks/useToast'
 
 /**
  * v4.2.8 — 품질 대시보드 (#8 개선 제안 반영).
@@ -63,6 +67,12 @@ export default function HarnessDashboardPage() {
   const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
+  // v4.2.8 추가: 이력 상세 모달
+  const [detailId, setDetailId]           = useState<number | null>(null)
+  const [detailData, setDetailData]       = useState<{ input: string; output: string; type: string; title: string; date: string } | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const toast = useToast()
+
   const load = async (fromDate: string, toDate: string) => {
     setLoading(true)
     try {
@@ -76,6 +86,28 @@ export default function HarnessDashboardPage() {
   }
 
   useEffect(() => { load(from, to) }, [from, to])
+
+  const openDetail = async (historyId: number) => {
+    setDetailId(historyId)
+    setDetailData(null)
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/history/${historyId}/detail`, { credentials: 'include' })
+      if (!res.ok) { toast.error('이력을 불러올 수 없습니다.'); setDetailLoading(false); return }
+      const d = await res.json()
+      if (d.error) { toast.error(d.error); } else { setDetailData(d) }
+    } catch { toast.error('이력 상세 요청 실패') }
+    finally { setDetailLoading(false) }
+  }
+  const closeDetail = () => { setDetailId(null); setDetailData(null) }
+
+  // ESC 로 모달 닫기
+  useEffect(() => {
+    if (detailId == null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [detailId])
 
   const applyPreset = (days: number) => {
     const end = new Date()
@@ -250,7 +282,13 @@ export default function HarnessDashboardPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {drillDownHistories.slice(0, 50).map((h) => (
-                  <div key={h.id} style={historyRow}>
+                  <div
+                    key={h.id}
+                    style={{ ...historyRow, cursor: 'pointer' }}
+                    onClick={() => openDetail(h.id)}
+                    title="클릭하여 상세 보기"
+                  >
+                    <FaEye style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }} />
                     <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: 'var(--accent-subtle)', color: 'var(--accent)', flexShrink: 0 }}>
                       {h.type}
                     </span>
@@ -284,6 +322,81 @@ export default function HarnessDashboardPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* v4.2.8: 이력 상세 모달 */}
+      {detailId != null && (
+        <div
+          className="modal-overlay"
+          onClick={closeDetail}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '20px',
+          }}
+        >
+          <div
+            className="modal-body"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+              borderRadius: '12px', width: 'min(920px, 96vw)', maxHeight: '90vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 10px 50px rgba(0,0,0,0.4)',
+            }}
+          >
+            {/* 헤더 */}
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid var(--border-color)',
+              display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0,
+            }}>
+              {detailData && (
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: 'var(--accent-subtle)', color: 'var(--accent)' }}>
+                  {detailData.type}
+                </span>
+              )}
+              <h3 style={{ flex: 1, fontSize: '15px', fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {detailData?.title || '이력 상세'}
+              </h3>
+              {detailData?.date && (
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{detailData.date}</span>
+              )}
+              <button
+                onClick={closeDetail}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '4px 8px' }}
+                title="닫기 (Esc)"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* 본문 */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px', minHeight: 0 }}>
+              {detailLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>로딩 중...</div>
+              ) : detailData ? (
+                <>
+                  <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>입력</h4>
+                  <pre style={{
+                    background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px',
+                    fontSize: '12px', marginBottom: '14px', whiteSpace: 'pre-wrap',
+                    maxHeight: '260px', overflow: 'auto',
+                  }}>
+                    {detailData.input}
+                  </pre>
+                  <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>분석 결과</h4>
+                  <div className="markdown-body" style={{ fontSize: '13px' }}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>
+                      {detailData.output || ''}
+                    </ReactMarkdown>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>이력 내용을 불러올 수 없습니다.</div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -61,16 +61,19 @@ public class ShareController {
     }
 
     /**
-     * v4.2.8 — GET /share/{token} — 공유된 이력을 JSON 으로 조회.
+     * v4.2.8 — 공유된 이력을 JSON 으로 조회.
      *
-     * <p>produces="application/json" 으로 제한하여 <b>브라우저 navigation</b>
-     * (Accept: text/html) 은 이 핸들러를 타지 않고 SPA 로 떨어지게 한다.
-     * ShareViewPage 가 fetch() 로 호출할 때만 이 엔드포인트에 도달한다.
+     * <p>기존 `/share/{token}` 경로는 브라우저 직접 접근시 `Accept: *&#47;*` 가 JSON 에
+     * 매칭되어 raw JSON 이 보이는 문제가 있었다. `/api/v1/share/{token}` 로 이동하여
+     * 브라우저 navigation 은 SPA(React ShareViewPage) 가 잡고, SPA 내부의
+     * fetch() 만 이 API 를 호출하도록 분리.
      *
-     * <p>로그인 없이 접근 가능 (SecurityConfig 에서 `/share/**` permitAll).
-     * 만료된 링크는 410 Gone.
+     * <p>SecurityConfig 에서 `/api/**` 는 CSRF ignore 목록에 포함. 추가 설정 불필요.
+     * 단, 이 경로는 인증이 필요(`.anyRequest().authenticated()`)하므로
+     * `/share/{token}` 에서 프록시하는 방식으로 우회 — SecurityConfig 에
+     * `/api/v1/share/**` 를 permitAll 로 추가 필요.
      */
-    @GetMapping(value = "/share/{token}", produces = "application/json")
+    @GetMapping("/api/v1/share/{token}")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> viewShare(@PathVariable String token) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
