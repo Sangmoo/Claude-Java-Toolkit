@@ -50,12 +50,36 @@ export default function AdminEndpointStatsPage() {
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     setLoading(true)
+    setError(null)
     fetch(`/api/v1/admin/endpoint-stats?days=${days}`, { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
-      .then((j) => setData((j?.data ?? j) as StatsData))
-      .catch(() => setData(null))
+      .then((j) => {
+        // v4.3.x: 백엔드가 에러 시 {error: "..."} 만 반환하는 경우가 있어
+        //         누락 필드를 모두 안전한 기본값으로 보강
+        const raw = (j?.data ?? j ?? {}) as Partial<StatsData> & { error?: string }
+        if (raw.error) {
+          setError(raw.error)
+          setData(null)
+          return
+        }
+        const safe: StatsData = {
+          days:         raw.days ?? days,
+          total:        raw.total ?? 0,
+          topEndpoints: Array.isArray(raw.topEndpoints) ? raw.topEndpoints : [],
+          topUsers:     Array.isArray(raw.topUsers)     ? raw.topUsers     : [],
+          statusCodes:  Array.isArray(raw.statusCodes)  ? raw.statusCodes  : [],
+          dailyTrend:   Array.isArray(raw.dailyTrend)   ? raw.dailyTrend   : [],
+        }
+        setData(safe)
+      })
+      .catch((e) => {
+        setError(String(e))
+        setData(null)
+      })
       .finally(() => setLoading(false))
   }, [days])
 
@@ -86,12 +110,25 @@ export default function AdminEndpointStatsPage() {
 
       {loading && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>로딩 중...</div>}
 
-      {!loading && data && (
+      {!loading && error && (
+        <div style={{
+          padding: '16px', borderRadius: '8px', marginBottom: '16px',
+          background: 'rgba(239,68,68,0.1)', color: 'var(--red, #ef4444)',
+          border: '1px solid var(--red, #ef4444)', fontSize: '13px',
+        }}>
+          ⚠️ 통계 데이터 조회 실패: {error}
+          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+            AuditLog 테이블이 비어있거나 DB 연결 문제일 수 있습니다. 시간이 지나도 같은 오류가 나면 관리자에게 문의하세요.
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && data && (
         <>
           {/* 요약 */}
           <div style={summaryBar}>
-            지난 <strong style={{ color: 'var(--accent)' }}>{data.days}일</strong> 동안 총{' '}
-            <strong style={{ color: 'var(--accent)' }}>{data.total.toLocaleString()}</strong>건의 요청이 처리되었습니다.
+            지난 <strong style={{ color: 'var(--accent)' }}>{data.days ?? days}일</strong> 동안 총{' '}
+            <strong style={{ color: 'var(--accent)' }}>{(data.total ?? 0).toLocaleString()}</strong>건의 요청이 처리되었습니다.
           </div>
 
           {/* 일별 트렌드 */}
@@ -126,7 +163,7 @@ export default function AdminEndpointStatsPage() {
                         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)' }} />
                       </div>
                       <strong style={{ width: '60px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {row.count.toLocaleString()}
+                        {(row.count ?? 0).toLocaleString()}
                       </strong>
                     </div>
                   )
@@ -165,7 +202,7 @@ export default function AdminEndpointStatsPage() {
                       HTTP {row.status || '?'}
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: 700, color: statusColor(row.status) }}>
-                      {row.count.toLocaleString()}
+                      {(row.count ?? 0).toLocaleString()}
                     </div>
                   </div>
                 ))}
