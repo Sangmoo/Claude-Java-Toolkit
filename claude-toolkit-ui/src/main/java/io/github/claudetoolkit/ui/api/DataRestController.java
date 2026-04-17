@@ -5,6 +5,8 @@ import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.security.RateLimitService;
 import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +31,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1")
 public class DataRestController {
+
+    private static final Logger log = LoggerFactory.getLogger(DataRestController.class);
 
     @PersistenceContext
     private EntityManager em;
@@ -59,6 +63,7 @@ public class DataRestController {
             ).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("파이프라인 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -71,6 +76,7 @@ public class DataRestController {
             ).setParameter("u", auth.getName()).setMaxResults(50).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("파이프라인 실행 이력 조회 실패: user={}", auth.getName(), e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -113,6 +119,7 @@ public class DataRestController {
                     .header("X-Page-Size",  String.valueOf(effectiveSize))
                     .body(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("이력 목록 조회 실패: user={}", auth.getName(), e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -145,6 +152,7 @@ public class DataRestController {
                     .header("X-Page-Size",  String.valueOf(effectiveSize))
                     .body(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("즐겨찾기 목록 조회 실패: user={}", auth.getName(), e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -170,6 +178,7 @@ public class DataRestController {
                 data.put("rateLimitPerHour", 0);
             }
         } catch (Exception e) {
+            log.warn("사용량 조회 실패: user={}", auth.getName(), e);
             data.put("todayCount", 0);
             data.put("monthCount", 0);
             data.put("dailyLimit", 0);
@@ -270,6 +279,7 @@ public class DataRestController {
             data.put("dailyTrend",    dailyRows);
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            log.warn("엔드포인트 통계 조회 실패: days={}", days, e);
             Map<String, Object> empty = new LinkedHashMap<String, Object>();
             empty.put("error", e.getMessage());
             return ResponseEntity.ok(ApiResponse.ok(empty));
@@ -309,6 +319,7 @@ public class DataRestController {
             }
             return ResponseEntity.ok(ApiResponse.ok(result));
         } catch (Exception e) {
+            log.warn("팀 활동 피드 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.<Map<String, Object>>emptyList()));
         }
     }
@@ -334,6 +345,7 @@ public class DataRestController {
             }
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("멘션 후보 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.<Map<String, Object>>emptyList()));
         }
     }
@@ -346,6 +358,7 @@ public class DataRestController {
             List<?> list = em.createQuery("SELECT u FROM AppUser u ORDER BY u.id").getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("관리자 사용자 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -358,6 +371,7 @@ public class DataRestController {
             ).setMaxResults(200).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("감사 로그 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -368,6 +382,7 @@ public class DataRestController {
             List<?> list = em.createQuery("SELECT u FROM AppUser u WHERE u.role <> 'ADMIN' ORDER BY u.username").getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("권한 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -382,6 +397,7 @@ public class DataRestController {
             ).setMaxResults(100).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("리뷰 요청 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -535,6 +551,7 @@ public class DataRestController {
             data.put("to",   toDate.toString());
             data.put("days", java.time.temporal.ChronoUnit.DAYS.between(fromDate, toDate) + 1);
         } catch (Exception e) {
+            log.warn("리뷰 대시보드 데이터 조회 실패", e);
             data.put("error", e.getMessage());
         }
         return ResponseEntity.ok(ApiResponse.ok(data));
@@ -564,7 +581,9 @@ public class DataRestController {
                 Object roleObj = em.createQuery("SELECT u.role FROM AppUser u WHERE u.username = :u")
                         .setParameter("u", me).getSingleResult();
                 if (roleObj != null) role = roleObj.toString();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.debug("사용자 역할 조회 실패: user={}", me, e);
+            }
 
             @SuppressWarnings("unchecked")
             List<io.github.claudetoolkit.ui.history.ReviewHistory> list;
@@ -618,7 +637,7 @@ public class DataRestController {
                 result.add(m);
             }
         } catch (Exception e) {
-            // Return whatever we have so far
+            log.warn("리뷰 큐 조회 실패: tab={}", tab, e);
         }
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
@@ -631,6 +650,7 @@ public class DataRestController {
             ).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("스케줄 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -645,6 +665,7 @@ public class DataRestController {
             data.put("totalChat", totalChat);
             data.put("estimatedHoursSaved", totalAnalysis * 0.5 + totalChat * 0.1);
         } catch (Exception e) {
+            log.warn("ROI 리포트 조회 실패", e);
             data.put("totalAnalysis", 0);
             data.put("totalChat", 0);
             data.put("estimatedHoursSaved", 0);
@@ -658,6 +679,7 @@ public class DataRestController {
             List<?> list = em.createQuery("SELECT p FROM CustomPrompt p ORDER BY p.category, p.name").getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("프롬프트 목록 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -711,9 +733,13 @@ public class DataRestController {
                         .setParameter("u", username).getSingleResult()).longValue();
                     stat.put("chatCount", chatCount);
                     result.add(stat);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.debug("팀 대시보드 개별 사용자 통계 조회 실패", e);
+                }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("팀 대시보드 조회 실패", e);
+        }
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
@@ -744,7 +770,9 @@ public class DataRestController {
             // 비밀번호는 노출 안 함 — 설정되어 있는지 여부만
             data.put("emailPasswordSet", toolkitSettings.getEmail().getPassword() != null
                     && !toolkitSettings.getEmail().getPassword().isEmpty());
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("설정 데이터 조회 실패", e);
+        }
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
@@ -761,7 +789,9 @@ public class DataRestController {
                 "(SELECT u.id FROM AppUser u WHERE u.username = :u) AND p.allowed = false"
             ).setParameter("u", auth.getName()).getResultList();
             for (Object k : perms) disabled.add(String.valueOf(k));
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("사용자 권한 조회 실패: user={}", auth.getName(), e);
+        }
         data.put("disabledFeatures", disabled);
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
@@ -772,6 +802,7 @@ public class DataRestController {
             List<?> list = em.createQuery("SELECT p FROM DbProfile p ORDER BY p.id").getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("DB 프로필 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -784,6 +815,7 @@ public class DataRestController {
             ).setMaxResults(30).getResultList();
             return ResponseEntity.ok(ApiResponse.ok(list));
         } catch (Exception e) {
+            log.warn("실행계획 대시보드 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }
@@ -898,6 +930,7 @@ public class DataRestController {
             data.put("histories",  historyRows);
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            log.warn("품질 대시보드 조회 실패", e);
             Map<String, Object> empty = new LinkedHashMap<String, Object>();
             empty.put("error", e.getMessage());
             return ResponseEntity.ok(ApiResponse.ok(empty));
@@ -963,7 +996,10 @@ public class DataRestController {
         try {
             long userCount = ((Number) em.createQuery("SELECT COUNT(u) FROM AppUser u").getSingleResult()).longValue();
             data.put("userCount", userCount);
-        } catch (Exception e) { data.put("userCount", 0); }
+        } catch (Exception e) {
+            log.warn("사용자 수 조회 실패", e);
+            data.put("userCount", 0);
+        }
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 

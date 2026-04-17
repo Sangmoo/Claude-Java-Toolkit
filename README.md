@@ -7,7 +7,8 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.2.7-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.2.8-brightgreen.svg)](#)
+[![Next](https://img.shields.io/badge/next-v4.3.0--planning-blue.svg)](#-v430-진행-중--신규-기능--통합-강화)
 
 ---
 
@@ -1001,6 +1002,35 @@ claude-java-toolkit/
 ---
 
 ## 🗺 로드맵
+
+### 🚧 v4.3.0 (진행 중) — 신규 기능 & 통합 강화
+
+> 2026-04 기준 계획. 9개 기능을 5개 Phase로 나누어 점진적으로 도입합니다.
+
+#### Phase 1 — Export 강화 (예상 2일)
+- [ ] **SARIF 2.1.0 내보내기** — 분석 결과(코드 리뷰/SQL 리뷰/Harness)를 SARIF JSON 으로 내보내기. VS Code SARIF Viewer / JetBrains Qodana / GitHub Code Scanning 연동 가능. 다운로드 버튼 옆 ℹ️ 도움말 토글로 IDE별 사용법 안내
+- [ ] **Excel 워크북 내보내기** — Apache POI 기반 다중 시트 (`.xlsx`). CSV 대비 헤더 스타일, 자동 열 너비, 합계 수식, severity별 시트 분리 지원
+
+#### Phase 2 — 모니터링 스택 (예상 1일)
+- [ ] **Prometheus 메트릭 익스포터 (Phase A)** — `micrometer-registry-prometheus` 추가, `/actuator/prometheus` 엔드포인트 노출. 커스텀 메트릭: `claude_api_calls_total`, `claude_api_tokens_total`, `analysis_duration_seconds`, `pipeline_execution_total`
+- [ ] **Grafana 스택 (Phase B)** — `docker-compose.yml`에 `monitoring` 프로필 추가 (Prometheus + Grafana + 기본 대시보드 JSON 프로비저닝). `docker-compose --profile monitoring up -d` 한 번으로 즉시 사용
+
+#### Phase 3 — 분석 강화 (예상 2.5일)
+- [ ] **AI 모델 비용 옵티마이저** — 분석 유형별 평균 토큰/비용 추적, 모델 추천 로직 (간단 분석 → Haiku, 복잡 분석 → Opus). 신규 페이지 `/admin/cost-optimizer`
+- [ ] **SQL 인덱스 임팩트 시뮬레이션** — 입력 SQL 파싱 → 대상 DB의 `INFORMATION_SCHEMA` / `USER_INDEXES` / `pg_indexes` 조회 → (a) 기존 인덱스 활용 가능 여부 (b) 신규 인덱스 DDL 추천. SQL 리뷰 페이지에 신규 탭 추가
+
+#### Phase 4 — UX 확장 (예상 3일)
+- [ ] **다국어 확장 (일/중/독)** — 현재 한/영 → 일본어/중국어 간체/독일어 추가. `frontend/src/i18n/`에 `ja.ts`, `zh.ts`, `de.ts` 추가. 백엔드 `app_user.locale` 컬럼 추가, 이메일 템플릿도 언어별 분기
+- [ ] **대시보드 위젯 커스터마이징 (사용자별)** — `react-grid-layout` 도입, HomePage 위젯 드래그/리사이즈/숨김 지원. `UserDashboardLayout` 엔티티 신규로 사용자별 레이아웃 DB 영속화
+
+#### Phase 5 — 워크플로 + 인프라 (예상 4.5일)
+- [ ] **비주얼 워크플로 빌더 개선** — 기존 `PipelineBuilder` 를 `react-flow` 기반으로 업그레이드. 분기/병렬/조건부 노드, 시각적 연결선, YAML ↔ 그래프 양방향 변환
+- [ ] **Kubernetes Helm Chart (준비용)** — `helm/claude-toolkit/` 신규. Deployment + Service + Ingress + ConfigMap + Secret + PVC + HPA. DB 옵션별 values (h2/mysql/postgresql/external). README에 `helm install` 가이드 추가. *현 시점 K8s 배포 환경은 없으나 추후 사용자를 위해 마련*
+
+#### 🔧 운영 안정성 개선 (사이드 작업)
+- [x] `DataRestController` / `AuthRestController` silent catch 블록 → SLF4J 로깅으로 전환 (운영 시 디버깅 가시성 확보)
+
+---
 
 ### ✅ v0.3.0
 

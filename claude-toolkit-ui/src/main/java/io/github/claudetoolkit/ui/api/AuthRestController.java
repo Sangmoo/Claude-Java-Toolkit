@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.api;
 
 import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -28,6 +30,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthRestController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthRestController.class);
 
     private final AuthenticationManager authManager;
     private final AppUserRepository userRepository;
@@ -56,8 +60,8 @@ public class AuthRestController {
         if ("true".equals(body.get("encoded")) && !password.isEmpty()) {
             try {
                 password = new String(java.util.Base64.getDecoder().decode(password), "UTF-8");
-            } catch (Exception ignored) {
-                // 디코딩 실패 시 원본 사용
+            } catch (Exception e) {
+                log.debug("Base64 비밀번호 디코딩 실패 — 원본 사용: user={}", username, e);
             }
         }
 
@@ -119,7 +123,9 @@ public class AuthRestController {
                     data.put("userId", user.getId());
                     data.put("disabledFeatures", disabled);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("사용자 권한 정보 조회 실패: user={}", auth.getName(), e);
+            }
         }
         return data;
     }
