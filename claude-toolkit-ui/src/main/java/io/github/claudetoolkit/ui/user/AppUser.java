@@ -94,6 +94,10 @@ public class AppUser {
     @Column(length = 500)
     private String ipWhitelist;
 
+    /** v4.3.0 — 사용자 선호 언어 (ko/en/ja/zh/de). null 이면 ko 기본 */
+    @Column(length = 5)
+    private String locale;
+
     /** 일일 API 호출 제한 (0=무제한) */
     @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
     private int dailyApiLimit = 0;
@@ -140,6 +144,7 @@ public class AppUser {
     public LocalDateTime getLastPasswordChangeAt() { return lastPasswordChangeAt; }
     public LocalDateTime getPasswordSnoozeAt()     { return passwordSnoozeAt; }
     public String        getIpWhitelist()           { return ipWhitelist; }
+    public String        getLocale()                { return locale; }
     public int           getDailyApiLimit()         { return dailyApiLimit; }
     public int           getMonthlyApiLimit()       { return monthlyApiLimit; }
 
@@ -173,6 +178,7 @@ public class AppUser {
     public void setLastPasswordChangeAt(LocalDateTime t){ this.lastPasswordChangeAt = t; }
     public void setPasswordSnoozeAt(LocalDateTime t)   { this.passwordSnoozeAt = t; }
     public void setIpWhitelist(String v)               { this.ipWhitelist = v; }
+    public void setLocale(String v)                    { this.locale = v; }
     public void setDailyApiLimit(int v)                { this.dailyApiLimit = v; }
     public void setMonthlyApiLimit(int v)              { this.monthlyApiLimit = v; }
 }

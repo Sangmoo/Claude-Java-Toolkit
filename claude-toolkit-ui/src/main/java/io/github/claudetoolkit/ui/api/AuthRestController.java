@@ -101,6 +101,34 @@ public class AuthRestController {
         return ResponseEntity.ok(ApiResponse.ok("logged out"));
     }
 
+    /**
+     * v4.3.0 — 사용자 선호 언어 저장 (ko/en/ja/zh/de).
+     * 프론트엔드 언어 전환 시 호출 — 다음 로그인부터 자동으로 같은 언어 적용 가능.
+     */
+    @org.springframework.web.bind.annotation.PutMapping("/locale")
+    public ResponseEntity<ApiResponse<String>> updateLocale(
+            @RequestBody Map<String, String> body, Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
+        }
+        String locale = body != null ? body.get("locale") : null;
+        if (locale == null || !locale.matches("^(ko|en|ja|zh|de)$")) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("locale 은 ko/en/ja/zh/de 중 하나여야 합니다."));
+        }
+        try {
+            AppUser user = userRepository.findByUsername(auth.getName()).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(404).body(ApiResponse.error("사용자 정보를 찾을 수 없습니다."));
+            }
+            user.setLocale(locale);
+            userRepository.save(user);
+            return ResponseEntity.ok(ApiResponse.ok(locale));
+        } catch (Exception e) {
+            log.warn("locale 저장 실패: user={}, locale={}", auth.getName(), locale, e);
+            return ResponseEntity.status(500).body(ApiResponse.error("locale 저장 실패: " + e.getMessage()));
+        }
+    }
+
     private Map<String, Object> buildUserMap(Authentication auth) {
         String role = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -114,18 +142,22 @@ public class AuthRestController {
         data.put("role", role);
 
         // 사용자별 비활성화된 기능 목록 (ADMIN은 제외 — 모든 기능 허용)
-        if (!"ADMIN".equals(role)) {
-            try {
-                AppUser user = userRepository.findByUsername(auth.getName()).orElse(null);
-                if (user != null) {
+        try {
+            AppUser user = userRepository.findByUsername(auth.getName()).orElse(null);
+            if (user != null) {
+                if (!"ADMIN".equals(role)) {
                     java.util.List<String> disabled = new java.util.ArrayList<>();
                     // UserPermission 조회는 EntityManager 필요 — 간략화: 클라이언트가 필요시 별도 조회
                     data.put("userId", user.getId());
                     data.put("disabledFeatures", disabled);
                 }
-            } catch (Exception e) {
-                log.warn("사용자 권한 정보 조회 실패: user={}", auth.getName(), e);
+                // v4.3.0: 사용자 선호 언어 — 프론트가 로그인 후 동기화
+                if (user.getLocale() != null) {
+                    data.put("locale", user.getLocale());
+                }
             }
+        } catch (Exception e) {
+            log.warn("사용자 정보 조회 실패: user={}", auth.getName(), e);
         }
         return data;
     }

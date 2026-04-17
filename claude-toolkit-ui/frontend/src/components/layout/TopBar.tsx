@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { FaRobot, FaSun, FaMoon, FaBell, FaSignOutAlt, FaBars, FaSyncAlt, FaCheckDouble, FaTimes, FaTrash } from 'react-icons/fa'
+import { useEffect, useRef, useState } from 'react'
+import { FaRobot, FaSun, FaMoon, FaBell, FaSignOutAlt, FaBars, FaSyncAlt, FaCheckDouble, FaTimes, FaTrash, FaGlobe } from 'react-icons/fa'
 import { useThemeStore } from '../../stores/themeStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useSidebarStore } from '../../stores/sidebarStore'
@@ -7,6 +7,7 @@ import { useNotificationStore } from '../../stores/notificationStore'
 import { useSessionTimer } from '../../hooks/useSessionTimer'
 import { formatDate, formatRelative } from '../../utils/date'
 import { useLocation, Link } from 'react-router-dom'
+import i18n, { LANGUAGE_OPTIONS, type SupportedLang } from '../../i18n'
 
 const pathMap: Record<string, string> = {
   '': '홈', chat: 'AI 채팅', advisor: 'SQL 리뷰', workspace: '통합 워크스페이스',
@@ -137,6 +138,72 @@ function NotificationDropdown() {
   )
 }
 
+/** v4.3.0 — 언어 선택 드롭다운 (5개 언어: ko/en/ja/zh/de) */
+function LanguageSwitcher() {
+  const [open, setOpen] = useState(false)
+  const [current, setCurrent] = useState<SupportedLang>(
+    (localStorage.getItem('language') || 'ko') as SupportedLang
+  )
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const switchTo = (code: SupportedLang) => {
+    i18n.changeLanguage(code)
+    localStorage.setItem('language', code)
+    setCurrent(code)
+    setOpen(false)
+    // v4.3.0: 백엔드에 사용자 locale 저장 (선택 — 실패 무시)
+    fetch('/api/v1/auth/locale', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ locale: code }),
+    }).catch(() => {})
+  }
+
+  const currentOpt = LANGUAGE_OPTIONS.find((o) => o.code === current) || LANGUAGE_OPTIONS[0]
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="top-bar-btn" onClick={() => setOpen(!open)} title="언어 / Language">
+        <FaGlobe />
+        <span>{currentOpt.flag} {currentOpt.code.toUpperCase()}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, marginTop: '4px',
+          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+          borderRadius: '6px', minWidth: '160px', zIndex: 1000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {LANGUAGE_OPTIONS.map((opt) => (
+            <button key={opt.code}
+              onClick={() => switchTo(opt.code)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                width: '100%', padding: '8px 12px', textAlign: 'left',
+                background: opt.code === current ? 'var(--bg-subtle, rgba(0,0,0,0.05))' : 'transparent',
+                border: 'none', cursor: 'pointer', fontSize: '13px',
+                color: 'var(--text-default)',
+              }}>
+              <span style={{ fontSize: '16px' }}>{opt.flag}</span>
+              <span style={{ flex: 1 }}>{opt.label}</span>
+              {opt.code === current && <span style={{ color: 'var(--accent)' }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TopBar() {
   const { theme, toggleTheme } = useThemeStore()
   const user = useAuthStore((s) => s.user)
@@ -168,6 +235,7 @@ export default function TopBar() {
       </div>
 
       <div className="top-bar-actions">
+        <LanguageSwitcher />
         <button className="top-bar-btn" onClick={toggleTheme} title="테마 전환">
           {theme === 'dark' ? <FaSun /> : <FaMoon />}
           <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
