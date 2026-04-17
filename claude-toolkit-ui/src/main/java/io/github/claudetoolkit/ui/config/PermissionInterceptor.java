@@ -30,6 +30,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         // 분석
         FEATURE_PATHS.put("workspace",     "/workspace");
         FEATURE_PATHS.put("advisor",       "/advisor");
+        FEATURE_PATHS.put("index-advisor", "/sql/index-advisor");
         FEATURE_PATHS.put("sql-translate", "/sql-translate");
         FEATURE_PATHS.put("sql-batch",     "/sql-batch");
         FEATURE_PATHS.put("erd",           "/erd");

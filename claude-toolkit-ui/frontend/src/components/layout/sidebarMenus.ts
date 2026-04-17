@@ -43,7 +43,7 @@ export const menuSections: MenuSection[] = [
       { label: '통합 워크스페이스', path: '/workspace', icon: FaLayerGroup, color: '#f97316', featureKey: 'workspace' },
       { label: '분석 파이프라인', path: '/pipelines', icon: FaProjectDiagram, color: '#8b5cf6', featureKey: 'pipelines' },
       { label: 'SQL 리뷰', path: '/advisor', icon: FaDatabase, color: '#3b82f6', featureKey: 'advisor' },
-      { label: 'SQL 인덱스 시뮬레이션', path: '/sql/index-advisor', icon: FaDatabase, color: '#10b981', featureKey: 'advisor' },
+      { label: 'SQL 인덱스 시뮬레이션', path: '/sql/index-advisor', icon: FaDatabase, color: '#10b981', featureKey: 'index-advisor' },
       { label: 'SQL DB 번역', path: '/sql-translate', icon: FaLanguage, color: '#3b82f6', featureKey: 'sql-translate' },
       { label: '배치 SQL 분석', path: '/sql-batch', icon: FaLayerGroup, color: '#3b82f6', featureKey: 'sql-batch' },
       { label: 'ERD 분석', path: '/erd', icon: FaProjectDiagram, color: '#3b82f6', featureKey: 'erd' },

@@ -10,8 +10,21 @@ import EmailModal from '../components/common/EmailModal'
 import { useToast } from '../hooks/useToast'
 import SourceSelector from '../components/common/SourceSelector'
 
-/** 다중 선택 가능한 분석 기능 목록 */
-const FEATURES = [
+/**
+ * 다중 선택 가능한 분석 기능 목록.
+ *
+ * v4.3.0: nonStreaming=true 인 기능은 SSE 스트림 대신 별도 REST 엔드포인트를
+ * 호출하고 결과를 마크다운으로 포맷하여 같은 result 영역에 표시한다.
+ */
+interface FeatureDef {
+  key: string
+  label: string
+  icon: string
+  color: string
+  lang: 'java' | 'sql'
+  nonStreaming?: true
+}
+const FEATURES: FeatureDef[] = [
   { key: 'code_review', label: '코드 리뷰', icon: '🔍', color: '#3b82f6', lang: 'java' },
   { key: 'code_review_security', label: '보안 감사', icon: '🛡️', color: '#ef4444', lang: 'java' },
   { key: 'refactor_gen', label: '리팩터링', icon: '🔧', color: '#8b5cf6', lang: 'java' },
@@ -24,7 +37,46 @@ const FEATURES = [
   { key: 'sql_security', label: 'SQL 보안', icon: '🔐', color: '#ef4444', lang: 'sql' },
   { key: 'explain_plan', label: '실행계획', icon: '📊', color: '#f59e0b', lang: 'sql' },
   { key: 'index_opt', label: '인덱스 최적화', icon: '⚡', color: '#f59e0b', lang: 'sql' },
+  // v4.3.0: AI 호출 없이 정적 분석 + DB 메타데이터로 즉시 결과 반환
+  { key: 'index_advisor', label: '인덱스 시뮬레이션', icon: '📊', color: '#10b981', lang: 'sql', nonStreaming: true },
 ]
+
+/** v4.3.0: index_advisor REST 응답을 마크다운 포맷으로 변환 */
+function formatIndexAdvisorResult(data: any): string {
+  if (!data) return '(결과 없음)'
+  const lines: string[] = []
+  lines.push(`### 분석 요약`)
+  lines.push(`- 대상 테이블: **${data.tables?.length || 0}** | 조건 컬럼: **${data.predicateColumns?.length || 0}**`)
+  lines.push(`- 활용 가능 인덱스: **${data.summaryExistingIndexCount || 0}** | 신규 추천: **${data.summaryNewRecommendCount || 0}**`)
+  if (data.dbProduct) lines.push(`- 감지된 DB: \`${data.dbProduct}\` (${data.detectedDbType})`)
+  if (data.dbConnectionError) lines.push(`- ⚠️ DB 메타조회 실패: ${data.dbConnectionError}`)
+  lines.push('')
+
+  for (const tr of (data.tableReports || [])) {
+    lines.push(`### 📋 ${tr.table}`)
+    if (tr.existingIndexes?.length) {
+      lines.push(`**기존 인덱스**`)
+      for (const idx of tr.existingIndexes) {
+        const flag = idx.usableForQuery ? '✅' : 'ℹ️'
+        lines.push(`- ${flag} \`${idx.name}\` (${(idx.columns || []).join(', ')}) — ${idx.recommendation}`)
+      }
+    }
+    if (tr.recommendations?.length) {
+      lines.push(`**신규 추천**`)
+      for (const rec of tr.recommendations) {
+        lines.push(`- **${rec.indexName}** (${rec.priority}) — ${rec.rationale}`)
+        lines.push('  ```sql')
+        lines.push('  ' + rec.ddl)
+        lines.push('  ```')
+      }
+    }
+    if (!tr.existingIndexes?.length && !tr.recommendations?.length) {
+      lines.push(`_분석된 인덱스 정보가 없습니다._`)
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
+}
 
 interface RunningTask {
   feature: string
@@ -103,8 +155,46 @@ export default function WorkspacePage() {
     setTasks(initialTasks)
 
     // 병렬 실행: 각 기능마다 별도의 /stream/init → /stream/{id}
+    // v4.3.0: nonStreaming 기능은 별도 REST 호출 + 결과 마크다운 포맷
     const promises = Array.from(selected).map((featureKey) => new Promise<'completed' | 'failed'>(async (resolve) => {
       let acc = ''
+      const featureDef = FEATURES.find((f) => f.key === featureKey)
+
+      // v4.3.0: 비스트리밍 기능 (REST + 즉시 결과)
+      if (featureDef?.nonStreaming && featureKey === 'index_advisor') {
+        try {
+          const res = await fetch('/api/v1/sql/index-advisor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ sql: input.trim(), dbProfile: 'current' }),
+          })
+          const j = await res.json().catch(() => null)
+          if (!res.ok || !j?.success) {
+            const msg = j?.error || `HTTP ${res.status}`
+            setTasks((prev) => ({
+              ...prev,
+              [featureKey]: { ...prev[featureKey], status: 'failed', error: msg, result: '' },
+            }))
+            resolve('failed')
+            return
+          }
+          const md = formatIndexAdvisorResult(j.data)
+          setTasks((prev) => ({
+            ...prev,
+            [featureKey]: { ...prev[featureKey], status: 'completed', result: md },
+          }))
+          resolve('completed')
+        } catch (err) {
+          setTasks((prev) => ({
+            ...prev,
+            [featureKey]: { ...prev[featureKey], status: 'failed', error: err instanceof Error ? err.message : '오류', result: '' },
+          }))
+          resolve('failed')
+        }
+        return
+      }
+
       try {
         const res = await fetch('/stream/init', {
           method: 'POST',

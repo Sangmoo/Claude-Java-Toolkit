@@ -22,6 +22,7 @@ public class AdminPermissionController {
         // 분석
         new String[]{"workspace",    "통합 워크스페이스",   "분석"},
         new String[]{"advisor",      "SQL 리뷰",          "분석"},
+        new String[]{"index-advisor","SQL 인덱스 시뮬레이션", "분석"},
         new String[]{"sql-translate","SQL DB 번역",       "분석"},
         new String[]{"sql-batch",    "배치 SQL 분석",      "분석"},
         new String[]{"erd",          "ERD 분석",          "분석"},
