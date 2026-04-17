@@ -27,6 +27,7 @@ const PromptsPage = lazy(() => import('./pages/PromptsPage'))
 
 // Analysis pages
 const SqlReviewPage = lazy(() => import('./pages/analysis/SqlReviewPage'))
+const IndexAdvisorPage = lazy(() => import('./pages/analysis/IndexAdvisorPage'))
 const SqlTranslatePage = lazy(() => import('./pages/analysis/SqlTranslatePage'))
 const SqlBatchPage = lazy(() => import('./pages/analysis/SqlBatchPage'))
 const ErdPage = lazy(() => import('./pages/analysis/ErdPage'))
@@ -64,6 +65,7 @@ const TeamDashboardPage = lazy(() => import('./pages/admin/TeamDashboardPage'))
 const ReviewDashboardPage = lazy(() => import('./pages/admin/ReviewDashboardPage'))
 const DbMigrationGuidePage = lazy(() => import('./pages/admin/DbMigrationGuidePage'))
 const AdminEndpointStatsPage = lazy(() => import('./pages/admin/AdminEndpointStatsPage'))
+const CostOptimizerPage = lazy(() => import('./pages/admin/CostOptimizerPage'))
 
 // Special pages
 const SetupPage = lazy(() => import('./pages/SetupPage'))
@@ -126,6 +128,7 @@ export default function App() {
 
           {/* SQL Analysis */}
           <Route path="/advisor" element={<SqlReviewPage />} />
+          <Route path="/sql/index-advisor" element={<IndexAdvisorPage />} />
           <Route path="/sql-translate" element={<SqlTranslatePage />} />
           <Route path="/sql-batch" element={<SqlBatchPage />} />
           <Route path="/erd" element={<ErdPage />} />
@@ -180,6 +183,7 @@ export default function App() {
           <Route path="/admin/db-migration" element={<DbMigrationGuidePage />} />
           <Route path="/admin/backup" element={<AdminBackupPage />} />
           <Route path="/admin/endpoint-stats" element={<AdminEndpointStatsPage />} />
+          <Route path="/admin/cost-optimizer" element={<CostOptimizerPage />} />
 
           {/* Special */}
           <Route path="/api-docs" element={<ApiDocsPage />} />
