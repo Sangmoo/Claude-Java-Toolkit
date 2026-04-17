@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.api;
 
 import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,11 +43,15 @@ public class ErdRestController {
 
     private final ErdAnalyzerService erdAnalyzerService;
     private final ToolkitSettings    settings;
+    /** v4.3.0 — Prometheus 메트릭 (Timer + Counter) */
+    private final ToolkitMetrics     metrics;
 
     public ErdRestController(ErdAnalyzerService erdAnalyzerService,
-                             ToolkitSettings settings) {
+                             ToolkitSettings settings,
+                             ToolkitMetrics metrics) {
         this.erdAnalyzerService = erdAnalyzerService;
         this.settings           = settings;
+        this.metrics            = metrics;
     }
 
     // ── POST /api/v1/erd/analyze ──────────────────────────────────────────────
@@ -74,6 +80,7 @@ public class ErdRestController {
                     .body(ApiResponse.error("schemaText 또는 DB 연결 정보(dbUrl/dbUsername/dbPassword)가 필요합니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             String erd;
             String mode;
@@ -92,8 +99,10 @@ public class ErdRestController {
             data.put("erd",  erd);
             data.put("mode", mode);
 
+            if (metrics != null) metrics.stopAnalysis(sample, "ERD");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "ERD");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("ERD 분석 실패: " + e.getMessage()));
         }

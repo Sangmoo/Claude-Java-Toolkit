@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.api;
 import io.github.claudetoolkit.docgen.codereview.CodeReviewService;
 import io.github.claudetoolkit.docgen.generator.DocGeneratorService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,13 +44,17 @@ public class DocRestController {
     private final DocGeneratorService docGeneratorService;
     private final CodeReviewService   codeReviewService;
     private final ToolkitSettings     settings;
+    /** v4.3.0 — Prometheus 메트릭 (Timer + Counter) */
+    private final ToolkitMetrics      metrics;
 
     public DocRestController(DocGeneratorService docGeneratorService,
                              CodeReviewService codeReviewService,
-                             ToolkitSettings settings) {
+                             ToolkitSettings settings,
+                             ToolkitMetrics metrics) {
         this.docGeneratorService = docGeneratorService;
         this.codeReviewService   = codeReviewService;
         this.settings            = settings;
+        this.metrics             = metrics;
     }
 
     // ── POST /api/v1/doc/generate ─────────────────────────────────────────────
@@ -71,6 +77,7 @@ public class DocRestController {
                     .body(ApiResponse.error("code 필드는 필수입니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             String document = context != null && !context.trim().isEmpty()
                     ? docGeneratorService.generateMarkdownWithContext(code, language, context)
@@ -81,8 +88,10 @@ public class DocRestController {
             data.put("format",   "markdown");
             data.put("language", language);
 
+            if (metrics != null) metrics.stopAnalysis(sample, "DOC_GEN");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "DOC_GEN");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("문서 생성 실패: " + e.getMessage()));
         }
@@ -108,6 +117,7 @@ public class DocRestController {
                     .body(ApiResponse.error("code 필드는 필수입니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             String review = context != null && !context.trim().isEmpty()
                     ? codeReviewService.reviewWithContext(code, language, context)
@@ -117,8 +127,10 @@ public class DocRestController {
             data.put("review",   review);
             data.put("language", language);
 
+            if (metrics != null) metrics.stopAnalysis(sample, "CODE_REVIEW");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "CODE_REVIEW");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("코드 리뷰 실패: " + e.getMessage()));
         }
@@ -143,6 +155,7 @@ public class DocRestController {
                     .body(ApiResponse.error("code 필드는 필수입니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             String review = codeReviewService.reviewSecurity(code, language);
 
@@ -150,8 +163,10 @@ public class DocRestController {
             data.put("review",   review);
             data.put("language", language);
 
+            if (metrics != null) metrics.stopAnalysis(sample, "CODE_REVIEW_SEC");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "CODE_REVIEW_SEC");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("보안 감사 실패: " + e.getMessage()));
         }

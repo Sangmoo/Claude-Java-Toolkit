@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.history;
 
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
 import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +42,10 @@ public class ReviewHistoryService {
     @Autowired(required = false)
     private PendingReviewNotifier pendingReviewNotifier;
 
+    /** v4.3.0: Prometheus 메트릭. 옵셔널 — 메트릭 없는 테스트 환경에서도 동작 */
+    @Autowired(required = false)
+    private ToolkitMetrics metrics;
+
     public ReviewHistoryService(ReviewHistoryRepository repository, ClaudeClient claudeClient) {
         this.repository   = repository;
         this.claudeClient = claudeClient;
@@ -77,6 +82,14 @@ public class ReviewHistoryService {
         }
         // v4.2.7: VIEWER 가 생성한 이력이면 REVIEWER/ADMIN 에게 대기 알림
         if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
+
+        // v4.3.0: Prometheus 메트릭 — 비스트리밍 분석 흐름 (REST 컨트롤러가 이 save() 호출)
+        if (metrics != null) {
+            String model = claudeClient.getEffectiveModel();
+            String featureKey = type != null ? type.toLowerCase() : "unknown";
+            metrics.recordClaudeApiCall(model, featureKey, "success");
+            metrics.recordClaudeTokens(model, inputTok, outputTok);
+        }
     }
 
     /**
@@ -104,6 +117,13 @@ public class ReviewHistoryService {
         }
         // v4.2.7: VIEWER 가 생성한 하네스 결과면 REVIEWER/ADMIN 에게 대기 알림
         if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
+
+        // v4.3.0: Prometheus 메트릭 — Harness 파이프라인은 항상 4단계 후 한 번 저장
+        if (metrics != null) {
+            String model = claudeClient.getEffectiveModel();
+            metrics.recordClaudeApiCall(model, "harness_review", "success");
+            metrics.recordClaudeTokens(model, inputTok, outputTok);
+        }
         return saved;
     }
 

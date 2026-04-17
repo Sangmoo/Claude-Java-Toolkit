@@ -4,6 +4,7 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
 import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import io.github.claudetoolkit.ui.prompt.PromptService;
@@ -61,6 +62,10 @@ public class PipelineExecutor {
     /** v4.2.7 — VIEWER 생성 이력 → REVIEWER/ADMIN 대기 알림. 선택 주입으로 구성 순서 의존 제거. */
     @Autowired(required = false)
     private PendingReviewNotifier pendingReviewNotifier;
+
+    /** v4.3.0 — Prometheus 메트릭 (옵셔널 — 테스트 환경에서도 동작) */
+    @Autowired(required = false)
+    private ToolkitMetrics metrics;
 
     public PipelineExecutor(PipelineDefinitionRepository definitionRepo,
                             PipelineExecutionRepository executionRepo,
@@ -319,6 +324,8 @@ public class PipelineExecutor {
                     executionRepo.save(exec);
                     broker.push(exec.getId(), "error", buildStepPayload(result));
                     broker.closeAll(exec.getId());
+                    // v4.3.0: 단계 실패 → 파이프라인 전체 실패로 카운트
+                    if (metrics != null) metrics.recordPipelineExecution("failure");
                     return;
                 }
             }
@@ -329,6 +336,8 @@ public class PipelineExecutor {
             saveHistoryForExecution(exec, spec);
             broker.push(exec.getId(), "done", "ok");
             broker.closeAll(exec.getId());
+            // v4.3.0: 파이프라인 정상 완료 메트릭
+            if (metrics != null) metrics.recordPipelineExecution("success");
 
         } catch (Throwable e) {
             log.error("[Pipeline] 실행 엔진 오류: executionId={}, error={}", exec.getId(), e.getMessage(), e);
@@ -338,6 +347,8 @@ public class PipelineExecutor {
                 broker.push(exec.getId(), "error", e.getMessage());
                 broker.closeAll(exec.getId());
             } catch (Exception ignored) {}
+            // v4.3.0: 실행 엔진 자체 예외 → 파이프라인 실패로 카운트
+            if (metrics != null) metrics.recordPipelineExecution("failure");
         }
     }
 

@@ -4,6 +4,8 @@ import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
 import io.github.claudetoolkit.sql.explain.ExplainPlanResult;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,13 +46,17 @@ public class SqlRestController {
     private final SqlAdvisorService  advisorService;
     private final ExplainPlanService explainPlanService;
     private final ToolkitSettings    settings;
+    /** v4.3.0 — Prometheus 메트릭 (Timer + Counter) */
+    private final ToolkitMetrics     metrics;
 
     public SqlRestController(SqlAdvisorService advisorService,
                              ExplainPlanService explainPlanService,
-                             ToolkitSettings settings) {
+                             ToolkitSettings settings,
+                             ToolkitMetrics metrics) {
         this.advisorService    = advisorService;
         this.explainPlanService = explainPlanService;
         this.settings          = settings;
+        this.metrics           = metrics;
     }
 
     // ── POST /api/v1/sql/review ───────────────────────────────────────────────
@@ -72,6 +78,7 @@ public class SqlRestController {
                     .body(ApiResponse.error("sql 필드는 필수입니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             io.github.claudetoolkit.sql.model.AdvisoryResult result =
                     advisorService.reviewWithContext(sql, io.github.claudetoolkit.sql.model.SqlType.detect(sql), context);
@@ -81,8 +88,10 @@ public class SqlRestController {
             data.put("review",     result.getReviewContent());
             data.put("reviewedAt", result.getReviewedAt());
 
+            if (metrics != null) metrics.stopAnalysis(sample, "SQL_REVIEW");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "SQL_REVIEW");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("SQL 리뷰 실패: " + e.getMessage()));
         }
@@ -106,6 +115,7 @@ public class SqlRestController {
                     .body(ApiResponse.error("sql 필드는 필수입니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             io.github.claudetoolkit.sql.model.AdvisoryResult result =
                     advisorService.reviewSecurity(sql);
@@ -115,8 +125,10 @@ public class SqlRestController {
             data.put("review",     result.getReviewContent());
             data.put("reviewedAt", result.getReviewedAt());
 
+            if (metrics != null) metrics.stopAnalysis(sample, "SQL_SECURITY");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "SQL_SECURITY");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("SQL 보안 검사 실패: " + e.getMessage()));
         }
@@ -148,6 +160,7 @@ public class SqlRestController {
                     .body(ApiResponse.error("dbUrl 또는 Settings DB 설정이 필요합니다."));
         }
 
+        Timer.Sample sample = metrics != null ? metrics.startAnalysis() : null;
         try {
             ExplainPlanResult result = explainPlanService.analyze(dbUrl, dbUsername, dbPassword, sql);
 
@@ -159,8 +172,10 @@ public class SqlRestController {
             data.put("aiAnalysis",  result.getAiAnalysis());
             data.put("analyzedAt",  result.getAnalyzedAt());
 
+            if (metrics != null) metrics.stopAnalysis(sample, "EXPLAIN_PLAN");
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
+            if (metrics != null) metrics.stopAnalysis(sample, "EXPLAIN_PLAN");
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("실행계획 분석 실패: " + e.getMessage()));
         }

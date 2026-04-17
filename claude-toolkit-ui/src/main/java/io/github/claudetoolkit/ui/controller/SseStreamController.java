@@ -5,6 +5,7 @@ import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.harness.HarnessReviewService;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryRepository;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
 import io.github.claudetoolkit.ui.notification.PendingReviewNotifier;
 import io.github.claudetoolkit.ui.service.AnalysisCacheService;
 import io.github.claudetoolkit.ui.translate.SqlTranslateService;
@@ -62,6 +63,8 @@ public class SseStreamController {
     private final AnalysisCacheService    cacheService;
     private final ReviewHistoryRepository historyRepo;
     private final PendingReviewNotifier   pendingReviewNotifier;
+    /** v4.3.0: Prometheus 메트릭. ObjectProvider 로 받지 않고 직접 주입 — Spring 이 자동 발견 */
+    private final ToolkitMetrics          metrics;
 
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
@@ -69,7 +72,8 @@ public class SseStreamController {
                                SqlTranslateService translateService,
                                AnalysisCacheService cacheService,
                                ReviewHistoryRepository historyRepo,
-                               PendingReviewNotifier pendingReviewNotifier) {
+                               PendingReviewNotifier pendingReviewNotifier,
+                               ToolkitMetrics metrics) {
         this.claudeClient          = claudeClient;
         this.settings              = settings;
         this.harnessService        = harnessService;
@@ -77,6 +81,7 @@ public class SseStreamController {
         this.cacheService          = cacheService;
         this.historyRepo           = historyRepo;
         this.pendingReviewNotifier = pendingReviewNotifier;
+        this.metrics               = metrics;
     }
 
     /**
@@ -112,7 +117,22 @@ public class SseStreamController {
             ReviewHistory saved = historyRepo.save(h);
             // v4.2.7: VIEWER 작성 이력이면 REVIEWER/ADMIN 에 대기 알림
             if (pendingReviewNotifier != null) pendingReviewNotifier.notifyIfViewerCreated(saved);
-        } catch (Exception ignored) {}
+
+            // v4.3.0: Prometheus 메트릭 발행 — 스트림 분석은 항상 여기서 일관되게 기록
+            if (metrics != null) {
+                String model   = claudeClient.getEffectiveModel();
+                String featureKey = (feature != null && !feature.isEmpty()) ? feature : "stream";
+                metrics.recordClaudeApiCall(model, featureKey, "success");
+                metrics.recordClaudeTokens(model, inTok, outTok);
+            }
+        } catch (Exception e) {
+            // v4.3.0: 저장 실패 시에도 metrics 는 실패로 한 번 기록 (input 이 있을 때만)
+            if (metrics != null && input != null && !input.trim().isEmpty()) {
+                String model = claudeClient.getEffectiveModel();
+                String featureKey = (feature != null && !feature.isEmpty()) ? feature : "stream";
+                metrics.recordClaudeApiCall(model, featureKey, "failure");
+            }
+        }
     }
 
     private String buildHistoryTitle(String input) {
