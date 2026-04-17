@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import MermaidChart from '../components/common/MermaidChart'
 import PipelineBuilder from '../components/common/PipelineBuilder'
+import PipelineGraphView from '../components/common/PipelineGraphView'
 import {
   FaSave, FaCheckCircle, FaProjectDiagram, FaTrash, FaCode, FaMagic,
 } from 'react-icons/fa'
@@ -107,6 +108,8 @@ export default function PipelineEditorPage() {
   })
   const [mermaidCode, setMermaidCode] = useState('')
   const [editorMode, setEditorMode] = useState<'yaml' | 'visual'>('visual')
+  // v4.3.0: 우측 미리보기 — Mermaid (기존) / 인터랙티브 그래프 (신규)
+  const [previewMode, setPreviewMode] = useState<'mermaid' | 'graph'>('graph')
   const [validating, setValidating] = useState(false)
   const [validResult, setValidResult] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -300,13 +303,25 @@ export default function PipelineEditorPage() {
           )}
         </div>
 
-        {/* Mermaid Preview */}
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-          <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--border-color)', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>
-            플로우차트 미리보기
+        {/* Preview — v4.3.0: 그래프 / Mermaid 토글 */}
+        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '6px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button onClick={() => setPreviewMode('graph')}
+              style={{ ...tabBtnSt, ...(previewMode === 'graph' ? tabActiveSt : {}) }}>
+              📊 인터랙티브 그래프
+            </button>
+            <button onClick={() => setPreviewMode('mermaid')}
+              style={{ ...tabBtnSt, ...(previewMode === 'mermaid' ? tabActiveSt : {}) }}>
+              📈 Mermaid 차트
+            </button>
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
+              {previewMode === 'graph' ? '병렬·조건 분기 시각화' : '정적 플로우차트'}
+            </span>
           </div>
-          <div style={{ height: 'calc(100% - 36px)', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MermaidChart chart={mermaidCode} />
+          <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: previewMode === 'graph' ? '8px' : 0 }}>
+            {previewMode === 'graph'
+              ? <PipelineGraphView yaml={data.yamlContent} height={500} />
+              : <MermaidChart chart={mermaidCode} />}
           </div>
         </div>
       </div>

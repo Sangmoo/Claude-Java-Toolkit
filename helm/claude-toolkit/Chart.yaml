@@ -1,0 +1,21 @@
+apiVersion: v2
+name: claude-toolkit
+description: Claude Java Toolkit — AI-powered tools for Oracle DB & Java/Spring (web dashboard + REST API)
+type: application
+version: 0.1.0
+appVersion: "4.3.0"
+keywords:
+  - claude
+  - anthropic
+  - oracle
+  - java
+  - spring-boot
+  - sql
+  - code-review
+home: https://github.com/Sangmoo/Claude-Java-Toolkit
+sources:
+  - https://github.com/Sangmoo/Claude-Java-Toolkit
+maintainers:
+  - name: Sangmoo
+    url: https://github.com/Sangmoo
+icon: https://raw.githubusercontent.com/Sangmoo/Claude-Java-Toolkit/master/docs/logo.png

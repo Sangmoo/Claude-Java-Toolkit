@@ -1,0 +1,137 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Claude Java Toolkit — Helm values
+# ─────────────────────────────────────────────────────────────────────────────
+# 모든 값은 `helm install ... --set key=value` 또는 `-f my-values.yaml` 로
+# 오버라이드 가능. 운영 환경 배포 전 image.repository / claude.apiKey /
+# db 설정 / ingress.host 를 반드시 검토하세요.
+
+replicaCount: 1
+
+image:
+  # 빌드한 이미지 레지스트리 — 사내 레지스트리 사용 시 ghcr.io / docker.io 등으로 변경
+  repository: ghcr.io/sangmoo/claude-java-toolkit
+  tag: ""                # 비워두면 Chart.appVersion 사용
+  pullPolicy: IfNotPresent
+  pullSecrets: []        # private registry 사용 시 imagePullSecret 이름 배열
+
+# ── Pod 자원 ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1536Mi
+
+# ── 서비스 ─────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8027    # Spring Boot 기본 포트
+
+# ── Ingress (옵션) ─────────────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  host: claude-toolkit.local
+  path: /
+  pathType: Prefix
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls: []
+    # - hosts: [claude-toolkit.example.com]
+    #   secretName: claude-toolkit-tls
+
+# ── Claude API 설정 ────────────────────────────────────────────────────────
+claude:
+  # apiKey 는 Secret 에 저장됨. 빈 문자열이면 secret.existingSecret 을 참조
+  apiKey: ""
+  baseUrl: "https://api.anthropic.com"
+  model: "claude-sonnet-4-5"
+  proxyHost: ""
+  proxyPort: 0
+
+# 외부 Secret 으로 API Key 를 관리하려면 이 옵션 사용 (claude.apiKey 는 무시됨)
+secret:
+  existingSecret: ""        # ex) "my-claude-secret"
+  apiKeyKey: "CLAUDE_API_KEY"
+
+# ── DB 설정 ────────────────────────────────────────────────────────────────
+# type 이 h2 면 PVC 에 파일 영속화. mysql/postgresql 이면 외부 DB 연결.
+db:
+  type: h2                  # h2 / mysql / postgresql
+  host: ""                  # DB 호스트 (mysql/postgresql 일 때 필수)
+  port: 0                   # 0 이면 type 별 기본값 (mysql 3306, pg 5432)
+  name: claude_toolkit
+  username: claude
+  password: claude1234
+
+# 외부 Secret 으로 DB 비밀번호를 관리하려면 이 옵션 사용
+dbSecret:
+  existingSecret: ""
+  passwordKey: "DB_PASSWORD"
+
+# ── 영속 볼륨 (H2 파일 DB 용) ──────────────────────────────────────────────
+persistence:
+  enabled: true
+  storageClass: ""          # 비워두면 클러스터 기본 StorageClass 사용
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /root/.claude-toolkit
+
+# ── 런타임 환경변수 (추가 ENV 자유롭게) ─────────────────────────────────────
+extraEnv: []
+  # - name: HTTP_PROXY
+  #   value: "http://proxy.corp:3128"
+  # - name: HTTPS_PROXY
+  #   value: "http://proxy.corp:3128"
+
+# ── 헬스체크 ───────────────────────────────────────────────────────────────
+healthcheck:
+  enabled: true
+  livenessPath: /actuator/health
+  readinessPath: /actuator/health
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+
+# ── HPA (Horizontal Pod Autoscaler) ────────────────────────────────────────
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ── 모니터링 (Prometheus 스크랩 어노테이션) ────────────────────────────────
+monitoring:
+  enabled: false
+  # ServiceMonitor 를 자동 생성 (prometheus-operator 사용 시)
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    namespace: ""           # 비워두면 release 와 동일 네임스페이스
+
+# ── ServiceAccount ─────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# ── Pod 보안 컨텍스트 ──────────────────────────────────────────────────────
+podSecurityContext: {}
+  # fsGroup: 1000
+
+securityContext: {}
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# ── Pod 스케줄링 ──────────────────────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ── 기타 ──────────────────────────────────────────────────────────────────
+podAnnotations: {}
+podLabels: {}
