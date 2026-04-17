@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import {
   FaHistory, FaSearch, FaTrash, FaStar, FaCopy, FaCheck,
   FaChevronDown, FaChevronUp, FaDownload, FaCheckCircle, FaTimesCircle, FaClock,
-  FaReply, FaComment, FaPaperPlane, FaFileExport, FaShareAlt,
+  FaReply, FaComment, FaPaperPlane, FaFileExport, FaShareAlt, FaFileCode, FaInfoCircle, FaFileExcel,
 } from 'react-icons/fa'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
@@ -198,6 +198,60 @@ export default function HistoryPage() {
       }
     } catch {
       toast.error('요청 실패')
+    }
+  }
+
+  // v4.3.0: SARIF 2.1.0 JSON 다운로드 — VS Code SARIF Viewer / JetBrains Qodana / GitHub Code Scanning 호환
+  const downloadSarif = async (item: HistoryItem) => {
+    try {
+      const res = await fetch(`/api/v1/export/sarif/${item.id}`, {
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        toast.error(`SARIF 내보내기 실패 (HTTP ${res.status})`)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `claude-toolkit-${item.type}-${item.id}.sarif`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('SARIF 파일이 다운로드되었습니다')
+    } catch {
+      toast.error('SARIF 다운로드 요청 실패')
+    }
+  }
+
+  // v4.3.0: SARIF 도움말 토글 (어떤 IDE에서 어떻게 보는지 안내)
+  const [sarifHelpId, setSarifHelpId] = useState<number | null>(null)
+
+  // v4.3.0: Excel(.xlsx) 일괄 다운로드 — 최근 1000건 (3개 시트: 요약/이력 상세/유형별 통계)
+  const downloadExcel = async () => {
+    try {
+      const res = await fetch('/api/v1/export/excel/history?limit=1000', {
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        toast.error(`Excel 내보내기 실패 (HTTP ${res.status})`)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+      a.download = `claude-toolkit-history-${ts}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Excel 파일이 다운로드되었습니다 (최근 1000건)')
+    } catch {
+      toast.error('Excel 다운로드 요청 실패')
     }
   }
 
@@ -455,9 +509,16 @@ export default function HistoryPage() {
           <button
             onClick={exportAll}
             style={selectedIds.size > 0 ? { ...btnStyle, background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' } : btnStyle}
-            title={selectedIds.size > 0 ? `선택 ${selectedIds.size}건 내보내기` : '전체 내보내기'}>
+            title={selectedIds.size > 0 ? `선택 ${selectedIds.size}건 Markdown 내보내기` : '전체 Markdown 내보내기'}>
             {selectedIds.size > 0 ? <FaFileExport /> : <FaDownload />}
-            {selectedIds.size > 0 ? ` 선택 ${selectedIds.size}건 내보내기` : ' 내보내기'}
+            {selectedIds.size > 0 ? ` 선택 ${selectedIds.size}건 (MD)` : ' 내보내기 (MD)'}
+          </button>
+          {/* v4.3.0: Excel 워크북 다운로드 (3 시트: 요약/이력 상세/유형별 통계) */}
+          <button
+            onClick={downloadExcel}
+            style={{ ...btnStyle, background: '#1f7244', color: '#fff', borderColor: '#1f7244' }}
+            title="Excel(.xlsx) 다운로드 — 최근 1000건, 시트 분리 + 합계 수식">
+            <FaFileExcel /> Excel
           </button>
         </div>
       </div>
@@ -522,6 +583,21 @@ export default function HistoryPage() {
                   >
                     <FaShareAlt />
                   </button>
+                  {/* v4.3.0: SARIF 2.1.0 JSON 다운로드 — IDE 연동용 */}
+                  <button
+                    style={{ ...iconBtnStyle, color: '#8b5cf6' }}
+                    onClick={(e) => { e.stopPropagation(); downloadSarif(item) }}
+                    title="SARIF 다운로드 (IDE 연동)"
+                  >
+                    <FaFileCode />
+                  </button>
+                  <button
+                    style={{ ...iconBtnStyle, color: 'var(--text-muted)', fontSize: '12px' }}
+                    onClick={(e) => { e.stopPropagation(); setSarifHelpId(sarifHelpId === item.id ? null : item.id) }}
+                    title="SARIF 사용법 안내"
+                  >
+                    <FaInfoCircle />
+                  </button>
                   {/* v4.2.7: VIEWER 권한은 삭제 아이콘 자체를 렌더하지 않음 */}
                   {canDelete && (
                     <button
@@ -535,6 +611,63 @@ export default function HistoryPage() {
                 </div>
                 {expandedId === item.id ? <FaChevronUp style={{ color: 'var(--text-muted)' }} /> : <FaChevronDown style={{ color: 'var(--text-muted)' }} />}
               </div>
+
+              {/* v4.3.0: SARIF 사용 가이드 패널 */}
+              {sarifHelpId === item.id && (
+                <div
+                  style={{
+                    borderTop: '1px solid var(--border-color)',
+                    background: 'var(--bg-subtle, #f8fafc)',
+                    padding: '14px 16px',
+                    fontSize: '13px',
+                    lineHeight: 1.6,
+                    color: 'var(--text-default)',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600 }}>
+                    <FaInfoCircle style={{ color: '#8b5cf6' }} /> SARIF 파일 사용 방법
+                  </div>
+                  <p style={{ margin: '4px 0 10px', color: 'var(--text-muted)' }}>
+                    다운로드한 <code>.sarif</code> 파일은 정적 분석 결과의 표준 포맷(SARIF 2.1.0)입니다.
+                    아래 도구에서 인라인 마커와 함께 확인할 수 있습니다.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px', marginTop: '8px' }}>
+                    <div style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px 12px' }}>
+                      <strong style={{ color: '#0078d4' }}>VS Code</strong>
+                      <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
+                        <li>마켓플레이스에서 <code>SARIF Viewer</code> (Microsoft DevLabs) 설치</li>
+                        <li>다운로드한 <code>.sarif</code> 파일을 VS Code 로 드래그</li>
+                        <li>좌측 SARIF 패널에서 이슈 트리 + 코드 인라인 마커 확인</li>
+                      </ol>
+                    </div>
+
+                    <div style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px 12px' }}>
+                      <strong style={{ color: '#fe315e' }}>JetBrains IDE (IntelliJ/PyCharm/WebStorm)</strong>
+                      <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
+                        <li>플러그인 마켓플레이스에서 <code>Qodana</code> 또는 <code>SARIF Viewer</code> 설치</li>
+                        <li>Tools → Qodana → Show SARIF report 메뉴에서 파일 선택</li>
+                        <li>Problems 패널에서 결과 확인</li>
+                      </ol>
+                    </div>
+
+                    <div style={{ background: 'var(--bg-card, #fff)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px 12px' }}>
+                      <strong style={{ color: '#24292f' }}>GitHub Code Scanning</strong>
+                      <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
+                        <li>저장소 Settings → Security → Code scanning 활성화</li>
+                        <li>GitHub Actions 워크플로에서 <code>github/codeql-action/upload-sarif@v3</code> 액션으로 업로드</li>
+                        <li>PR 의 Files changed 탭에 자동 코멘트 + Security 탭에서 추적</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    💡 입력 코드에 파일명/라인 정보가 포함되어 있지 않으므로 위치는 가상의 <code>analysis-input.txt</code> 로 표시됩니다.
+                    실제 IDE 통합을 원하시면 GitHub Actions 에서 분석 결과를 SARIF 로 업로드하는 방식이 가장 효과적입니다.
+                  </div>
+                </div>
+              )}
 
               {expandedId === item.id && (
                 <div style={{ borderTop: '1px solid var(--border-color)', padding: '16px' }}>

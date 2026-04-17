@@ -94,6 +94,13 @@
             <artifactId>snakeyaml</artifactId>
             <version>1.33</version>
         </dependency>
+
+        <!-- v4.3.0: Apache POI (Excel .xlsx 워크북 내보내기) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
     </dependencies>
 
     <build>
