@@ -7,8 +7,8 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.2.8-brightgreen.svg)](#)
-[![Next](https://img.shields.io/badge/next-v4.3.0--planning-blue.svg)](#-v430-진행-중--신규-기능--통합-강화)
+[![Version](https://img.shields.io/badge/version-4.3.0-brightgreen.svg)](#)
+[![Helm](https://img.shields.io/badge/helm-chart_0.1.0-0F1689.svg)](./helm/claude-toolkit)
 
 ---
 
@@ -99,6 +99,15 @@ DB_TYPE=mysql docker-compose --profile mysql up -d
 
 # 2-C. PostgreSQL 사용 시
 DB_TYPE=postgresql docker-compose --profile postgresql up -d
+
+# 2-D. Prometheus + Grafana 모니터링 스택 함께 실행 (v4.3.0)
+docker-compose --profile monitoring up -d
+# → Grafana:    http://localhost:3000 (admin/admin)
+# → Prometheus: http://localhost:9090
+# → "Claude Toolkit Overview" 대시보드 자동 프로비저닝 (10개 패널)
+
+# 위 옵션들은 조합 가능:
+DB_TYPE=postgresql docker-compose --profile postgresql --profile monitoring up -d
 ```
 
 | 환경변수 | 설명 | 기본값 |
@@ -110,6 +119,43 @@ DB_TYPE=postgresql docker-compose --profile postgresql up -d
 | `DB_NAME` | DB 이름 | `claude_toolkit` |
 | `DB_USERNAME` / `DB_PASSWORD` | DB 계정 | `claude` / `claude1234` |
 | `PORT` | 웹 서버 포트 | `8027` |
+| `GRAFANA_USER` / `GRAFANA_PASSWORD` | Grafana 관리자 계정 (monitoring 프로필) | `admin` / `admin` |
+
+### 4-K. Kubernetes (Helm Chart, v4.3.0 신규)
+
+> ⚠️ 준비용 차트 — `helm template` 정적 검증만 완료. 실제 K8s 환경에서 추가 검증을 권장합니다.
+
+```bash
+# 1. (사전) 컨테이너 이미지 레지스트리 푸시
+docker build -t ghcr.io/<your-org>/claude-java-toolkit:4.3.0 .
+docker push ghcr.io/<your-org>/claude-java-toolkit:4.3.0
+
+# 2. Claude API Key Secret 생성
+kubectl create namespace claude-toolkit
+kubectl create secret generic claude-api-secret \
+  --from-literal=CLAUDE_API_KEY=sk-ant-... \
+  -n claude-toolkit
+
+# 3. Helm 설치 (H2 모드, 단일 인스턴스)
+helm install claude-toolkit ./helm/claude-toolkit \
+  -n claude-toolkit \
+  --set image.repository=ghcr.io/<your-org>/claude-java-toolkit \
+  --set image.tag=4.3.0 \
+  --set secret.existingSecret=claude-api-secret
+
+# 4. 외부 DB + Ingress + HPA + Prometheus (운영 권장 구성)
+helm upgrade --install claude-toolkit ./helm/claude-toolkit \
+  -n claude-toolkit \
+  --set image.tag=4.3.0 \
+  --set secret.existingSecret=claude-api-secret \
+  --set db.type=postgresql --set db.host=postgres.example.com \
+  --set persistence.enabled=false \
+  --set ingress.enabled=true --set ingress.host=claude.example.com \
+  --set autoscaling.enabled=true --set autoscaling.minReplicas=2 \
+  --set monitoring.enabled=true --set monitoring.serviceMonitor.enabled=true
+```
+
+전체 옵션 + 시나리오는 [`helm/claude-toolkit/README.md`](./helm/claude-toolkit/README.md) 참고.
 
 ### 5. 설치 마법사
 
@@ -1003,32 +1049,35 @@ claude-java-toolkit/
 
 ## 🗺 로드맵
 
-### 🚧 v4.3.0 (진행 중) — 신규 기능 & 통합 강화
+### ✅ v4.3.0 — 신규 기능 & 통합 강화
 
-> 2026-04 기준 계획. 9개 기능을 5개 Phase로 나누어 점진적으로 도입합니다.
+> 9개 기능을 5개 Phase 로 나누어 단계별로 도입 완료. 운영 가시성, 비용 최적화, 다국어 확장, K8s 배포 준비를 한 사이클에 정리.
 
-#### Phase 1 — Export 강화 (예상 2일)
-- [ ] **SARIF 2.1.0 내보내기** — 분석 결과(코드 리뷰/SQL 리뷰/Harness)를 SARIF JSON 으로 내보내기. VS Code SARIF Viewer / JetBrains Qodana / GitHub Code Scanning 연동 가능. 다운로드 버튼 옆 ℹ️ 도움말 토글로 IDE별 사용법 안내
-- [ ] **Excel 워크북 내보내기** — Apache POI 기반 다중 시트 (`.xlsx`). CSV 대비 헤더 스타일, 자동 열 너비, 합계 수식, severity별 시트 분리 지원
+#### Phase 1 — Export 강화 ✅
+- [x] **SARIF 2.1.0 내보내기** — `/api/v1/export/sarif/{id}`. 이력 페이지 행마다 다운로드 버튼 + ℹ️ 도움말 토글 (VS Code SARIF Viewer / JetBrains Qodana / GitHub Code Scanning 사용법 안내)
+- [x] **Excel 워크북 내보내기** — Apache POI 5.2.5 기반. 3 시트 (요약/이력 상세/유형별 통계) + 합계 수식 + 헤더 스타일. `/api/v1/export/excel/history?limit=N`
 
-#### Phase 2 — 모니터링 스택 (예상 1일)
-- [ ] **Prometheus 메트릭 익스포터 (Phase A)** — `micrometer-registry-prometheus` 추가, `/actuator/prometheus` 엔드포인트 노출. 커스텀 메트릭: `claude_api_calls_total`, `claude_api_tokens_total`, `analysis_duration_seconds`, `pipeline_execution_total`
-- [ ] **Grafana 스택 (Phase B)** — `docker-compose.yml`에 `monitoring` 프로필 추가 (Prometheus + Grafana + 기본 대시보드 JSON 프로비저닝). `docker-compose --profile monitoring up -d` 한 번으로 즉시 사용
+#### Phase 2 — 모니터링 스택 ✅
+- [x] **Prometheus 메트릭 익스포터** — `micrometer-registry-prometheus` + `/actuator/prometheus`. 커스텀 메트릭 4종: `claude_api_calls_total{model,feature,status}`, `claude_api_tokens_total{model,direction}`, `analysis_duration_seconds{type}`, `pipeline_execution_total{status}` + Spring 자동 메트릭 (HTTP, JVM)
+- [x] **Grafana 스택** — `docker-compose.yml` 의 `monitoring` 프로필 (Prometheus + Grafana). 시작: `docker-compose --profile monitoring up -d` → http://localhost:3000 (admin/admin)
+- [x] **메트릭 호출처 통합** — SseStreamController/ReviewHistoryService/PipelineExecutor + 3 REST 컨트롤러 Timer 래핑. 약 95% 분석 흐름 커버
 
-#### Phase 3 — 분석 강화 (예상 2.5일)
-- [ ] **AI 모델 비용 옵티마이저** — 분석 유형별 평균 토큰/비용 추적, 모델 추천 로직 (간단 분석 → Haiku, 복잡 분석 → Opus). 신규 페이지 `/admin/cost-optimizer`
-- [ ] **SQL 인덱스 임팩트 시뮬레이션** — 입력 SQL 파싱 → 대상 DB의 `INFORMATION_SCHEMA` / `USER_INDEXES` / `pg_indexes` 조회 → (a) 기존 인덱스 활용 가능 여부 (b) 신규 인덱스 DDL 추천. SQL 리뷰 페이지에 신규 탭 추가
+#### Phase 3 — 분석 강화 ✅
+- [x] **AI 모델 비용 옵티마이저** — `/admin/cost-optimizer` (ADMIN). Anthropic 공식 단가표 + 분석 유형별 평균 입력/승인률 기반 추천 (Haiku/Sonnet/Opus). 절감액 + 비용 비교 차트
+- [x] **SQL 인덱스 임팩트 시뮬레이션** — `/sql/index-advisor`. 정적 SQL 파싱 + JDBC 메타데이터 (MySQL/PostgreSQL/Oracle/H2 자동 호환) → 기존 인덱스 활용 가능 여부 + 신규 인덱스 DDL 추천 (Oracle 30자 제한 준수). 통합 워크스페이스 SQL 언어 선택시 `nonStreaming` 기능으로도 노출
 
-#### Phase 4 — UX 확장 (예상 3일)
-- [ ] **다국어 확장 (일/중/독)** — 현재 한/영 → 일본어/중국어 간체/독일어 추가. `frontend/src/i18n/`에 `ja.ts`, `zh.ts`, `de.ts` 추가. 백엔드 `app_user.locale` 컬럼 추가, 이메일 템플릿도 언어별 분기
-- [ ] **대시보드 위젯 커스터마이징 (사용자별)** — `react-grid-layout` 도입, HomePage 위젯 드래그/리사이즈/숨김 지원. `UserDashboardLayout` 엔티티 신규로 사용자별 레이아웃 DB 영속화
+#### Phase 4 — UX 확장 ✅
+- [x] **다국어 확장 (일/중/독)** — 한/영 → 5개 언어 (`ja.ts`/`zh.ts`/`de.ts`). TopBar 에 LanguageSwitcher (🌐 + 국기). 백엔드 `app_user.locale` 컬럼 + `PUT /api/v1/auth/locale`. `/me` 응답에 locale 포함 → 다른 기기 자동 동기화
+- [x] **대시보드 위젯 커스터마이징** — `react-grid-layout`. HomePage 편집 모드: 드래그/리사이즈/표시-숨김 토글 + 저장/기본값 복원. `UserDashboardLayout` 엔티티로 사용자별 레이아웃 DB 영속화. 누락 위젯 자동 보강 (마이그레이션 안전)
 
-#### Phase 5 — 워크플로 + 인프라 (예상 4.5일)
-- [ ] **비주얼 워크플로 빌더 개선** — 기존 `PipelineBuilder` 를 `react-flow` 기반으로 업그레이드. 분기/병렬/조건부 노드, 시각적 연결선, YAML ↔ 그래프 양방향 변환
-- [ ] **Kubernetes Helm Chart (준비용)** — `helm/claude-toolkit/` 신규. Deployment + Service + Ingress + ConfigMap + Secret + PVC + HPA. DB 옵션별 values (h2/mysql/postgresql/external). README에 `helm install` 가이드 추가. *현 시점 K8s 배포 환경은 없으나 추후 사용자를 위해 마련*
+#### Phase 5 — 워크플로 + 인프라 ✅
+- [x] **인터랙티브 그래프 뷰 (PipelineGraphView)** — `reactflow` 11. 파이프라인 YAML 을 노드 그래프로 시각화. 병렬 단계는 같은 컬럼 다른 row, 순차는 가로 진행. context 의존성 자동 추론 + dependsOn 명시 지원. 조건부 step 은 주황색 엣지. 미니맵 + 줌. PipelineEditor 우측 패널에 "📊 그래프 / 📈 Mermaid" 탭으로 추가 (기존 PipelineBuilder/Mermaid 는 그대로 유지)
+- [x] **Kubernetes Helm Chart (준비용)** — `helm/claude-toolkit/` v0.1.0. Deployment + Service + Ingress + Secret + PVC + HPA + ServiceMonitor. DB 옵션별 (h2/mysql/postgresql) values. 6가지 설치 시나리오 README 동봉. *현 시점 실제 K8s 환경 미보유 — `helm template` 정적 검증만 완료. 사용 시점에 사용자 환경에서 추가 검증 필요*
 
-#### 🔧 운영 안정성 개선 (사이드 작업)
-- [x] `DataRestController` / `AuthRestController` silent catch 블록 → SLF4J 로깅으로 전환 (운영 시 디버깅 가시성 확보)
+#### 🔧 부수 개선 (이번 사이클)
+- [x] `DataRestController`/`AuthRestController` silent catch 블록 → SLF4J 로깅으로 전환 (~22 곳)
+- [x] **SQL 인덱스 시뮬레이션 권한 분리** — `featureKey: 'index-advisor'` 신규 등록. 관리자가 SQL 리뷰와 독립적으로 권한 제어 가능
+- [x] **통합 워크스페이스 nonStreaming 패턴** — 비-AI 기능(JDBC 메타조회 등)도 워크스페이스 다중 선택 + 병렬 실행 흐름에 통합 가능
 
 ---
 

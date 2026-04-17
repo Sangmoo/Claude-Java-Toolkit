@@ -482,11 +482,11 @@ footer{
   <div class="container">
     <div class="stats-grid">
       <div class="stat-item">
-        <div class="stat-num" data-count="45">0</div>
+        <div class="stat-num" data-count="55">0</div>
         <div class="stat-label" data-i18n="stats.features">AI 기능</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num" data-count="60">0</div>
+        <div class="stat-num" data-count="65">0</div>
         <div class="stat-label" data-i18n="stats.pages">React 페이지</div>
       </div>
       <div class="stat-item">
@@ -494,8 +494,8 @@ footer{
         <div class="stat-label" data-i18n="stats.jdk">JDK 버전</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num" data-count="4">0</div>
-        <div class="stat-label" data-i18n="stats.modules">Maven 모듈</div>
+        <div class="stat-num" data-count="5">0</div>
+        <div class="stat-label" data-i18n="stats.modules">지원 언어</div>
       </div>
     </div>
   </div>
@@ -765,6 +765,95 @@ footer{
           <span class="tag">🧪 JUnit 16 개</span>
           <span class="tag">🌐 Playwright E2E</span>
           <span class="tag">✅ 회귀 방지</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">📤</div>
+        <div class="feat-title">SARIF / Excel 내보내기</div>
+        <div class="feat-desc">분석 결과(코드 리뷰, SQL 리뷰, Harness)를 표준 <strong>SARIF 2.1.0 JSON</strong> 으로 내보내 <strong>VS Code SARIF Viewer / JetBrains Qodana / GitHub Code Scanning</strong> 과 즉시 연동할 수 있습니다. 다운로드 버튼 옆 ℹ️ 도움말 토글로 IDE별 설치 / 사용 가이드를 제공합니다. 이력 페이지 상단의 <strong>Excel 워크북</strong> 다운로드는 Apache POI 기반 다중 시트 (요약 / 이력 상세 / 유형별 통계 + 합계 수식 + 헤더 스타일) 로 회의 자료에 바로 사용 가능합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">📋 SARIF 2.1.0</span>
+          <span class="tag">📊 .xlsx 3 시트</span>
+          <span class="tag">🔧 IDE 연동</span>
+          <span class="tag">🔄 GitHub Actions</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">📈</div>
+        <div class="feat-title">Prometheus + Grafana 모니터링</div>
+        <div class="feat-desc"><code>/actuator/prometheus</code> 엔드포인트로 Spring 자동 메트릭 + 도메인 커스텀 메트릭 4종 (<code>claude_api_calls_total</code>, <code>claude_api_tokens_total</code>, <code>analysis_duration_seconds</code>, <code>pipeline_execution_total</code>) 을 노출합니다. <code>docker-compose --profile monitoring up -d</code> 한 번으로 Prometheus + Grafana 가 함께 떠서 자동 프로비저닝된 <strong>"Claude Toolkit Overview"</strong> 대시보드 (10개 패널 — 호출 추이 / 토큰 / 분석 p95 / 파이프라인 성공률 / JVM Heap / HTTP) 를 즉시 볼 수 있습니다.</div>
+        <div class="feat-tags">
+          <span class="tag">📊 Micrometer</span>
+          <span class="tag">🐳 Docker 프로필</span>
+          <span class="tag">🎛️ Grafana 대시보드</span>
+          <span class="tag">⚡ 즉시 사용</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">💰</div>
+        <div class="feat-title">AI 모델 비용 옵티마이저</div>
+        <div class="feat-desc">관리자 페이지 <code>/admin/cost-optimizer</code> 에서 분석 유형별 평균 토큰 / 승인률을 분석하여 <strong>Haiku / Sonnet / Opus</strong> 중 최적 모델을 자동 추천합니다. Anthropic 공식 단가표 기반 현재 비용 ↔ 추천 비용 비교 차트와 절감 가능 금액을 USD 로 표시하고, 단순 분석은 Haiku 로 전환하여 <strong>최대 80%</strong> 비용 절감 가능합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">💵 비용 비교</span>
+          <span class="tag">🎯 모델 추천</span>
+          <span class="tag">📉 절감 시뮬레이션</span>
+          <span class="tag">📊 Recharts 차트</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">⚡</div>
+        <div class="feat-title">SQL 인덱스 임팩트 시뮬레이션</div>
+        <div class="feat-desc">입력 SQL 을 정적 파싱하여 WHERE / JOIN 조건 컬럼을 추출하고, <strong>대상 DB 의 메타데이터 (MySQL / PostgreSQL / Oracle / H2 자동 호환)</strong> 를 조회하여 (a) 활용 가능한 기존 인덱스 (b) 풀스캔을 회피할 수 있는 신규 인덱스 DDL (Oracle 30자 식별자 제한 준수) 을 한 화면에 보여줍니다. 통합 워크스페이스에서 SQL 언어 선택시 다른 분석과 함께 병렬 실행도 가능합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🔍 정적 SQL 파싱</span>
+          <span class="tag">📋 JDBC 메타조회</span>
+          <span class="tag">🛠️ DDL 자동 생성</span>
+          <span class="tag">🌐 멀티 DB 호환</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">🌍</div>
+        <div class="feat-title">5개 언어 + 사용자별 동기화</div>
+        <div class="feat-desc">한국어 / English 에 추가로 <strong>일본어 (日本語) / 중국어 간체 (简体中文) / 독일어 (Deutsch)</strong> 를 지원합니다. TopBar 의 🌐 드롭다운으로 즉시 전환되며, 백엔드 <code>app_user.locale</code> 컬럼에 사용자 선호 언어가 저장되어 다른 기기에서 로그인해도 자동으로 같은 언어가 적용됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🇰🇷 한국어</span>
+          <span class="tag">🇺🇸 English</span>
+          <span class="tag">🇯🇵 日本語</span>
+          <span class="tag">🇨🇳 中文</span>
+          <span class="tag">🇩🇪 Deutsch</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(168,85,247,.12);color:#a855f7;">📐</div>
+        <div class="feat-title">대시보드 위젯 커스터마이징</div>
+        <div class="feat-desc"><code>react-grid-layout</code> 기반의 사용자별 홈 대시보드 — 편집 모드를 켜면 위젯을 <strong>드래그 / 리사이즈 / 표시·숨김</strong> 토글이 가능하고, 저장 버튼으로 백엔드 (<code>UserDashboardLayout</code>) 에 영속화되어 다른 기기에서도 동일하게 적용됩니다. 기본값 복원 버튼으로 언제든 초기화 가능하며, 새 위젯이 추가되어도 기존 사용자 레이아웃이 자동 보강됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🎨 드래그 + 리사이즈</span>
+          <span class="tag">👁️ 표시·숨김</span>
+          <span class="tag">💾 사용자별 저장</span>
+          <span class="tag">🔄 자동 마이그레이션</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">🌳</div>
+        <div class="feat-title">파이프라인 인터랙티브 그래프</div>
+        <div class="feat-desc">파이프라인 에디터 우측 패널에 <strong><code>reactflow</code> 기반 그래프 뷰</strong>가 추가되어 (Mermaid 차트와 토글) YAML 단계를 시각적으로 확인할 수 있습니다. 병렬 단계는 같은 컬럼의 다른 row 에 펼쳐지고, <code>${stepId.output}</code> 컨텍스트 의존성과 <code>dependsOn</code> 명시 의존성이 자동으로 엣지로 그려지며, 조건부 step 은 주황색 엣지로 구분됩니다. 미니맵 + 줌 컨트롤도 제공합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🌐 React Flow</span>
+          <span class="tag">⚙️ 자동 레이아웃</span>
+          <span class="tag">🔗 의존성 추론</span>
+          <span class="tag">🗺️ 미니맵</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(15,22,137,.12);color:#0F1689;">⎈</div>
+        <div class="feat-title">Kubernetes Helm Chart</div>
+        <div class="feat-desc">사내 K8s 환경 배포를 위한 Helm 차트 (<code>helm/claude-toolkit</code>) 를 동봉합니다. <strong>Deployment + Service + Ingress + Secret + PVC + HPA + ServiceMonitor</strong> 를 모두 포함하고, DB 옵션별 (h2 / mysql / postgresql / external) values 와 6가지 시나리오별 <code>helm install</code> 예시를 제공합니다. <code>monitoring.serviceMonitor.enabled=true</code> 로 prometheus-operator 와도 자동 연동됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">⎈ Helm Chart</span>
+          <span class="tag">🚀 HPA 지원</span>
+          <span class="tag">🔐 Secret 분리</span>
+          <span class="tag">📡 ServiceMonitor</span>
         </div>
       </div>
     </div>
@@ -1047,7 +1136,7 @@ var i18n={
     'hero.github':'GitHub에서 보기',
     'hero.quickstart':'빠른 시작',
     'stats.features':'AI 기능','stats.apis':'REST API 엔드포인트',
-    'stats.jdk':'JDK 버전','stats.modules':'Maven 모듈',
+    'stats.jdk':'JDK 버전','stats.modules':'지원 언어',
     'feat.eyebrow':'핵심 기능','feat.title':'하나의 대시보드로 모든 분석을',
     'feat.desc':'SQL부터 Java 코드, 기술 문서, ERD까지 Claude AI가 즉각적인 인사이트를 제공합니다',
     'feat.sql.title':'SQL 분석',
@@ -1117,7 +1206,7 @@ var i18n={
     'hero.github':'View on GitHub',
     'hero.quickstart':'Quick Start',
     'stats.features':'AI Features','stats.apis':'REST API Endpoints',
-    'stats.jdk':'JDK Version','stats.modules':'Maven Modules',
+    'stats.jdk':'JDK Version','stats.modules':'Languages',
     'feat.eyebrow':'Core Features','feat.title':'All Analysis in One Dashboard',
     'feat.desc':'From SQL to Java code, technical docs, and ERDs — Claude AI provides instant insights',
     'feat.sql.title':'SQL Analysis',
