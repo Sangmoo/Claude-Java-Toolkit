@@ -4,6 +4,7 @@ import io.github.claudetoolkit.ui.api.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,11 +37,25 @@ public class IndexAdvisorController {
         this.advisorService = advisorService;
     }
 
+    /**
+     * v4.3.x — 분석 전 "어떤 DB 로 조회될지" 미리보기.
+     * 프론트가 사용자에게 "Settings DB / 기본 H2" 중 어디로 연결되는지 표시.
+     */
+    @GetMapping("/index-advisor/target-db")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> targetDb() {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(advisorService.describeTargetDb()));
+        } catch (Exception e) {
+            log.warn("대상 DB 정보 조회 실패", e);
+            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @PostMapping("/index-advisor")
     public ResponseEntity<ApiResponse<Map<String, Object>>> indexAdvisor(
             @RequestBody Map<String, String> body) {
         String sql = body.get("sql");
-        String dbProfile = body.getOrDefault("dbProfile", "current");
+        String dbProfile = body.getOrDefault("dbProfile", "settings");
 
         if (sql == null || sql.trim().isEmpty()) {
             return ResponseEntity.badRequest()

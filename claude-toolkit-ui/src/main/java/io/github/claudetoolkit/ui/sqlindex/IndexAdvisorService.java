@@ -69,10 +69,45 @@ public class IndexAdvisorService {
     }
 
     /**
+     * 현재 Settings 에 설정된 외부 DB 연결 정보를 마스킹된 형태로 반환.
+     * 프론트가 분석 전 "어떤 DB로 조회될지" 표시하는 용도.
+     */
+    public Map<String, Object> describeTargetDb() {
+        Map<String, Object> info = new LinkedHashMap<String, Object>();
+        boolean hasExternal = settings != null
+                && settings.getDb() != null
+                && settings.getDb().getUrl() != null
+                && !settings.getDb().getUrl().trim().isEmpty();
+        info.put("hasExternal", hasExternal);
+        if (hasExternal) {
+            String url = settings.getDb().getUrl();
+            info.put("url",      maskJdbcUrl(url));
+            info.put("username", settings.getDb().getUsername());
+            info.put("dbType",   detectDbTypeFromUrl(url));
+            info.put("source",   "settings");
+        } else {
+            // 외부 DB 미설정 — 시스템 기본 DataSource (보통 H2 — 앱 운영 DB)
+            try (Connection conn = dataSource.getConnection()) {
+                DatabaseMetaData md = conn.getMetaData();
+                info.put("url",      maskJdbcUrl(md.getURL()));
+                info.put("username", md.getUserName());
+                info.put("dbType",   detectDbType(md.getDatabaseProductName()));
+                info.put("source",   "default-datasource");
+                info.put("warning",  "Settings 에 외부 DB 가 설정되지 않아 앱 내부 DB(H2 등)로 폴백됩니다. "
+                        + "운영 DB 인덱스를 보려면 Settings → Oracle DB 설정 을 입력하세요.");
+            } catch (Exception e) {
+                info.put("error", e.getMessage());
+            }
+        }
+        return info;
+    }
+
+    /**
      * 인덱스 시뮬레이션 수행.
      *
      * @param sql       대상 SQL
-     * @param dbProfile "h2"/"mysql"/"postgresql"/"oracle"/"current" — current 면 시스템 기본 DataSource 사용
+     * @param dbProfile "settings" (기본) / "default" — settings 면 ToolkitSettings.db 사용,
+     *                  default 면 시스템 DataSource (H2) 사용
      */
     public Map<String, Object> analyze(String sql, String dbProfile) {
         if (sql == null || sql.trim().isEmpty()) {
@@ -80,24 +115,28 @@ public class IndexAdvisorService {
         }
         Map<String, Object> result = new LinkedHashMap<String, Object>();
         result.put("sql",       sql.trim());
-        result.put("dbProfile", dbProfile != null ? dbProfile : "current");
+        result.put("dbProfile", dbProfile != null ? dbProfile : "settings");
 
         // 1. 정적 파싱
         List<String> tables  = extractTables(sql);
         List<String> columns = extractPredicateColumns(sql);
 
-        // 테이블별 컬럼 그룹화 (스키마.테이블.컬럼 또는 단순 컬럼)
         Map<String, Set<String>> byTable = groupColumnsByTable(tables, columns);
         result.put("tables",        tables);
         result.put("predicateColumns", columns);
 
         // 2. 기존 인덱스 메타데이터 조회 + 매칭
+        // v4.3.x: Settings 에 외부 DB 가 설정되어 있으면 그쪽으로 연결
         List<Map<String, Object>> tableReports = new ArrayList<Map<String, Object>>();
-        try (Connection conn = dataSource.getConnection()) {
+        Connection conn = null;
+        try {
+            conn = openTargetConnection(dbProfile, result);
             DatabaseMetaData md = conn.getMetaData();
             String dbType = detectDbType(md.getDatabaseProductName());
             result.put("detectedDbType", dbType);
             result.put("dbProduct",      md.getDatabaseProductName());
+            result.put("dbUrl",          maskJdbcUrl(md.getURL()));
+            result.put("dbUsername",     md.getUserName());
 
             for (Map.Entry<String, Set<String>> e : byTable.entrySet()) {
                 String fullTable = e.getKey();
@@ -108,7 +147,6 @@ public class IndexAdvisorService {
         } catch (Exception ex) {
             log.warn("DB 메타데이터 조회 실패 — DDL 추천만 제공: {}", ex.getMessage());
             result.put("dbConnectionError", ex.getMessage());
-            // 메타 조회 실패 시에도 신규 인덱스 추천은 제공
             for (Map.Entry<String, Set<String>> e : byTable.entrySet()) {
                 Map<String, Object> tableReport = new LinkedHashMap<String, Object>();
                 tableReport.put("table", e.getKey());
@@ -121,6 +159,8 @@ public class IndexAdvisorService {
                 tableReport.put("recommendations", recs);
                 tableReports.add(tableReport);
             }
+        } finally {
+            if (conn != null) try { conn.close(); } catch (Exception ig) { /* ignore */ }
         }
         result.put("tableReports", tableReports);
 
@@ -341,5 +381,69 @@ public class IndexAdvisorService {
         if (l.contains("postgres"))   return "postgresql";
         if (l.contains("oracle"))     return "oracle";
         return "unknown";
+    }
+
+    private String detectDbTypeFromUrl(String url) {
+        if (url == null) return "unknown";
+        String l = url.toLowerCase(Locale.ROOT);
+        if (l.contains(":h2:"))         return "h2";
+        if (l.contains(":mysql:"))      return "mysql";
+        if (l.contains(":postgresql:")) return "postgresql";
+        if (l.contains(":oracle:"))     return "oracle";
+        if (l.contains(":sqlserver:"))  return "mssql";
+        return "unknown";
+    }
+
+    private String maskJdbcUrl(String url) {
+        if (url == null) return "";
+        return url.replaceAll("password=([^&;]*)", "password=****")
+                  .replaceAll(":[^:@/]+@", ":****@");
+    }
+
+    /**
+     * 분석 대상 DB 연결 — settings 우선, 미설정 시 기본 DataSource (H2) 폴백.
+     *
+     * @param dbProfile  "settings" / "default" — null 또는 다른 값은 settings 로 간주
+     * @param result     호출자 응답 맵에 source/warning 정보 주입
+     */
+    private Connection openTargetConnection(String dbProfile, Map<String, Object> result) throws Exception {
+        boolean wantsDefault = "default".equalsIgnoreCase(dbProfile)
+                            || "h2".equalsIgnoreCase(dbProfile);
+
+        if (!wantsDefault && settings != null && settings.getDb() != null
+                && settings.getDb().getUrl() != null
+                && !settings.getDb().getUrl().trim().isEmpty()) {
+            // Settings 의 외부 DB 사용
+            String url = settings.getDb().getUrl();
+            String user = settings.getDb().getUsername();
+            String pass = settings.getDb().getPassword();
+            try {
+                // 드라이버 명시적 로드 — Spring Boot 의 lazy 로딩에 의존하지 않음
+                loadDriverFor(url);
+                Connection c = DriverManager.getConnection(url, user, pass);
+                result.put("dbSource", "settings");
+                return c;
+            } catch (Exception e) {
+                log.warn("Settings DB 연결 실패 — 기본 DataSource 로 폴백: {}", e.getMessage());
+                result.put("dbSource", "default-fallback");
+                result.put("settingsDbError", e.getMessage());
+                return dataSource.getConnection();
+            }
+        }
+        result.put("dbSource", "default");
+        return dataSource.getConnection();
+    }
+
+    private void loadDriverFor(String url) {
+        if (url == null) return;
+        String l = url.toLowerCase(Locale.ROOT);
+        try {
+            if (l.contains(":oracle:"))      Class.forName("oracle.jdbc.OracleDriver");
+            else if (l.contains(":mysql:"))  Class.forName("com.mysql.cj.jdbc.Driver");
+            else if (l.contains(":postgresql:")) Class.forName("org.postgresql.Driver");
+            else if (l.contains(":h2:"))     Class.forName("org.h2.Driver");
+        } catch (ClassNotFoundException e) {
+            log.debug("JDBC 드라이버 로드 실패 (DriverManager 가 자동 시도): {}", e.getMessage());
+        }
     }
 }
