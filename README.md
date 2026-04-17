@@ -354,595 +354,189 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 
 ## 🌐 Web UI 기능 목록
 
-웹 대시보드는 **사이드바 네비게이션** 구조로 총 **24가지 AI 도구** + 설정 + 이력/즐겨찾기 관리를 제공합니다.
+웹 대시보드는 사이드바 네비게이션 구조로 **65+ 페이지** 의 AI 도구 / 분석 / 관리 / 설정 화면을 제공합니다. 아래는 카테고리별 핵심 기능만 요약. 자세한 사용법은 각 페이지의 인라인 도움말 참고.
 
----
+### 🔍 SQL / DB 분석
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| **SQL 리뷰** | `/advisor` | 자동 SQL 타입 감지, EXPLAIN PLAN 연동, 보안 / 인덱스 / Diff 탭, HIGH/MED/LOW 필터 |
+| **SQL 인덱스 시뮬레이션** ✨ | `/sql/index-advisor` | WHERE/JOIN 정적 파싱 + JDBC 메타조회 → 활용 가능 인덱스 + 신규 DDL 추천 |
+| **ERD 분석 / DDL 생성** | `/erd` | DB 자동 스캔 + Mermaid ERD + 역방향 DDL (Oracle 규격) |
+| **실행계획 분석** | `/explain` | 인터랙티브 트리, 오퍼레이션 색상, Cost 바, AI 분석 SSE 스트리밍 |
+| **실행계획 Before/After 비교** | `/explain/compare` | 두 SQL 동시 실행 + Cost 변화율 (% 개선/악화) |
+| **SQL 성능 히스토리 대시보드** | `/explain/dashboard` | Cost 추이 차트 + 기간 필터 + 변화율 색상 구분 |
+| **배치 SQL 분석** | `/sql-batch` | 최대 30개 SQL 일괄 + CSV 업로드 + 아코디언 결과 |
+| **SQL DB 번역** | `/sql-translate` | Oracle ↔ MySQL ↔ PostgreSQL 문법 변환 |
 
-### 🔍 분석 도구
+### ⚡ 코드 분석
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| **코드 리뷰 하네스** | `/harness` | Analyst → Builder → Reviewer → **Verifier** 4단계 + Diff + 품질 점수 + 검증 판정 |
+| **하네스 배치** | `/harness/batch` | Java/SQL 다중 항목 순차 분석, 다중 이메일 알림, 영구 이력 |
+| **DB 의존성 분석** | `/harness/dependency` | SP/Package/Java 의존 테이블·호출 관계·순환 위험 |
+| **품질 대시보드** | `/harness/dashboard` | 누적 통계 / 판정 비율 / 품질 점수 추이 + 드릴다운 모달 |
+| **Java 코드 리뷰** | `/codereview` | OWASP Top 10, SOLID, 컨텍스트 주입 |
+| **복잡도 분석** | `/complexity` | 순환 복잡도 + 우선순위 필터 (단일/프로젝트 모드) |
 
-#### 1. SQL / SP 코드 리뷰 — `/advisor`
+### 🛠 코드/문서 생성
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| **기술 문서 생성** | `/docgen` | Oracle SP/Package, Java/MyBatis → Markdown/Typst/HTML, 한/영 |
+| **Javadoc 생성** | `/javadoc` | public 멤버 자동 주석, SSE 스트리밍 |
+| **리팩터링 제안** | `/refactor` | 코드 문제점 → 개선 코드 (전/후 비교) |
+| **테스트 코드 생성** | `/testgen` | Controller/Service/Mapper 별 JUnit 5 전략 |
+| **API 명세 생성** | `/apispec` | OpenAPI 3.0 YAML / Swagger 2.0 어노테이션 |
+| **코드 변환** | `/converter` | SP↔Java/MyBatis 양방향 + iBatis→MyBatis |
+| **Mock 데이터** | `/mockdata` | DDL → INSERT/MERGE/CSV (1~1000 건) |
+| **DB 마이그레이션** | `/migration` | DDL 비교 → Oracle/Flyway/Liquibase + 위험도 |
+| **데이터 마스킹** | `/maskgen` | DDL 분석 → 민감 컬럼 자동 탐지 + UPDATE 마스킹 SQL |
+| **pom.xml 분석** | `/depcheck` | 취약 의존성, 버전 충돌, 업그레이드 권고 |
+| **Spring Boot 3.x 마이그레이션** | `/migrate` | javax → jakarta 체크리스트 |
 
-Oracle SQL 쿼리 또는 Stored Procedure를 분석합니다.
+### 🔧 기타 도구
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| **로그 분석기** | `/loganalyzer` | 일반/보안 분석, `.log` 업로드 |
+| **정규식 생성기** | `/regex` | 자연어 → regex + 5개 언어 예제 + 빠른 예제 8종 |
+| **커밋 메시지 생성기** | `/commitmsg` | Conventional/Gitmoji/Simple/Angular 스타일 |
+| **통합 워크스페이스** | `/workspace` | 다중 분석 병렬 실행 (Java/SQL 언어별 기능 자동 노출) |
+| **분석 파이프라인** | `/pipelines` | YAML 기반 다단계, **인터랙티브 그래프 뷰** ✨, 스케줄링 |
+| **AI 채팅** | `/chat` | Claude 자유 대화, 멀티턴 컨텍스트 |
 
-| 기능 | 설명 |
-|------|------|
-| 자동 SQL 타입 감지 | SQL / PROCEDURE / FUNCTION / TRIGGER / PACKAGE 자동 구분 |
-| DB 메타정보 포함 | Oracle 연결 시 FROM/JOIN 테이블의 컬럼·PK·인덱스 정보를 Claude에 전달 |
-| EXPLAIN PLAN 연동 | SELECT 문 실행계획을 자동 조회하여 리뷰에 포함 |
-| 보안 취약점 탭 | SQL Injection, 하드코딩 자격증명 등 보안 관점 분석 탭 별도 제공 |
-| **인덱스 최적화 탭** | SQL 쿼리 분석 후 CREATE INDEX 구문 포함 인덱스 제안 |
-| **SQL 리팩터링 Diff 뷰** ⭐ NEW | AI 제안 최적화 SQL과 원본을 LCS 기반 라인 diff로 시각화 — 삭제(🔴)·추가(🟢) 색상 구분 (v1.5) |
-| 심각도 필터 | 결과를 **HIGH / MEDIUM / LOW** 탭으로 필터링 |
-| 파일 업로드 | `.sql`, `.pls`, `.pck` 파일 직접 업로드 |
-| 복사 / 새 탭 / 다운로드 | 결과를 클립보드 복사, 새 탭으로 열기, `.md` 파일 저장 |
+### 📚 기록 / 협업
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| **리뷰 이력** | `/history` | 자동 저장, 검색/필터, **SARIF/Excel 내보내기** ✨, 공유 링크, 즐겨찾기 |
+| **즐겨찾기** | `/favorites` | 태그별 정리, H2 영속화, (사용자, 이력) 중복 방지 |
+| **검색** | `/search` | 전체 이력 키워드 검색 |
+| **사용량** | `/usage` | 일/월별 토큰 사용량 + 사용자별 제한 |
+| **ROI 리포트** | `/roi-report` | 절감 시간 환산 + 누적 분석 통계 |
+| **리뷰 요청** | `/review-requests` | VIEWER 작성 → REVIEWER/ADMIN 승인/거절 + 코멘트 + @멘션 |
+| **공유 링크** | `/share/{token}` | 7일 유효 read-only URL (로그인 불필요) |
 
-#### 2. ERD 분석 / DDL 생성 — `/erd`
+### 🔐 관리자 (ADMIN 전용)
+| 기능 | 경로 | 핵심 |
+|------|------|------|
+| 사용자 관리 | `/admin/users` | 계정 생성/수정/잠금/IP 화이트리스트 |
+| 사용자 권한 관리 | `/admin/permissions` | featureKey 별 활성/비활성 |
+| 팀 대시보드 | `/admin/team-dashboard` | 사용자별 분석/채팅 카운트 |
+| 리뷰 대시보드 | `/admin/review-dashboard` | 일별 트렌드 + 타입/리뷰어별 통계 |
+| 감사 로그 | `/admin/audit-dashboard` | API 호출 기록 |
+| 엔드포인트 통계 | `/admin/endpoint-stats` | Top 엔드포인트/사용자, 상태 코드, 일별 트렌드 |
+| **비용 옵티마이저** ✨ | `/admin/cost-optimizer` | 분석 유형별 모델 추천 (Haiku/Sonnet/Opus) + 절감액 |
+| 시스템 헬스 | `/admin/health` | JVM, DB, 디스크, 헬스체크 |
+| 백업 / 복원 | `/admin/backup` | H2 파일 다운로드 + 업로드 복원 |
+| DB 마이그레이션 | `/admin/db-migration` | H2 → MySQL/PostgreSQL 가이드 |
 
-Oracle DB 스키마를 분석하여 Mermaid ERD 다이어그램을 생성하고, ERD → Oracle DDL 역변환도 지원합니다.
-
-| 기능 | 설명 |
-|------|------|
-| DB 자동 스캔 | Oracle 연결 시 ALL_TABLES, ALL_CONSTRAINTS를 읽어 전체 스키마 분석 |
-| 텍스트 입력 | DB 연결 없이 테이블 구조를 직접 입력하여 ERD 생성 |
-| 테이블 필터 | 쉼표로 구분된 테이블명을 입력하여 원하는 테이블만 ERD 생성 |
-| Mermaid 렌더링 | 브라우저에서 바로 다이어그램으로 렌더링 |
-| **DDL 생성 탭** ⭐ NEW | Mermaid ERD, 테이블 구조 설명, 자연어 → Oracle CREATE TABLE DDL 자동 생성 |
-| **Oracle DDL 규격** ⭐ NEW | VARCHAR2, NUMBER, DATE 타입 + PK/FK 제약조건 + FK 인덱스 + COMMENT ON COLUMN 포함 |
-
-#### 3. 실행계획 분석 — `/explain`
-
-Oracle EXPLAIN PLAN을 실행하고 결과를 인터랙티브 트리로 시각화합니다.
-
-| 기능 | 설명 |
-|------|------|
-| **트리 시각화** | PLAN_TABLE을 파싱하여 부모-자식 트리로 렌더링 (클릭으로 접기/펼치기) |
-| **오퍼레이션 색상** | TABLE ACCESS FULL(🔴), INDEX 스캔(🟢), JOIN(🟣), SORT(🟡), NESTED LOOPS(🟠) 색상 구분 |
-| **비용 바** | 각 노드의 Cost를 전체 최대 Cost 대비 비율로 시각화 |
-| **요약 배지** | Total Cost, Estimated Rows 요약 표시 |
-| **AI 성능 분석** | Claude가 성능 이슈·최적화 제안·핵심 단계 해설을 Markdown으로 제공 |
-| **⚡ 스트리밍 분석** ⭐ NEW | EXPLAIN PLAN 트리를 즉시 렌더링한 뒤, Claude AI 분석을 SSE 스트리밍으로 실시간 출력 (v1.5) |
-| **원문 보기** | DBMS_XPLAN.DISPLAY() 전체 텍스트 접이식 표시 |
-| 이력 저장 | 분석 결과가 리뷰 이력에 자동 저장 |
-
-#### 3-1. 실행계획 Before/After 비교 — `/explain/compare` (v0.9.0)
-
-최적화 전/후 SQL을 나란히 분석하여 실행계획 변화를 검증합니다.
-
-| 기능 | 설명 |
-|------|------|
-| **Before/After 동시 실행** | 두 SQL을 각각 EXPLAIN PLAN 실행 후 나란히 트리로 렌더링 |
-| **Cost 비교 배지** | Total Cost 변화량 (%) 표시 — 개선(🟢) / 악화(🔴) / 동일(⚪) 시각 구분 |
-| **원문 나란히 보기** | Before/After DBMS_XPLAN 원문 각각 접이식 표시 |
-
-#### 3-3. 코드 리뷰 하네스 — `/harness` ⭐ UPDATED (v1.8.0)
-
-Java 코드 또는 SQL을 입력하거나 **파일 브라우저·DB 오브젝트**에서 직접 선택하면 **Analyst → Builder → Reviewer → Verifier** 4단계 AI 파이프라인이 자동으로 실행됩니다.
-
-| 기능 | 설명 |
-|------|------|
-| **4단계 파이프라인** ⭐ NEW | 분석가(Analyst) → 개선가(Builder) → 검토자(Reviewer) → **검증자(Verifier)** 순차 실행. 대형 SP도 이어쓰기(continuation)로 완전 출력 |
-| **Verifier 검증** ⭐ NEW | Java: 컴파일 가능성·Spring/JPA 호환성·위험 변경 감지. SQL: SQL 문법 오류·Oracle 의존성 깨짐·위험 변경 감지(DROP/TRUNCATE/DELETE without WHERE). VERIFIED/WARNINGS/FAILED 3단계 판정 |
-| **분석 템플릿** | 일반·성능 최적화·보안 취약점·리팩터링·Oracle SQL 성능·가독성 프리셋 선택 |
-| **언어 선택** | Java / SQL 탭 전환 |
-| **Diff 뷰** | 원본 vs 개선 코드를 LCS 기반 라인 diff로 시각화 — 삭제(🔴)·추가(🟢)·동일 색상 구분 |
-| **품질 점수 탭** | 가독성·성능·유지보수성·보안 각 X/10 점수 + 종합 판정 |
-| **분석 요약** | 분석가가 발견한 문제점·안티패턴·보안 이슈 항목 목록 |
-| **변경 내역** | 검토자가 정리한 각 변경 사항과 이유 목록 |
-| **검토 결과** | 기대 효과 + 최종 판정 (APPROVED / NEEDS_REVISION) |
-| **검증 결과 탭** ⭐ NEW | Verifier 4개 섹션 + 판정 배지(🟢 VERIFIED / 🟡 WARNINGS / 🔴 FAILED) |
-| **HTML 내보내기** | 원본·개선 코드·분석 결과를 독립 HTML 파일로 저장 |
-| **스트리밍 분석** | SSE 스트리밍으로 파이프라인 진행 상황 실시간 출력 |
-| **복사 / MD 저장** | 원본 복사, 개선 코드 복사, 전체 결과 `.md` 저장 |
-| **이력 저장 + 재분석** | 분석 결과 자동 저장 (`HARNESS_REVIEW`). 히스토리에서 원본 코드 재로드 가능 |
-
-#### 3-4. 배치 분석 — `/harness/batch` ⭐ UPDATED (v1.7.0)
-
-여러 Java 파일 또는 SQL 오브젝트를 한 번에 하네스 파이프라인으로 순차 분석합니다.
+### 🔑 공통 UX
 
 | 기능 | 설명 |
 |------|------|
-| **소스 선택** | 항목별 Java 파일 브라우저 / DB 오브젝트 검색으로 코드 직접 로드 |
-| **다중 항목 관리** | 라벨·코드·언어 설정으로 분석 항목을 동적으로 추가/제거 |
-| **백그라운드 실행** | 모든 항목을 순차적으로 비동기 처리 |
-| **진행률 표시** | 실시간 진행률 바 (완료 n / 전체 n) |
-| **결과 테이블** | 성공/실패 여부, 분석 요약 미리보기 |
-| **상세 모달 → 분석 결과 열기** | 배치 이력 상세에서 각 항목 row 클릭 → 분석 결과 / 원본 코드 전체 확인 |
-| **다중 이메일 알림** | 배치 완료 시 여러 수신자에게 항목별 요약 이메일 자동 발송 (SMTP 필요) |
-| **배치 이력 영구 저장** | `batch_history` H2 테이블에 배치 결과 저장. 서버 재시작 후에도 이력 유지 |
-| **이력 하이라이트** | 이메일 링크(`?highlight=uuid`) 클릭 시 해당 배치 행 자동 스크롤·강조 |
-| **이력 자동 저장** | 각 항목이 `HARNESS_REVIEW` 이력에도 자동 저장 (`ReviewHistory`) |
+| 다크 / 라이트 테마 | 상단바 토글 + localStorage |
+| **5개 언어** ✨ | ko / en / ja / zh / de + 사용자별 자동 동기화 |
+| **위젯 커스터마이징** ✨ | 홈 대시보드 드래그/리사이즈/숨김 + 사용자별 저장 |
+| 자동 임시저장 | 입력 localStorage 2초 디바운스 |
+| 토큰 수 실시간 예측 | 색상 경고 (안전/주의/위험) |
+| 실시간 알림 (SSE) | 멘션, 리뷰 대기, 시스템 이벤트 |
+| 커맨드 팔레트 | ⌘K / Ctrl+K — 페이지 즉시 이동 + 명령 검색 |
 
-#### 3-5. DB 오브젝트 의존성 분석 — `/harness/dependency` ⭐ NEW (v1.7.0)
+> ✨ = v4.3.0 신규 / 개선
 
-Oracle SP/Package/Function 또는 Java 클래스의 호출 관계·테이블 의존성을 분석합니다.
+<details>
+<summary>추가 공통 UX 세부사항 (펼치기)</summary>
 
 | 기능 | 설명 |
 |------|------|
-| **소스 선택** ⭐ NEW | Java 파일 브라우저 / DB 오브젝트 검색으로 소스 직접 로드 |
-| **SQL 의존성** | 참조 테이블/뷰(READ/WRITE 구분), 호출 프로시저, 파라미터, 순환 의존성 위험 |
-| **Java 의존성** | 외부 라이브러리, Spring Bean 주입 관계, Repository 접근 계층, 강결합 위험 |
-| **5개 섹션 보고서** | 오브젝트 정보·의존성·설계 위험 구조화 출력 |
-
-#### 3-6. 품질 대시보드 — `/harness/dashboard` ⭐ NEW (v1.7.0)
-
-누적 하네스 분석 이력을 기반으로 코드 품질 통계를 시각화합니다.
-
-| 기능 | 설명 |
-|------|------|
-| **통계 카드** | 총 분석 수, APPROVED %, NEEDS_REVISION %, Java vs SQL 비율 |
-| **판정 비율 차트** | Chart.js 도넛 차트 (APPROVED / NEEDS_REVISION / 기타) |
-| **언어 분포 차트** | Chart.js 막대 차트 (Java vs SQL 건수) |
-| **품질 점수 추이** | 최근 20건 품질 점수 라인 차트 |
-| **최근 분석 타임라인** | 분석 일시·제목·언어·점수 테이블 |
-
-#### 3-2(기존). SQL 성능 히스토리 대시보드 — `/explain/dashboard` ⭐ NEW (v1.2.0)
-
-실행계획 분석 이력을 기반으로 SQL별 Cost 추이를 차트로 시각화합니다.
-
-| 기능 | 설명 |
-|------|------|
-| **Cost 추이 차트** | 분석 횟수별 Root Cost 변화를 Chart.js 라인 차트로 표시 |
-| **기간 필터** | 전체 / 최근 30일 / 최근 7일 기간별 필터링 |
-| **색상 구분 포인트** | 이전 분석 대비 Cost 증가(🔴) / 감소(🟢) 포인트 색상 구분 |
-| **통계 요약** | 총 분석 횟수, 최대/최소/평균 Cost 통계 카드 |
-| **이력 테이블** | SQL 미리보기, 분석 일시, Cost 바, 변화율(%) 상세 목록 |
-
-#### 3-3. 배치 SQL 분석 — `/sql-batch` ⭐ NEW (v1.2.0)
-
-여러 SQL을 한 번에 입력하거나 파일로 업로드하여 일괄 리뷰합니다.
-
-| 기능 | 설명 |
-|------|------|
-| **텍스트 일괄 입력** | `---` 구분자로 구분된 다중 SQL 블록을 한 번에 분석 |
-| **CSV 파일 업로드** | CSV 1열에 SQL 목록을 넣어 업로드, 헤더 자동 스킵 |
-| **텍스트 파일 업로드** | `.sql`, `.txt` 파일 드래그 앤 드롭 업로드 |
-| **최대 30개 지원** | 한 번의 요청으로 최대 30개 SQL 일괄 분석 |
-| **아코디언 결과** | 각 SQL별 분석 결과를 접이식(accordion) UI로 표시 |
-| **MD 보고서 다운로드** | 전체 분석 결과를 단일 Markdown 파일로 다운로드 |
-| **자동 이력 저장** | 배치 분석 결과가 리뷰 이력에 자동 저장 (`SQL_BATCH` 타입) |
-
-#### 4. Java 코드 리뷰 — `/codereview`
-
-Java/Spring 소스 코드를 정적 분석합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 일반 코드 리뷰 | 버그, 코드 품질, 설계 문제, SOLID 원칙 위반 등 종합 리뷰 |
-| 보안 특화 리뷰 | OWASP Top 10, SQL Injection, XXE, 인증·세션 취약점 집중 분석 |
-| 소스 유형 선택 | Controller / Service / Repository / 일반 Java 선택 |
-| 프로젝트 컨텍스트 | 프로젝트 경로 설정 시 연관 파일을 컨텍스트로 제공 |
-| 파일 업로드 | `.java`, `.kt`, `.groovy` 파일 직접 업로드 |
-
-#### 4. 코드 복잡도 분석 — `/complexity`
-
-순환 복잡도(Cyclomatic Complexity) 분석 및 리팩터링 우선순위를 제공합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 단일 파일 모드 | 특정 Java 파일의 메서드별 복잡도 측정 |
-| 프로젝트 전체 모드 | 스캔 경로 내 전체 파일의 복잡도 통계 |
-| 우선순위 필터 | HIGH / MEDIUM / LOW 리팩터링 우선순위 필터 |
-
----
-
-### ⚡ 생성 도구
-
-#### 5. 기술 문서 자동 생성 — `/docgen`
-
-Oracle SP 또는 Java 소스 코드에서 기술 문서를 자동 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 소스 유형 선택 | Oracle SP / Function / **Oracle Package (SPEC+BODY)** / Java Service / Controller / MyBatis XML / Spring Batch ⭐ NEW |
-| 출력 형식 | **Markdown** (`.md`) / **Typst** (`.typ`) / **HTML** (`.html`) |
-| 출력 언어 | **한국어** / **English** 선택 |
-| 프로젝트 컨텍스트 | Spring 프로젝트 경로를 스캔하여 연관 파일을 컨텍스트로 제공 |
-| 렌더링 보기 / 새 탭 | marked.js 렌더링 보기 토글, 새 탭으로 열기 |
-
-#### 6. Javadoc 자동 생성 — `/javadoc` ⭐ NEW
-
-Java 소스 코드에 Javadoc 주석을 자동으로 추가합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 주석 자동 생성 | public 클래스·메서드·필드에 한국어 Javadoc 주석 삽입 |
-| 프로젝트 컨텍스트 | 설정된 프로젝트 컨텍스트를 반영하여 도메인 맞춤 주석 생성 |
-| 파일 업로드 | `.java` 파일 직접 업로드 |
-| 다운로드 | 결과를 `.java` 파일로 저장 |
-| 실시간 보기 | SSE 스트리밍으로 생성 과정 실시간 확인 |
-
-#### 7. 리팩터링 제안 — `/refactor` ⭐ NEW
-
-Java 소스 코드의 문제점을 분석하고 개선 코드를 제안합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 코드 문제점 분석 | 중복 코드, 긴 메서드, 의존성 역전 등 리팩터링 포인트 도출 |
-| 개선 코드 제공 | 리팩터링 전/후 코드를 나란히 제시 |
-| 프로젝트 컨텍스트 | 프로젝트 스타일·컨벤션 반영 |
-| 다운로드 | 결과를 `.java` 파일로 저장 |
-| 실시간 보기 | SSE 스트리밍 지원 |
-
-#### 8. pom.xml 의존성 분석 — `/depcheck` ⭐ NEW
-
-Maven pom.xml을 분석하여 취약점·충돌·업그레이드 권고를 제공합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 취약 의존성 탐지 | 알려진 보안 취약점이 있는 라이브러리 버전 경고 |
-| 버전 충돌 분석 | 의존성 간 버전 충돌 및 BOM 누락 검사 |
-| 업그레이드 권고 | 최신 안정 버전으로의 업그레이드 가이드 |
-| 심각도 필터 | HIGH / MEDIUM / LOW 우선순위 필터 |
-| 다운로드 | 분석 결과를 `.md` 파일로 저장 |
-
-#### 9. 테스트 코드 자동 생성 — `/testgen`
-
-Java 소스 코드에서 JUnit 5 테스트 클래스를 자동 생성합니다.
-
-| 소스 유형 | 생성 전략 |
-|----------|----------|
-| Controller | `@WebMvcTest` + `MockMvc` + `@MockBean` |
-| Service | `@ExtendWith(MockitoExtension)` + `@Mock` + `@InjectMocks` |
-| Mapper / Repository | `@MybatisTest` + H2 인메모리 DB |
-| 일반 Java | JUnit 5 단위 테스트 + Mockito |
-
-#### 10. API 명세 자동 생성 — `/apispec`
-
-Spring Controller 코드에서 API 명세서를 자동 생성합니다.
-
-| 출력 형식 | 설명 |
-|---------|------|
-| OpenAPI 3.0 YAML | `openapi.yaml` 파일 생성. paths, components, schemas 포함 |
-| Swagger 2.0 어노테이션 | 기존 Controller 코드에 `@ApiOperation`, `@ApiParam` 등을 추가한 Java 코드 반환 |
-
-#### 11. 코드 변환 (양방향) — `/converter`
-
-Oracle PL/SQL ↔ Java/Spring + MyBatis 코드를 양방향으로 변환합니다.
-
-| 변환 모드 | 설명 |
-|---------|------|
-| Oracle SP → Java/Spring + MyBatis | VO, Mapper.java, Mapper.xml, Service.java, ServiceImpl.java 생성 |
-| Oracle SQL → MyBatis XML | SELECT/INSERT/UPDATE/DELETE를 MyBatis XML 매퍼로 변환 |
-| Java/Spring + MyBatis → Oracle SP | Service/Repository + MyBatis XML을 Oracle Stored Procedure로 역변환 |
-| **iBatis XML → MyBatis XML** | iBatis 레거시 매퍼를 MyBatis 3.x 형식으로 자동 변환 ⭐ NEW |
-
-#### 12. Mock 데이터 생성 — `/mockdata`
-
-DDL로부터 현실적인 테스트 데이터를 자동 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 출력 형식 | Oracle `INSERT` / `MERGE` / `CSV` 선택 |
-| 행 수 설정 | 1 ~ 1,000건 범위에서 생성 건수 지정 |
-| 현실적 데이터 | 컬럼명·타입을 분석하여 업무 의미에 맞는 값 생성 (이름, 날짜, 코드 등) |
-| 다운로드 | `.sql` 또는 `.csv` 파일 저장 |
-
-#### 13. DB 마이그레이션 스크립트 — `/migration`
-
-BEFORE/AFTER DDL 비교를 통해 마이그레이션 스크립트를 자동 생성합니다.
-
-| 출력 형식 | 설명 |
-|---------|------|
-| Oracle DDL | `ALTER TABLE`, `CREATE INDEX`, rollback 스크립트 포함 |
-| Flyway | 버전 관리 SQL 마이그레이션 파일 (`V{n}__description.sql`) |
-| Liquibase | XML changeset 형식 (`changelog.xml`) |
-| 위험도 필터 | HIGH / MEDIUM / LOW 변경 위험도 필터링 |
-
-#### 14. Batch 일괄 처리 — `/batch`
-
-여러 파일을 한 번에 처리합니다.
-
-| 모드 | 설명 |
-|------|------|
-| SQL Batch 리뷰 | 여러 `.sql` 파일을 일괄 업로드하여 리뷰 결과를 ZIP으로 다운로드 |
-| TestGen Batch | 여러 `.java` 파일을 일괄 업로드하여 테스트 코드를 ZIP으로 다운로드 |
-
-#### 15. 데이터 마스킹 스크립트 생성 — `/maskgen` ⭐ NEW
-
-CREATE TABLE DDL을 입력하면 개인정보 보호 마스킹 UPDATE 스크립트를 자동 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 컬럼 자동 탐지 | 이름, 이메일, 전화번호, 주민번호 등 민감 컬럼 자동 식별 |
-| Oracle UPDATE 생성 | `UPDATE ... SET email = REGEXP_REPLACE(...)` 형식의 마스킹 SQL 생성 |
-| 다운로드 | 결과를 `.sql` 파일로 저장 |
-
-#### 16. Spring Boot 3.x 마이그레이션 — `/migrate` ⭐ NEW
-
-pom.xml 또는 Java 소스를 분석하여 Spring Boot 2.x → 3.x 마이그레이션 체크리스트를 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 의존성 변경 감지 | `javax.*` → `jakarta.*` 패키지 마이그레이션 항목 추출 |
-| 체크리스트 생성 | 버전 업그레이드, 설정 변경, 코드 수정 항목을 우선순위별 정리 |
-| 다운로드 | 체크리스트를 `.md` 파일로 저장 |
-
----
-
-### 🛠 도구
-
-#### 17. 로그 분석기 — `/loganalyzer`
-
-Spring Boot / Java 애플리케이션 로그를 AI로 분석합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 일반 분석 | 오류 원인 파악, 해결 방법, 예방 방법을 `## 오류 분석 / ## 원인 파악 / ## 해결 방법 / ## 예방 방법` 형식으로 제공 |
-| 보안 위협 탐지 | SQL 인젝션, XSS, 인증 실패, 무차별 대입 시도 등 보안 이벤트 탐지 |
-| 파일 업로드 | `.log`, `.txt` 파일 직접 업로드 후 분석 |
-| 다운로드 | 분석 결과를 `.md` 파일로 저장 |
-| 자동 임시저장 | 입력 내용 localStorage 자동 저장 |
-
-#### 18. 정규식 생성기 — `/regex`
-
-자연어 설명을 입력하면 정규식과 사용 예제를 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 다국어 지원 | Java / JavaScript / Python / Oracle SQL / Kotlin 언어별 예제 코드 생성 |
-| 빠른 예제 | 휴대폰번호, 이메일, 날짜, 주민등록번호, URL, HTML태그, 비밀번호, IPv4 원클릭 입력 |
-| 결과 구성 | 정규식 패턴 + 설명 + 언어별 코드 예제 + 테스트 케이스 |
-| 다운로드 | `.md` 파일로 저장 |
-
-#### 19. 커밋 메시지 생성기 — `/commitmsg`
-
-Git diff 또는 변경 내용 설명으로 커밋 메시지를 생성합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 입력 모드 | **Git Diff 입력** (diff/patch 파일 업로드 지원) / **변경 내용 설명** 직접 입력 |
-| 커밋 스타일 | **Conventional Commits** / **Gitmoji** / **Simple** / **Angular** 스타일 선택 |
-| 결과 구성 | 추천 커밋 메시지 + 대안 메시지 3개 + 변경 사항 요약 |
-| 파일 업로드 | `.diff`, `.patch` 파일 직접 업로드 |
-
----
-
-### 📚 기록 관리
-
-#### 20. 리뷰 이력 — `/history`
-
-모든 분석·생성 결과가 자동으로 저장됩니다.
-
-| 기능 | 설명 |
-|------|------|
-| 자동 저장 | 22가지 도구의 모든 결과 자동 기록, **H2 파일 DB 영속화** (서버 재시작 후 복원, 최대 100건) |
-| 검색 / 필터 | 키워드 검색 + 유형별 탭 필터 (SQL/문서/코드/테스트/ERD/DDL생성/실행계획/로그/정규식/커밋/Javadoc/리팩터링/의존성/마스킹/Spring이전) |
-| **재실행 버튼** ⭐ NEW | 이력 상세 모달에서 "재실행" 클릭 시 해당 기능 페이지로 입력 내용 자동 전달 |
-| **Diff 비교** | 두 항목을 선택하여 입력 코드 / 분석 결과를 나란히 비교 |
-| **보고서 묶음 내보내기** | 다중 선택 후 Markdown 번들 파일 (`.md`) 일괄 다운로드 |
-| CSV 내보내기 | 이력 전체를 Excel 호환 UTF-8 BOM CSV로 다운로드 |
-| 인쇄 / PDF 저장 | 브라우저 인쇄 기능으로 PDF 저장 가능 (`@media print` 최적화) |
-| 상세 보기 | 클릭 시 모달로 입력 코드 / 분석 결과 탭 전환 |
-| 즐겨찾기 추가 | 항목별 ★ 버튼으로 즐겨찾기에 저장 |
-
-#### 21. 즐겨찾기 — `/favorites`
-
-중요한 분석 결과를 태그로 정리하여 보관합니다.
-
-| 기능 | 설명 |
-|------|------|
-| 태그 관리 | 즐겨찾기 저장 시 태그 입력, 태그별 필터 |
-| **H2 파일 DB 영속화** | 서버 재시작 후에도 즐겨찾기 유지 (`FavoriteRepository` JPA) ⭐ NEW |
-| 상세 보기 / 복사 | 모달에서 분석 결과 확인 및 클립보드 복사 |
-
----
-
-## 🔑 공통 UX 기능
-
-| 기능 | 설명 |
-|------|------|
-| **다크 / 라이트 테마** | 상단 바 토글 버튼, localStorage 저장, 페이지 이동 시 FOUC 방지 |
-| **입력 자동 임시저장** | 입력 2초 후 localStorage 자동 저장, 새로고침/복귀 시 복원 |
-| **토큰 수 예측 표시** | 입력 글자 수 기반 예상 토큰 수 실시간 표시 (40k↑ 노랑, 80k↑ 빨강) |
-| **중복 제출 방지** | 분석 실행 시 버튼 자동 비활성화 → 90초 후 자동 복원 |
-| **⚡ 실시간 보기 버튼** | 모든 도구 페이지에 "실시간 보기" 버튼 — Claude 응답을 SSE 스트리밍으로 즉시 확인 |
-| **프로젝트 컨텍스트 자동 주입** | Settings 컨텍스트 메모가 코드 리뷰·테스트 생성·Javadoc·리팩터링 등 **모든 AI 도구**에 자동 전달 |
-| **Ctrl+Enter 단축키** | 모든 페이지에서 Ctrl+Enter(Mac: ⌘+Enter)로 즉시 분석 실행 ⭐ NEW |
-| **반응형 레이아웃** | 모바일(≤768px) / 태블릿(≤992px) 화면에서 최적화된 UI ⭐ NEW |
-| **사이드바 섹션 접기** | 분석/생성/기록/도구 섹션 개별 토글, 전체 사이드바 접기 — localStorage 상태 저장 |
-| Syntax Highlighting | Prism.js 1.29.0 — SQL, Java, XML, YAML, diff 코드 블록 자동 하이라이팅 |
-| 새 탭으로 결과 열기 | 분석 결과를 독립 탭에서 full-width로 열기 (Markdown 렌더링 포함) |
-| 단계별 로딩 메시지 | "SQL 파싱 중… → DB 조회 중… → Claude 분석 중…" 순차 표시 |
-| 클립보드 복사 | 분석 결과 원클릭 복사 |
-| 마크다운 렌더링 | `## 헤딩`, `**굵게**`, `` `코드` ``, fenced code block, severity 배지 자동 렌더링 |
-| Mermaid.js ERD | ERD 분석 결과의 `mermaid` 코드블록을 다이어그램으로 자동 렌더링 |
+| 입력 자동 임시저장 | 입력 2초 후 localStorage 저장, 새로고침/복귀 시 복원 |
+| 토큰 수 예측 표시 | 입력 글자 수 기반 예상 토큰 (40k↑ 노랑, 80k↑ 빨강) |
+| 중복 제출 방지 | 분석 실행 시 버튼 자동 비활성화 → 90초 후 복원 |
+| ⚡ 실시간 보기 | 모든 도구에 SSE 스트리밍 버튼 |
+| 프로젝트 컨텍스트 자동 주입 | Settings 메모가 코드 리뷰·테스트·Javadoc 등 모든 AI 도구에 자동 전달 |
+| Ctrl+Enter 단축키 | 즉시 분석 실행 (Mac: ⌘+Enter) |
+| 반응형 레이아웃 | 모바일 ≤768px / 태블릿 ≤992px 최적화 |
+| 사이드바 섹션 접기 | 카테고리별 토글, 전체 접기, localStorage 저장 |
+| Syntax Highlighting | Prism.js (SQL, Java, XML, YAML, diff) |
+| Mermaid.js | ERD `mermaid` 코드블록 자동 렌더링 |
+| 새 탭 열기 / 단계 로딩 / 클립보드 복사 / 마크다운 렌더링 등 |
+
+</details>
 
 ---
 
 ## ⚙️ Settings — `/settings`
 
 Oracle DB 연결 정보, Java 프로젝트 경로, Claude API, 프로젝트 컨텍스트, 모델 선택을 런타임에 설정합니다.
-설정은 `~/.claude-toolkit/settings.json` 파일에 자동 저장되어 **서버 재시작 후에도 유지**됩니다.
+설정은 `~/.claude-toolkit/settings.json` 에 자동 저장되어 **서버 재시작 후에도 유지**됩니다.
 
-### Claude API 설정
+| 그룹 | 항목 | 환경변수 / 키 |
+|------|------|--------------|
+| **Claude API** | API 키 (유효성 검사 버튼) | `CLAUDE_API_KEY` |
+| | 모델 런타임 전환 (재시작 불필요) | UI 드롭다운 — opus / sonnet / haiku |
+| **Oracle DB** | SQL 메타조회 + EXPLAIN PLAN + ERD 스캔용 | `ORACLE_DB_URL` / `ORACLE_DB_USERNAME` / `ORACLE_DB_PASSWORD` |
+| **프로젝트 경로** | 코드 리뷰 / 문서 생성 시 연관 파일 컨텍스트 자동 포함 | `toolkit.project.scan-path` |
+| **컨텍스트 메모** | 프로젝트 개요·컨벤션·도메인 — **모든 AI 도구에 자동 주입** | `toolkit.project-context` |
+| **이메일 (SMTP)** | 배치 완료 알림 / 분석 결과 발송 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` |
+| **Slack / Teams / Jira** | 웹훅 + 이슈 자동 생성 | UI Settings 입력 |
 
-| 기능 | 설명 |
-|------|------|
-| **API 키 유효성 검사** | "API 키 유효성 검사" 버튼으로 Claude API 연결 즉시 테스트 |
-| 설정 방법 | 환경변수 `CLAUDE_API_KEY` 또는 `application.yml` |
+**자동 분류 파일 유형** (프로젝트 스캔 시): Controller (`@RestController`), Service (`@Service`), Repository/DAO (`@Repository`), Mapper (`@Mapper`), MyBatis XML, DTO/VO (경로 기반), Config (`@Configuration`). `target/`, `test/`, `build/`, `.git/` 자동 제외.
 
 ```bash
+# 환경변수 예시
 export CLAUDE_API_KEY=sk-ant-...
-```
-
-### Claude 모델 선택 ⭐ NEW
-
-Settings 페이지에서 사용할 Claude 모델을 런타임에 즉시 전환할 수 있습니다.
-
-| 기능 | 설명 |
-|------|------|
-| **모델 드롭다운** | claude-opus-4-5 / claude-sonnet-4-5 / claude-sonnet-4-20250514 / claude-haiku 등 선택 |
-| **런타임 전환** | 서버 재시작 없이 즉시 모델 변경 적용 (`volatile` 오버라이드) |
-| **기본값 유지** | 빈 값 선택 시 `application.yml` 설정 모델 사용 |
-
-### Oracle DB 설정
-
-SQL 리뷰 시 테이블 메타정보 조회, EXPLAIN PLAN 실행, ERD 자동 스캔에 사용됩니다.
-
-```yaml
-# application.yml 또는 환경변수
-toolkit:
-  db:
-    url: jdbc:oracle:thin:@//hostname:1521/SERVICE_NAME
-    username: myuser
-    password: mypassword
-```
-
-```bash
-export ORACLE_DB_URL=jdbc:oracle:thin:@//hostname:1521/SERVICE_NAME
-export ORACLE_DB_USERNAME=myuser
-export ORACLE_DB_PASSWORD=mypassword
-```
-
-### Java 프로젝트 경로 설정
-
-Spring MVC 프로젝트 소스 루트를 지정하면 기술 문서 생성 / 코드 리뷰 시 연관 파일을 컨텍스트로 자동 포함합니다.
-
-```yaml
-toolkit:
-  project:
-    scan-path: C:/workspace/my-spring-project/src/main/java
-```
-
-**자동 분류 파일 유형:**
-
-| 유형 | 감지 기준 |
-|------|----------|
-| Controller | `@RestController`, `@Controller` |
-| Service | `@Service` |
-| Repository / DAO | `@Repository`, 클래스명에 `Dao` 포함 |
-| Mapper | `@Mapper`, 클래스명에 `Mapper` 포함 |
-| MyBatis XML | `.xml` 파일 내 `<mapper` 태그 |
-| DTO / VO | `dto`, `vo`, `request`, `response` 경로 |
-| Config | `@Configuration` |
-
-> `target/`, `test/`, `build/`, `.git/` 디렉토리는 자동으로 제외됩니다.
-
-### 프로젝트 컨텍스트 메모
-
-프로젝트 개요, 기술 스택, 코딩 컨벤션 등을 입력하면 **모든 AI 도구에 자동으로 컨텍스트로 주입**됩니다.
-
-- 코드 리뷰 (`/codereview`) / 테스트 생성 (`/testgen`) / 기술 문서 (`/docgen`)
-- API 명세 (`/apispec`) / 로그 분석 (`/loganalyzer`) / 정규식 (`/regex`)
-- 커밋 메시지 (`/commitmsg`) / **Javadoc 생성 (`/javadoc`)** / **리팩터링 제안 (`/refactor`)**
-- SSE 실시간 스트리밍 (`/stream`) — 스트리밍 응답에도 동일 컨텍스트 주입
-
-```
-예시:
-Spring Boot 2.7 + MyBatis + Oracle 기반 ERP 시스템
-패키지: com.mycompany.erp
-코딩 컨벤션: 한국어 주석 필수, Lombok 사용, 카멜케이스
-주요 도메인: 주문, 재고, 회원 관리
+export ORACLE_DB_URL=jdbc:oracle:thin:@//host:1521/SERVICE_NAME
 ```
 
 ---
 
-## 🔧 Spring Boot Starter 사용법
+## 🔧 Spring Boot Starter / 💻 CLI 사용법
 
-### 의존성 추가
-
-```xml
-<dependency>
-    <groupId>io.github.claude-java-toolkit</groupId>
-    <artifactId>claude-spring-boot-starter</artifactId>
-    <version>0.7.0-SNAPSHOT</version>
-</dependency>
-```
-
-### application.yml 설정
+`claude-spring-boot-starter` 를 의존성에 추가하면 `ClaudeClient` 가 자동 주입됩니다.
 
 ```yaml
+# application.yml
 claude:
-  api-key: ${CLAUDE_API_KEY}          # 환경변수 권장
-  model: claude-sonnet-4-20250514
+  api-key: ${CLAUDE_API_KEY}
+  model:   claude-sonnet-4-5
   max-tokens: 4096
-  timeout-seconds: 120
 ```
-
-### 동기 호출
 
 ```java
 @Service
 public class MyService {
     private final ClaudeClient claude;
+    public MyService(ClaudeClient claude) { this.claude = claude; }
 
-    public MyService(ClaudeClient claude) {
-        this.claude = claude;
+    // 동기 호출
+    public String review(String sql) {
+        return claude.chat("Oracle DBA", sql);
     }
 
-    public String analyzeSql(String sql) {
-        return claude.chat(
-            "You are an Oracle DBA. Review this SQL for performance issues.",
-            sql
-        );
+    // SSE 스트리밍 (JDK 1.8 Consumer)
+    public void stream(String code) {
+        claude.chatStream("Java reviewer", code, chunk -> System.out.print(chunk));
     }
+
+    // 런타임 모델 전환 (재시작 불필요)
+    public void switchModel(String m) { claude.setModelOverride(m); }
+    public String currentModel()      { return claude.getEffectiveModel(); }
 }
 ```
 
-### 스트리밍 호출 (SSE)
-
-```java
-// Consumer<String> — JDK 1.8 java.util.function 사용
-claude.chatStream(
-    "당신은 Java 코드 리뷰 전문가입니다.",
-    "다음 코드를 리뷰해주세요:\n\n" + sourceCode,
-    chunk -> System.out.print(chunk)   // 청크 단위로 실시간 출력
-);
-```
-
-### 런타임 모델 전환 ⭐ NEW
-
-```java
-// ClaudeClient Bean을 주입받아 런타임에 모델 교체
-@Autowired
-private ClaudeClient claudeClient;
-
-public void switchModel(String model) {
-    claudeClient.setModelOverride(model);  // 빈 문자열 → 기본값 복원
-}
-
-public String getCurrentModel() {
-    return claudeClient.getEffectiveModel();  // 실제 사용 중인 모델 반환
-}
-```
-
----
-
-## 💻 CLI 사용법
-
-### SQL Advisor CLI
+<details>
+<summary><b>CLI 사용법 (claude-sql-advisor / claude-doc-generator)</b></summary>
 
 ```bash
-# SQL 파일 리뷰
+# SQL Advisor CLI
 java -jar claude-sql-advisor.jar review --file my_query.sql
-
-# Stored Procedure 리뷰 + Markdown 저장
-java -jar claude-sql-advisor.jar review \
-  --file SP_MY_PROC.sql \
-  --type STORED_PROCEDURE \
-  --output report.md \
-  --api-key sk-ant-...
-
-# stdin 파이프
+java -jar claude-sql-advisor.jar review --file SP.sql --type STORED_PROCEDURE                                           --output report.md --api-key sk-ant-...
 cat my_query.sql | java -jar claude-sql-advisor.jar review
+
+# Doc Generator CLI
+java -jar claude-doc-generator.jar generate --file SP.sql --format md --output docs/SP.md
+java -jar claude-doc-generator.jar generate --file OrderService.java                                             --type "Java Service" --format typst
 ```
 
-### Doc Generator CLI
-
-```bash
-# Oracle SP → Markdown 문서 생성
-java -jar claude-doc-generator.jar generate \
-  --file SP_MY_PROC.sql \
-  --format md \
-  --output docs/SP_MY_PROC.md
-
-# Java 소스 → Typst 문서 생성
-java -jar claude-doc-generator.jar generate \
-  --file OrderService.java \
-  --type "Java Service" \
-  --format typst \
-  --output docs/OrderService.typ
-```
+</details>
 
 ---
 
@@ -974,92 +568,40 @@ PROJECT_SCAN_PATH=C:/workspace/my-project/src/main/java
 ## 🏗 아키텍처
 
 ```
-브라우저 (HTML + Bootstrap + Prism.js + marked.js + Mermaid.js)
+브라우저 (React 18 SPA + Zustand + Recharts + Mermaid + reactflow)
     │  EventSource (SSE) ──── GET /stream/{id}
-    │  fetch / form POST ──── 각 기능 엔드포인트
+    │  fetch (JSON) ──────── /api/v1/**
     ▼
-Spring MVC Controllers (claude-toolkit-ui)
-    │  SqlAdvisorController      /advisor          SQL 리뷰 + 보안 + 인덱스 최적화  ★ UPDATED
-    │  ErdAnalyzerController     /erd              ERD 생성 + DDL 생성 탭 (v0.9)             ★ UPDATED
-    │  CodeReviewController      /codereview       코드 리뷰 + 보안
-    │  ComplexityController      /complexity       순환 복잡도 분석
-    │  DocGeneratorController    /docgen           기술 문서 생성 (Oracle Package 추가)  ★ UPDATED
-    │  JavadocController         /javadoc          Javadoc 자동 생성                    ★ NEW
-    │  RefactoringController     /refactor         리팩터링 제안                        ★ NEW
-    │  DepCheckController        /depcheck         pom.xml 의존성 분석                  ★ NEW
-    │  TestGeneratorController   /testgen          JUnit5 생성
-    │  ApiSpecController         /apispec          OpenAPI 명세 생성
-    │  CodeConverterController   /converter        SP↔Java 양방향 변환 + iBatis 변환   ★ UPDATED
-    │  MockDataController        /mockdata         Mock 데이터 생성
-    │  MigrationController       /migration        DB 마이그레이션 스크립트
-    │  MaskGenController         /maskgen          데이터 마스킹 스크립트               ★ NEW
-    │  SpringMigrateController   /migrate          Spring Boot 3.x 마이그레이션         ★ NEW
-    │  BatchController           /batch            일괄 처리
-    │  LogAnalyzerController     /loganalyzer      로그 분석기
-    │  RegexGeneratorController  /regex            정규식 생성기
-    │  CommitMsgController       /commitmsg        커밋 메시지 생성기
-    │  SseStreamController       /stream           SSE 스트리밍 허브 (harness_review + sql_translate)  ★ UPDATED
-    │  ExplainPlanController     /explain          단일·스트리밍 분석 + Before/After 비교
-    │  HarnessController         /harness          4단계 파이프라인 + Verifier탭 + 검증판정배지  ★ UPDATED
-    │  HarnessBatchController    /harness/batch    배치 분석 (비동기 + 이메일 알림)
-    │  HarnessDependencyController /harness/dependency  의존성 분석 + 소스 선택 패널
-    │  HarnessDashboardController /harness/dashboard   품질 대시보드 (Chart.js 통계)
-    │  SqlTranslateController    /sql-translate    이종 DB SQL 번역 (Oracle↔MySQL↔PostgreSQL↔MSSQL)  ★ NEW
-    │  RoiReportController       /roi-report       AI 도입 ROI 시각화 (월별·기능별 Chart.js)          ★ NEW
-    │  SecurityController        /security         REST API 키 인증 + Settings 비밀번호 잠금          ★ NEW
-    │  InputMaskingController    /input-masking    양방향 민감정보 마스킹 (8가지 패턴)                 ★ NEW
-    │  ReviewHistoryController   /history          이력 관리 + 재실행·하네스재분석 버튼
-    │  FavoriteController        /favorites        즐겨찾기
-    │  SettingsController        /settings         설정 + API 검증 + 모델 선택 + 설정 비밀번호 잠금   ★ UPDATED
+Spring Boot 2.7 + Spring MVC + Spring Security
+    │  REST Controllers (api/v1) — 30+ 컨트롤러
+    │    ├─ 분석/생성: SqlAdvisor, CodeReview, DocGen, Javadoc, Refactor, ApiSpec, ...
+    │    ├─ 워크플로:  HarnessReview (Analyst→Builder→Reviewer→Verifier 4단계)
+    │    ├─ 메타조회:  IndexAdvisor (JDBC 메타 + DDL 추천), ErdAnalyzer
+    │    ├─ 인프라:    Auth, Settings, Pipeline, Notification, Share, Export
+    │    └─ 관리자:    AdminPermission, CostOptimizer, AuditLog, Backup, Health
     ▼
-Service Layer
-    │  SqlAdvisorService          — SQL/SP 리뷰 + 보안 감사 + 인덱스 최적화 제안  ★ UPDATED
-    │  ErdAnalyzerService         — ERD 생성 (테이블 필터 지원)
-    │  MockDataGeneratorService   — Mock 데이터 생성
-    │  MigrationScriptService     — DB 마이그레이션 스크립트 생성
-    │  DocGeneratorService        — 기술 문서 생성 (Oracle Package 포함)          ★ UPDATED
-    │  JavadocGeneratorService    — Javadoc 자동 생성 (컨텍스트 지원)             ★ NEW
-    │  RefactoringService         — 리팩터링 제안 + 개선 코드 생성                ★ NEW
-    │  DependencyAnalyzerService  — pom.xml 의존성 취약점·충돌·업그레이드 분석    ★ NEW
-    │  DataMaskingService         — DDL → 마스킹 UPDATE 스크립트 생성             ★ NEW
-    │  SpringMigrationService     — Spring Boot 2.x→3.x 마이그레이션 체크리스트   ★ NEW
-    │  TestGeneratorService       — JUnit5 생성
-    │  ApiSpecGeneratorService    — OpenAPI 생성
-    │  CodeConverterService       — SP↔Java 양방향 변환 + iBatis→MyBatis 변환    ★ UPDATED
-    │  CodeReviewService          — Java 코드 리뷰 + 보안 리뷰
-    │  ComplexityAnalyzerService  — 순환 복잡도 분석
-    │  LogAnalyzerService         — 로그 분석 + 보안 위협 탐지
-    │  RegexGeneratorService      — 정규식 생성 (5개 언어)
-    │  CommitMsgService           — 커밋 메시지 생성 (4가지 스타일)
-    │  OracleMetaService          — Oracle JDBC 메타정보 조회
-    │  ProjectScannerService      — Spring 소스 파일 스캔
-    │  ReviewHistoryService       — H2 파일 DB 영속화 이력 관리 (JPA, 20가지 유형)
-    │  ReviewHistoryRepository    — Spring Data JPA Repository (H2 파일 DB)
-    │  HarnessReviewService       — Analyst·Builder·Reviewer·Verifier 4단계 파이프라인 (Verifier 완성)  ★ UPDATED
-    │  HarnessBatchService        — 배치 비동기 분석 + H2 이력 저장 + 다중 이메일
-    │  BatchHistory               — JPA 엔티티 (batch_history 테이블)
-    │  BatchHistoryRepository     — Spring Data JPA Repository (배치 이력)
-    │  HarnessCacheService        — DB 오브젝트 캐시 + cron 자동 갱신
-    │  SqlTranslateService        — 이종 DB 번역 시스템 프롬프트 빌더 (4종 DB)       ★ NEW
-    │  RoiCalculator              — 월별·기능별 ROI 계산 (토큰비용·절감시간·ROI%)     ★ NEW
-    │  RoiSettings                — ROI 설정 영속화 (~/.claude-toolkit/roi-settings.json)  ★ NEW
-    │  SecuritySettings           — API 키 인증 + Settings 비밀번호 잠금 (BCrypt)    ★ NEW
-    │  AuditLogService            — API 호출·설정변경 감사 로그 H2 영속화             ★ NEW
-    │  ApiKeyFilter               — X-API-Key 헤더 인증 서블릿 필터                  ★ NEW
-    │  SensitiveMaskingService    — 텍스트 민감정보 토큰 치환/복원 (8가지 regex 패턴) ★ NEW
-    │  FavoriteService            — 즐겨찾기 관리 (JPA 영속화)
-    │  FavoriteRepository         — Spring Data JPA Repository (즐겨찾기)
-    │  SettingsPersistenceService — JSON 파일 설정 영속화 (claudeModel 포함)
+Service Layer + JPA (claude-toolkit-ui)
+    │  ReviewHistoryService / FavoriteService / PipelineExecutor
+    │  ToolkitMetrics (Prometheus 4종 + 자동 메트릭) ✨
+    │  ModelCostService / IndexAdvisorService ✨
+    │  H2 (개발) / MySQL / PostgreSQL (운영)
     ▼
 ClaudeClient (claude-spring-boot-starter)
-    │  chat(systemPrompt, userMessage)            — 동기 요청
-    │  chatStream(systemPrompt, msg, Consumer)    — SSE 스트리밍
-    │  setModelOverride(model)                    — 런타임 모델 전환             ★ NEW
-    │  getEffectiveModel()                        — 현재 사용 모델 반환          ★ NEW
-    │  OkHttp3 기반 HTTP 클라이언트
-    │  api.anthropic.com/v1/messages
+    │  chat() / chatStream() / chatStreamWithContinuation() — SSE
+    │  setModelOverride() / getEffectiveModel() — 런타임 모델 전환
+    │  토큰 사용량 캡처 (lastInputTokens / lastOutputTokens)
+    │  OkHttp3 + Forward Proxy + TLSv1.2/1.3
     ▼
-Anthropic Claude API
+Anthropic Claude API (Opus 4.x / Sonnet 4.x / Haiku 4.x)
+```
+
+### 모니터링 흐름 (v4.3.0)
+
+```
+Spring App  →  /actuator/prometheus  →  Prometheus  →  Grafana
+   ↑                                       (15s scrape)    (대시보드 10패널)
+   └─ ToolkitMetrics (claude_api_calls_total / claude_api_tokens_total /
+                       analysis_duration_seconds / pipeline_execution_total)
 ```
 
 ---
@@ -1068,132 +610,53 @@ Anthropic Claude API
 
 ```
 claude-java-toolkit/
-├── claude-spring-boot-starter/
-│   └── src/main/java/io/github/claudetoolkit/starter/
-│       ├── client/ClaudeClient.java            # chat() + chatStream() + modelOverride (JDK 1.8)  ★ UPDATED
-│       ├── config/ClaudeAutoConfiguration.java
-│       ├── model/ClaudeRequest/Response/Message.java
-│       └── properties/ClaudeProperties.java
-│
-├── claude-sql-advisor/
-│   └── src/main/java/io/github/claudetoolkit/sql/
-│       ├── advisor/SqlAdvisorService.java        # SQL 리뷰 + 보안 감사 + suggestIndexes()  ★ UPDATED
-│       ├── db/OracleMetaService.java             # Oracle 메타정보 + EXPLAIN PLAN
-│       ├── erd/ErdAnalyzerService.java           # ERD 생성 (테이블 필터)
-│       ├── ddl/DdlGeneratorService.java          # ERD/스키마 → Oracle DDL 생성        ★ NEW (v0.9)
-│       ├── mockdata/MockDataGeneratorService.java
-│       ├── migration/MigrationScriptService.java
-│       ├── model/AdvisoryResult/SqlType.java
-│       └── cli/SqlAdvisorCli.java
-│
-├── claude-doc-generator/
-│   └── src/main/java/io/github/claudetoolkit/docgen/
-│       ├── generator/DocGeneratorService.java     # Oracle Package 소스타입 추가             ★ UPDATED
-│       ├── converter/CodeConverterService.java    # SP↔Java 양방향 변환 + iBatis→MyBatis    ★ UPDATED
-│       ├── javadoc/JavadocGeneratorService.java   # Javadoc 자동 생성                       ★ NEW
-│       ├── refactoring/RefactoringService.java    # 리팩터링 제안                           ★ NEW
-│       ├── depcheck/DependencyAnalyzerService.java# pom.xml 의존성 분석                     ★ NEW
-│       ├── masking/DataMaskingService.java        # 데이터 마스킹 스크립트                  ★ NEW
-│       ├── migration/SpringMigrationService.java  # Spring Boot 3.x 마이그레이션            ★ NEW
-│       ├── testgen/TestGeneratorService.java
-│       ├── apispec/ApiSpecGeneratorService.java
-│       ├── codereview/CodeReviewService.java
-│       ├── complexity/ComplexityAnalyzerService.java
-│       ├── loganalyzer/LogAnalyzerService.java
-│       ├── regex/RegexGeneratorService.java
-│       ├── commitmsg/CommitMsgService.java
-│       ├── scanner/ProjectScannerService.java
-│       └── cli/DocGeneratorCli.java
-│
-└── claude-toolkit-ui/
-    └── src/main/java/io/github/claudetoolkit/ui/
-        ├── config/
-        │   ├── ToolkitSettings.java               # DB + 프로젝트 경로 + 컨텍스트 + claudeModel  ★ UPDATED
-        │   ├── ToolkitWebConfig.java               # 서비스 빈 등록 (5종 신규 추가)              ★ UPDATED
-        │   └── SettingsPersistenceService.java    # JSON 파일 설정 영속화 (claudeModel 포함)     ★ UPDATED
-        ├── history/
-        │   ├── ReviewHistory.java                  # JPA @Entity, harness 3개 필드 추가    ★ UPDATED
-        │   ├── ReviewHistoryRepository.java         # Spring Data JPA Repository
-        │   ├── ReviewHistoryService.java            # saveHarness() + deleteRecentByType()  ★ UPDATED
-        │   └── HarnessHistoryCleanup.java           # 앱 시작 1회 정리 컴포넌트             ★ NEW
-        ├── favorites/
-        │   ├── Favorite.java                       # JPA @Entity 변환                           ★ UPDATED
-        │   ├── FavoriteRepository.java              # Spring Data JPA Repository                 ★ NEW
-        │   └── FavoriteService.java                # JPA @Transactional 영속화                  ★ UPDATED
-        └── controller/
-            ├── HomeController.java
-            ├── SqlAdvisorController.java           # index 탭 추가                              ★ UPDATED
-            ├── ErdAnalyzerController.java
-            ├── CodeReviewController.java
-            ├── ComplexityController.java
-            ├── DocGeneratorController.java
-            ├── JavadocController.java              # ★ NEW
-            ├── RefactoringController.java          # ★ NEW
-            ├── DepCheckController.java             # ★ NEW
-            ├── MaskGenController.java              # ★ NEW
-            ├── SpringMigrateController.java        # ★ NEW
-            ├── TestGeneratorController.java
-            ├── ApiSpecController.java
-            ├── CodeConverterController.java
-            ├── MockDataController.java
-            ├── MigrationController.java
-            ├── BatchController.java
-            ├── LogAnalyzerController.java
-            ├── RegexGeneratorController.java
-            ├── CommitMsgController.java
-            ├── SseStreamController.java            # sql_translate 스트리밍 추가                  ★ UPDATED
-            ├── HarnessBatchController.java         # /harness/batch — 배치 분석
-            ├── HarnessDependencyController.java    # /harness/dependency — 의존성 분석
-            ├── HarnessDashboardController.java     # /harness/dashboard — 품질 대시보드
-            ├── SqlTranslateController.java         # /sql-translate — 이종 DB SQL 번역            ★ NEW
-            ├── RoiReportController.java            # /roi-report — ROI 리포트                     ★ NEW
-            ├── SecurityController.java             # /security — 보안 설정 + 감사 로그            ★ NEW
-            ├── InputMaskingController.java         # /input-masking — 민감정보 마스킹             ★ NEW
-            ├── ReviewHistoryController.java        # diff 비교 + bundle export + purge
-            ├── FavoriteController.java
-            └── SettingsController.java             # 설정 비밀번호 잠금 연동                     ★ UPDATED
-    └── src/main/resources/
-        ├── static/css/toolkit.css                  # 반응형 레이아웃 (모바일/태블릿) 추가        ★ UPDATED
-        ├── static/js/toolkit.js                    # Ctrl+Enter 단축키 추가                     ★ UPDATED
-        └── templates/
-            ├── fragments/sidebar.html              # 실행계획 비교 메뉴 추가 + v1.8.0 버전 표시  ★ UPDATED
-            ├── index.html
-            ├── advisor/index.html
-            ├── erd/index.html                      # DDL 생성 탭 추가                           ★ UPDATED (v0.9)
-            ├── codereview/index.html
-            ├── complexity/index.html
-            ├── docgen/index.html                   # Oracle Package 소스타입 추가               ★ UPDATED
-            ├── javadoc/index.html                  # ★ NEW
-            ├── refactor/index.html                 # ★ NEW
-            ├── depcheck/index.html                 # ★ NEW
-            ├── maskgen/index.html                  # ★ NEW
-            ├── migrate/index.html                  # ★ NEW
-            ├── testgen/index.html
-            ├── apispec/index.html
-            ├── converter/index.html                # iBatis 변환 탭 추가                        ★ UPDATED
-            ├── mockdata/index.html
-            ├── migration/index.html
-            ├── batch/index.html
-            ├── loganalyzer/index.html
-            ├── regex/index.html
-            ├── commitmsg/index.html
-            ├── explain/index.html
-            ├── explain/compare.html                # Before/After 비교                          ★ NEW (v0.9)
-            ├── harness/index.html                  # 4단계 파이프라인·Verifier탭·검증판정배지    ★ UPDATED
-            ├── harness/batch.html                  # 배치 분석 + 이력 테이블 + 항목별 결과 모달
-            ├── harness/dependency.html             # 의존성 분석 + 소스 선택 패널
-            ├── harness/dashboard.html              # 품질 대시보드 (Chart.js 3종 차트)
-            ├── sql-translate/index.html            # 이종 DB SQL 번역 (소스/타겟 DB 선택)       ★ NEW
-            ├── roi-report/index.html               # ROI 리포트 (월별·기능별 Chart.js)          ★ NEW
-            ├── security/index.html                 # 보안 설정 (API 키·설정 잠금·감사 로그)     ★ NEW
-            ├── security/settings-unlock.html       # Settings 비밀번호 잠금 해제 페이지         ★ NEW
-            ├── input-masking/index.html            # 민감정보 마스킹 (패턴 선택·토큰 맵)        ★ NEW
-            ├── history/index.html                  # 재실행 버튼 + 하네스 재분석 버튼
-            ├── favorites/index.html
-            └── settings/index.html                 # Claude 모델 선택 + DB캐시 cron 패널       ★ UPDATED
+├── claude-spring-boot-starter/     # Library (ClaudeClient + Auto-config)
+├── claude-sql-advisor/             # Library + CLI (SQL 리뷰, ERD, EXPLAIN PLAN)
+├── claude-doc-generator/           # Library + CLI (문서/Javadoc/리팩터링/...)
+├── claude-toolkit-ui/              # Spring Boot + React SPA (메인 웹 대시보드)
+│   ├── src/main/java/io/github/claudetoolkit/ui/
+│   │   ├── api/             # REST 컨트롤러 (Auth, Data, Sql, Doc, Erd, Health)
+│   │   ├── controller/      # SSE 스트림, Pipeline, Notification, Share 컨트롤러
+│   │   ├── config/          # SecurityConfig, ToolkitSettings, GlobalException
+│   │   ├── pipeline/        # PipelineExecutor + Spec/Yaml + StepResult
+│   │   ├── harness/         # 4단계 코드 리뷰 (Analyst/Builder/Reviewer/Verifier)
+│   │   ├── workspace/       # AnalysisType + Service Registry
+│   │   ├── history/         # ReviewHistory + Repository
+│   │   ├── user/            # AppUser + Permission + 2FA
+│   │   ├── notification/    # SSE 알림 + PendingReviewNotifier
+│   │   ├── metrics/         # ToolkitMetrics (Micrometer)                ✨ v4.3.0
+│   │   ├── cost/            # ModelCostService + Optimizer Controller    ✨ v4.3.0
+│   │   ├── sqlindex/        # IndexAdvisor (JDBC 메타조회 + DDL 추천)    ✨ v4.3.0
+│   │   ├── dashboard/       # UserDashboardLayout + Controller          ✨ v4.3.0
+│   │   └── export/          # SARIF + Excel Export Service              ✨ v4.3.0
+│   ├── src/main/resources/
+│   │   ├── application.yml          # 메인 설정 (DB / Claude / Actuator / Metrics)
+│   │   └── static/app/              # React 번들 (Vite 빌드 결과물)
+│   └── frontend/
+│       ├── src/
+│       │   ├── pages/               # 65+ 페이지 (analysis/admin/auth)
+│       │   ├── components/          # 공용 컴포넌트 (PipelineGraphView, MentionInput, ...)
+│       │   ├── stores/              # Zustand (auth/theme/sidebar/notification/toast)
+│       │   ├── i18n/                # ko/en/ja/zh/de                    ✨ v4.3.0
+│       │   └── hooks/utils/types/
+│       └── e2e/                     # Playwright 회귀 테스트
+├── helm/claude-toolkit/            # Kubernetes Helm Chart                ✨ v4.3.0
+│   ├── Chart.yaml / values.yaml / README.md
+│   └── templates/                   # Deployment / Service / Ingress / Secret /
+│                                    # PVC / HPA / ServiceAccount / ServiceMonitor / NOTES
+├── monitoring/                     # Prometheus + Grafana 프로비저닝       ✨ v4.3.0
+│   ├── prometheus.yml
+│   └── grafana/
+│       ├── provisioning/datasources/    # Prometheus 자동 등록
+│       ├── provisioning/dashboards/     # 대시보드 자동 로드
+│       └── dashboards/claude-toolkit-overview.json    # 10 패널
+├── docs/index.html                 # GitHub Pages 소개 페이지
+├── docker-compose.yml              # 4개 프로필 (default/mysql/postgresql/monitoring)
+├── Dockerfile                      # Multi-stage (Maven + Node + JDK 8 JRE)
+└── pom.xml                         # 부모 POM (BOM 버전 관리)
 ```
 
----
+> ✨ = v4.3.0 신규 모듈 / 디렉토리
 
 ## 📋 주요 기술 스택
 
