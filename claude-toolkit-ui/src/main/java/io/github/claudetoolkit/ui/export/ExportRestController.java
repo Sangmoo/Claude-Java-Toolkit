@@ -78,9 +78,9 @@ public class ExportRestController {
             return ResponseEntity.ok().headers(headers).body(body);
         } catch (Exception e) {
             log.error("SARIF 내보내기 실패: id={}", historyId, e);
-            String err = ("{\"error\": \"SARIF export failed: "
+            String err = "{\"error\": \"SARIF export failed: "
                     + (e.getMessage() != null ? e.getMessage().replace("\"", "'") : "")
-                    + "\"}").getBytes(StandardCharsets.UTF_8).toString();
+                    + "\"}";
             return ResponseEntity.status(500)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(err.getBytes(StandardCharsets.UTF_8));

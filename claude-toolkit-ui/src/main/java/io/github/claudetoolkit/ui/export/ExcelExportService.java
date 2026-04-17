@@ -143,7 +143,11 @@ public class ExcelExportService {
         Map<String, long[]> stats = new HashMap<String, long[]>(); // type → [count, totalTokens]
         for (ReviewHistory h : histories) {
             String key = h.getType() != null ? h.getType() : "UNKNOWN";
-            long[] s = stats.computeIfAbsent(key, k -> new long[]{ 0, 0 });
+            long[] s = stats.get(key);
+            if (s == null) {
+                s = new long[]{ 0L, 0L };
+                stats.put(key, s);
+            }
             s[0]++;
             s[1] += h.getTotalTokens();
         }
