@@ -1,0 +1,25 @@
+# v4.3.0 — Prometheus 스크랩 설정 (docker-compose --profile monitoring 전용)
+#
+# claude-toolkit 컨테이너의 /actuator/prometheus 엔드포인트를 15초 간격으로 폴링.
+# 도커 네트워크 내부에서 컨테이너 이름으로 접근 (claude-toolkit:8027).
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'claude-toolkit-monitor'
+
+scrape_configs:
+  # Spring Boot 앱의 actuator/prometheus 엔드포인트
+  - job_name: 'claude-toolkit'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['claude-toolkit:8027']
+        labels:
+          service: 'claude-toolkit'
+          env:     'docker'
+
+  # Prometheus 자체 메트릭 (셀프 스크랩 — 모니터링의 모니터링)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

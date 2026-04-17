@@ -101,6 +101,13 @@
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.5</version>
         </dependency>
+
+        <!-- v4.3.0: Micrometer Prometheus 레지스트리 (Grafana 연동) -->
+        <!-- /actuator/prometheus 엔드포인트로 메트릭 노출 -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

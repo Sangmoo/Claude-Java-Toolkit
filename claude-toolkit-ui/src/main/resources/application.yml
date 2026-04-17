@@ -43,12 +43,13 @@ toolkit:
   favorites:
     max: ${TOOLKIT_FAVORITES_MAX:500}     # 전체 즐겨찾기 상한
 
-# ── Actuator / Health ─────────────────────────────────────────────────────
+# ── Actuator / Health / Metrics ───────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # v4.3.0: prometheus 엔드포인트 추가 (/actuator/prometheus — Grafana 스크랩용)
+        include: health,info,prometheus
   endpoint:
     health:
       show-details: always
@@ -57,6 +58,18 @@ management:
       # 묶지 않도록 함. Indicator 자체에도 60초 캐시가 있어서 이중 보호.
       cache:
         time-to-live: 30s
+  metrics:
+    # v4.3.0: 모든 메트릭에 application 태그 자동 부여 (Grafana 다중 인스턴스 구분용)
+    tags:
+      application: claude-toolkit
+    # 분포 통계 — HTTP 요청 시간/SQL 분석 시간 백분위 (p50/p95/p99) 노출
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        analysis.duration: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        analysis.duration: 0.5, 0.95, 0.99
 
 logging:
   level:

@@ -60,7 +60,54 @@ services:
     profiles:
       - postgresql
 
+  # ────────────────────────────────────────────────────────────────────────
+  # v4.3.0: 모니터링 스택 (docker-compose --profile monitoring up -d)
+  # ────────────────────────────────────────────────────────────────────────
+  # Prometheus 가 claude-toolkit:8027/actuator/prometheus 를 15초 간격으로 스크랩.
+  # Grafana 는 Prometheus 를 데이터소스로 자동 등록 + "Claude Toolkit Overview"
+  # 대시보드를 자동 프로비저닝.
+  #
+  # 접속:
+  #   - Grafana:    http://localhost:3000  (admin/admin, 첫 로그인 시 비번 변경)
+  #   - Prometheus: http://localhost:9090  (메트릭 직접 쿼리용 — 대부분 안 봐도 됨)
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: claude-toolkit-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: claude-toolkit-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
 volumes:
   toolkit-data:
   db-data:
   pg-data:
+  prometheus-data:
+  grafana-data:
