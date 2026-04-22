@@ -8,9 +8,10 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import {
   FaPlay, FaSync, FaTimes, FaDownload, FaSitemap,
-  FaDatabase, FaFileCode, FaFileAlt,
+  FaDatabase, FaFileCode, FaFileAlt, FaHistory, FaShareAlt, FaTrash,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
+import { useSearchParams } from 'react-router-dom'
 
 /**
  * v4.4.x — 데이터 흐름 분석 페이지 (Phase 3)
@@ -26,6 +27,15 @@ import { useToast } from '../../hooks/useToast'
 // ── 타입 ────────────────────────────────────────────────────────────────────
 
 type NodeType = 'ui' | 'controller' | 'service' | 'dao' | 'mybatis' | 'sp' | 'table'
+type DmlKind  = 'INSERT' | 'UPDATE' | 'MERGE' | 'DELETE' | 'SELECT'
+
+const DML_OPTIONS: { value: DmlKind; label: string; color: string }[] = [
+  { value: 'INSERT', label: 'INSERT (등록)',  color: '#10b981' },
+  { value: 'UPDATE', label: 'UPDATE (수정)',  color: '#f59e0b' },
+  { value: 'MERGE',  label: 'MERGE (병합)',   color: '#8b5cf6' },
+  { value: 'DELETE', label: 'DELETE (삭제)',  color: '#ef4444' },
+  { value: 'SELECT', label: 'SELECT (조회)',  color: '#3b82f6' },
+]
 
 interface FlowNode  { id: string; type: NodeType; label: string; file?: string; line?: number; meta?: Record<string, string> }
 interface FlowEdge  { from: string; to: string; label?: string }
@@ -138,13 +148,22 @@ function layoutNodes(nodes: FlowNode[], edges: FlowEdge[], onSelect: (n: FlowNod
 
 // ── 페이지 본체 ────────────────────────────────────────────────────────────
 
+interface HistoryItem {
+  id: number; query: string; targetType: string; dmlFilters: string;
+  nodesCount: number; edgesCount: number; elapsedMs: number; createdAt: string;
+}
+
 export default function FlowAnalysisPage() {
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // 입력 폼
   const [query, setQuery]             = useState('')
   const [targetType, setTargetType]   = useState<'AUTO' | 'TABLE' | 'SP' | 'SQL_ID' | 'MIPLATFORM_XML'>('AUTO')
-  const [dmlFilter, setDmlFilter]     = useState<'ALL' | 'INSERT' | 'UPDATE' | 'MERGE' | 'DELETE'>('ALL')
+  // v4.4.x — 다중 DML 선택 (SELECT 추가, 기본은 데이터 변경 4종)
+  const [dmlFilters, setDmlFilters] = useState<Set<DmlKind>>(
+    () => new Set<DmlKind>(['INSERT', 'UPDATE', 'MERGE', 'DELETE'])
+  )
   const [maxBranches, setMaxBranches] = useState(3)
   const [includeDb, setIncludeDb]     = useState(true)
   const [includeUi, setIncludeUi]     = useState(true)
@@ -156,10 +175,105 @@ export default function FlowAnalysisPage() {
   const [narrative,  setNarrative]  = useState('')
   const [selected,   setSelected]   = useState<FlowNode | null>(null)
 
+  // Phase 4 — 이력 + 공유
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const [showHistory,  setShowHistory]  = useState(true)
+  const [savedHistoryId, setSavedHistoryId] = useState<number | null>(null)
+  const [readOnly, setReadOnly] = useState(false)  // 공유 링크로 진입한 경우 입력 비활성
+
   const esRef = useRef<EventSource | null>(null)
 
   // SSE 종료 시 정리
   useEffect(() => () => { esRef.current?.close() }, [])
+
+  // ── Phase 4: 이력 목록 로드 ────────────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    try {
+      const r = await fetch('/api/v1/flow/history?limit=20', { credentials: 'include' })
+      const d = await r.json()
+      if (d.success) setHistoryItems(d.data || [])
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { loadHistory() }, [loadHistory])
+
+  // ── 이력 항목 클릭 → trace + narrative 즉시 복원 ───────────────────
+  const loadHistoryItem = async (id: number) => {
+    if (streaming) return
+    try {
+      const r = await fetch(`/api/v1/flow/history/${id}`, { credentials: 'include' })
+      const d = await r.json()
+      if (!d.success) { toast.error(d.error || '이력 로드 실패'); return }
+      const result: FlowResult = JSON.parse(d.data.traceJson)
+      setQuery(d.data.query || '')
+      setTrace(result)
+      setNarrative(d.data.narrative || '')
+      setSelected(null)
+      setSavedHistoryId(id)
+      setReadOnly(false)
+      toast.info(`이력 복원: ${d.data.createdAt}`)
+    } catch (e) {
+      toast.error('이력 파싱 실패')
+    }
+  }
+
+  const deleteHistoryItem = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('이 분석 이력을 삭제하시겠어요?')) return
+    try {
+      const r = await fetch(`/api/v1/flow/history/${id}`, { method: 'DELETE', credentials: 'include' })
+      const d = await r.json()
+      if (d.success) { toast.success('삭제됨'); loadHistory() }
+      else toast.error(d.error || '삭제 실패')
+    } catch { toast.error('삭제 호출 실패') }
+  }
+
+  // ── 공유 링크 생성 ───────────────────────────────────────────────────
+  const createShare = async () => {
+    if (!savedHistoryId) {
+      toast.warning('저장된 이력이 없습니다. 먼저 분석을 실행하세요.')
+      return
+    }
+    try {
+      const r = await fetch(`/api/v1/flow/history/${savedHistoryId}/share`,
+                            { method: 'POST', credentials: 'include' })
+      const d = await r.json()
+      if (!d.success) { toast.error(d.error || '공유 실패'); return }
+      const fullUrl = window.location.origin + d.data.shareUrl
+      try {
+        await navigator.clipboard.writeText(fullUrl)
+        toast.success(`공유 링크 복사됨 (${d.data.remaining})`)
+      } catch {
+        // HTTP 환경 fallback — execCommand
+        const ta = document.createElement('textarea')
+        ta.value = fullUrl; ta.style.position = 'fixed'
+        document.body.appendChild(ta); ta.select()
+        try { document.execCommand('copy'); toast.success('공유 링크 복사됨') }
+        catch { toast.info(fullUrl) }
+        document.body.removeChild(ta)
+      }
+    } catch { toast.error('공유 호출 실패') }
+  }
+
+  // ── ?share=token 으로 진입 → 공유 링크 복원 (read-only 모드) ──────────
+  useEffect(() => {
+    const token = searchParams.get('share')
+    if (!token) return
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/v1/share/${token}`, { credentials: 'include' })
+        const d = await r.json()
+        if (!d.success) { toast.error(d.error || '공유 링크 만료/무효'); return }
+        if (d.menuName !== 'flow') { toast.error('Flow Analysis 공유 링크가 아닙니다.'); return }
+        const result: FlowResult = JSON.parse(d.inputText || '{}')
+        setQuery(d.title?.replace(/^Flow:\s*/, '') ?? '')
+        setTrace(result)
+        setNarrative(d.resultText || '')
+        setReadOnly(true)
+        toast.info(`공유 링크 — ${d.remaining}`)
+      } catch { toast.error('공유 데이터 로드 실패') }
+    })()
+  }, [searchParams, toast])
 
   const handleSelect = useCallback((n: FlowNode) => setSelected(n), [])
 
@@ -171,6 +285,7 @@ export default function FlowAnalysisPage() {
   // ── 분석 시작 ────────────────────────────────────────────────────────
   const startAnalysis = async () => {
     if (!query.trim()) { toast.warning('질문을 입력해주세요.'); return }
+    if (dmlFilters.size === 0) { toast.warning('DML 필터에서 최소 1개를 선택하세요.'); return }
     if (streaming) return
 
     setStreaming(true)
@@ -178,6 +293,12 @@ export default function FlowAnalysisPage() {
     setTrace(null)
     setNarrative('')
     setSelected(null)
+    setSavedHistoryId(null)
+    setReadOnly(false)
+    if (searchParams.get('share')) {
+      const next = new URLSearchParams(searchParams); next.delete('share')
+      setSearchParams(next, { replace: true })
+    }
 
     try {
       // Step 1: POST /flow/stream/start (세션에 요청 적재)
@@ -188,7 +309,7 @@ export default function FlowAnalysisPage() {
         body: JSON.stringify({
           query: query.trim(),
           targetType,
-          dmlFilter,
+          dmlFilters: Array.from(dmlFilters),  // v4.4.x — 다중 DML 배열
           maxBranches,
           includeDb,
           includeUi,
@@ -227,6 +348,17 @@ export default function FlowAnalysisPage() {
           es.close(); esRef.current = null
           setStreaming(false)
           setStatusText('')
+          // Phase 4 — 백엔드가 history 저장 → 목록 새로고침 + 최신 항목 ID 저장
+          ;(async () => {
+            try {
+              const r = await fetch('/api/v1/flow/history?limit=20', { credentials: 'include' })
+              const d = await r.json()
+              if (d.success && d.data && d.data.length > 0) {
+                setHistoryItems(d.data)
+                setSavedHistoryId(d.data[0].id)
+              }
+            } catch { /* silent */ }
+          })()
           return
         }
         if (!acc) setStatusText('')   // 첫 chunk 도착 → status 사라짐
@@ -303,6 +435,15 @@ export default function FlowAnalysisPage() {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button style={styles.iconBtn} onClick={() => setShowHistory((v) => !v)}
+                  title="최근 분석 이력 보기/숨기기">
+            <FaHistory /> 이력 ({historyItems.length})
+          </button>
+          {savedHistoryId && !streaming && (
+            <button style={styles.iconBtn} onClick={createShare} title="공유 링크 생성 (7일 유효)">
+              <FaShareAlt /> 공유
+            </button>
+          )}
           <button style={styles.iconBtn} onClick={reindex} disabled={streaming} title="모든 인덱서 재빌드 (Settings 변경 후)">
             <FaSync /> 인덱스 재빌드
           </button>
@@ -318,6 +459,51 @@ export default function FlowAnalysisPage() {
       <div style={styles.body}>
         {/* ───── 좌측 패널 (35%) ───── */}
         <div style={styles.leftPanel}>
+          {/* 공유 링크 read-only 배너 */}
+          {readOnly && (
+            <div style={styles.shareBanner}>
+              🔗 공유 링크로 진입한 read-only 보기입니다. 새 분석을 시작하려면 질문을 입력하세요.
+            </div>
+          )}
+
+          {/* Phase 4 — 이력 패널 (toggle) */}
+          {showHistory && historyItems.length > 0 && (
+            <div style={styles.historyCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
+                  📜 최근 분석 ({historyItems.length})
+                </span>
+                <button
+                  style={{ ...styles.iconBtn, padding: '2px 6px', fontSize: 10 }}
+                  onClick={() => setShowHistory(false)}
+                ><FaTimes /></button>
+              </div>
+              <div style={styles.historyList}>
+                {historyItems.map((h) => (
+                  <div key={h.id}
+                       onClick={() => loadHistoryItem(h.id)}
+                       style={{
+                         ...styles.historyItem,
+                         background: savedHistoryId === h.id ? 'var(--bg-secondary)' : 'transparent',
+                       }}
+                       title="클릭하여 복원">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={styles.historyQuery} title={h.query}>{h.query}</div>
+                      <div style={styles.historyMeta}>
+                        {h.targetType} · {h.dmlFilters || 'ALL'} · 노드 {h.nodesCount} · {h.createdAt}
+                      </div>
+                    </div>
+                    <button
+                      style={styles.historyDelBtn}
+                      title="삭제"
+                      onClick={(e) => deleteHistoryItem(h.id, e)}
+                    ><FaTrash size={9} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 입력 폼 */}
           <div style={styles.formCard}>
             <label style={styles.label}>분석 대상 질문</label>
@@ -345,21 +531,6 @@ export default function FlowAnalysisPage() {
                   <option value="MIPLATFORM_XML">MiPlatform 화면 XML</option>
                 </select>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={styles.miniLabel}>DML 필터</label>
-                <select
-                  style={styles.select}
-                  value={dmlFilter}
-                  onChange={(e) => setDmlFilter(e.target.value as typeof dmlFilter)}
-                  disabled={streaming}
-                >
-                  <option value="ALL">전체</option>
-                  <option value="INSERT">INSERT 만</option>
-                  <option value="UPDATE">UPDATE 만</option>
-                  <option value="MERGE">MERGE 만</option>
-                  <option value="DELETE">DELETE 만</option>
-                </select>
-              </div>
               <div style={{ width: 90 }}>
                 <label style={styles.miniLabel}>분기수</label>
                 <input
@@ -370,6 +541,45 @@ export default function FlowAnalysisPage() {
                   disabled={streaming}
                 />
               </div>
+            </div>
+            <div>
+              <label style={styles.miniLabel}>DML 필터 (다중 선택 가능)</label>
+              <div style={styles.dmlRow}>
+                {DML_OPTIONS.map((opt) => {
+                  const checked = dmlFilters.has(opt.value)
+                  return (
+                    <label
+                      key={opt.value}
+                      style={{
+                        ...styles.dmlChip,
+                        borderColor: checked ? opt.color : 'var(--border-color)',
+                        background:  checked ? `${opt.color}1a` : 'var(--bg-secondary)',
+                        color:       checked ? opt.color : 'var(--text-muted)',
+                        opacity:     streaming ? 0.6 : 1,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        style={{ display: 'none' }}
+                        checked={checked}
+                        disabled={streaming}
+                        onChange={(e) => {
+                          const next = new Set(dmlFilters)
+                          if (e.target.checked) next.add(opt.value)
+                          else next.delete(opt.value)
+                          setDmlFilters(next)
+                        }}
+                      />
+                      {opt.label}
+                    </label>
+                  )
+                })}
+              </div>
+              {dmlFilters.size === 0 && (
+                <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>
+                  최소 1개 DML 을 선택하세요.
+                </div>
+              )}
             </div>
             <div style={styles.toggleRow}>
               <label style={styles.toggle}>
@@ -599,6 +809,35 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 12, background: 'var(--bg-card)', borderRadius: 8,
     border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: 8,
   },
+  shareBanner: {
+    padding: '8px 12px', background: 'rgba(6,182,212,0.1)',
+    border: '1px solid rgba(6,182,212,0.4)', borderRadius: 6,
+    fontSize: 11, color: 'var(--text-primary)',
+  },
+  historyCard: {
+    padding: 10, background: 'var(--bg-card)', borderRadius: 8,
+    border: '1px solid var(--border-color)',
+  },
+  historyList: {
+    display: 'flex', flexDirection: 'column', gap: 4,
+    maxHeight: 240, overflowY: 'auto',
+  },
+  historyItem: {
+    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px',
+    border: '1px solid var(--border-color)', borderRadius: 6,
+    cursor: 'pointer', fontSize: 11, transition: 'background 0.1s',
+  },
+  historyQuery: {
+    fontWeight: 600, color: 'var(--text-primary)', fontSize: 12,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  historyMeta: {
+    fontSize: 10, color: 'var(--text-muted)', marginTop: 2,
+  },
+  historyDelBtn: {
+    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: 4, opacity: 0.5,
+  },
   label:     { fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' },
   miniLabel: { fontSize: 10, color: 'var(--text-muted)', display: 'block', marginBottom: 3 },
   textarea: {
@@ -613,6 +852,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formRow:    { display: 'flex', gap: 8 },
   toggleRow:  { display: 'flex', gap: 12, flexWrap: 'wrap' },
+  dmlRow:     { display: 'flex', gap: 6, flexWrap: 'wrap' },
+  dmlChip: {
+    display: 'inline-flex', alignItems: 'center',
+    padding: '4px 10px', borderRadius: 14, border: '1.5px solid',
+    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+    userSelect: 'none', transition: 'all 0.12s',
+  },
   toggle:     { fontSize: 11, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer' },
   runBtn: {
     flex: 1, padding: '8px 14px', borderRadius: 6, border: 'none',

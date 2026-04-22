@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.starter.model.ClaudeMessage;
 import io.github.claudetoolkit.ui.controller.SseStreamController;
+import io.github.claudetoolkit.ui.flow.history.FlowHistoryService;
 import io.github.claudetoolkit.ui.flow.model.FlowAnalysisRequest;
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
 import io.github.claudetoolkit.ui.flow.model.FlowAnalysisResult;
 import io.github.claudetoolkit.ui.flow.model.FlowEdge;
 import io.github.claudetoolkit.ui.flow.model.FlowNode;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpSession;
+import java.security.Principal;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,16 +58,22 @@ public class FlowStreamController {
     private static final Logger log = LoggerFactory.getLogger(FlowStreamController.class);
     private static final String PENDING_KEY = "FLOW_PENDING_REQ";
 
-    private final FlowAnalysisService analysisService;
-    private final ClaudeClient        claudeClient;
-    private final ObjectMapper        objectMapper;
+    private final FlowAnalysisService  analysisService;
+    private final ClaudeClient         claudeClient;
+    private final ObjectMapper         objectMapper;
+    private final FlowHistoryService   historyService;
+    private final ToolkitMetrics       metrics;
 
     public FlowStreamController(FlowAnalysisService analysisService,
                                 ClaudeClient claudeClient,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                FlowHistoryService historyService,
+                                ToolkitMetrics metrics) {
         this.analysisService = analysisService;
         this.claudeClient    = claudeClient;
         this.objectMapper    = objectMapper;
+        this.historyService  = historyService;
+        this.metrics         = metrics;
     }
 
     @Operation(summary = "분석 요청을 세션에 적재 (이후 GET /flow/stream 으로 SSE 시작)")
@@ -83,7 +92,8 @@ public class FlowStreamController {
 
     @Operation(summary = "SSE 스트림 — 단계별 status + Phase 1 trace + LLM narrative")
     @GetMapping(value = "/stream", produces = "text/event-stream")
-    public SseEmitter stream(HttpSession session) {
+    public SseEmitter stream(HttpSession session, Principal principal) {
+        final String userId = principal != null ? principal.getName() : null;
         // 30분 타임아웃 (대규모 ERP 추적이 길어질 수 있음)
         final SseEmitter emitter = new SseEmitter(30L * 60 * 1000);
 
@@ -133,8 +143,9 @@ public class FlowStreamController {
                 try {
                     // ── Stage A. Phase 1 추적 ────────────────────────────────
                     long t0 = System.currentTimeMillis();
-                    FlowAnalysisResult result = analysisService.analyze(req);
+                    final FlowAnalysisResult result = analysisService.analyze(req);
                     long phase1Ms = System.currentTimeMillis() - t0;
+                    metrics.recordFlowStage("phase1", phase1Ms);
                     log.info("[FlowStream] Phase1 완료 query='{}' nodes={} edges={} {}ms",
                             req.getQuery(), result.nodes.size(), result.edges.size(), phase1Ms);
 
@@ -147,6 +158,7 @@ public class FlowStreamController {
                     }
 
                     if (result.nodes.isEmpty()) {
+                        metrics.recordFlowAnalysis(result.targetType, "empty");
                         emitter.send(SseEmitter.event().name("status")
                                 .data("⚠ 추적 결과가 비어있습니다. 키워드/scanPath/DB 설정을 확인하세요."));
                         emitter.send(SseEmitter.event().name("done").data("ok"));
@@ -164,6 +176,7 @@ public class FlowStreamController {
                     messages.add(new ClaudeMessage("user", userMessage));
 
                     final StringBuilder responseBuf = new StringBuilder();
+                    long llmStart = System.currentTimeMillis();
                     claudeClient.chatStream(sysPrompt, messages,
                             claudeClient.getProperties().getMaxTokens(),
                             new Consumer<String>() {
@@ -175,12 +188,22 @@ public class FlowStreamController {
                                 }
                             });
 
+                    metrics.recordFlowStage("llm", System.currentTimeMillis() - llmStart);
+                    metrics.recordFlowAnalysis(result.targetType, "ok");
+
+                    // Phase 4 — narrative 가 다 모였으면 이력 저장 (실패해도 SSE 흐름엔 영향 X)
+                    if (userId != null) {
+                        try { historyService.save(userId, req, result, responseBuf.toString()); }
+                        catch (Exception ex) { log.warn("[FlowStream] history.save 실패: {}", ex.getMessage()); }
+                    }
+
                     emitter.send(SseEmitter.event().name("done").data("ok"));
                     Thread.sleep(50);
                     emitter.complete();
                 } catch (Throwable e) {
                     String errMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                     log.warn("[FlowStream] 실패: {}", errMsg);
+                    metrics.recordFlowAnalysis(req.getTargetType().name(), "error");
                     try { emitter.send(SseEmitter.event().name("error_msg").data(errMsg)); }
                     catch (IOException ignored) {}
                     try {

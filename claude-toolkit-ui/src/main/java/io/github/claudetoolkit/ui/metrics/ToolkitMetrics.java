@@ -220,4 +220,24 @@ public class ToolkitMetrics {
         getTimer("analysis.duration", Tags.of("type", safe(analysisType)))
                 .record(millis, TimeUnit.MILLISECONDS);
     }
+
+    // ── Phase 5: Flow Analysis 메트릭 ──────────────────────────────────────
+    //
+    // - toolkit_flow_analyses_total{targetType=...,result=...}  — Counter
+    //     result = "ok" | "empty" | "error"
+    // - toolkit_flow_stage_duration_seconds{stage=...}          — Timer
+    //     stage = "phase1" | "llm"
+    // - toolkit_flow_indexer_size{indexer=...}                  — Gauge
+    //     (Indexer 빈에서 자체 등록하므로 여기서는 Counter/Timer 만)
+
+    public void recordFlowAnalysis(String targetType, String result) {
+        getCounter("flow.analyses",
+                Tags.of("targetType", safe(targetType), "result", safe(result)))
+                .increment();
+    }
+
+    public void recordFlowStage(String stage, long millis) {
+        getTimer("flow.stage.duration", Tags.of("stage", safe(stage)))
+                .record(millis, TimeUnit.MILLISECONDS);
+    }
 }

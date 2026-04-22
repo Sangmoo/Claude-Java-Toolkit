@@ -161,10 +161,11 @@ public class FlowAnalysisService {
                 .put("desc", "DB 테이블 (분석 대상)");
         r.nodes.add(tableNode);
 
-        // ── Stage 1a: MyBatis 인덱스에서 DML 찾기
-        String dmlFilter = req.getDmlFilter() == FlowAnalysisRequest.DmlFilter.ALL
-                ? null : req.getDmlFilter().name();
-        List<MyBatisStatement> mbStatements = mybatis.findStatementsForTable(table, dmlFilter);
+        // ── Stage 1a: MyBatis 인덱스에서 DML 찾기 (다중 DML 지원)
+        Set<FlowAnalysisRequest.DmlFilter> activeDmls = req.getEffectiveDmls();
+        Set<String> dmlNames = new HashSet<String>();
+        for (FlowAnalysisRequest.DmlFilter d : activeDmls) dmlNames.add(d.name());
+        List<MyBatisStatement> mbStatements = mybatis.findStatementsForTable(table, dmlNames);
         int mbHits = mbStatements.size();
         if (mbHits > req.getMaxBranches() * 4) {
             r.warnings.add("MyBatis 매칭 " + mbHits + " 건 — 상위 " + (req.getMaxBranches() * 4) + " 만 분석");
@@ -173,8 +174,8 @@ public class FlowAnalysisService {
         r.stats.put("mybatisMatches", mbHits);
         log.info("[Flow] Stage1 MyBatis: table={} matches={}", table, mbHits);
 
-        // ── Stage 1b: DB ALL_SOURCE 에서 SP/Trigger 찾기
-        List<SpHit> sps = req.isIncludeDb() ? findSpsForTable(table, req.getDmlFilter()) : Collections.<SpHit>emptyList();
+        // ── Stage 1b: DB ALL_SOURCE 에서 SP/Trigger 찾기 (다중 DML)
+        List<SpHit> sps = req.isIncludeDb() ? findSpsForTable(table, activeDmls) : Collections.<SpHit>emptyList();
         if (sps.size() > req.getMaxBranches() * 2) {
             r.warnings.add("SP 매칭 " + sps.size() + " 건 — 상위 " + (req.getMaxBranches() * 2) + " 만 분석");
             sps = sps.subList(0, req.getMaxBranches() * 2);
@@ -307,8 +308,18 @@ public class FlowAnalysisService {
 
     // ── DB SP grep (ChatContextEnricher 와 유사 로직, flow 전용 슬림 버전) ──
 
-    private List<SpHit> findSpsForTable(String table, FlowAnalysisRequest.DmlFilter dml) {
+    /**
+     * v4.4.x — 다중 DML 필터 지원. {@code wantSelect} 가 true 면 SELECT 만 하는 SP 도 포함
+     * (어떻게 조회되는지 추적용).
+     */
+    private List<SpHit> findSpsForTable(String table, Set<FlowAnalysisRequest.DmlFilter> dmls) {
         if (table == null || !settings.isDbConfigured()) return Collections.emptyList();
+        boolean wantIns = dmls.contains(FlowAnalysisRequest.DmlFilter.INSERT);
+        boolean wantUpd = dmls.contains(FlowAnalysisRequest.DmlFilter.UPDATE);
+        boolean wantMrg = dmls.contains(FlowAnalysisRequest.DmlFilter.MERGE);
+        boolean wantDel = dmls.contains(FlowAnalysisRequest.DmlFilter.DELETE);
+        boolean wantSel = dmls.contains(FlowAnalysisRequest.DmlFilter.SELECT);
+
         List<SpHit> out = new ArrayList<SpHit>();
         String sql =
                 "SELECT * FROM ("
@@ -316,7 +327,8 @@ public class FlowAnalysisService {
               + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%INSERT%' THEN 1 ELSE 0 END) AS INS, "
               + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%MERGE%'  THEN 1 ELSE 0 END) AS MRG, "
               + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%UPDATE%' THEN 1 ELSE 0 END) AS UPD, "
-              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%DELETE%' THEN 1 ELSE 0 END) AS DEL "
+              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%DELETE%' THEN 1 ELSE 0 END) AS DEL, "
+              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%SELECT%' THEN 1 ELSE 0 END) AS SEL "
               + "  FROM ALL_SOURCE "
               + "  WHERE UPPER(TEXT) LIKE ? "
               + "    AND TYPE IN ('PROCEDURE','FUNCTION','PACKAGE','PACKAGE BODY','TRIGGER') "
@@ -340,15 +352,12 @@ public class FlowAnalysisService {
                 int mrg = rs.getInt("MRG");
                 int upd = rs.getInt("UPD");
                 int del = rs.getInt("DEL");
-                // dml 필터
-                if (dml != null && dml != FlowAnalysisRequest.DmlFilter.ALL) {
-                    boolean want = (dml == FlowAnalysisRequest.DmlFilter.INSERT && ins > 0)
-                                || (dml == FlowAnalysisRequest.DmlFilter.MERGE  && mrg > 0)
-                                || (dml == FlowAnalysisRequest.DmlFilter.UPDATE && upd > 0)
-                                || (dml == FlowAnalysisRequest.DmlFilter.DELETE && del > 0);
-                    if (!want) continue;
-                }
-                if (ins == 0 && mrg == 0 && upd == 0 && del == 0) continue; // SELECT 만은 패스
+                int sel = rs.getInt("SEL");
+                // 활성 DML 중 하나라도 있는 SP 만 채택
+                boolean keep = (wantIns && ins > 0) || (wantUpd && upd > 0)
+                            || (wantMrg && mrg > 0) || (wantDel && del > 0)
+                            || (wantSel && sel > 0);
+                if (!keep) continue;
                 SpHit h = new SpHit();
                 h.owner = rs.getString("OWNER");
                 h.name  = rs.getString("NAME");
@@ -358,6 +367,7 @@ public class FlowAnalysisService {
                 if (mrg > 0) dmlParts.add("MERGE");
                 if (upd > 0) dmlParts.add("UPDATE");
                 if (del > 0) dmlParts.add("DELETE");
+                if (sel > 0 && wantSel) dmlParts.add("SELECT");
                 h.dmlSummary = String.join("/", dmlParts);
                 out.add(h);
             }

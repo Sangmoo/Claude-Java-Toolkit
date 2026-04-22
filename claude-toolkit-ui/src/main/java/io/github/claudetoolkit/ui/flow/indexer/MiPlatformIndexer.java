@@ -91,11 +91,22 @@ public class MiPlatformIndexer {
         Path projectRoot = Paths.get(resolved);
         if (!Files.isDirectory(projectRoot)) { ready.set(true); return; }
 
-        // miplatform 루트 자동 감지
+        // v4.4.x Phase 5 — Settings 의 miplatformRoot 가 우선 (있으면 사용자 지정)
         Path miRoot = null;
-        for (String hint : MIPLATFORM_HINTS) {
-            Path candidate = projectRoot.resolve(hint);
-            if (Files.isDirectory(candidate)) { miRoot = candidate; break; }
+        String customRoot = settings.getProject().getMiplatformRoot();
+        if (customRoot != null && !customRoot.trim().isEmpty()) {
+            Path candidate = customRoot.startsWith("/") || (customRoot.length() > 1 && customRoot.charAt(1) == ':')
+                    ? Paths.get(HostPathTranslator.translate(customRoot))
+                    : projectRoot.resolve(customRoot);
+            if (Files.isDirectory(candidate)) miRoot = candidate;
+            else log.warn("[MiPlatformIndexer] Settings 의 miplatformRoot 디렉토리 없음: {}", candidate);
+        }
+        // 자동 감지 (사용자 지정 없거나 무효)
+        if (miRoot == null) {
+            for (String hint : MIPLATFORM_HINTS) {
+                Path candidate = projectRoot.resolve(hint);
+                if (Files.isDirectory(candidate)) { miRoot = candidate; break; }
+            }
         }
         if (miRoot == null) {
             log.info("[MiPlatformIndexer] miplatform 디렉토리 미감지 — 인덱스 비움");
@@ -104,6 +115,9 @@ public class MiPlatformIndexer {
             return;
         }
         detectedRoot = projectRoot.relativize(miRoot).toString().replace('\\', '/');
+
+        // 사용자 정의 추가 패턴 (콤마/줄바꿈 구분, 그룹1 캡처 정규식)
+        final List<Pattern> customPatterns = compileCustomPatterns(settings.getProject().getMiplatformPatterns());
 
         final Map<String, List<MiPlatformScreen>> nByUrl = new HashMap<String, List<MiPlatformScreen>>();
         final List<MiPlatformScreen>              nAll   = new ArrayList<MiPlatformScreen>();
@@ -127,6 +141,14 @@ public class MiPlatformIndexer {
                         if (Files.size(file) > 3_000_000) return FileVisitResult.CONTINUE;
                         String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
                         Set<String> urls = extractUrls(content);
+                        // 사용자 정의 패턴 추가 적용
+                        for (Pattern p : customPatterns) {
+                            Matcher m = p.matcher(content);
+                            while (m.find()) {
+                                String u = m.groupCount() >= 1 ? m.group(1) : m.group();
+                                if (u != null && u.length() < 200) urls.add(u);
+                            }
+                        }
                         if (urls.isEmpty()) return FileVisitResult.CONTINUE;
                         String relPath = finalProjectRoot.relativize(file).toString().replace('\\', '/');
                         MiPlatformScreen sc = new MiPlatformScreen();
@@ -156,6 +178,21 @@ public class MiPlatformIndexer {
         ready.set(true);
         log.info("[MiPlatformIndexer] 인덱스 완료: root={} xml={} screens={} urls={} elapsed={}ms",
                 detectedRoot, xmlSeen[0], nAll.size(), nByUrl.size(), elapsed);
+    }
+
+    private static List<Pattern> compileCustomPatterns(String raw) {
+        List<Pattern> out = new ArrayList<Pattern>();
+        if (raw == null || raw.trim().isEmpty()) return out;
+        for (String line : raw.split("[\\n,]")) {
+            String t = line.trim();
+            if (t.isEmpty()) continue;
+            try { out.add(Pattern.compile(t, Pattern.CASE_INSENSITIVE)); }
+            catch (Exception e) {
+                LoggerFactory.getLogger(MiPlatformIndexer.class)
+                        .warn("[MiPlatformIndexer] 잘못된 사용자 정의 패턴 '{}': {}", t, e.getMessage());
+            }
+        }
+        return out;
     }
 
     private static Set<String> extractUrls(String content) {

@@ -36,6 +36,7 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 - ⎈ **Helm Chart Kind 자동 검증** — `bash scripts/test-helm.sh` 한 번에 검증
 - 🤖 **자동 변경 로그** — release-please-action — feat/fix commit → CHANGELOG.md + GitHub Release 자동 생성
 - 🧪 **테스트 64개 + JaCoCo** — 커버리지 자동 리포팅
+- 🔁 **데이터 흐름 분석 (신규)** — 테이블/SP/SQL_ID 시작점에서 MyBatis · Java · Controller · MiPlatform 까지 자동 추적 → ReactFlow 다이어그램 + LLM narrative + 분석 이력/공유 링크. `/flow-analysis` (Admin 권한 관리에서 사용자별 on/off)
 
 > 📋 전체 변경 이력은 [CHANGELOG.md](./CHANGELOG.md) — release-please 가 자동 갱신
 

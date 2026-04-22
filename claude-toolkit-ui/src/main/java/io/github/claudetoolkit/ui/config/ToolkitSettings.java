@@ -125,8 +125,27 @@ public class ToolkitSettings {
     public static class Project {
         private String scanPath = "";
 
+        /**
+         * v4.4.x — Phase 5: Flow Analysis MiPlatform 인덱서가 사용하는 추가 URL 패턴 정규식.
+         * <p>비어있으면 인덱서 기본값 (Transaction url=, transaction("...","svc::/...") 등) 만 사용.
+         * <p>사이트별 화면 XML 컨벤션이 다르면 "url\\s*[:=]\\s*[\"']([^\"']+)[\"']" 같은
+         * 그룹1 캡처 정규식을 콤마/줄바꿈 구분으로 등록.
+         */
+        private String miplatformPatterns = "";
+        /**
+         * v4.4.x — Flow Analysis MiPlatform 디렉토리 (자동 감지 외에 사용자 지정).
+         * 비어있으면 인덱서가 src/main/webapp/miplatform 등 자동 탐색.
+         */
+        private String miplatformRoot = "";
+
         public String getScanPath()         { return scanPath; }
         public void setScanPath(String p)   { this.scanPath = p; }
+
+        public String getMiplatformPatterns()       { return miplatformPatterns == null ? "" : miplatformPatterns; }
+        public void setMiplatformPatterns(String s) { this.miplatformPatterns = s == null ? "" : s; }
+
+        public String getMiplatformRoot()           { return miplatformRoot == null ? "" : miplatformRoot; }
+        public void setMiplatformRoot(String s)     { this.miplatformRoot = s == null ? "" : s; }
     }
 
     public static class Email {

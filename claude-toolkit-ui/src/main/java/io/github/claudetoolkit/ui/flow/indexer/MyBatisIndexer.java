@@ -195,30 +195,42 @@ public class MyBatisIndexer {
 
             outById.put(st.fullId, st);
 
-            // DML 인 경우만 byTable 에 등록 (조회는 의미 X)
-            if ("INSERT".equals(dml) || "UPDATE".equals(dml)
-                    || "MERGE".equals(dml) || "DELETE".equals(dml)) {
-                for (String t : tables) {
-                    List<MyBatisStatement> list = outByTable.get(t);
-                    if (list == null) {
-                        list = new ArrayList<MyBatisStatement>();
-                        outByTable.put(t, list);
-                    }
-                    list.add(st);
+            // v4.4.x — SELECT 포함 모든 statement 를 byTable 에 등록.
+            // 검색 시 dmlFilter 로 골라낸다 ("어떻게 조회되는지" 도 흐름의 일부).
+            for (String t : tables) {
+                List<MyBatisStatement> list = outByTable.get(t);
+                if (list == null) {
+                    list = new ArrayList<MyBatisStatement>();
+                    outByTable.put(t, list);
                 }
+                list.add(st);
             }
         }
     }
 
     /** 검색 API. table 대문자 정규화 후 byTable lookup. dmlFilter null 이면 전체. */
     public List<MyBatisStatement> findStatementsForTable(String table, String dmlFilter) {
+        if (dmlFilter == null || dmlFilter.equalsIgnoreCase("ALL")) {
+            return findStatementsForTable(table, (Set<String>) null);
+        }
+        return findStatementsForTable(table, Collections.singleton(dmlFilter.toUpperCase()));
+    }
+
+    /**
+     * v4.4.x — 다중 DML 필터 지원.
+     * @param dmlSet 활성 DML 집합 (예: ["INSERT","UPDATE","SELECT"]). null/empty 면 전체.
+     */
+    public List<MyBatisStatement> findStatementsForTable(String table, Set<String> dmlSet) {
         if (table == null) return Collections.emptyList();
         List<MyBatisStatement> all = byTable.get(table.trim().toUpperCase());
         if (all == null) return Collections.emptyList();
-        if (dmlFilter == null || dmlFilter.equalsIgnoreCase("ALL")) return new ArrayList<MyBatisStatement>(all);
+        if (dmlSet == null || dmlSet.isEmpty()) return new ArrayList<MyBatisStatement>(all);
+        // 대소문자 안전화
+        Set<String> upper = new HashSet<String>();
+        for (String s : dmlSet) if (s != null) upper.add(s.toUpperCase());
         List<MyBatisStatement> out = new ArrayList<MyBatisStatement>();
         for (MyBatisStatement s : all) {
-            if (s.dml.equalsIgnoreCase(dmlFilter)) out.add(s);
+            if (upper.contains(s.dml)) out.add(s);
         }
         return out;
     }

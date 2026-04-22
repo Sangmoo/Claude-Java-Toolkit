@@ -87,6 +87,8 @@ public class SettingsPersistenceService {
                "  \"dbUsername\": "     + quoted(s.getDb().getUsername())       + ",\n" +
                "  \"dbPassword\": "     + quotedEncrypted(s.getDb().getPassword()) + ",\n" +
                "  \"scanPath\": "       + quoted(s.getProject().getScanPath())  + ",\n" +
+               "  \"miplatformPatterns\": " + quoted(s.getProject().getMiplatformPatterns()) + ",\n" +
+               "  \"miplatformRoot\": "     + quoted(s.getProject().getMiplatformRoot())     + ",\n" +
                "  \"projectContext\": " + quoted(s.getProjectContext())         + ",\n" +
                "  \"claudeModel\": "    + quoted(s.getClaudeModel())            + ",\n" +
                "  \"claudeApiKey\": "   + quotedEncrypted(claudeProperties.getApiKey()) + ",\n" +
@@ -131,6 +133,9 @@ public class SettingsPersistenceService {
         s.getDb().setUsername(extractField(json, "dbUsername"));
         s.getDb().setPassword(extractDecrypted(json, "dbPassword"));
         s.getProject().setScanPath(extractField(json, "scanPath"));
+        // v4.4.x Phase 5 — Flow Analysis 추가 필드 (없으면 빈 문자열)
+        s.getProject().setMiplatformPatterns(extractField(json, "miplatformPatterns"));
+        s.getProject().setMiplatformRoot(extractField(json, "miplatformRoot"));
         s.setProjectContext(extractField(json, "projectContext"));
         String claudeModel = extractField(json, "claudeModel");
         if (claudeModel != null) s.setClaudeModel(claudeModel);
