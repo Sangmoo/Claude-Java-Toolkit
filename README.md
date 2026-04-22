@@ -39,6 +39,36 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 > 📋 전체 변경 이력은 [CHANGELOG.md](./CHANGELOG.md) — release-please 가 자동 갱신
 
+---
+
+## 📸 데모
+
+> 캡처 가이드: [`docs/screenshots/README.md`](./docs/screenshots/README.md)
+
+### 핵심 기능
+
+| 홈 대시보드 | SQL 리뷰 |
+|:---:|:---:|
+| ![홈 대시보드](./docs/screenshots/01-home-dashboard.png) | ![SQL 리뷰](./docs/screenshots/02-sql-review.png) |
+| **파이프라인 그래프** | **4단계 하네스** |
+| ![파이프라인 그래프](./docs/screenshots/03-pipeline-graph.png) | ![하네스](./docs/screenshots/04-harness-result.png) |
+
+### v4.3.0 신규
+
+| SQL 인덱스 시뮬레이션 | 비용 옵티마이저 |
+|:---:|:---:|
+| ![인덱스 시뮬레이션](./docs/screenshots/05-index-advisor.png) | ![비용 옵티마이저](./docs/screenshots/06-cost-optimizer.png) |
+| **언어 선택 (5개 언어)** | **대시보드 편집 모드** |
+| ![언어 스위처](./docs/screenshots/07-language-switcher.png) | ![대시보드 편집](./docs/screenshots/08-dashboard-edit.png) |
+
+### v4.4.0 신규
+
+| Swagger UI | 오류 로그 (Sentry-style) | Grafana 대시보드 |
+|:---:|:---:|:---:|
+| ![Swagger UI](./docs/screenshots/09-swagger-ui.png) | ![오류 로그](./docs/screenshots/10-error-log.png) | ![Grafana](./docs/screenshots/11-grafana.png) |
+
+---
+
 ### v4.3.0 하이라이트
 
 | 카테고리 | 주요 기능 |
