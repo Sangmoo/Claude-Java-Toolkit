@@ -108,6 +108,15 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
+
+        <!-- v4.4.0: Springdoc OpenAPI 3.x (Swagger UI 자동 생성) -->
+        <!-- /swagger-ui.html 인터랙티브 UI + /v3/api-docs JSON 스펙 -->
+        <!-- 1.7.x = Spring Boot 2.7 호환 마지막 안정 버전 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-ui</artifactId>
+            <version>1.7.0</version>
+        </dependency>
     </dependencies>
 
     <build>

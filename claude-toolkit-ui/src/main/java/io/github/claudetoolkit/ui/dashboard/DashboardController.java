@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.dashboard;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.ui.api.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import java.util.Map;
  *   <li>{@code PUT /api/v1/dashboard/layout} — 전체 레이아웃 일괄 저장 (delete-then-insert)</li>
  * </ul>
  */
+@Tag(name = "Dashboard", description = "홈 대시보드 위젯 레이아웃")
 @RestController
 @RequestMapping("/api/v1/dashboard")
 public class DashboardController {

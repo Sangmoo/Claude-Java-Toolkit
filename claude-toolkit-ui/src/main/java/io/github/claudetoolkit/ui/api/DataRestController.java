@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.ui.chat.ChatSessionService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.security.RateLimitService;
@@ -28,6 +29,7 @@ import java.util.*;
  *   <li>GET /api/v1/usage           — 사용량 정보</li>
  * </ul>
  */
+@Tag(name = "Data", description = "파이프라인/이력/즐겨찾기/팀활동/검색 + 관리자 통계")
 @RestController
 @RequestMapping("/api/v1")
 public class DataRestController {

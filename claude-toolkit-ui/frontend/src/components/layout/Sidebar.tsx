@@ -13,6 +13,23 @@ function SidebarItem({ item, active }: { item: MenuItem; active: boolean }) {
 
   const isThymeleaf = THYMELEAF_ONLY.some((t) => item.path === t || item.path.startsWith(t + '/'))
 
+  // v4.4.0: 외부 링크 (Swagger UI 등) — 새 탭에서 열기
+  if (item.externalLink) {
+    return (
+      <a
+        href={item.path}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`sidebar-item${active ? ' active' : ''}`}
+      >
+        <span className="sidebar-item-icon">
+          <Icon style={{ color: item.color }} />
+        </span>
+        <span>{item.label} ↗</span>
+      </a>
+    )
+  }
+
   if (!isThymeleaf) {
     return (
       <Link

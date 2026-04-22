@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.ui.user.AppUser;
 import io.github.claudetoolkit.ui.user.AppUserRepository;
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ import java.util.Map;
  *   <li>POST /api/v1/auth/logout — 세션 무효화</li>
  * </ul>
  */
+@Tag(name = "Auth", description = "인증 / 로그인 / 로그아웃 / Locale 저장")
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthRestController {

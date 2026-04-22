@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.export;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.github.claudetoolkit.ui.history.ReviewHistory;
@@ -27,6 +28,7 @@ import java.util.Map;
  *   <li>{@code GET /api/v1/export/sarif/{historyId}} — SARIF 2.1.0 JSON 다운로드</li>
  * </ul>
  */
+@Tag(name = "Export", description = "SARIF / Excel 내보내기")
 @RestController
 @RequestMapping("/api/v1/export")
 public class ExportRestController {

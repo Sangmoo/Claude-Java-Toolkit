@@ -71,6 +71,33 @@ management:
         http.server.requests: 0.5, 0.95, 0.99
         analysis.duration: 0.5, 0.95, 0.99
 
+# ── OpenAPI / Swagger UI (v4.4.0) ─────────────────────────────────────────
+# /swagger-ui.html → 인터랙티브 API 탐색
+# /v3/api-docs    → JSON 스펙 (Postman/Insomnia 임포트)
+# SecurityConfig 가 ADMIN 으로 제한
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tagsSorter: alpha
+    operationsSorter: method
+    displayRequestDuration: true
+    tryItOutEnabled: true
+    persistAuthorization: true
+    docExpansion: none           # 첫 화면에서 모두 접힘 (large API 가독성)
+  paths-to-match:
+    - /api/v1/**                  # 공식 REST API 만 노출 (내부 /stream/** 등 제외)
+  packages-to-scan:
+    - io.github.claudetoolkit.ui.api
+    - io.github.claudetoolkit.ui.cost
+    - io.github.claudetoolkit.ui.sqlindex
+    - io.github.claudetoolkit.ui.dashboard
+    - io.github.claudetoolkit.ui.export
+  show-actuator: false            # /actuator/** 는 별도 헬스체크용이므로 제외
+
 logging:
   level:
     io.github.claudetoolkit: DEBUG

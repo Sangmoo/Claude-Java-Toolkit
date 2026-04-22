@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.sql.advisor.SqlAdvisorService;
 import io.github.claudetoolkit.sql.explain.ExplainPlanResult;
 import io.github.claudetoolkit.sql.explain.ExplainPlanService;
@@ -39,6 +40,7 @@ import java.util.Map;
  * }
  * </pre>
  */
+@Tag(name = "SQL", description = "SQL 리뷰 / 보안 / 실행계획 분석")
 @RestController
 @RequestMapping("/api/v1/sql")
 public class SqlRestController {

@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.sqlindex;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.ui.api.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import java.util.Map;
  *   "dbProfile": "current"
  * }</pre>
  */
+@Tag(name = "SQL", description = "SQL 인덱스 임팩트 시뮬레이션")
 @RestController
 @RequestMapping("/api/v1/sql")
 public class IndexAdvisorController {

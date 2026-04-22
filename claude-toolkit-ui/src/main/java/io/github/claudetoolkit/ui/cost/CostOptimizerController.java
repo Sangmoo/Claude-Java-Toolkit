@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.cost;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.api.ApiResponse;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import java.util.Map;
  *
  * SecurityConfig 의 {@code /api/v1/admin/**} 규칙에 따라 ADMIN 권한 필요.
  */
+@Tag(name = "Admin", description = "AI 모델 비용 옵티마이저 (ADMIN)")
 @RestController
 @RequestMapping("/api/v1/admin")
 public class CostOptimizerController {

@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ import java.util.Map;
  * }
  * </pre>
  */
+@Tag(name = "Health", description = "서버 상태 확인")
 @RestController
 @RequestMapping("/api/v1")
 public class HealthRestController {

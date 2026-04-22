@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.docgen.codereview.CodeReviewService;
 import io.github.claudetoolkit.docgen.generator.DocGeneratorService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
@@ -38,6 +39,7 @@ import java.util.Map;
  * }
  * </pre>
  */
+@Tag(name = "Doc", description = "기술 문서 생성 + Java/Spring 코드 리뷰")
 @RestController
 public class DocRestController {
 

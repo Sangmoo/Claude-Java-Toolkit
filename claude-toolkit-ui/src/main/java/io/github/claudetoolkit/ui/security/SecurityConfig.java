@@ -84,6 +84,11 @@ public class SecurityConfig {
                 // — 기존에는 "/admin/**" 규칙이 "/api/v1/admin/**" 을 매칭하지 않아
                 //   사실상 VIEWER/REVIEWER 도 호출 가능했던 구멍을 막는다.
                 .antMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                // v4.4.0: Swagger UI / OpenAPI 스펙은 ADMIN 만 접근 가능
+                // (API 카탈로그 = 잠재적 정보 누출 → 운영 환경에서 권한 게이팅 필수)
+                .antMatchers("/swagger-ui.html", "/swagger-ui/**",
+                             "/v3/api-docs", "/v3/api-docs/**",
+                             "/swagger-resources/**").hasRole("ADMIN")
                 // REVIEWER+: 프롬프트 편집
                 .antMatchers("/settings/prompts", "/settings/prompts/**").hasAnyRole("ADMIN", "REVIEWER")
                 // ADMIN 전용: 설정, 보안

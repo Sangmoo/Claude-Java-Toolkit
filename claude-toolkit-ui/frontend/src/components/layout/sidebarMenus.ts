@@ -20,6 +20,8 @@ export interface MenuItem {
   reviewerOnly?: boolean
   /** PermissionInterceptor feature key — 비활성화 사용자에게 숨김 */
   featureKey?: string
+  /** v4.4.0 — 외부 페이지 링크 (SPA 라우터 대신 새 탭으로 열기) */
+  externalLink?: boolean
 }
 
 export interface MenuSection {
@@ -114,6 +116,7 @@ export const menuSections: MenuSection[] = [
       { label: '감사 로그', path: '/admin/audit-dashboard', icon: FaShieldAlt, color: '#f59e0b' },
       { label: '엔드포인트 통계', path: '/admin/endpoint-stats', icon: FaChartLine, color: '#3b82f6' },
       { label: '비용 옵티마이저', path: '/admin/cost-optimizer', icon: FaChartLine, color: '#f59e0b' },
+      { label: 'API 문서 (Swagger)', path: '/swagger-ui.html', icon: FaCode, color: '#8b5cf6', externalLink: true },
       { label: '시스템 헬스', path: '/admin/health', icon: FaHeartbeat, color: '#ef4444' },
       { label: 'DB 마이그레이션 가이드', path: '/admin/db-migration', icon: FaExchangeAlt, color: '#3b82f6' },
     ],

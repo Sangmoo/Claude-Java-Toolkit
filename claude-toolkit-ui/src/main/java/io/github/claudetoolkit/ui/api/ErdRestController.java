@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.api;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.sql.erd.ErdAnalyzerService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
@@ -37,6 +38,7 @@ import java.util.Map;
  * }
  * </pre>
  */
+@Tag(name = "ERD", description = "ERD 분석 + DDL 생성")
 @RestController
 @RequestMapping("/api/v1/erd")
 public class ErdRestController {
