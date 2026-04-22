@@ -85,35 +85,37 @@ public class RateLimitService {
         }
 
         // ── 일/월 체크 (DB 영속화) ─────────────────────────────────
-        if (dailyLimit > 0 || monthlyLimit > 0) {
-            try {
-                if (dailyLimit > 0) {
-                    int todayCount = usageRepo.findByUsernameAndUsageDate(username, today)
-                            .map(UserApiUsage::getRequestCount).orElse(0);
-                    if (todayCount >= dailyLimit) {
-                        return "일일 호출 제한 초과 (" + dailyLimit + "회/일)";
-                    }
+        // v4.4.x — 이전: dailyLimit/monthlyLimit 가 모두 0(무제한)인 사용자는
+        //                기록 자체가 안 되어 "사용량 모니터링" 페이지가 영영 0 표시.
+        //         이후: 제한값과 무관하게 사용량은 항상 기록.
+        //                제한 초과 검사만 limit > 0 일 때 수행.
+        try {
+            if (dailyLimit > 0) {
+                int todayCount = usageRepo.findByUsernameAndUsageDate(username, today)
+                        .map(UserApiUsage::getRequestCount).orElse(0);
+                if (todayCount >= dailyLimit) {
+                    return "일일 호출 제한 초과 (" + dailyLimit + "회/일)";
                 }
-
-                if (monthlyLimit > 0) {
-                    LocalDate monthStart = today.withDayOfMonth(1);
-                    LocalDate monthEnd = today.withDayOfMonth(today.lengthOfMonth());
-                    Long monthTotal = usageRepo.sumRequestsBetween(username, monthStart, monthEnd);
-                    int monthCount = monthTotal != null ? monthTotal.intValue() : 0;
-                    if (monthCount >= monthlyLimit) {
-                        return "월간 호출 제한 초과 (" + monthlyLimit + "회/월)";
-                    }
-                }
-
-                // 카운트 증가 (upsert)
-                UserApiUsage usage = usageRepo.findByUsernameAndUsageDate(username, today)
-                        .orElseGet(() -> new UserApiUsage(username, today));
-                usage.increment();
-                usageRepo.save(usage);
-            } catch (Exception e) {
-                // DB 오류 시 허용 (안전 fallback) — 서비스 중단 방지
-                return null;
             }
+
+            if (monthlyLimit > 0) {
+                LocalDate monthStart = today.withDayOfMonth(1);
+                LocalDate monthEnd = today.withDayOfMonth(today.lengthOfMonth());
+                Long monthTotal = usageRepo.sumRequestsBetween(username, monthStart, monthEnd);
+                int monthCount = monthTotal != null ? monthTotal.intValue() : 0;
+                if (monthCount >= monthlyLimit) {
+                    return "월간 호출 제한 초과 (" + monthlyLimit + "회/월)";
+                }
+            }
+
+            // 카운트 증가 (upsert) — 항상 기록
+            UserApiUsage usage = usageRepo.findByUsernameAndUsageDate(username, today)
+                    .orElseGet(() -> new UserApiUsage(username, today));
+            usage.increment();
+            usageRepo.save(usage);
+        } catch (Exception e) {
+            // DB 오류 시 허용 (안전 fallback) — 서비스 중단 방지
+            return null;
         }
 
         return null;

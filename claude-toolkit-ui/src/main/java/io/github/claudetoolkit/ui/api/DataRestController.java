@@ -251,20 +251,33 @@ public class DataRestController {
                 statusRows.add(m);
             }
 
-            // Daily trend
+            // Daily trend — v4.4.x: DB 중립 방식 (Java 측에서 그룹화)
+            // 이전 H2 의존 FORMATDATETIME() 호출 → MySQL/PostgreSQL/Oracle 에서
+            // QueryException 발생. 이제 createdAt 만 가져와서 LocalDate 로 변환 후 집계.
             @SuppressWarnings("unchecked")
-            List<Object[]> dailyTrend = em.createQuery(
-                "SELECT FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd'), COUNT(a) " +
-                "FROM AuditLog a WHERE a.createdAt >= :since " +
-                "GROUP BY FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd') " +
-                "ORDER BY FUNCTION('FORMATDATETIME', a.createdAt, 'yyyy-MM-dd')"
+            List<java.time.LocalDateTime> dailyRaw = em.createQuery(
+                "SELECT a.createdAt FROM AuditLog a " +
+                "WHERE a.createdAt >= :since ORDER BY a.createdAt ASC"
             ).setParameter("since", since).getResultList();
 
+            // LocalDate (yyyy-MM-dd) 별 카운트 — TreeMap 으로 자동 정렬
+            java.util.TreeMap<String, Long> dailyMap = new java.util.TreeMap<String, Long>();
+            // 기간 내 모든 날짜를 0으로 사전 채움 (빈 날짜도 차트에 표시)
+            for (int d = 0; d < effectiveDays; d++) {
+                String key = since.toLocalDate().plusDays(d).toString();
+                dailyMap.put(key, 0L);
+            }
+            for (java.time.LocalDateTime ts : dailyRaw) {
+                if (ts == null) continue;
+                String key = ts.toLocalDate().toString();
+                dailyMap.merge(key, 1L, Long::sum);
+            }
+
             List<Map<String, Object>> dailyRows = new ArrayList<Map<String, Object>>();
-            for (Object[] row : dailyTrend) {
+            for (java.util.Map.Entry<String, Long> e : dailyMap.entrySet()) {
                 Map<String, Object> m = new LinkedHashMap<String, Object>();
-                m.put("date",  row[0]);
-                m.put("count", ((Number) row[1]).longValue());
+                m.put("date",  e.getKey());
+                m.put("count", e.getValue());
                 dailyRows.add(m);
             }
 

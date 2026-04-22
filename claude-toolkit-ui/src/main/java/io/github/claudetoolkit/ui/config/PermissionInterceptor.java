@@ -93,6 +93,11 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         if ("/chat/send".equals(path)) return true;
         // 기타 분석 실행 POST
         if (path.startsWith("/pipelines/") && path.endsWith("/run")) return true;
+        // v4.4.x — 직접 REST API 호출도 사용량 추적 (사용량 모니터링 0 표시 문제)
+        if (path.startsWith("/api/v1/sql/")) return true;
+        if (path.startsWith("/api/v1/code/")) return true;
+        if (path.startsWith("/api/v1/doc/")) return true;
+        if (path.startsWith("/api/v1/erd/")) return true;
         return false;
     }
 

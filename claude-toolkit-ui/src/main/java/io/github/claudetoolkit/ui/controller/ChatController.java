@@ -47,6 +47,9 @@ public class ChatController {
     private final ToolkitSettings     settings;
     private final PromptService       promptService;
     private final ChatSessionService  sessionService;
+    /** v4.4.x — 사용자 메시지에서 DB 테이블/컬럼 + 코드 자동 추출 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.chat.ChatContextEnricher contextEnricher;
 
     public ChatController(ClaudeClient claudeClient, ToolkitSettings settings,
                           PromptService promptService, ChatSessionService sessionService) {
@@ -249,6 +252,18 @@ public class ChatController {
         if (context != null) {
             sysPrompt.append("\n\n[분석 결과 컨텍스트]\n")
                       .append(context.length() > 3000 ? context.substring(0, 3000) + "..." : context);
+        }
+        // v4.4.x — 사용자 메시지에서 테이블/컬럼명 자동 감지 → DB 스키마 + 코드 발췌 주입
+        // 예: "T_SHOP_INVT_RANK 의 FINAL_RANK 가 언제 UPDATE 되는지" 질문 시
+        //     자동으로 해당 테이블 메타 + UPDATE 구문 포함 코드 스니펫 첨부
+        if (contextEnricher != null) {
+            try {
+                String autoCtx = contextEnricher.enrich(message);
+                if (autoCtx != null && !autoCtx.isEmpty()) {
+                    sysPrompt.append("\n\n[자동 감지 컨텍스트 — DB 스키마 + 프로젝트 코드]")
+                             .append(autoCtx);
+                }
+            } catch (Exception ignored) { /* enricher 실패는 채팅 흐름에 영향 없음 */ }
         }
 
         // DB에서 메시지 목록 로드 (방금 추가한 사용자 메시지 포함)
