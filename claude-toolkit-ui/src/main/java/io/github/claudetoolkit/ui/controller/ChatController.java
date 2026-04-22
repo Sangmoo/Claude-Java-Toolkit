@@ -237,6 +237,19 @@ public class ChatController {
         // 첫 메시지면 자동 제목 생성
         sessionService.autoGenerateTitle(sessionId, message);
 
+        // v4.4.x — connected/status 이벤트를 enricher 전에 먼저 보낸다.
+        //   이전에는 enricher.enrich() (수십초 걸릴 수 있음) 가 끝난 뒤에야
+        //   connected 가 가서, 사용자는 빈 화면에서 그저 기다려야 했다.
+        //   이제 SSE 채널을 즉시 열고 단계별 진행 상태를 status 이벤트로 흘려보내
+        //   프론트가 "🔍 프로젝트 코드 탐색 중..." 등을 표시할 수 있다.
+        try {
+            emitter.send(SseEmitter.event().name("connected").data("ok"));
+            emitter.send(SseEmitter.event().name("status").data("준비 중..."));
+        } catch (IOException e) {
+            emitter.completeWithError(e);
+            return emitter;
+        }
+
         // 시스템 프롬프트 구성
         String customPrompt = promptService.findActivePrompt("AI_CHAT");
         StringBuilder sysPrompt = new StringBuilder();
@@ -256,6 +269,18 @@ public class ChatController {
         // v4.4.x — 사용자 메시지에서 테이블/컬럼명 자동 감지 → DB 스키마 + 코드 발췌 주입
         // 예: "T_SHOP_INVT_RANK 의 FINAL_RANK 가 언제 UPDATE 되는지" 질문 시
         //     자동으로 해당 테이블 메타 + UPDATE 구문 포함 코드 스니펫 첨부
+        if (contextEnricher != null) {
+            // 진행 표시 — DB 설정/스캔 경로 유무에 따라 메시지 차별화
+            String statusMsg;
+            boolean hasDb   = settings != null && settings.isDbConfigured();
+            boolean hasProj = settings != null && settings.isProjectConfigured();
+            if (hasDb && hasProj)      statusMsg = "🔍 DB 스키마 + 프로젝트 코드 탐색 중...";
+            else if (hasProj)          statusMsg = "🔍 프로젝트 코드 탐색 중...";
+            else if (hasDb)            statusMsg = "🔍 DB 스키마 조회 중...";
+            else                       statusMsg = "준비 중...";
+            try { emitter.send(SseEmitter.event().name("status").data(statusMsg)); }
+            catch (IOException ignored) {}
+        }
         if (contextEnricher != null) {
             try {
                 String autoCtx = contextEnricher.enrich(message);
@@ -289,13 +314,10 @@ public class ChatController {
         final String finalSysPrompt = sysPrompt.toString();
         final Long finalSessionId = sessionId;
 
-        // 즉시 connected 이벤트
+        // 컨텍스트 준비 완료 → Claude 호출 직전 상태 알림
         try {
-            emitter.send(SseEmitter.event().name("connected").data("ok"));
-        } catch (IOException e) {
-            emitter.completeWithError(e);
-            return emitter;
-        }
+            emitter.send(SseEmitter.event().name("status").data("✨ Claude 가 답변을 작성 중..."));
+        } catch (IOException ignored) {}
 
         // 하트비트
         final AtomicBoolean streaming = new AtomicBoolean(false);

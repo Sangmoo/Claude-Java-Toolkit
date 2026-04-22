@@ -31,6 +31,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [streamText, setStreamText] = useState('')
+  // v4.4.x — 백엔드 SSE "status" 이벤트로 받는 진행 상태 ("프로젝트 코드 탐색 중..." 등).
+  // streamText 가 비어있을 때만 표시 → 첫 응답 chunk 가 오면 자동으로 사라짐.
+  const [statusText, setStatusText] = useState('')
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [renameTitle, setRenameTitle] = useState('')
@@ -138,6 +141,7 @@ export default function ChatPage() {
 
     setStreaming(true)
     setStreamText('')
+    setStatusText('연결 중...')
 
     try {
       // Step 1: POST /chat/send
@@ -181,9 +185,12 @@ export default function ChatPage() {
             { id: Date.now(), role: 'assistant', content: accumulated, createdAt: '' },
           ])
           setStreamText('')
+          setStatusText('')
           loadSessions() // refresh titles
           return
         }
+        // 첫 chunk 도착 → 진행 상태 메시지 제거
+        if (!accumulated) setStatusText('')
         // v4.4.x — 가짜 \n 제거 (이전: data + '\n').
         //   원인: 모든 chunk 끝에 강제로 \n 을 붙여서
         //   "🔍 분" + "\n" + "석 결과" + "\n" → 한글 단어가 줄바꿈됨
@@ -200,6 +207,12 @@ export default function ChatPage() {
         es.close()
         esRef.current = null
         setStreaming(false)
+        setStatusText('')
+      })
+
+      // v4.4.x — 백엔드가 enricher 진행 단계를 알려주는 status 이벤트
+      es.addEventListener('status', (e: MessageEvent) => {
+        if (!accumulated) setStatusText(e.data || '')
       })
 
       es.onerror = () => {
@@ -213,10 +226,12 @@ export default function ChatPage() {
         es.close()
         esRef.current = null
         setStreaming(false)
+        setStatusText('')
       }
     } catch {
       toast.error('메시지 전송 중 오류가 발생했습니다.')
       setStreaming(false)
+      setStatusText('')
     }
   }
 
@@ -372,6 +387,27 @@ export default function ChatPage() {
               <pre style={{ ...styles.userText, color: 'var(--text-sub)' }}>{streamText}</pre>
             </div>
           )}
+          {/* v4.4.x — 응답 chunk 가 오기 전 진행 상태. enricher 가 길어질 때 빈 화면을 막는다. */}
+          {streaming && !streamText && (
+            <div style={{ ...styles.bubble, ...styles.aiBubble, ...styles.statusBubble }}>
+              <div style={styles.bubbleHeader}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>AI</span>
+                <span style={styles.streamingDot} />
+              </div>
+              <div style={styles.statusRow}>
+                <span style={styles.statusSpinner} />
+                <span style={styles.statusText}>{statusText || '준비 중...'}</span>
+                <span style={styles.statusDots}>
+                  <span style={{ ...styles.dot, animationDelay: '0s'   }}>●</span>
+                  <span style={{ ...styles.dot, animationDelay: '0.2s' }}>●</span>
+                  <span style={{ ...styles.dot, animationDelay: '0.4s' }}>●</span>
+                </span>
+              </div>
+              <div style={styles.statusHint}>
+                대규모 프로젝트일수록 시간이 더 걸릴 수 있습니다 (약 5–30 초).
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -467,6 +503,34 @@ const styles: Record<string, React.CSSProperties> = {
   streamingDot: {
     width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)',
     animation: 'pulse 1s infinite',
+  },
+  // ── v4.4.x AI 진행 표시 (응답 chunk 도착 전) ───────────────────────────
+  statusBubble: {
+    background: 'var(--bg-secondary)',
+    border: '1px dashed var(--border-color)',
+  },
+  statusRow: {
+    display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 0',
+  },
+  statusSpinner: {
+    width: '14px', height: '14px', borderRadius: '50%',
+    border: '2px solid var(--border-color)',
+    borderTopColor: 'var(--accent)',
+    animation: 'spin 0.8s linear infinite',
+    display: 'inline-block',
+  },
+  statusText: {
+    fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)',
+  },
+  statusDots: {
+    display: 'inline-flex', gap: '2px', fontSize: '10px', color: 'var(--accent)',
+    marginLeft: '4px',
+  },
+  dot: {
+    animation: 'blink 1.2s infinite',
+  },
+  statusHint: {
+    marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)',
   },
   inputArea: {
     display: 'flex', gap: '8px', padding: '12px 16px',
