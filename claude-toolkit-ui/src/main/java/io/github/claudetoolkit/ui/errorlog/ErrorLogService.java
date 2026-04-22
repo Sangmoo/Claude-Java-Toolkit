@@ -1,7 +1,9 @@
 package io.github.claudetoolkit.ui.errorlog;
 
+import io.github.claudetoolkit.ui.metrics.ToolkitMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,10 @@ public class ErrorLogService {
 
     private final ErrorLogRepository repo;
 
+    /** v4.4.0 — 에러 발생률을 Prometheus 메트릭으로도 발행 (Grafana 알람 트리거) */
+    @Autowired(required = false)
+    private ToolkitMetrics metrics;
+
     public ErrorLogService(ErrorLogRepository repo) {
         this.repo = repo;
     }
@@ -51,6 +57,12 @@ public class ErrorLogService {
             String rawMsg = ex.getMessage() != null ? ex.getMessage() : "(메시지 없음)";
             String message = truncate(rawMsg, MAX_MESSAGE_LENGTH);
             String dedupeKey = computeDedupeKey(exceptionClass, normalizeForDedupe(rawMsg));
+
+            // v4.4.0: Prometheus 메트릭 — Grafana 알람 트리거 (저장 실패와 별도)
+            if (metrics != null) {
+                metrics.recordError(exceptionClass,
+                        req != null ? truncate(req.getRequestURI(), 100) : "internal");
+            }
 
             Optional<ErrorLog> existing = repo.findByDedupeKey(dedupeKey);
             if (existing.isPresent()) {

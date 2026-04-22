@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.metrics;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -43,10 +45,17 @@ public class ToolkitMetrics {
     private final ConcurrentHashMap<String, Counter> counterCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Timer>   timerCache   = new ConcurrentHashMap<>();
 
+    /** v4.4.0 — SSE 동시 연결 수 (Gauge 의 source 값). */
+    private final AtomicInteger sseConnections = new AtomicInteger(0);
+
     public ToolkitMetrics(MeterRegistry registry) {
         this.registry = registry;
         // 시작 시점에 0 값으로 등록 — Grafana 패널이 "no data" 상태가 아닌 0 으로 표시됨
         warmup();
+        // v4.4.0: SSE 연결 수 Gauge 등록
+        Gauge.builder("notification.sse.connections", sseConnections, AtomicInteger::doubleValue)
+                .description("현재 활성 SSE (Server-Sent Events) 연결 수")
+                .register(registry);
     }
 
     // ── 1. Claude API 호출 카운터 ──────────────────────────────────────────
@@ -101,6 +110,62 @@ public class ToolkitMetrics {
         getCounter("pipeline.execution", Tags.of("status", safe(status))).increment();
     }
 
+    // ── 5. v4.4.0 신규: 파이프라인 단계별 카운트 ──────────────────────────
+
+    /**
+     * @param stepType  분석 유형 (CODE_REVIEW / SQL_REVIEW / ...)
+     * @param status    "success" | "failure" | "skipped"
+     */
+    public void recordPipelineStep(String stepType, String status) {
+        getCounter("pipeline.step.executions",
+                Tags.of("stepType", safe(stepType), "status", safe(status))).increment();
+    }
+
+    // ── 6. v4.4.0 신규: 캐시 히트/미스 ─────────────────────────────────────
+
+    /** @param cacheName 캐시 식별자 (예: "harness", "analysis") */
+    public void recordCacheHit(String cacheName) {
+        getCounter("claude.cache.hits", Tags.of("cache", safe(cacheName))).increment();
+    }
+
+    public void recordCacheMiss(String cacheName) {
+        getCounter("claude.cache.misses", Tags.of("cache", safe(cacheName))).increment();
+    }
+
+    // ── 7. v4.4.0 신규: 하네스 4단계 처리 시간 ─────────────────────────────
+
+    /**
+     * Harness 파이프라인의 각 단계 (analyst/builder/reviewer/verifier) 별 측정.
+     * @param stage    단계 이름 (소문자 권장)
+     * @param language "java" / "sql" 등
+     */
+    public void recordHarnessStage(String stage, String language, long millis) {
+        getTimer("harness.stage.duration",
+                Tags.of("stage", safe(stage), "language", safe(language)))
+                .record(millis, TimeUnit.MILLISECONDS);
+    }
+
+    // ── 8. v4.4.0 신규: SSE 연결 카운트 (Gauge) ───────────────────────────
+
+    public void incrementSseConnections() { sseConnections.incrementAndGet(); }
+    public void decrementSseConnections() {
+        // 음수 방지
+        sseConnections.updateAndGet(v -> Math.max(0, v - 1));
+    }
+
+    // ── 9. v4.4.0 신규: 에러 발생률 (#4 와 연동) ──────────────────────────
+
+    /**
+     * GlobalExceptionHandler / ErrorLogService 에서 호출 — Grafana 알림 트리거.
+     * @param exceptionClass 예외 클래스 단축명
+     * @param requestPath    요청 경로 (path 별 알람을 위해 태그)
+     */
+    public void recordError(String exceptionClass, String requestPath) {
+        getCounter("claude.errors",
+                Tags.of("exception", safe(exceptionClass),
+                        "path",      safe(requestPath))).increment();
+    }
+
     // ── 내부 헬퍼 ─────────────────────────────────────────────────────────
 
     private Counter getCounter(String name, Tags tags) {
@@ -137,7 +202,13 @@ public class ToolkitMetrics {
                 Tags.of("model", "unknown", "direction", "output"));
         getCounter("pipeline.execution", Tags.of("status", "success"));
         getCounter("pipeline.execution", Tags.of("status", "failure"));
-        // 분석 시간 Timer 는 첫 호출 시 자동 등록 — warmup 불필요
+        // v4.4.0 신규
+        getCounter("claude.cache.hits",   Tags.of("cache", "unknown"));
+        getCounter("claude.cache.misses", Tags.of("cache", "unknown"));
+        getCounter("claude.errors",       Tags.of("exception", "unknown", "path", "unknown"));
+        getCounter("pipeline.step.executions",
+                Tags.of("stepType", "unknown", "status", "success"));
+        // 분석 시간 / 하네스 단계 Timer 는 첫 호출 시 자동 등록 — warmup 불필요
     }
 
     // ── 외부에서 직접 시간 측정이 필요한 경우 사용 ───────────────────────────

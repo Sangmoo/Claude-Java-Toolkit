@@ -137,4 +137,75 @@ class ToolkitMetricsTest {
         long countAfter = registry.getMeters().size();
         assertEquals(countBefore, countAfter, "동일 태그 → 미터 개수 증가 X");
     }
+
+    // ── v4.4.0 신규 메트릭 ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("v4.4.0 — recordCacheHit/Miss 카운터")
+    void cacheMetrics() {
+        metrics.recordCacheHit("analysis");
+        metrics.recordCacheHit("analysis");
+        metrics.recordCacheMiss("analysis");
+
+        Counter hits = registry.find("claude.cache.hits").tag("cache", "analysis").counter();
+        Counter miss = registry.find("claude.cache.misses").tag("cache", "analysis").counter();
+        assertEquals(2.0, hits.count());
+        assertEquals(1.0, miss.count());
+    }
+
+    @Test
+    @DisplayName("v4.4.0 — recordHarnessStage Timer (4단계)")
+    void harnessStageTimer() {
+        metrics.recordHarnessStage("analyst", "java", 100);
+        metrics.recordHarnessStage("builder", "java", 500);
+
+        io.micrometer.core.instrument.Timer t = registry.find("harness.stage.duration")
+                .tag("stage", "analyst").tag("language", "java").timer();
+        assertNotNull(t);
+        assertEquals(1L, t.count());
+    }
+
+    @Test
+    @DisplayName("v4.4.0 — SSE 연결 Gauge: increment/decrement")
+    void sseConnectionsGauge() {
+        metrics.incrementSseConnections();
+        metrics.incrementSseConnections();
+        metrics.incrementSseConnections();
+        metrics.decrementSseConnections();
+
+        io.micrometer.core.instrument.Gauge g = registry.find("notification.sse.connections").gauge();
+        assertNotNull(g);
+        assertEquals(2.0, g.value());
+
+        // 음수 방지
+        metrics.decrementSseConnections();
+        metrics.decrementSseConnections();
+        metrics.decrementSseConnections();   // 이미 0 → 더 내려가지 않아야
+        assertEquals(0.0, g.value());
+    }
+
+    @Test
+    @DisplayName("v4.4.0 — recordError 예외별/경로별 카운트")
+    void errorMetrics() {
+        metrics.recordError("NullPointerException", "/api/v1/sql/review");
+        metrics.recordError("NullPointerException", "/api/v1/sql/review");
+        metrics.recordError("IllegalArgumentException", "/api/v1/code/review");
+
+        Counter npe = registry.find("claude.errors")
+                .tag("exception", "NullPointerException")
+                .tag("path", "/api/v1/sql/review").counter();
+        assertEquals(2.0, npe.count());
+    }
+
+    @Test
+    @DisplayName("v4.4.0 — recordPipelineStep 단계별 카운트")
+    void pipelineStepMetrics() {
+        metrics.recordPipelineStep("CODE_REVIEW", "success");
+        metrics.recordPipelineStep("CODE_REVIEW", "success");
+        metrics.recordPipelineStep("SQL_REVIEW",  "failure");
+
+        Counter okCr = registry.find("pipeline.step.executions")
+                .tag("stepType", "CODE_REVIEW").tag("status", "success").counter();
+        assertEquals(2.0, okCr.count());
+    }
 }

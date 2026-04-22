@@ -33,6 +33,10 @@ public class AnalysisCacheService {
 
     private final AnalysisCacheRepository repository;
 
+    /** v4.4.0 — 캐시 히트/미스 메트릭 (옵셔널 — 없어도 정상 동작) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.metrics.ToolkitMetrics metrics;
+
     public AnalysisCacheService(AnalysisCacheRepository repository) {
         this.repository = repository;
     }
@@ -43,19 +47,27 @@ public class AnalysisCacheService {
      */
     @Transactional
     public String get(String feature, String input) {
-        if (input == null) return null;
+        if (input == null) {
+            if (metrics != null) metrics.recordCacheMiss("analysis");
+            return null;
+        }
         String key = buildKey(feature, input);
         Optional<AnalysisCache> opt = repository.findByCacheKey(key);
-        if (!opt.isPresent()) return null;
+        if (!opt.isPresent()) {
+            if (metrics != null) metrics.recordCacheMiss("analysis");
+            return null;
+        }
 
         AnalysisCache entry = opt.get();
         if (entry.isExpired()) {
             try { repository.delete(entry); } catch (Exception ignored) {}
+            if (metrics != null) metrics.recordCacheMiss("analysis");
             return null;
         }
         entry.incrementHitCount();
         try { repository.save(entry); } catch (Exception ignored) {}
         log.debug("[AnalysisCache] HIT: {} (hits={})", feature, entry.getHitCount());
+        if (metrics != null) metrics.recordCacheHit("analysis");
         return entry.getResultText();
     }
 

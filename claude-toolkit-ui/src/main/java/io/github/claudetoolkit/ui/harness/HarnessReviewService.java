@@ -51,6 +51,10 @@ public class HarnessReviewService {
     private final ClaudeClient    claudeClient;
     private final ToolkitSettings settings;
 
+    /** v4.4.0 — 4단계별 처리 시간 측정 (옵셔널 — 없어도 정상 동작) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.metrics.ToolkitMetrics metrics;
+
     public HarnessReviewService(ClaudeClient claudeClient, ToolkitSettings settings) {
         this.claudeClient = claudeClient;
         this.settings     = settings;
@@ -128,6 +132,7 @@ public class HarnessReviewService {
         // 마커는 단독 라인이며 마크다운 렌더링에선 보이지 않도록 스트립됨.
 
         // ── 1단계: Analyst ────────────────────────────────────────────────────
+        long t1 = System.currentTimeMillis();
         onChunk.accept("[[HARNESS_STAGE:1]]\n## 📋 분석 요약\n");
         final StringBuilder analysisBuf = new StringBuilder();
         claudeClient.chatStream(
@@ -141,8 +146,10 @@ public class HarnessReviewService {
                     }
                 });
         String analysis = analysisBuf.toString().trim();
+        if (metrics != null) metrics.recordHarnessStage("analyst", language, System.currentTimeMillis() - t1);
 
         // ── 2단계: Builder — 이어쓰기로 대형 SP도 완전 출력 보장 ──────────────
+        long t2 = System.currentTimeMillis();
         onChunk.accept("\n\n[[HARNESS_STAGE:2]]\n## 🔧 개선된 코드\n```" + codeBlock + "\n");
         final StringBuilder improvedBuf = new StringBuilder();
         claudeClient.chatStreamWithContinuation(
@@ -157,22 +164,27 @@ public class HarnessReviewService {
                 });
         String improved = stripCodeFences(improvedBuf.toString().trim(), language);
         onChunk.accept("\n```\n");
+        if (metrics != null) metrics.recordHarnessStage("builder", language, System.currentTimeMillis() - t2);
 
         // ── 3단계: Reviewer ───────────────────────────────────────────────────
+        long t3 = System.currentTimeMillis();
         onChunk.accept("\n[[HARNESS_STAGE:3]]\n");
         claudeClient.chatStream(
                 withMemo(buildReviewerSystem(language), memo),
                 buildReviewerUser(code, improved, analysis, language),
                 TOKENS_REVIEWER,
                 onChunk);
+        if (metrics != null) metrics.recordHarnessStage("reviewer", language, System.currentTimeMillis() - t3);
 
         // ── 4단계: Verifier ───────────────────────────────────────────────────
+        long t4 = System.currentTimeMillis();
         onChunk.accept("\n\n[[HARNESS_STAGE:4]]\n");
         claudeClient.chatStream(
                 withMemo(buildVerifierSystem(language), memo),
                 buildVerifierUser(code, improved, analysis, language),
                 TOKENS_VERIFIER,
                 onChunk);
+        if (metrics != null) metrics.recordHarnessStage("verifier", language, System.currentTimeMillis() - t4);
     }
 
     // ── 개선 코드 추출 (UI 호환) ───────────────────────────────────────────────
