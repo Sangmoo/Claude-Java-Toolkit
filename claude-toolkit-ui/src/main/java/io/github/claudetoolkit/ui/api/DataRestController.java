@@ -769,6 +769,8 @@ public class DataRestController {
             data.put("dbUrl", toolkitSettings.getDb().getUrl());
             data.put("dbUsername", toolkitSettings.getDb().getUsername());
             data.put("scanPath", toolkitSettings.getProject().getScanPath());
+            data.put("miplatformRoot", toolkitSettings.getProject().getMiplatformRoot());
+            data.put("miplatformPatterns", toolkitSettings.getProject().getMiplatformPatterns());
             data.put("projectContext", toolkitSettings.getProjectContext());
             data.put("claudeModel", toolkitSettings.getClaudeModel());
             data.put("accentColor", toolkitSettings.getAccentColor());

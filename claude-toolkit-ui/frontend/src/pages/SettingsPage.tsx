@@ -17,6 +17,9 @@ export default function SettingsPage() {
   const [dbUsername, setDbUsername] = useState('')
   const [dbPassword, setDbPassword] = useState('')
   const [scanPath, setScanPath] = useState('')
+  // v4.4.x — Flow Analysis MiPlatform 설정
+  const [miplatformRoot, setMiplatformRoot]         = useState('')
+  const [miplatformPatterns, setMiplatformPatterns] = useState('')
   const [projectContext, setProjectContext] = useState('')
   const [accentColor, setAccentColor] = useState('#f97316')
   const [slackWebhookUrl, setSlackWebhookUrl] = useState('')
@@ -48,6 +51,8 @@ export default function SettingsPage() {
           if (d.dbUrl) setDbUrl(d.dbUrl)
           if (d.dbUsername) setDbUsername(d.dbUsername)
           if (d.scanPath) setScanPath(d.scanPath)
+          if (d.miplatformRoot)     setMiplatformRoot(d.miplatformRoot)
+          if (d.miplatformPatterns) setMiplatformPatterns(d.miplatformPatterns)
           if (d.projectContext) setProjectContext(d.projectContext)
           if (d.accentColor) setAccentColor(d.accentColor)
           if (d.slackWebhookUrl) setSlackWebhookUrl(d.slackWebhookUrl)
@@ -71,6 +76,7 @@ export default function SettingsPage() {
         scanPath, projectContext, accentColor, slackWebhookUrl, teamsWebhookUrl,
         emailHost, emailPort, emailUsername, emailPassword, emailFrom,
         emailTls: String(emailTls),
+        miplatformRoot, miplatformPatterns,
       })
       await fetch('/settings/save', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: p, credentials: 'include' })
       toast.success('설정이 저장되었습니다.')
@@ -189,6 +195,23 @@ export default function SettingsPage() {
           </Field>
           <Field label="프로젝트 컨텍스트 메모">
             <textarea placeholder="모든 AI 요청에 자동 포함될 메모..." value={projectContext} onChange={(e) => setProjectContext(e.target.value)} style={{ ...inputSt, minHeight: '80px' }} />
+          </Field>
+          {/* v4.4.x — Flow Analysis MiPlatform */}
+          <Field label="MiPlatform 디렉토리 (선택)">
+            <input placeholder="비워두면 scanPath/src/main/webapp/miplatform 자동 감지"
+                   value={miplatformRoot} onChange={(e) => setMiplatformRoot(e.target.value)}
+                   style={inputSt} />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              표준 디렉토리 구조가 아닌 경우 직접 지정. WAS 재기동 시 인덱싱이 자동 포함됨.
+            </div>
+          </Field>
+          <Field label="MiPlatform URL 추출 패턴 (고급, 선택)">
+            <textarea placeholder={'사이트별 비표준 호출 패턴 — 콤마/줄바꿈 구분, 그룹1 캡처\n예) callService\\s*\\(\\s*[\'"]([^\'"]+)[\'"]\n예) xajaxRequest\\s*\\(\\s*[\'"]([^\'"]+)[\'"]'}
+                      value={miplatformPatterns} onChange={(e) => setMiplatformPatterns(e.target.value)}
+                      style={{ ...inputSt, minHeight: '70px', fontFamily: 'monospace', fontSize: 11 }} />
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              기본 정규식 (Transaction url=, transaction("svc::/...")) 외에 추가 적용. 저장 후 데이터 흐름 분석 페이지에서 "인덱스 재빌드" 클릭.
+            </div>
           </Field>
         </Card>
 

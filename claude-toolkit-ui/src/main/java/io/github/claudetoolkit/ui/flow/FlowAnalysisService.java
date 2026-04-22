@@ -253,6 +253,18 @@ public class FlowAnalysisService {
 
         // ── steps 자동 생성 (BFS 역방향 — UI 부터 TABLE 까지)
         r.steps.addAll(buildSteps(r));
+
+        // v4.4.x — ERP/DB 양측 발견 여부를 명시적 플래그로 expose (LLM 이 둘 다 설명하게 강제용)
+        r.stats.put("hasErpFlow", !mbStatements.isEmpty());
+        r.stats.put("hasDbSpFlow", !sps.isEmpty());
+        if (mbStatements.isEmpty() && !sps.isEmpty()) {
+            r.warnings.add("ERP 코드 (MyBatis/Java) 에서는 매칭 0건 — DB 오브젝트 (SP/Trigger) 경로만 발견됨.");
+        } else if (!mbStatements.isEmpty() && sps.isEmpty()) {
+            r.warnings.add("DB 오브젝트 (SP/Trigger) 에서는 매칭 0건 — ERP 코드 경로만 발견됨.");
+        } else if (!mbStatements.isEmpty() && !sps.isEmpty()) {
+            r.warnings.add("ERP 코드 경로 (" + mbStatements.size() + ") + DB 오브젝트 경로 ("
+                    + sps.size() + ") 모두 발견 — 두 경로 모두 데이터를 변경할 수 있음.");
+        }
     }
 
     private void analyzeFromSp(String query, FlowAnalysisRequest req,

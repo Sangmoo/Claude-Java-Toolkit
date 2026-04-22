@@ -25,6 +25,9 @@ interface HealthData {
   erpConfigured?: boolean
   erpReachable?: boolean
   erpInfo?: string | null
+  miConfigured?: boolean
+  miReachable?: boolean
+  miInfo?: string | null
 }
 
 interface TeamActivity {
@@ -421,6 +424,14 @@ function HeroWidget({ greeting, username, health, config }: {
                         : (health.erpReachable === false ? 'Path Missing' : 'OK')
                       }
                       title={health.erpInfo || '미설정 — Settings → Java 프로젝트 경로 에서 입력'} />
+          <StatusPill label="MiPlatform"
+                      ok={(health.miConfigured ?? false) && (health.miReachable ?? false)}
+                      mixed={(health.miConfigured ?? false) && !(health.miReachable ?? false)}
+                      value={
+                        !health.miConfigured ? 'False'
+                        : (health.miReachable === false ? 'No Screens' : 'OK')
+                      }
+                      title={health.miInfo || '미설정 — Settings → MiPlatform 디렉토리, 또는 scanPath/src/main/webapp/miplatform 자동 감지'} />
         </div>
       )}
     </div>

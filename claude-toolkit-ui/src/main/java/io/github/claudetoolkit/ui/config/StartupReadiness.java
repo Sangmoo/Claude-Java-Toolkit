@@ -10,6 +10,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer;
+import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer;
+import io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer;
 import io.github.claudetoolkit.ui.harness.HarnessCacheService;
 
 import javax.sql.DataSource;
@@ -80,16 +83,25 @@ public class StartupReadiness implements HealthIndicator {
         private final SettingsPersistenceService persistenceService;
         private final DataSource dataSource;
         private final HarnessCacheService harnessCache;
+        private final MyBatisIndexer     mybatisIndexer;
+        private final SpringUrlIndexer   springIndexer;
+        private final MiPlatformIndexer  miplatformIndexer;
 
         @Autowired(required = false)
         public StartupWarmup(ToolkitSettings settings,
                              SettingsPersistenceService persistenceService,
                              DataSource dataSource,
-                             HarnessCacheService harnessCache) {
+                             HarnessCacheService harnessCache,
+                             MyBatisIndexer     mybatisIndexer,
+                             SpringUrlIndexer   springIndexer,
+                             MiPlatformIndexer  miplatformIndexer) {
             this.settings = settings;
             this.persistenceService = persistenceService;
             this.dataSource = dataSource;
             this.harnessCache = harnessCache;
+            this.mybatisIndexer    = mybatisIndexer;
+            this.springIndexer     = springIndexer;
+            this.miplatformIndexer = miplatformIndexer;
         }
 
         public boolean isReady()           { return ready.get(); }
@@ -212,6 +224,54 @@ public class StartupReadiness implements HealthIndicator {
                 } catch (Exception e) {
                     log.warn("[StartupWarmup] ⚠ Harness 캐시 검증 실패 (앱은 기동): {}", e.getMessage());
                 }
+            }
+
+            // 6. Flow Analysis 인덱서 검증 — Settings 의 scanPath / miplatformRoot
+            //    가 채워져 있는데 인덱스가 비어있으면 한 번 더 refresh 시도.
+            //    "Settings → ERP/MiPlatform 다 설정했는데 데이터 흐름 분석에서 0건 나옴"
+            //    의 원인이 인덱서 초기화 누락인 케이스 차단.
+            stage.set("VERIFYING_FLOW_INDEXERS");
+            try {
+                if (mybatisIndexer != null) {
+                    if (settings != null && settings.isProjectConfigured()
+                            && mybatisIndexer.getStatementCount() == 0) {
+                        log.info("[StartupWarmup] ⟳ MyBatis 인덱스 재로드 (scanPath 설정됐는데 비어있음)");
+                        mybatisIndexer.refresh();
+                    }
+                    log.info("[StartupWarmup] ✓ MyBatis 인덱스: statements={} tables={}",
+                            mybatisIndexer.getStatementCount(), mybatisIndexer.getTableCount());
+                }
+                if (springIndexer != null) {
+                    if (settings != null && settings.isProjectConfigured()
+                            && springIndexer.getEndpointCount() == 0) {
+                        log.info("[StartupWarmup] ⟳ Spring URL 인덱스 재로드");
+                        springIndexer.refresh();
+                    }
+                    log.info("[StartupWarmup] ✓ Spring URL 인덱스: endpoints={} urls={}",
+                            springIndexer.getEndpointCount(), springIndexer.getUrlCount());
+                }
+                if (miplatformIndexer != null) {
+                    String miRoot = settings != null && settings.getProject() != null
+                            ? settings.getProject().getMiplatformRoot() : "";
+                    boolean miConfigured = (miRoot != null && !miRoot.trim().isEmpty())
+                            || (settings != null && settings.isProjectConfigured());
+                    if (miConfigured && miplatformIndexer.getScreenCount() == 0) {
+                        log.info("[StartupWarmup] ⟳ MiPlatform 인덱스 재로드 (configured, screens=0)");
+                        miplatformIndexer.refresh();
+                    }
+                    String detected = miplatformIndexer.getDetectedRoot();
+                    if (detected != null && !detected.isEmpty()) {
+                        log.info("[StartupWarmup] ✓ MiPlatform 인덱스: root='{}' screens={} urls={}",
+                                detected, miplatformIndexer.getScreenCount(), miplatformIndexer.getUrlCount());
+                    } else if (miConfigured) {
+                        log.warn("[StartupWarmup] ⚠ MiPlatform 디렉토리 미감지 — Settings.miplatformRoot 또는 "
+                                + "scanPath/src/main/webapp/miplatform 경로 확인 필요");
+                    } else {
+                        log.info("[StartupWarmup] ⊘ MiPlatform 인덱스 비활성 (Settings 미구성)");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[StartupWarmup] ⚠ Flow 인덱서 검증 실패 (앱은 기동): {}", e.getMessage());
             }
 
             long elapsed = System.currentTimeMillis() - start;

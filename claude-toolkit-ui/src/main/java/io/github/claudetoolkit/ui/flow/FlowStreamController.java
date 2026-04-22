@@ -234,15 +234,31 @@ public class FlowStreamController {
               + "백엔드 추적 엔진이 코드/DB 인덱스를 이미 검색해 nodes/edges/steps 를 찾아 전달했습니다. "
               + "당신은 그 결과를 **자연어 흐름** + **Mermaid 다이어그램** 으로 다시 작성합니다.\n"
               + "\n"
+              + "[ERP 코드 경로 vs DB 오브젝트 경로 — 가장 중요]\n"
+              + "동일한 테이블에 데이터가 들어가는 경로는 보통 두 종류가 있습니다:\n"
+              + "  (A) ERP 코드 경로 — MiPlatform → Controller → Service → DAO → MyBatis → 테이블\n"
+              + "  (B) DB 오브젝트 경로 — Oracle PROCEDURE / FUNCTION / TRIGGER 가 직접 INSERT/UPDATE\n"
+              + "메타데이터의 hasErpFlow / hasDbSpFlow 플래그로 어느 경로가 발견됐는지 알 수 있습니다.\n"
+              + "  • 둘 다 true 면 → **반드시 두 경로 모두 별도 소제목으로 설명**. 어느 한쪽도 누락하지 말 것.\n"
+              + "    Mermaid 도 두 흐름을 동시에 표현 (subgraph 'ERP 코드' / subgraph 'DB 오브젝트').\n"
+              + "    한 줄 요약에도 \"두 경로 모두에서 데이터 변경됨\" 을 명시.\n"
+              + "  • 한쪽만 true 면 → 그 경로만 상세히 설명하고, 다른 쪽은 ⚠ 섹션에서 \"검색했지만 못 찾음 — \n"
+              + "    (있으면) DB 트리거/외부 배치/동적 SQL 가능성\" 으로 안내.\n"
+              + "\n"
               + "[출력 규칙 — 반드시 지킬 것]\n"
               + "1. 마크다운 한 덩어리로 응답합니다.\n"
               + "2. 다음 섹션 순서를 따릅니다:\n"
-              + "   ## 📌 한 줄 요약  (질문에 대한 결론을 1~2 문장으로)\n"
+              + "   ## 📌 한 줄 요약  (질문에 대한 결론을 1~2 문장으로. ERP/DB 양쪽 다 있으면 \"두 경로 모두\" 명시)\n"
               + "   ## 🔁 데이터 흐름 다이어그램  ( ```mermaid 코드블록 1개 — flowchart TD )\n"
-              + "   ## 📋 단계별 설명  (1·2·3 번호 매겨서, 각 단계에 파일/SP/URL 정확히 인용)\n"
-              + "   ## ⚠ 주의/추정  (인덱서가 못 찾은 영역, AI 추정 부분, 추가 확인 필요 항목)\n"
+              + "   ## 📋 단계별 설명\n"
+              + "       양쪽 모두 발견된 경우는 다음 두 소제목 모두 작성:\n"
+              + "         ### 🟦 ERP 코드 경로  (1·2·3 번호, MiPlatform→Controller→Service→DAO→MyBatis 순)\n"
+              + "         ### 🟥 DB 오브젝트 경로  (어떤 SP/Function/Trigger 가 언제 호출되어 데이터를 변경하는지)\n"
+              + "       한쪽만 발견되면 해당 소제목만 작성 + 다른 쪽은 ⚠ 섹션에서 \"미발견\" 안내.\n"
+              + "   ## ⚠ 주의/추정  (인덱서가 못 찾은 영역, 한쪽만 발견된 경우 다른 경로 가능성, AI 추정 부분)\n"
               + "3. 절대 입력 데이터에 없는 파일·테이블·SP 명을 만들어내지 않습니다 (환각 금지). 추정이면 \"추정\" 이라고 명시합니다.\n"
-              + "4. Mermaid 다이어그램은 입력의 nodes/edges 를 기반으로 하되, 같은 type 끼리 subgraph 로 묶어 가독성 ↑.\n"
+              + "4. Mermaid 다이어그램은 입력의 nodes/edges 를 기반으로 하되, 같은 type 끼리 subgraph 로 묶어 가독성 ↑. "
+              + "ERP/DB 양쪽 모두 있으면 subgraph 두 개로 분리.\n"
               + "5. 노드 라벨은 `파일명.메서드명` 또는 `OWNER.OBJECT_NAME` 처럼 구체적으로.\n"
               + "6. steps 가 비어있으면 nodes/edges 를 보고 직접 1·2·3 흐름을 재구성합니다.\n"
               + "7. 입력에 warnings 가 있으면 ⚠ 섹션에 그대로 포함하고, 가능한 보완책 (예: \"reindex 후 재시도\") 을 제시합니다.\n";
@@ -258,6 +274,25 @@ public class FlowStreamController {
         sb.append("# 추적 메타데이터\n");
         sb.append("- 결정된 targetType: ").append(r.targetType).append("\n");
         sb.append("- 통계: ").append(r.stats).append("\n");
+
+        // v4.4.x — ERP/DB 양쪽 발견 여부를 헤드라인에 명확히
+        Object hasErp  = r.stats != null ? r.stats.get("hasErpFlow")  : null;
+        Object hasDbSp = r.stats != null ? r.stats.get("hasDbSpFlow") : null;
+        boolean erp = Boolean.TRUE.equals(hasErp);
+        boolean db  = Boolean.TRUE.equals(hasDbSp);
+        sb.append("\n# 🚨 경로 발견 결과 (이게 답변 구조를 결정함)\n");
+        sb.append("- ERP 코드 경로 (MyBatis/Java)  : ").append(erp ? "✅ 발견" : "❌ 미발견").append("\n");
+        sb.append("- DB 오브젝트 경로 (SP/Trigger) : ").append(db  ? "✅ 발견" : "❌ 미발견").append("\n");
+        if (erp && db) {
+            sb.append("→ **두 경로 모두 발견** — 두 소제목 (### 🟦 ERP 코드 경로 / ### 🟥 DB 오브젝트 경로) 모두 작성하세요.\n");
+        } else if (erp) {
+            sb.append("→ ERP 코드 경로만 발견 — 그쪽 위주로 설명하고, ⚠ 에서 DB 트리거/외부 배치 가능성 안내.\n");
+        } else if (db) {
+            sb.append("→ DB 오브젝트 경로만 발견 — SP/Function/Trigger 위주로 설명하고, ⚠ 에서 \n"
+                    + "  ERP 코드 경로 미발견 (동적 SQL/Reflection/외부 모듈 가능성) 안내.\n");
+        } else {
+            sb.append("→ 양쪽 모두 미발견 — 정직하게 \"코드/DB 모두에서 못 찾음\" 으로 답하고 가능 시나리오 제시.\n");
+        }
         if (r.warnings != null && !r.warnings.isEmpty()) {
             sb.append("\n# ⚠ 경고\n");
             for (String w : r.warnings) sb.append("- ").append(w).append("\n");

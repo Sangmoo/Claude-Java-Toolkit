@@ -29,6 +29,10 @@ public class SettingsController {
     private final ClaudeClient               claudeClient;
     private final ClaudeProperties           claudeProperties;
     private final io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService;
+    // v4.4.x — Flow Analysis 인덱서 자동 재빌드 (Settings 저장 직후)
+    private final io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer    flowMybatisIndexer;
+    private final io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer  flowSpringIndexer;
+    private final io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer flowMiplatformIndexer;
 
     public SettingsController(ToolkitSettings settings,
                               OracleMetaService oracleMetaService,
@@ -36,7 +40,10 @@ public class SettingsController {
                               SettingsPersistenceService persistenceService,
                               ClaudeClient claudeClient,
                               ClaudeProperties claudeProperties,
-                              io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService) {
+                              io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService,
+                              io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer    flowMybatisIndexer,
+                              io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer  flowSpringIndexer,
+                              io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer flowMiplatformIndexer) {
         this.settings              = settings;
         this.oracleMetaService     = oracleMetaService;
         this.projectScannerService = projectScannerService;
@@ -44,6 +51,9 @@ public class SettingsController {
         this.claudeClient          = claudeClient;
         this.claudeProperties      = claudeProperties;
         this.harnessCacheService   = harnessCacheService;
+        this.flowMybatisIndexer    = flowMybatisIndexer;
+        this.flowSpringIndexer     = flowSpringIndexer;
+        this.flowMiplatformIndexer = flowMiplatformIndexer;
     }
 
     @GetMapping
@@ -82,6 +92,9 @@ public class SettingsController {
             @RequestParam(required = false, defaultValue = "") String jiraProjectKey,
             @RequestParam(required = false, defaultValue = "") String jiraEmail,
             @RequestParam(required = false, defaultValue = "") String jiraApiToken,
+            // v4.4.x — Flow Analysis MiPlatform
+            @RequestParam(required = false, defaultValue = "") String miplatformRoot,
+            @RequestParam(required = false, defaultValue = "") String miplatformPatterns,
             HttpSession saveSession) {
 
         // 입력값 유효성 검증
@@ -93,6 +106,8 @@ public class SettingsController {
         settings.getDb().setUsername(dbUsername.trim());
         settings.getDb().setPassword(dbPassword.trim());
         settings.getProject().setScanPath(scanPath.trim());
+        settings.getProject().setMiplatformRoot(miplatformRoot.trim());
+        settings.getProject().setMiplatformPatterns(miplatformPatterns);
         settings.setProjectContext(projectContext.trim());
         settings.setClaudeModel(claudeModel);
         settings.setAccentColor(accentColor);
@@ -122,6 +137,11 @@ public class SettingsController {
             public void run() {
                 harnessCacheService.refreshFileCache();
                 harnessCacheService.refreshDbCache();
+                // v4.4.x — Flow Analysis 인덱서도 같이 갱신
+                // (scanPath / miplatformRoot / miplatformPatterns 변경 즉시 반영)
+                try { flowMybatisIndexer.refresh(); }    catch (Exception ignored) {}
+                try { flowSpringIndexer.refresh(); }     catch (Exception ignored) {}
+                try { flowMiplatformIndexer.refresh(); } catch (Exception ignored) {}
             }
         });
         cacheThread.setDaemon(true);

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.config.HostPathTranslator;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -39,7 +40,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *     "dbInfo":         "jdbc:oracle:thin:@//host:1521/SVC",
  *     "erpConfigured":  true,        ← 프로젝트 스캔 경로 설정됨
  *     "erpReachable":   true,        ← 해당 디렉토리 실제 존재
- *     "erpInfo":        "/host/d/eclipse_indongfn/workspace/IND_ERP"
+ *     "erpInfo":        "/host/d/eclipse_indongfn/workspace/IND_ERP",
+ *     "miConfigured":   true,        ← MiPlatform 디렉토리 (Settings 또는 자동감지) 있음
+ *     "miReachable":    true,        ← MiPlatformIndexer 캐시에 화면 ≥1 존재
+ *     "miInfo":         "src/main/webapp/miplatform (358 화면, 421 URL)"
  *   }
  * }
  * </pre>
@@ -52,17 +56,20 @@ public class HealthRestController {
     private static final Logger log = LoggerFactory.getLogger(HealthRestController.class);
     private static final long DB_PROBE_TTL_MS = 60_000;  // 60초 캐시 — 헬스체크 폭증 방지
 
-    private final ToolkitSettings settings;
-    private final ClaudeClient    claudeClient;
+    private final ToolkitSettings    settings;
+    private final ClaudeClient       claudeClient;
+    private final MiPlatformIndexer  miplatformIndexer;
 
     /** v4.4.x — DB probe 결과 캐시 (URL+username 변경 시 자동 무효화) */
     private final AtomicReference<String> cachedDbKey   = new AtomicReference<>(null);
     private final AtomicReference<Boolean> cachedDbOk   = new AtomicReference<>(null);
     private final AtomicLong               cachedDbTime = new AtomicLong(0);
 
-    public HealthRestController(ToolkitSettings settings, ClaudeClient claudeClient) {
-        this.settings     = settings;
-        this.claudeClient = claudeClient;
+    public HealthRestController(ToolkitSettings settings, ClaudeClient claudeClient,
+                                MiPlatformIndexer miplatformIndexer) {
+        this.settings          = settings;
+        this.claudeClient      = claudeClient;
+        this.miplatformIndexer = miplatformIndexer;
     }
 
     @GetMapping("/health")
@@ -110,6 +117,26 @@ public class HealthRestController {
         data.put("erpConfigured", erpConfigured);
         data.put("erpReachable",  erpReachable);
         data.put("erpInfo",       erpInfo);
+
+        // ── v4.4.x — MiPlatform 인덱서 상태 (Hero 위젯 추가 pill) ─────────
+        boolean miConfigured = false;
+        boolean miReachable  = false;
+        String  miInfo       = null;
+        if (miplatformIndexer != null) {
+            String customRoot = settings.getProject() != null ? settings.getProject().getMiplatformRoot() : "";
+            miConfigured = (customRoot != null && !customRoot.trim().isEmpty()) || erpConfigured;
+            miReachable  = miplatformIndexer.isReady() && miplatformIndexer.getScreenCount() > 0;
+            String detected = miplatformIndexer.getDetectedRoot();
+            if (detected != null && !detected.isEmpty()) {
+                miInfo = detected + "  (" + miplatformIndexer.getScreenCount() + " 화면, "
+                       + miplatformIndexer.getUrlCount() + " URL)";
+            } else if (customRoot != null && !customRoot.trim().isEmpty()) {
+                miInfo = customRoot + "  (디렉토리 미감지 — 경로 확인 필요)";
+            }
+        }
+        data.put("miConfigured", miConfigured);
+        data.put("miReachable",  miReachable);
+        data.put("miInfo",       miInfo);
 
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
