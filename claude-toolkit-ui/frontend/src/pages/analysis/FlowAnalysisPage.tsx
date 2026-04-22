@@ -315,11 +315,16 @@ export default function FlowAnalysisPage() {
           includeUi,
         }),
       })
-      const startData = await startRes.json()
+      // v4.4.x — HTTP 비-200 (CSRF 403 등) 케이스 명시적으로 잡기
+      if (!startRes.ok) {
+        toast.error(`분석 시작 실패 (HTTP ${startRes.status} ${startRes.statusText})`)
+        setStreaming(false); setStatusText('')
+        return
+      }
+      const startData = await startRes.json().catch(() => ({ success: false, error: 'JSON 파싱 실패' }))
       if (!startData.success) {
         toast.error(startData.error || '시작 실패')
-        setStreaming(false)
-        setStatusText('')
+        setStreaming(false); setStatusText('')
         return
       }
 
@@ -378,8 +383,8 @@ export default function FlowAnalysisPage() {
         setStreaming(false)
         setStatusText('')
       }
-    } catch {
-      toast.error('분석 시작 실패')
+    } catch (e: any) {
+      toast.error(`분석 시작 실패: ${e?.message || '네트워크 오류'}`)
       setStreaming(false)
       setStatusText('')
     }

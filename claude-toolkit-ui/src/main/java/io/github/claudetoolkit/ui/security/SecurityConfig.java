@@ -65,6 +65,8 @@ public class SecurityConfig {
                     "/history/**",
                     // v4.2.x: 분석 파이프라인 — POST /pipelines/{id}/run 등
                     "/pipelines/**",
+                    // v4.4.x: 데이터 흐름 분석 — POST /flow/stream/start, GET /flow/stream (SSE)
+                    "/flow/**",
                     // v4.2.x: 이메일 발송 (다수 수신자)
                     "/email/**"
                 )
