@@ -262,8 +262,21 @@ public class ChatController {
                 if (autoCtx != null && !autoCtx.isEmpty()) {
                     sysPrompt.append("\n\n[자동 감지 컨텍스트 — DB 스키마 + 프로젝트 코드]")
                              .append(autoCtx);
+                    // v4.4.x — AI 가 컨텍스트를 무시하고 "프로젝트에 없다" 라고
+                    // 단정하지 않도록 명시적 지시. 0건일 때는 "검색은 했지만 못 찾음"
+                    // 메시지가 컨텍스트로 포함되어 있으니 그것을 그대로 사용자에게 전달.
+                    sysPrompt.append("\n\n[규칙] 위 [자동 감지 컨텍스트] 안에 매칭 결과(파일/라인/스니펫)가 있다면 ")
+                             .append("그 파일명·라인을 직접 인용하면서 답하라. 매칭 0건 메시지가 있다면 ")
+                             .append("\"프로젝트에 코드가 없다\" 가 아니라 \"스캔했지만 못 찾았다\" 로 답하고, ")
+                             .append("DB 트리거/외부 배치/별도 모듈 가능성을 제안하라. ")
+                             .append("이미 DB 스키마/코드 컨텍스트가 주어졌는데도 \"검색해 본 결과 없다\" ")
+                             .append("같은 일반론적 답변은 절대 하지 말 것.");
                 }
-            } catch (Exception ignored) { /* enricher 실패는 채팅 흐름에 영향 없음 */ }
+            } catch (Exception e) {
+                // 실패해도 채팅 흐름은 계속 — 다만 더이상 silent 하지 않게 로그 남김
+                org.slf4j.LoggerFactory.getLogger(ChatController.class)
+                        .warn("[ChatContextEnricher] enrich 실패 (채팅은 계속 진행): {}", e.getMessage());
+            }
         }
 
         // DB에서 메시지 목록 로드 (방금 추가한 사용자 메시지 포함)

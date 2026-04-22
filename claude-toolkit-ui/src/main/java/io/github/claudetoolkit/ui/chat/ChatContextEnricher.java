@@ -48,9 +48,9 @@ public class ChatContextEnricher {
     private static final Pattern COLUMN_PATTERN = Pattern.compile(
             "\\b([A-Z][A-Z_0-9]{2,})\\b");
 
-    /** 한 번에 스캔할 최대 파일 수 (성능 보호) */
-    private static final int MAX_SCANNED_FILES = 2000;
-    /** 매칭된 코드 발췌 최대 개수 */
+    /** 한 번에 스캔할 최대 파일 수 (성능 보호) — ERP 급 모노레포 (수만 파일) 대응 */
+    private static final int MAX_SCANNED_FILES = 20_000;
+    /** 매칭된 코드 발췌 최대 개수 — 점수순 상위 N */
     private static final int MAX_SNIPPETS = 8;
     /** 발췌 1개당 최대 글자 수 */
     private static final int SNIPPET_MAX_LEN = 800;
@@ -104,7 +104,10 @@ public class ChatContextEnricher {
             String scanPath = settings.getProject() != null ? settings.getProject().getScanPath() : null;
             if (scanPath != null && !scanPath.trim().isEmpty()) {
                 String codeCtx = grepProjectFiles(scanPath, keywords);
-                if (!codeCtx.isEmpty()) {
+                if (codeCtx != null && !codeCtx.isEmpty()) {
+                    // codeCtx 는 매칭이 0 건이어도 "검색했지만 못 찾음" 메시지를 반환 →
+                    // AI 가 "프로젝트에 코드가 없다" 고 단정하지 않고 "검색은 됐지만 못 찾음 →
+                    // 다른 키워드 / DB 트리거 / 외부 시스템 가능성" 으로 답하게 됨.
                     sb.append("\n\n## 📂 자동 감지된 프로젝트 코드 참조\n\n").append(codeCtx);
                 }
             }
@@ -148,65 +151,109 @@ public class ChatContextEnricher {
 
     // ── 2. 코드 grep ───────────────────────────────────────────────────
 
+    /**
+     * 프로젝트 전체를 스캔하면서 모든 매칭 파일을 점수화 → 상위 {@link #MAX_SNIPPETS} 개만
+     * 반환. 이전에는 매칭 8개를 채우면 walk 를 즉시 종료해, 알파벳 순으로 먼저 만난
+     * 무관한 파일이 슬롯을 차지하고 정작 핵심 SQLMAP 파일은 방문조차 안 되는 버그가
+     * 있었다.
+     *
+     * <p><b>점수 체계</b> (높을수록 우선):
+     * <ul>
+     *   <li>+15 / 키워드 — 스니펫 안에 포함된 distinct 키워드 수 (SHOP_INVT_RANK
+     *       와 FINAL_RANK 둘 다 들어있으면 +30)</li>
+     *   <li>+10 UPDATE / +8 MERGE / +5 INSERT / +3 DELETE — DML 보너스</li>
+     *   <li>+20 if 파일명에 sqlmap/mapper/dao/service 포함 — 보통 사용자가 찾는 곳</li>
+     * </ul>
+     *
+     * <p>0 건이어도 빈 문자열이 아닌 "검색했지만 매칭 없음" 진단 메시지를 반환 →
+     * AI 가 "프로젝트에 코드가 없다" 로 단정하는 것을 방지.
+     */
     private String grepProjectFiles(String rootPath, Set<String> keywords) {
         // v4.4.x — Linux 컨테이너에서 Windows 경로 자동 변환 (D:\ → /host/d/)
         String resolved = io.github.claudetoolkit.ui.config.HostPathTranslator.translate(rootPath);
         Path root = Paths.get(resolved);
-        if (!Files.isDirectory(root)) return "";
+        if (!Files.isDirectory(root)) {
+            log.warn("[Enricher] 스캔 경로가 디렉토리가 아님: input='{}', resolved='{}'",
+                    rootPath, resolved);
+            return String.format("_⚠ 스캔 경로(`%s`)에 접근할 수 없어 코드 검색을 건너뜀._\n", rootPath);
+        }
 
-        List<Snippet> snippets = new ArrayList<>();
+        final List<Snippet> all = new ArrayList<>();
         final int[] scanned = { 0 };
+        final int[] matched = { 0 };
+        long start = System.currentTimeMillis();
+
         try {
-            Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), 10, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), 12, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (scanned[0]++ > MAX_SCANNED_FILES) return FileVisitResult.TERMINATE;
-                    if (snippets.size() >= MAX_SNIPPETS) return FileVisitResult.TERMINATE;
                     String name = file.getFileName().toString().toLowerCase();
-                    // 분석 대상 파일만
                     if (!name.endsWith(".java") && !name.endsWith(".xml")
                             && !name.endsWith(".sql") && !name.endsWith(".pls")
                             && !name.endsWith(".pck")) {
                         return FileVisitResult.CONTINUE;
                     }
                     try {
-                        // 1MB 넘는 파일은 스킵 (메모리 보호)
-                        if (Files.size(file) > 1_000_000) return FileVisitResult.CONTINUE;
+                        if (Files.size(file) > 1_500_000) return FileVisitResult.CONTINUE;
                         String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-                        // 하나라도 키워드 매칭되면 스니펫 추출
+                        // ── 이 파일에서 가장 좋은 매칭 위치 1개 추출 (모든 키워드 합산 점수) ──
+                        int bestIdx = -1;
+                        String bestKw = null;
                         for (String kw : keywords) {
                             int idx = content.indexOf(kw);
-                            if (idx >= 0) {
-                                snippets.add(extractSnippet(file, content, idx, kw, root));
-                                break;
+                            if (idx >= 0 && (bestIdx < 0 || idx < bestIdx)) {
+                                bestIdx = idx; bestKw = kw;
                             }
                         }
-                    } catch (Exception ignored) {}
+                        if (bestIdx >= 0) {
+                            matched[0]++;
+                            all.add(extractSnippet(file, content, bestIdx, bestKw, root, keywords));
+                        }
+                    } catch (Exception ignored) { /* unreadable file — skip */ }
                     return FileVisitResult.CONTINUE;
                 }
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                     String n = dir.getFileName() != null ? dir.getFileName().toString() : "";
                     if (n.equals("target") || n.equals("build") || n.equals("node_modules")
-                            || n.equals(".git") || n.equals(".idea") || n.startsWith(".")) {
+                            || n.equals(".git") || n.equals(".idea") || n.equals("out")
+                            || n.startsWith(".")) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
-            log.debug("프로젝트 스캔 실패 (silent): {}", e.getMessage());
+            log.warn("[Enricher] 프로젝트 스캔 실패: {}", e.getMessage());
         }
 
-        if (snippets.isEmpty()) return "";
-        // UPDATE/MERGE 구문 포함 스니펫 우선 정렬 (사용자 질문이 "언제 UPDATE 되는지" 같은 패턴 많음)
-        snippets.sort((a, b) -> Integer.compare(b.priority, a.priority));
+        long elapsed = System.currentTimeMillis() - start;
+        log.info("[Enricher] grep 완료: root='{}' keywords={} scanned={} matched={} elapsed={}ms",
+                root, keywords, scanned[0], matched[0], elapsed);
+
+        if (all.isEmpty()) {
+            // 0 건이어도 명시적 메시지 반환 — AI 가 "정보 없음" 으로 단정 못 하게 차단
+            return String.format(
+                    "_프로젝트 스캔 결과: `%s` 키워드를 포함하는 파일이 **0 건** "
+                            + "(총 %d 파일 검사, %d ms). 키워드 변형(예: 동의어, 약어), DB 트리거, "
+                            + "외부 배치/ETL, 또는 별도 모듈 가능성을 점검 필요._\n",
+                    String.join(", ", keywords), scanned[0], elapsed);
+        }
+
+        // 점수 내림차순 정렬 후 상위 N
+        all.sort((a, b) -> Integer.compare(b.priority, a.priority));
+        List<Snippet> top = all.size() > MAX_SNIPPETS ? all.subList(0, MAX_SNIPPETS) : all;
 
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("프로젝트 스캔 결과 — `%s` 등 %d 개 키워드 매칭 (총 %d 파일 검사):\n\n",
-                String.join(", ", keywords), keywords.size(), scanned[0]));
-        for (Snippet s : snippets) {
-            sb.append("### `").append(s.relativePath).append("` (line ~").append(s.lineNumber).append(")\n\n");
+        sb.append(String.format(
+                "프로젝트 스캔 결과 — 키워드 `%s` 매칭 **총 %d 파일** (스캔 %d, %d ms). "
+                        + "관련도 상위 %d 건:\n\n",
+                String.join(", ", keywords), all.size(), scanned[0], elapsed, top.size()));
+        for (Snippet s : top) {
+            sb.append("### `").append(s.relativePath)
+              .append("` (line ~").append(s.lineNumber)
+              .append(", score=").append(s.priority).append(")\n\n");
             String langTag = s.relativePath.toLowerCase().endsWith(".java") ? "java"
                     : (s.relativePath.toLowerCase().endsWith(".xml") ? "xml" : "sql");
             sb.append("```").append(langTag).append("\n").append(s.code).append("\n```\n\n");
@@ -214,27 +261,37 @@ public class ChatContextEnricher {
         return sb.toString();
     }
 
-    private Snippet extractSnippet(Path file, String content, int matchIdx, String keyword, Path root) {
-        // 매칭 위치 주변 ±400자 발췌 (라인 단위로 확장)
-        int start = Math.max(0, matchIdx - 400);
-        int end = Math.min(content.length(), matchIdx + 400);
-        // 라인 시작/끝까지 확장
+    private Snippet extractSnippet(Path file, String content, int matchIdx, String keyword,
+                                   Path root, Set<String> allKeywords) {
+        // 매칭 위치 주변 ±500 자 발췌 (라인 단위로 확장)
+        int start = Math.max(0, matchIdx - 500);
+        int end = Math.min(content.length(), matchIdx + 500);
         while (start > 0 && content.charAt(start - 1) != '\n') start--;
         while (end < content.length() && content.charAt(end) != '\n') end++;
         String snippet = content.substring(start, end);
         if (snippet.length() > SNIPPET_MAX_LEN) {
             snippet = snippet.substring(0, SNIPPET_MAX_LEN) + "\n... (생략)";
         }
-        // line 번호 계산
         int lineNum = 1;
         for (int i = 0; i < matchIdx; i++) if (content.charAt(i) == '\n') lineNum++;
-        // 우선순위 — UPDATE/MERGE/INSERT 포함이면 점수 높음
+
+        // ── 점수 산정 ──────────────────────────────────────────────────
         int priority = 0;
         String upper = snippet.toUpperCase();
+        // (1) 스니펫 내 distinct 키워드 — 같은 파일에 테이블+컬럼 둘 다 있으면 강력한 신호
+        for (String kw : allKeywords) {
+            if (snippet.contains(kw)) priority += 15;
+        }
+        // (2) DML 보너스
         if (upper.contains("UPDATE")) priority += 10;
-        if (upper.contains("MERGE")) priority += 8;
+        if (upper.contains("MERGE"))  priority += 8;
         if (upper.contains("INSERT")) priority += 5;
         if (upper.contains("DELETE")) priority += 3;
+        // (3) 파일 위치/이름 — sqlmap/mapper/dao/service 는 보통 비즈니스 로직
+        String pathLower = file.toString().toLowerCase();
+        if (pathLower.contains("sqlmap") || pathLower.contains("mapper")) priority += 20;
+        if (pathLower.contains("/dao/") || pathLower.contains("/service/")) priority += 10;
+
         Snippet s = new Snippet();
         s.relativePath = root.relativize(file).toString().replace('\\', '/');
         s.code = snippet;
