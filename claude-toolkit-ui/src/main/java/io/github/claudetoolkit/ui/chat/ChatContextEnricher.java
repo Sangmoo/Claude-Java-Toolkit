@@ -149,7 +149,9 @@ public class ChatContextEnricher {
     // ── 2. 코드 grep ───────────────────────────────────────────────────
 
     private String grepProjectFiles(String rootPath, Set<String> keywords) {
-        Path root = Paths.get(rootPath);
+        // v4.4.x — Linux 컨테이너에서 Windows 경로 자동 변환 (D:\ → /host/d/)
+        String resolved = io.github.claudetoolkit.ui.config.HostPathTranslator.translate(rootPath);
+        Path root = Paths.get(resolved);
         if (!Files.isDirectory(root)) return "";
 
         List<Snippet> snippets = new ArrayList<>();

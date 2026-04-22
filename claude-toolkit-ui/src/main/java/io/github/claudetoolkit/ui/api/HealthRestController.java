@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.api;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.github.claudetoolkit.starter.client.ClaudeClient;
+import io.github.claudetoolkit.ui.config.HostPathTranslator;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,9 +97,11 @@ public class HealthRestController {
         String  scanPath      = settings.getProject() != null ? settings.getProject().getScanPath() : null;
         if (scanPath != null && !scanPath.trim().isEmpty()) {
             erpConfigured = true;
-            erpInfo = scanPath;
+            // v4.4.x — Linux 컨테이너에서 Windows 경로 자동 변환 (D:\ → /host/d/)
+            String resolved = HostPathTranslator.translate(scanPath);
+            erpInfo = HostPathTranslator.describe(scanPath);
             try {
-                File f = new File(scanPath);
+                File f = new File(resolved);
                 erpReachable = f.exists() && f.isDirectory() && f.canRead();
             } catch (Exception e) {
                 log.debug("ERP path 검사 실패: {}", e.getMessage());

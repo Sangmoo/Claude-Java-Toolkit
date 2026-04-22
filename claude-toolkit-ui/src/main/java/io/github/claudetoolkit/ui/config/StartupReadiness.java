@@ -154,11 +154,19 @@ public class StartupReadiness implements HealthIndicator {
             if (settings != null && settings.getProject() != null
                     && settings.getProject().getScanPath() != null
                     && !settings.getProject().getScanPath().trim().isEmpty()) {
-                File f = new File(settings.getProject().getScanPath());
+                String raw = settings.getProject().getScanPath();
+                String resolved = HostPathTranslator.translate(raw);
+                File f = new File(resolved);
                 if (f.exists() && f.isDirectory()) {
-                    log.info("[StartupWarmup] ✓ 프로젝트 스캔 경로 존재: {}", f.getAbsolutePath());
+                    if (!resolved.equals(raw)) {
+                        log.info("[StartupWarmup] ✓ 프로젝트 스캔 경로 존재 (자동 변환): '{}' → '{}'",
+                                raw, resolved);
+                    } else {
+                        log.info("[StartupWarmup] ✓ 프로젝트 스캔 경로 존재: {}", f.getAbsolutePath());
+                    }
                 } else {
-                    log.warn("[StartupWarmup] ⚠ 프로젝트 스캔 경로 없음: {}", f.getAbsolutePath());
+                    log.warn("[StartupWarmup] ⚠ 프로젝트 스캔 경로 없음: {} (입력: {})",
+                            f.getAbsolutePath(), raw);
                 }
             }
 
