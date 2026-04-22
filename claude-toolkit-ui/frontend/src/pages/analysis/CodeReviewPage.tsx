@@ -97,8 +97,22 @@ export default function CodeReviewPage() {
     while (true) {
       const markerIdx = buf.indexOf('[[HARNESS_STAGE:')
       if (markerIdx === -1) {
-        // 마커 없음 — 일부가 잘려있을 수 있으니 마지막 24자 정도는 남겨둠
-        const safeLen = Math.max(0, buf.length - 24)
+        // v4.4.x — 마커 없음. 헤더(`## ...`)가 줄 중간에 잘려 마크다운이
+        //         부분 렌더링되는 것을 방지하기 위해 **마지막 줄바꿈까지만** flush.
+        //         (이전: 마지막 24자만 남겼더니 한글 헤더 토큰이 자주 잘려
+        //          "## 📋" 만 먼저 렌더링되고 "분석 요약" 이 다음 줄로 떨어짐)
+        const lastNewline = buf.lastIndexOf('\n')
+        let safeLen: number
+        if (lastNewline >= 0) {
+          // 가장 일반적인 경로 — 줄 단위로 안전 flush
+          safeLen = lastNewline + 1
+        } else if (buf.length > 200) {
+          // 200자 넘게 \n 없음 → 긴 코드/JSON. 부분 flush 로 UX 유지
+          safeLen = buf.length - 24
+        } else {
+          // 짧은 chunk 누적 중 — 다음 chunk 기다림
+          safeLen = 0
+        }
         if (safeLen > 0) {
           const text = buf.substring(0, safeLen)
           appendToCurrentStage(text)

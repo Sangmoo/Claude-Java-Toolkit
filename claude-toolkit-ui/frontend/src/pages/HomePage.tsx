@@ -68,10 +68,24 @@ interface WidgetSpec {
   configurable?: boolean   // true면 위젯별 설정 가능 (도구 카드 선택 등)
 }
 const WIDGETS: WidgetSpec[] = [
-  { key: 'hero',          label: '인사말 + 시스템 상태', defaultW: 12, defaultH: 4 },
+  { key: 'hero',          label: '인사말 + 시스템 상태', defaultW: 12, defaultH: 4, configurable: true },
   { key: 'tools',         label: '도구 카드 그리드',    defaultW: 12, defaultH: 8, configurable: true },
   { key: 'team-activity', label: '팀 활동 피드',       defaultW: 12, defaultH: 6 },
 ]
+
+/** v4.4.x — Hero 위젯 사용자 설정. configJson 안에 저장. */
+interface HeroConfig {
+  customGreeting?: string   // 시간대별 자동 인사말 대신 사용
+  customSubtitle?: string   // "AI-powered tools for Oracle DB & Java/Spring..." 대신 사용
+  showSystemStatus?: boolean  // 서버/모델/API key 상태 줄 표시 여부 (기본 true)
+}
+function parseHeroConfig(configJson?: string): HeroConfig {
+  if (!configJson) return { showSystemStatus: true }
+  try {
+    const p = JSON.parse(configJson) as HeroConfig
+    return { showSystemStatus: true, ...p }
+  } catch { return { showSystemStatus: true } }
+}
 
 interface PersistedLayout {
   widgetKey: string
@@ -208,9 +222,12 @@ export default function HomePage() {
   // 도구 위젯의 현재 선택된 카드 목록
   const toolWidget = layout.find((p) => p.widgetKey === 'tools')
   const selectedToolKeys = parseToolKeys(toolWidget?.configJson)
+  // Hero 위젯 사용자 설정
+  const heroWidget = layout.find((p) => p.widgetKey === 'hero')
+  const heroConfig = parseHeroConfig(heroWidget?.configJson)
 
   const renderWidget = (key: string) => {
-    if (key === 'hero') return <HeroWidget greeting={greeting} username={user?.username} health={health} />
+    if (key === 'hero') return <HeroWidget greeting={greeting} username={user?.username} health={health} config={heroConfig} />
     if (key === 'tools') return <ToolsWidget selectedKeys={selectedToolKeys} />
     if (key === 'team-activity') return <TeamActivityWidget activities={teamActivity} />
     return null
@@ -330,25 +347,52 @@ export default function HomePage() {
           }}
         />
       )}
+
+      {/* v4.4.x — Hero 위젯 인사말/부제 편집 모달 */}
+      {configWidget === 'hero' && (
+        <HeroConfigModal
+          config={heroConfig}
+          defaultGreeting={greeting}
+          username={user?.username}
+          onClose={() => setConfigWidget(null)}
+          onSave={(cfg) => {
+            updateWidgetConfig('hero', JSON.stringify(cfg))
+            setConfigWidget(null)
+          }}
+        />
+      )}
     </>
   )
 }
 
 // ── 위젯 컴포넌트들 ───────────────────────────────────────────────────────
 
-function HeroWidget({ greeting, username, health }: { greeting: string; username?: string; health: HealthData | null }) {
+function HeroWidget({ greeting, username, health, config }: {
+  greeting: string
+  username?: string
+  health: HealthData | null
+  config: HeroConfig
+}) {
+  // v4.4.x — 사용자가 customGreeting 을 설정했으면 시간대별 자동 인사말 대신 사용
+  // {name} 토큰은 username 으로 치환
+  const greetingText = config.customGreeting
+    ? config.customGreeting.replace(/\{name\}/g, username ?? 'Guest')
+    : `${greeting}, ${username ?? 'Guest'}`
+  const subtitleText = config.customSubtitle
+    ?? 'AI-powered tools for Oracle DB & Java/Spring enterprise development'
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary))',
       borderRadius: '12px', padding: '24px', height: '100%',
     }}>
       <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '6px' }}>
-        {greeting}, {username ?? 'Guest'}
+        {greetingText}
       </h1>
-      <p style={{ color: 'var(--text-sub)', fontSize: '13px', marginBottom: '12px' }}>
-        AI-powered tools for Oracle DB & Java/Spring enterprise development
+      <p style={{ color: 'var(--text-sub)', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
+        {subtitleText}
       </p>
-      {health && (
+      {config.showSystemStatus !== false && health && (
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
           <span style={{ color: 'var(--green)' }}>Server: {health.status}</span>
           <span style={{ color: 'var(--text-muted)' }}>Model: {health.claudeModel}</span>
@@ -584,6 +628,145 @@ function ToolsConfigModal({
           </button>
           <button onClick={() => onSave(draft)}
             style={{ padding: '6px 14px', fontSize: '13px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+            적용
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Hero 위젯 설정 모달 ────────────────────────────────────────────────────
+
+function HeroConfigModal({
+  config, defaultGreeting, username, onClose, onSave,
+}: {
+  config: HeroConfig
+  defaultGreeting: string
+  username?: string
+  onClose: () => void
+  onSave: (cfg: HeroConfig) => void
+}) {
+  const [draft, setDraft] = useState<HeroConfig>({
+    customGreeting:   config.customGreeting   ?? '',
+    customSubtitle:   config.customSubtitle   ?? '',
+    showSystemStatus: config.showSystemStatus !== false,
+  })
+
+  const previewGreeting = draft.customGreeting
+    ? draft.customGreeting.replace(/\{name\}/g, username ?? 'Guest')
+    : `${defaultGreeting}, ${username ?? 'Guest'}`
+  const previewSubtitle = draft.customSubtitle
+    || 'AI-powered tools for Oracle DB & Java/Spring enterprise development'
+
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999,
+      }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+          borderRadius: '12px', width: '600px', maxWidth: '95vw',
+          display: 'flex', flexDirection: 'column',
+        }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-color)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FaCog /> 인사말 + 시스템 상태 설정
+          </h3>
+          <button onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '16px' }}>
+            <FaTimes />
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* 인사말 입력 */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-sub)', marginBottom: '4px' }}>
+              인사말 (비워두면 시간대별 자동 인사: "{defaultGreeting}, {username ?? 'Guest'}")
+            </label>
+            <input
+              type="text" value={draft.customGreeting ?? ''}
+              onChange={(e) => setDraft({ ...draft, customGreeting: e.target.value })}
+              placeholder={`예: 안녕하세요 {name}님 — 오늘도 화이팅!`}
+              style={{
+                width: '100%', padding: '8px 12px', fontSize: '13px',
+                background: 'var(--bg-default, var(--bg-secondary))',
+                border: '1px solid var(--border-color)', borderRadius: '6px',
+                color: 'var(--text-default)',
+              }}/>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              💡 <code>{'{name}'}</code> 토큰은 로그인 사용자명으로 자동 치환됩니다.
+            </div>
+          </div>
+
+          {/* 부제 입력 */}
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-sub)', marginBottom: '4px' }}>
+              부제 (소개 문구) — 줄바꿈 허용
+            </label>
+            <textarea
+              value={draft.customSubtitle ?? ''}
+              onChange={(e) => setDraft({ ...draft, customSubtitle: e.target.value })}
+              placeholder="예: 우리 팀의 AI 코드 리뷰 허브 — Claude Sonnet 4.5 기반"
+              rows={3}
+              style={{
+                width: '100%', padding: '8px 12px', fontSize: '13px',
+                background: 'var(--bg-default, var(--bg-secondary))',
+                border: '1px solid var(--border-color)', borderRadius: '6px',
+                color: 'var(--text-default)', resize: 'vertical',
+              }}/>
+          </div>
+
+          {/* 시스템 상태 라인 표시 토글 */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+            <input
+              type="checkbox" checked={draft.showSystemStatus !== false}
+              onChange={(e) => setDraft({ ...draft, showSystemStatus: e.target.checked })}
+            />
+            시스템 상태 라인 표시 (Server / Model / API Key)
+          </label>
+
+          {/* 미리보기 */}
+          <div style={{
+            padding: '14px 16px', borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary))',
+            border: '1px dashed var(--border-color)',
+          }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>📺 미리보기</div>
+            <h1 style={{ fontSize: '18px', fontWeight: 700, margin: '0 0 4px' }}>{previewGreeting}</h1>
+            <p style={{ color: 'var(--text-sub)', fontSize: '12px', margin: 0, whiteSpace: 'pre-wrap' }}>
+              {previewSubtitle}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border-color)',
+                      display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button onClick={() => setDraft({ customGreeting: '', customSubtitle: '', showSystemStatus: true })}
+            style={{ padding: '6px 14px', fontSize: '13px', background: 'var(--bg-secondary)',
+                     border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer' }}>
+            기본값으로
+          </button>
+          <button onClick={onClose}
+            style={{ padding: '6px 14px', fontSize: '13px', background: 'var(--bg-secondary)',
+                     border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer' }}>
+            취소
+          </button>
+          <button onClick={() => {
+              // 빈 문자열은 undefined 로 정규화 — JSON 크기 줄이기
+              onSave({
+                customGreeting:   draft.customGreeting?.trim()   || undefined,
+                customSubtitle:   draft.customSubtitle?.trim()   || undefined,
+                showSystemStatus: draft.showSystemStatus !== false,
+              })
+            }}
+            style={{ padding: '6px 14px', fontSize: '13px', background: 'var(--accent)',
+                     color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
             적용
           </button>
         </div>

@@ -155,6 +155,7 @@ function LanguageSwitcher() {
   }, [])
 
   const switchTo = (code: SupportedLang) => {
+    if (code === current) { setOpen(false); return }
     i18n.changeLanguage(code)
     localStorage.setItem('language', code)
     setCurrent(code)
@@ -166,6 +167,10 @@ function LanguageSwitcher() {
       credentials: 'include',
       body: JSON.stringify({ locale: code }),
     }).catch(() => {})
+    // v4.4.x — 대부분 컴포넌트가 하드코딩 한국어 → useTranslation 미사용.
+    //          i18n.changeLanguage 만으론 즉시 변경 안 보이므로 강제 새로고침.
+    //          (React 18 + i18next v4 환경에서 가장 안전)
+    setTimeout(() => window.location.reload(), 80)
   }
 
   const currentOpt = LANGUAGE_OPTIONS.find((o) => o.code === current) || LANGUAGE_OPTIONS[0]
@@ -178,26 +183,43 @@ function LanguageSwitcher() {
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: '100%', right: 0, marginTop: '4px',
-          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-          borderRadius: '6px', minWidth: '160px', zIndex: 1000,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          position: 'absolute', top: '100%', right: 0, marginTop: '6px',
+          // v4.4.x — 기존 var(--bg-card) 미정의로 투명하게 보이던 이슈 수정.
+          //          theme.css 의 --bg-secondary (어떤 테마에서도 불투명) 사용.
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px', minWidth: '180px', zIndex: 1000,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(8px)',
+          padding: '4px',
+          overflow: 'hidden',
         }}>
-          {LANGUAGE_OPTIONS.map((opt) => (
-            <button key={opt.code}
-              onClick={() => switchTo(opt.code)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                width: '100%', padding: '8px 12px', textAlign: 'left',
-                background: opt.code === current ? 'var(--bg-subtle, rgba(0,0,0,0.05))' : 'transparent',
-                border: 'none', cursor: 'pointer', fontSize: '13px',
-                color: 'var(--text-default)',
-              }}>
-              <span style={{ fontSize: '16px' }}>{opt.flag}</span>
-              <span style={{ flex: 1 }}>{opt.label}</span>
-              {opt.code === current && <span style={{ color: 'var(--accent)' }}>✓</span>}
-            </button>
-          ))}
+          {LANGUAGE_OPTIONS.map((opt) => {
+            const active = opt.code === current
+            return (
+              <button key={opt.code}
+                onClick={() => switchTo(opt.code)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  width: '100%', padding: '8px 12px', textAlign: 'left',
+                  background: active ? 'var(--accent)' : 'transparent',
+                  color: active ? '#fff' : 'var(--text-sub, #cbd5e1)',
+                  border: 'none', cursor: 'pointer', fontSize: '13px',
+                  borderRadius: '6px', fontWeight: active ? 600 : 400,
+                  transition: 'background .12s, color .12s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = 'var(--bg-primary, rgba(255,255,255,0.06))'
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) e.currentTarget.style.background = 'transparent'
+                }}>
+                <span style={{ fontSize: '16px' }}>{opt.flag}</span>
+                <span style={{ flex: 1 }}>{opt.label}</span>
+                {active && <span>✓</span>}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

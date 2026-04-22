@@ -25,9 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed (♻️ Refactoring)
 - HomePage 위젯 토글 버그 수정 — 숨긴 위젯이 layout 에서 사라지지 않도록 보존
 - 도구 카드 그리드 위젯 — 12개 카탈로그에서 사용자 임의 선택 + 순서 변경 모달
+- **Hero 위젯 인사말/부제 사용자 편집 가능** — `{name}` 토큰 치환 + 시스템 상태 라인 토글 + 미리보기
+- **언어 스위처 UI 개선** — 드롭다운 배경 불투명화 (var(--bg-card) → var(--bg-secondary)) + 즉시 적용 (window.location.reload)
+- **하네스 헤더 줄바꿈 방지** — SSE 청크 flush 정책 변경 (마지막 \n 까지만 flush) → "## 📋" 만 잘려 렌더링되던 문제 해결
 - IndexAdvisorService — Settings 외부 DB 우선 사용 (실패 시 H2 fallback)
 - IndexAdvisorPage — Monaco Editor + 대상 DB 표시 + 샘플 SQL 드롭다운
 - AdminEndpointStatsPage — 백엔드 error 응답 시 toLocaleString TypeError 방어
+
+### Documentation (📚)
+- **스크린샷 11개 추가** — `docs/screenshots/` (홈/SQL/파이프라인/하네스 + v4.3/v4.4 신기능)
+- README 의 "📸 데모" 섹션 + docs/index.html "화면으로 보기" 갤러리 자동 활성화
 
 ### Tests (🧪)
 - JaCoCo 0.8.11 플러그인 + 커버리지 리포트 자동화
