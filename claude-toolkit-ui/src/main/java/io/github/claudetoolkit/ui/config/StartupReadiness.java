@@ -195,9 +195,13 @@ public class StartupReadiness implements HealthIndicator {
             stage.set("VERIFYING_HARNESS_CACHE");
             if (harnessCache != null && settings != null) {
                 try {
+                    // v4.4.x — 캐시가 비어있거나 / 직전 dbConfigured 가 false 였거나 /
+                    //          직전 시도가 에러였으면 한 번 더 시도 (DB 가 첫 시도엔 느릴 수 있음).
                     boolean needDbReload  = settings.isDbConfigured()
                             && (!harnessCache.isDbCacheLoaded()
-                                || !harnessCache.isDbConfiguredAtLastRefresh());
+                                || !harnessCache.isDbConfiguredAtLastRefresh()
+                                || harnessCache.getLastDbError() != null
+                                || harnessCache.getCachedDbObjects().isEmpty());
                     boolean needFileReload = settings.isProjectConfigured()
                             && !harnessCache.isFileCacheLoaded();
                     if (needDbReload) {

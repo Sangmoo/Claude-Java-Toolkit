@@ -32,6 +32,11 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
   const [fileLoaded, setFileLoaded] = useState(false)
   const [fileRefreshing, setFileRefreshing] = useState(false)
   const [fileTotal, setFileTotal] = useState(0)
+  // v4.4.x — DB 캐시 상태 추가 (configured / 에러 메시지 / 새로고침 진행)
+  const [dbConfigured, setDbConfigured] = useState<boolean | null>(null)
+  const [dbError, setDbError]           = useState<string | null>(null)
+  const [dbRefreshing, setDbRefreshing] = useState(false)
+  const [dbLoaded, setDbLoaded]         = useState(false)
   const pollTimer = useRef<number | null>(null)
   const toast = useToast()
 
@@ -52,24 +57,51 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
     try {
       const typeParam = type === 'ALL' ? '' : `&type=${type}`
       const res = await fetch(`/harness/cache/db-objects?q=${encodeURIComponent(kw)}${typeParam}`, { credentials: 'include' })
-      if (res.ok) { const d = await res.json(); setDbObjects(d.objects || []) }
+      if (res.ok) {
+        const d = await res.json()
+        setDbObjects(d.objects || [])
+        // v4.4.x — 백엔드가 보내주는 상태로 정확한 메시지 표시
+        setDbConfigured(typeof d.configured === 'boolean' ? d.configured : null)
+        setDbError(d.dbError || null)
+        setDbRefreshing(!!d.refreshing)
+        setDbLoaded(!!d.loaded)
+      }
     } catch { /* silent */ }
   }, [])
+
+  // DB 캐시 강제 재빌드 (관리자가 Settings 변경 후 또는 fail 후 수동 재시도)
+  const triggerDbRefresh = async () => {
+    setDbRefreshing(true); setDbError(null)
+    try {
+      await fetch('/harness/cache/refresh', { method: 'POST', credentials: 'include' })
+      toast.info('DB 캐시 재로드 중...')
+    } catch { toast.error('재로드 호출 실패') }
+    setTimeout(() => loadDb(q, dbTypeFilter), 800)
+    setTimeout(() => loadDb(q, dbTypeFilter), 3000)  // 한 번 더 (DB 응답 시간 확보)
+  }
 
   // 부팅 직후엔 백엔드가 백그라운드 스캔 중일 수 있음 — refreshing/!loaded 면
   // 1.5초마다 자동 폴링해서 완료되면 즉시 갱신
   useEffect(() => {
-    if (!open || tab !== 'file') return
-    if (fileLoaded && !fileRefreshing) {
+    if (!open) return
+    // 현재 탭에 따라 어떤 캐시를 폴링할지 결정
+    const isFileTab = tab === 'file'
+    const settled = isFileTab
+      ? (fileLoaded && !fileRefreshing)
+      : (dbLoaded && !dbRefreshing)
+    if (settled) {
       if (pollTimer.current) { window.clearInterval(pollTimer.current); pollTimer.current = null }
       return
     }
     if (pollTimer.current) return
-    pollTimer.current = window.setInterval(() => { loadFiles(q) }, 1500)
+    pollTimer.current = window.setInterval(() => {
+      if (isFileTab) loadFiles(q)
+      else           loadDb(q, dbTypeFilter)
+    }, 1500)
     return () => {
       if (pollTimer.current) { window.clearInterval(pollTimer.current); pollTimer.current = null }
     }
-  }, [open, tab, fileLoaded, fileRefreshing, loadFiles, q])
+  }, [open, tab, fileLoaded, fileRefreshing, dbLoaded, dbRefreshing, loadFiles, loadDb, q, dbTypeFilter])
 
   useEffect(() => {
     if (!open) return
@@ -199,7 +231,30 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{o.owner} · {o.type}</div>
                     </div>
                   </div>
-                )) : <Empty msg={dbTypeFilter !== 'ALL' ? `${dbTypeFilter} 타입 객체가 없습니다.` : 'Oracle DB를 Settings에서 설정해주세요.'} />
+                )) : (
+                  // v4.4.x — 정확한 사유별 메시지 + 재시도 버튼
+                  dbRefreshing || !dbLoaded ? <ScanProgress /> :
+                  dbConfigured === false ? (
+                    <Empty msg="Oracle DB 가 Settings 에 입력되지 않았습니다. Settings → Oracle DB 항목을 채워주세요." />
+                  ) : dbError ? (
+                    <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <div style={{ color: '#ef4444', marginBottom: '8px' }}>⚠ DB 연결 실패</div>
+                      <div style={{ marginBottom: '10px', fontFamily: 'monospace', fontSize: '11px' }}>{dbError}</div>
+                      <button onClick={triggerDbRefresh} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                        <FaSync /> 재시도
+                      </button>
+                    </div>
+                  ) : dbTypeFilter !== 'ALL' ? (
+                    <Empty msg={`${dbTypeFilter} 타입 객체가 없습니다.`} />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '10px' }}>이 스키마에 PROCEDURE / FUNCTION / PACKAGE / TRIGGER 가 없습니다.</div>
+                      <button onClick={triggerDbRefresh} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                        <FaSync /> 다시 불러오기
+                      </button>
+                    </div>
+                  )
+                )
               )}
             </div>
           </div>

@@ -182,7 +182,10 @@ public class HarnessCacheService {
             if (!dbConfigured) {
                 cachedDbObjects.clear();
                 lastDbError   = null;
-                lastDbRefresh = System.currentTimeMillis();
+                // v4.4.x — lastDbRefresh 를 갱신하지 않는다. 갱신하면 isDbCacheLoaded() 가
+                // true 를 반환해 getCachedDbObjects() 의 자동 재시도가 영원히 차단되는 버그
+                // (Settings 가 나중에 채워져도 refresh 가 다시 시도되지 않음).
+                // 0 으로 두면 다음 호출에서 자연스럽게 재시도된다.
                 return;
             }
             ToolkitSettings.Db db = settings.getDb();
@@ -321,9 +324,20 @@ public class HarnessCacheService {
         return new ArrayList<FileEntry>(cachedFiles);
     }
 
+    /** v4.4.x — 자동 재시도 최소 간격 (DB 다운 시 폭주 방지). */
+    private static final long DB_RETRY_BACKOFF_MS = 30_000;
+
     public List<DbObjectEntry> getCachedDbObjects() {
-        // 캐시가 비어있고 DB 설정이 있으면 자동 갱신
-        if (cachedDbObjects.isEmpty() && settings.isDbConfigured() && lastDbRefresh == 0) {
+        // v4.4.x — 자동 갱신 조건 강화:
+        //   캐시가 비어있고 DB 설정이 있을 때
+        //   AND (한 번도 안 함 || 직전 시도가 에러 || 직전엔 dbConfigured=false 였음)
+        //   AND 마지막 refresh 후 30초 경과 (폭주 방지)
+        if (cachedDbObjects.isEmpty()
+                && settings.isDbConfigured()
+                && (lastDbRefresh == 0 || lastDbError != null || !dbConfigured)
+                && (System.currentTimeMillis() - lastDbRefresh) > DB_RETRY_BACKOFF_MS) {
+            log.info("[HarnessCache] DB 캐시 자동 재시도 — lastErr={} lastRefresh={} dbConfiguredAtLast={}",
+                    lastDbError, lastDbRefresh, dbConfigured);
             refreshDbCache();
         }
         return new ArrayList<DbObjectEntry>(cachedDbObjects);
