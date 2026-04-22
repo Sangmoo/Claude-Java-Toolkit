@@ -3,6 +3,8 @@ package io.github.claudetoolkit.ui.config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.github.claudetoolkit.ui.controller.SpaForwardController;
+import io.github.claudetoolkit.ui.errorlog.ErrorLogService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,14 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * v4.4.0 — 자체 구축 에러 모니터링.
+     * 옵셔널 주입 — 테스트/임베디드 환경에서 ErrorLogService 가 없어도 안전.
+     */
+    @Autowired(required = false)
+    private ErrorLogService errorLogService;
+
     private ResponseEntity<String> serveSpa() {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
@@ -129,6 +139,10 @@ public class GlobalExceptionHandler {
         }
 
         log.error("서버 오류: {} {} — {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        // v4.4.0: 에러 모니터링 영속화 (silent — 저장 실패가 응답에 영향 없음)
+        if (errorLogService != null) {
+            errorLogService.record(ex, request);
+        }
         if (isApiRequest(request)) {
             return jsonError("서버 오류: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
