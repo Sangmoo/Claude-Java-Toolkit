@@ -98,6 +98,8 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         if (path.startsWith("/api/v1/code/")) return true;
         if (path.startsWith("/api/v1/doc/")) return true;
         if (path.startsWith("/api/v1/erd/")) return true;
+        // v4.4.x — Flow Analysis (Phase 1)
+        if (path.startsWith("/api/v1/flow/")) return true;
         return false;
     }
 

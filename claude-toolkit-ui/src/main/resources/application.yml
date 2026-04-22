@@ -106,6 +106,7 @@ springdoc:
     - io.github.claudetoolkit.ui.sqlindex
     - io.github.claudetoolkit.ui.dashboard
     - io.github.claudetoolkit.ui.export
+    - io.github.claudetoolkit.ui.flow
   show-actuator: false            # /actuator/** 는 별도 헬스체크용이므로 제외
 
 logging:
