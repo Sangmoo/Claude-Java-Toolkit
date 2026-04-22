@@ -42,6 +42,7 @@ const ConverterPage = lazy(() => import('./pages/analysis/ConverterPage'))
 const CodeReviewPage = lazy(() => import('./pages/analysis/CodeReviewPage'))
 const HarnessBatchPage = lazy(() => import('./pages/analysis/HarnessBatchPage'))
 const HarnessDependencyPage = lazy(() => import('./pages/analysis/HarnessDependencyPage'))
+const FlowAnalysisPage = lazy(() => import('./pages/analysis/FlowAnalysisPage'))
 const MockDataPage = lazy(() => import('./pages/analysis/MockDataPage'))
 const BatchPage = lazy(() => import('./pages/analysis/BatchPage'))
 const LogAnalyzerPage = lazy(() => import('./pages/analysis/LogAnalyzerPage'))
@@ -144,6 +145,7 @@ export default function App() {
           <Route path="/harness/batch" element={<HarnessBatchPage />} />
           <Route path="/harness/dependency" element={<HarnessDependencyPage />} />
           <Route path="/harness/dashboard" element={<HarnessDashboardPage />} />
+          <Route path="/flow-analysis" element={<FlowAnalysisPage />} />
           <Route path="/docgen" element={<DocGenPage />} />
           <Route path="/apispec" element={<ApiSpecPage />} />
           <Route path="/converter" element={<ConverterPage />} />

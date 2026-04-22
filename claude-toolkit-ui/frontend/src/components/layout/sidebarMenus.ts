@@ -2,7 +2,7 @@ import { IconType } from 'react-icons'
 import {
   FaHome, FaSearch, FaComments,
   FaLayerGroup, FaProjectDiagram, FaDatabase, FaLanguage, FaChartBar,
-  FaSitemap, FaColumns, FaChartLine, FaCodeBranch,
+  FaSitemap, FaColumns, FaChartLine, FaCodeBranch, FaStream,
   FaFileAlt, FaCode, FaExchangeAlt, FaTable, FaRandom, FaCubes, FaRocket,
   FaHistory, FaStar, FaCalendarCheck, FaUserCheck, FaChartPie,
   FaPlug,
@@ -57,6 +57,7 @@ export const menuSections: MenuSection[] = [
       { label: '배치 분석', path: '/harness/batch', icon: FaLayerGroup, color: '#8b5cf6', featureKey: 'harness' },
       { label: '의존성 분석', path: '/harness/dependency', icon: FaProjectDiagram, color: '#8b5cf6', featureKey: 'harness' },
       { label: '품질 대시보드', path: '/harness/dashboard', icon: FaChartLine, color: '#8b5cf6', featureKey: 'harness' },
+      { label: '데이터 흐름 분석', path: '/flow-analysis', icon: FaStream, color: '#06b6d4', featureKey: 'flow-analysis' },
     ],
   },
   {
