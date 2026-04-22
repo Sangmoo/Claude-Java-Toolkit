@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa'
 
 import { useToast } from '../hooks/useToast'
+import { copyToClipboard } from '../utils/clipboard'
 
 interface ChatSession {
   id: number
@@ -226,10 +227,28 @@ export default function ChatPage() {
     }
   }
 
-  const copyMessage = (msg: ChatMessage) => {
-    navigator.clipboard.writeText(msg.content)
-    setCopiedId(msg.id)
-    setTimeout(() => setCopiedId(null), 2000)
+  // v4.4.x — 채팅 말풍선 우측 상단 복사 버튼
+  // 변경 사항:
+  //  - navigator.clipboard 직접 호출 → copyToClipboard 유틸 사용
+  //    (HTTP 환경에서도 execCommand fallback 으로 동작)
+  //  - 성공/실패 토스트 메시지 추가 ("복사됨!" / "복사 실패")
+  //  - 아이콘 체크로 변경 + 3초 후 원복 (이전: 2초)
+  const copyMessage = async (msg: ChatMessage) => {
+    if (!msg.content || !msg.content.trim()) {
+      toast.error('복사할 내용이 없습니다.')
+      return
+    }
+    const ok = await copyToClipboard(msg.content)
+    if (ok) {
+      setCopiedId(msg.id)
+      toast.success('복사됨!')
+      setTimeout(() => {
+        // 3초 사이에 다른 메시지를 복사했다면 그것을 덮지 않도록 가드
+        setCopiedId((cur) => (cur === msg.id ? null : cur))
+      }, 3000)
+    } else {
+      toast.error('복사 실패 — 브라우저 권한을 확인해주세요.')
+    }
   }
 
   const exportChat = () => {
