@@ -18,7 +18,13 @@ interface HealthData {
   version: string
   claudeModel: string
   apiKeySet: boolean
+  // v4.4.x — DB / ERP 연결 가능성 (Settings 입력 + 실제 reachable 검증)
   dbConfigured: boolean
+  dbReachable?: boolean
+  dbInfo?: string | null
+  erpConfigured?: boolean
+  erpReachable?: boolean
+  erpInfo?: string | null
 }
 
 interface TeamActivity {
@@ -393,15 +399,56 @@ function HeroWidget({ greeting, username, health, config }: {
         {subtitleText}
       </p>
       {config.showSystemStatus !== false && health && (
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
-          <span style={{ color: 'var(--green)' }}>Server: {health.status}</span>
-          <span style={{ color: 'var(--text-muted)' }}>Model: {health.claudeModel}</span>
-          <span style={{ color: health.apiKeySet ? 'var(--green)' : 'var(--red)' }}>
-            API Key: {health.apiKeySet ? 'Set' : 'Missing'}
-          </span>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px', alignItems: 'center' }}>
+          <StatusPill label="Server"  ok value={health.status} />
+          <StatusPill label="Model"   neutral value={health.claudeModel} />
+          <StatusPill label="API Key" ok={health.apiKeySet}
+                      value={health.apiKeySet ? 'Set' : 'Missing'} />
+          {/* v4.4.x — DB Set / ERP Set 상태 추가 */}
+          <StatusPill label="DB Set"
+                      ok={health.dbConfigured && (health.dbReachable ?? false)}
+                      mixed={health.dbConfigured && !(health.dbReachable ?? false)}
+                      value={
+                        !health.dbConfigured ? 'False'
+                        : (health.dbReachable === false ? 'Unreachable' : 'OK')
+                      }
+                      title={health.dbInfo || '미설정 — Settings → Oracle DB 에서 입력'} />
+          <StatusPill label="ERP Set"
+                      ok={(health.erpConfigured ?? false) && (health.erpReachable ?? false)}
+                      mixed={(health.erpConfigured ?? false) && !(health.erpReachable ?? false)}
+                      value={
+                        !health.erpConfigured ? 'False'
+                        : (health.erpReachable === false ? 'Path Missing' : 'OK')
+                      }
+                      title={health.erpInfo || '미설정 — Settings → Java 프로젝트 경로 에서 입력'} />
         </div>
       )}
     </div>
+  )
+}
+
+/** v4.4.x — Hero 위젯의 작은 상태 pill (Server/Model/API Key/DB/ERP 공통) */
+function StatusPill({ label, value, ok, mixed, neutral, title }: {
+  label: string
+  value: string
+  ok?: boolean
+  mixed?: boolean    // 설정은 됐으나 reachable=false (Settings 입력 vs 실제 연결 구분)
+  neutral?: boolean
+  title?: string
+}) {
+  const color = neutral ? 'var(--text-muted)'
+              : mixed   ? '#f59e0b'              // 주황 — 설정 됐으나 연결 안 됨
+              : ok      ? 'var(--green)'         // 녹색 — OK
+              :           'var(--red)'           // 빨강 — 미설정/실패
+  return (
+    <span title={title}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px',
+               color, padding: '2px 0' }}>
+      {!neutral && (ok ? '✓' : (mixed ? '!' : '✗'))}
+      <span style={{ marginLeft: !neutral ? 2 : 0 }}>
+        <strong>{label}:</strong> {value}
+      </span>
+    </span>
   )
 }
 
