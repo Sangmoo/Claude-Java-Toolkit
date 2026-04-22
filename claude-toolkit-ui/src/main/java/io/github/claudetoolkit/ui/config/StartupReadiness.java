@@ -10,6 +10,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import io.github.claudetoolkit.ui.harness.HarnessCacheService;
+
 import javax.sql.DataSource;
 import java.io.File;
 import java.sql.Connection;
@@ -77,14 +79,17 @@ public class StartupReadiness implements HealthIndicator {
         private final ToolkitSettings settings;
         private final SettingsPersistenceService persistenceService;
         private final DataSource dataSource;
+        private final HarnessCacheService harnessCache;
 
         @Autowired(required = false)
         public StartupWarmup(ToolkitSettings settings,
                              SettingsPersistenceService persistenceService,
-                             DataSource dataSource) {
+                             DataSource dataSource,
+                             HarnessCacheService harnessCache) {
             this.settings = settings;
             this.persistenceService = persistenceService;
             this.dataSource = dataSource;
+            this.harnessCache = harnessCache;
         }
 
         public boolean isReady()           { return ready.get(); }
@@ -167,6 +172,45 @@ public class StartupReadiness implements HealthIndicator {
                 } else {
                     log.warn("[StartupWarmup] ⚠ 프로젝트 스캔 경로 없음: {} (입력: {})",
                             f.getAbsolutePath(), raw);
+                }
+            }
+
+            // 5. Harness 캐시 검증 — Settings 가 채워져 있는데 캐시가 비어있으면
+            //    (HarnessCacheService.@PostConstruct 시점에 DB 가 일시적으로 느렸거나
+            //     @DependsOn 이전의 오래된 상태) 한 번 더 refresh 를 시도한다.
+            //    readiness 가 UP 으로 가기 전에 "SQL 리뷰 → 소스선택" 이 즉시 동작하도록
+            //    보장하는 최종 방어선.
+            stage.set("VERIFYING_HARNESS_CACHE");
+            if (harnessCache != null && settings != null) {
+                try {
+                    boolean needDbReload  = settings.isDbConfigured()
+                            && (!harnessCache.isDbCacheLoaded()
+                                || !harnessCache.isDbConfiguredAtLastRefresh());
+                    boolean needFileReload = settings.isProjectConfigured()
+                            && !harnessCache.isFileCacheLoaded();
+                    if (needDbReload) {
+                        log.info("[StartupWarmup] ⟳ Harness DB 캐시 재로드 시도 (Settings=configured, cache=empty/stale)");
+                        harnessCache.refreshDbCache();
+                    }
+                    if (needFileReload) {
+                        log.info("[StartupWarmup] ⟳ Harness File 캐시 재로드 시도");
+                        harnessCache.refreshFileCache();
+                    }
+                    String dbErr = harnessCache.getLastDbError();
+                    if (settings.isDbConfigured()) {
+                        if (dbErr == null) {
+                            log.info("[StartupWarmup] ✓ Harness DB 캐시 OK — object count={}",
+                                    harnessCache.getCachedDbObjects().size());
+                        } else {
+                            log.warn("[StartupWarmup] ⚠ Harness DB 캐시 에러 (앱은 기동): {}", dbErr);
+                        }
+                    }
+                    if (settings.isProjectConfigured()) {
+                        log.info("[StartupWarmup] ✓ Harness File 캐시 OK — file count={}",
+                                harnessCache.getCachedFiles().size());
+                    }
+                } catch (Exception e) {
+                    log.warn("[StartupWarmup] ⚠ Harness 캐시 검증 실패 (앱은 기동): {}", e.getMessage());
                 }
             }
 

@@ -3,6 +3,7 @@ package io.github.claudetoolkit.ui.harness;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -37,6 +38,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * are synchronized on separate locks so concurrent reads are never blocked.
  */
 @Service
+// v4.4.x — 반드시 SettingsPersistenceService 가 먼저 생성되어 디스크의 settings.json
+// 을 ToolkitSettings 빈에 채워넣은 뒤에 우리가 @PostConstruct 로 캐시를 채우도록
+// 보장. 이전에는 의존성 선언이 없어 초기화 순서가 비결정적이어서, 운이 나쁘면
+// 빈 settings 로 캐시를 만들고 → "Oracle DB를 Settings에서 설정해주세요" 로 보였다.
+// (사용자가 Settings → 저장을 누르면 SettingsController 가 refresh* 를 다시 호출하므로
+//  저장 후에만 정상 동작하던 증상의 원인.)
+@DependsOn("settingsPersistenceService")
 public class HarnessCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(HarnessCacheService.class);
