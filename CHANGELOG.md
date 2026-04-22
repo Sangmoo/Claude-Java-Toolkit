@@ -5,8 +5,57 @@ All notable changes to **Claude Java Toolkit** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> 🤖 **v4.4.0+ 부터는 [release-please](https://github.com/googleapis/release-please-action) 가 자동 갱신합니다.** Conventional Commits (`feat:`/`fix:`/`docs:`) 형식으로 push 하면 master 브랜치의 이 파일과 GitHub Releases 페이지가 자동으로 업데이트됩니다. 직접 편집은 v4.3.x 이전 항목에만 적용하세요.
+
 릴리즈별 상세 배경 + 기술적 의사결정은 [README.md](./README.md) "버전 히스토리"
 섹션을 참조하세요. 이 파일은 변경사항의 **빠른 참조용 요약**입니다.
+
+---
+
+## [Unreleased] — v4.4.0 진행 중
+
+### Added (✨ Features)
+- **OpenAPI / Swagger UI** — `/swagger-ui.html` (ADMIN 전용) + `/v3/api-docs` JSON 스펙
+- **자체 구축 에러 모니터링 (Sentry-style)** — `/admin/error-log` 페이지 + dedupe + 자동 unresolved 복귀
+- **메트릭 통합 5종 신규** — 캐시 히트/미스, SSE 동시 연결 게이지, 하네스 4단계 Timer, 에러 발생률 카운터, 파이프라인 단계 카운트
+- **Helm Chart Kind 검증 인프라** — `scripts/test-helm.sh` 자동화 + `VALIDATION.md` 5 시나리오
+- **Helm Chart 안정성 강화** — `startupProbe` (5분 시작 허용) + `JAVA_OPTS` 옵션
+- **자동 변경 로그** — release-please-action v4 GitHub workflow
+
+### Changed (♻️ Refactoring)
+- HomePage 위젯 토글 버그 수정 — 숨긴 위젯이 layout 에서 사라지지 않도록 보존
+- 도구 카드 그리드 위젯 — 12개 카탈로그에서 사용자 임의 선택 + 순서 변경 모달
+- IndexAdvisorService — Settings 외부 DB 우선 사용 (실패 시 H2 fallback)
+- IndexAdvisorPage — Monaco Editor + 대상 DB 표시 + 샘플 SQL 드롭다운
+- AdminEndpointStatsPage — 백엔드 error 응답 시 toLocaleString TypeError 방어
+
+### Tests (🧪)
+- JaCoCo 0.8.11 플러그인 + 커버리지 리포트 자동화
+- 6 신규 테스트 클래스 / 56 단위 테스트 케이스 (sqlindex, cost, metrics, export, pipeline, history, errorlog)
+- ToolkitMetricsTest 신규 5 테스트 (캐시/Harness 단계/SSE/Error/Pipeline Step)
+
+### Documentation (📚)
+- `monitoring/METRICS.md` — Prometheus 메트릭 카탈로그 + PromQL + 권장 알람 5종
+- `helm/claude-toolkit/VALIDATION.md` — 5 시나리오 (H2 / PostgreSQL / Ingress / HPA / ServiceMonitor) 체크리스트
+- README — Kind 설치 (winget) + 자동 검증 스크립트 가이드
+
+---
+
+## [4.3.0] — 2026-04-17
+
+### Added (✨ Features)
+- SARIF 2.1.0 / Excel 워크북 내보내기 (IDE 연동 + 회의 자료 자동 생성)
+- Prometheus + Grafana 모니터링 (`docker-compose --profile monitoring`)
+- AI 모델 비용 옵티마이저 (Haiku/Sonnet/Opus 추천)
+- SQL 인덱스 임팩트 시뮬레이션 (JDBC 메타조회 + DDL 추천)
+- 다국어 5개 언어 (ko/en/ja/zh/de) + 사용자별 자동 동기화
+- 대시보드 위젯 커스터마이징 (react-grid-layout + DB 영속화)
+- 파이프라인 인터랙티브 그래프 (reactflow)
+- Kubernetes Helm Chart (Deployment + Service + Ingress + HPA + ServiceMonitor)
+
+### Changed
+- DataRestController / AuthRestController silent catch → SLF4J 로깅 (~22 곳)
+- SQL 인덱스 시뮬레이션 권한 분리 (`featureKey: 'index-advisor'`)
 
 ---
 

@@ -30,7 +30,14 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
 ### 🆕 v4.4.0 (진행 중) 하이라이트
-- 📜 **OpenAPI 자동 생성** — `/swagger-ui.html` (ADMIN 전용) 인터랙티브 API 카탈로그 + `/v3/api-docs` JSON 스펙. Postman/Insomnia 임포트 가능
+- 📜 **OpenAPI / Swagger UI** — `/swagger-ui.html` (ADMIN 전용) 인터랙티브 API 카탈로그 + `/v3/api-docs` JSON 스펙
+- 🐞 **자체 에러 모니터링 (Sentry-style)** — `/admin/error-log` dedupe + 자동 unresolved 복귀 + 스택트레이스 보존
+- 📈 **메트릭 5종 신규** — 캐시 / SSE / 하네스 4단계 / 에러율 / 파이프라인 단계. Grafana 18 패널
+- ⎈ **Helm Chart Kind 자동 검증** — `bash scripts/test-helm.sh` 한 번에 검증
+- 🤖 **자동 변경 로그** — release-please-action — feat/fix commit → CHANGELOG.md + GitHub Release 자동 생성
+- 🧪 **테스트 64개 + JaCoCo** — 커버리지 자동 리포팅
+
+> 📋 전체 변경 이력은 [CHANGELOG.md](./CHANGELOG.md) — release-please 가 자동 갱신
 
 ### v4.3.0 하이라이트
 

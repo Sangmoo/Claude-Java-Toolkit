@@ -1,0 +1,66 @@
+# v4.4.0 — release-please 자동 변경 로그 + GitHub Release 자동 생성
+#
+# 동작 방식:
+# 1. master 브랜치에 push 가 일어날 때마다 실행
+# 2. 마지막 릴리스 이후의 conventional commits (feat/fix/...) 분석
+# 3. 자동으로 "chore: release vX.Y.Z" PR 생성 (또는 기존 PR 업데이트)
+#    - PR 본문 = 자동 생성된 CHANGELOG 항목
+#    - .release-please-manifest.json 의 버전 자동 bump
+#    - CHANGELOG.md 추가
+# 4. PR 머지 → 자동으로:
+#    - Git tag (vX.Y.Z) 생성
+#    - GitHub Release 생성 (CHANGELOG 본문 첨부)
+#
+# 권장 commit 메시지 형식 (Conventional Commits):
+#   feat: 새 기능              → minor 버전 bump (4.3.0 → 4.4.0)
+#   fix: 버그 수정             → patch 버전 bump (4.3.0 → 4.3.1)
+#   feat!: breaking 변경       → major 버전 bump (4.3.0 → 5.0.0)
+#   docs: / chore: / test:    → 버전 변경 없음 (CHANGELOG 만 기록)
+#
+# 참고:
+# - https://github.com/googleapis/release-please-action
+# - https://www.conventionalcommits.org/
+
+name: release-please
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write       # 태그 + Release 생성
+  pull-requests: write  # Release PR 생성/수정
+  issues: write         # Release PR 에 라벨 부여
+
+jobs:
+  release-please:
+    name: Release PR / Tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # 설정 파일 사용 (manifest 모드)
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # 토큰: 기본 GITHUB_TOKEN 으로 충분 (PR + 태그 + Release 권한 포함)
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Release 가 생성된 경우 빌드 산출물 첨부 (옵션) ─────────────────
+      # 추후 mvn package 결과물 (jar) 또는 Docker 이미지를 첨부하려면 여기에 단계 추가
+      # 예시:
+      # - if: ${{ steps.release.outputs.release_created }}
+      #   uses: actions/checkout@v4
+      # - if: ${{ steps.release.outputs.release_created }}
+      #   uses: actions/setup-java@v4
+      #   with:
+      #     distribution: temurin
+      #     java-version: 8
+      # - if: ${{ steps.release.outputs.release_created }}
+      #   run: mvn clean package -DskipTests
+      # - if: ${{ steps.release.outputs.release_created }}
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: ${{ steps.release.outputs.tag_name }}
+      #     files: claude-toolkit-ui/target/claude-toolkit-ui-*.jar
