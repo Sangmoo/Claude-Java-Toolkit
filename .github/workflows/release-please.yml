@@ -1,5 +1,17 @@
 # v4.4.0 — release-please 자동 변경 로그 + GitHub Release 자동 생성
 #
+# ⚠️ 사전 요구사항 (한 번만 설정):
+# ─────────────────────────────────────────────────────────────────────
+# 1. 저장소 → Settings → Actions → General → Workflow permissions
+# 2. ☑ "Allow GitHub Actions to create and approve pull requests" 활성화
+# 3. Save
+#
+# 이 설정 없이 실행하면 다음 오류 발생:
+#   "GitHub Actions is not permitted to create or approve pull requests"
+# 이는 GitHub 기본 보안 정책 — Actions 가 자동으로 PR 만드는 것을 막음.
+# release-please 가 "chore: release vX.Y.Z" PR 을 자동 생성해야 하므로 필수.
+# ─────────────────────────────────────────────────────────────────────
+#
 # 동작 방식:
 # 1. master 브랜치에 push 가 일어날 때마다 실행
 # 2. 마지막 릴리스 이후의 conventional commits (feat/fix/...) 분석
@@ -20,6 +32,7 @@
 # 참고:
 # - https://github.com/googleapis/release-please-action
 # - https://www.conventionalcommits.org/
+# - https://docs.github.com/rest/pulls/pulls#create-a-pull-request
 
 name: release-please
 
