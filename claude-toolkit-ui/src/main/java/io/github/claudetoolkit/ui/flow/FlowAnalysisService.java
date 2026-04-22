@@ -556,9 +556,12 @@ public class FlowAnalysisService {
         if (r.nodes.isEmpty()) return "";
         StringBuilder sb = new StringBuilder("flowchart TD\n");
         for (FlowNode n : r.nodes) {
-            String shape = shapeOf(n.type);
+            String[] shape = shapeOf(n.type);
             String label = mermaidEscape(n.label) + "<br/><small>" + n.type + "</small>";
-            sb.append("  ").append(n.id).append(shape[0].charAt(0)).append('"').append(label).append('"').append(shape[1]).append('\n');
+            // shape[0] / shape[1] 은 "[" / "]", "([" / "])", "[(" / ")]" 같은 1~2 글자 모양 — 통째로 append
+            sb.append("  ").append(n.id).append(shape[0])
+              .append('"').append(label).append('"')
+              .append(shape[1]).append('\n');
         }
         for (FlowEdge e : r.edges) {
             sb.append("  ").append(e.from).append(" -->|")
