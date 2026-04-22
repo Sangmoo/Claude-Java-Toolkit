@@ -274,9 +274,9 @@ public class ChatController {
             String statusMsg;
             boolean hasDb   = settings != null && settings.isDbConfigured();
             boolean hasProj = settings != null && settings.isProjectConfigured();
-            if (hasDb && hasProj)      statusMsg = "🔍 DB 스키마 + 프로젝트 코드 탐색 중...";
+            if (hasDb && hasProj)      statusMsg = "🔍 프로젝트 코드 + DB 스키마/SP 탐색 중...";
             else if (hasProj)          statusMsg = "🔍 프로젝트 코드 탐색 중...";
-            else if (hasDb)            statusMsg = "🔍 DB 스키마 조회 중...";
+            else if (hasDb)            statusMsg = "🔍 DB 스키마 + SP/Function 탐색 중...";
             else                       statusMsg = "준비 중...";
             try { emitter.send(SseEmitter.event().name("status").data(statusMsg)); }
             catch (IOException ignored) {}
@@ -290,12 +290,17 @@ public class ChatController {
                     // v4.4.x — AI 가 컨텍스트를 무시하고 "프로젝트에 없다" 라고
                     // 단정하지 않도록 명시적 지시. 0건일 때는 "검색은 했지만 못 찾음"
                     // 메시지가 컨텍스트로 포함되어 있으니 그것을 그대로 사용자에게 전달.
-                    sysPrompt.append("\n\n[규칙] 위 [자동 감지 컨텍스트] 안에 매칭 결과(파일/라인/스니펫)가 있다면 ")
-                             .append("그 파일명·라인을 직접 인용하면서 답하라. 매칭 0건 메시지가 있다면 ")
-                             .append("\"프로젝트에 코드가 없다\" 가 아니라 \"스캔했지만 못 찾았다\" 로 답하고, ")
-                             .append("DB 트리거/외부 배치/별도 모듈 가능성을 제안하라. ")
-                             .append("이미 DB 스키마/코드 컨텍스트가 주어졌는데도 \"검색해 본 결과 없다\" ")
-                             .append("같은 일반론적 답변은 절대 하지 말 것.");
+                    sysPrompt.append("\n\n[규칙] 위 [자동 감지 컨텍스트] 는 세 부분으로 구성됨: ")
+                             .append("(1) DB 스키마 — 테이블 컬럼/PK/인덱스, ")
+                             .append("(2) 프로젝트 코드 — Java/XML/SQL 파일 grep 결과, ")
+                             .append("(3) DB 오브젝트 — Oracle ALL_SOURCE 에서 SP/Function/Package/Trigger 본문 grep 결과. ")
+                             .append("**세 종류 모두 확인하고 답하라**. 특히 INSERT/UPDATE 가 일어나는 시점을 묻는 질문은 ")
+                             .append("Java 파일에 없어도 DB 오브젝트(SP/Trigger) 안에 있는 경우가 매우 흔하므로 ")
+                             .append("Java 파일에서 못 찾았다고 단정하지 말고 (3) 섹션을 반드시 인용할 것. ")
+                             .append("매칭 결과(파일/오브젝트/라인/스니펫)가 있다면 그 정확한 이름을 인용하며 답하라. ")
+                             .append("0건 메시지가 있다면 \"프로젝트에 없다\" 가 아니라 \"스캔했지만 못 찾았다\" 로 답하고 ")
+                             .append("DB 트리거/외부 배치/동적 SQL 가능성을 제안하라. ")
+                             .append("컨텍스트가 주어졌는데도 일반론(\"외부 시스템 가능성\" 등) 으로만 답하는 것은 금지.");
                 }
             } catch (Exception e) {
                 // 실패해도 채팅 흐름은 계속 — 다만 더이상 silent 하지 않게 로그 남김

@@ -113,6 +113,18 @@ public class ChatContextEnricher {
             }
         }
 
+        // ── 3. DB 오브젝트 (PROCEDURE/FUNCTION/PACKAGE/TRIGGER) 소스 grep ──
+        // ALL_SOURCE 를 검색해 SP/FUNC/PKG 안에서 테이블/컬럼명을 참조하는 곳을 찾는다.
+        // 사용자 시나리오: "GIFT_MALL_ORDER 가 언제 INSERT 되나?" 에 Java 코드는 없어도
+        // SP_WMS_DELV_SALE 같은 SP 안의 INSERT 문이 답인 경우가 많다.
+        if (!tables.isEmpty() && settings.isDbConfigured()) {
+            String dbObjCtx = grepDbObjectSources(tables);
+            if (dbObjCtx != null && !dbObjCtx.isEmpty()) {
+                sb.append("\n\n## 🗃️ 자동 감지된 DB 오브젝트 (SP/Func/Pkg/Trigger) 참조\n\n")
+                  .append(dbObjCtx);
+            }
+        }
+
         String result = sb.toString();
         if (result.length() > CONTEXT_MAX_TOTAL) {
             result = result.substring(0, CONTEXT_MAX_TOTAL)
@@ -298,6 +310,220 @@ public class ChatContextEnricher {
         s.lineNumber = lineNum;
         s.priority = priority;
         return s;
+    }
+
+    // ── 3. DB 오브젝트 (ALL_SOURCE) grep ───────────────────────────────
+
+    /** ALL_SOURCE 한 라인 매칭당 최대 후보 오브젝트 수 (DB 부하 보호) */
+    private static final int MAX_DB_OBJECTS_PER_KW = 25;
+    /** 최종 컨텍스트에 포함할 오브젝트 수 */
+    private static final int MAX_DB_OBJECT_SNIPPETS = 6;
+    /** 한 오브젝트당 보여줄 최대 줄 수 (앞뒤 컨텍스트 포함) */
+    private static final int DB_OBJECT_SNIPPET_LINES = 25;
+
+    /**
+     * Settings 의 외부 Oracle DB 에 접속해서 ALL_SOURCE 를 검색.
+     * 사용자 메시지에 등장한 테이블명이 SP/FUNC/PKG/TRIGGER 의 본문에서 발견되면
+     * 그 위치를 중심으로 ±N 줄을 발췌하여 컨텍스트에 추가한다.
+     *
+     * <p>왜 필요한가: ERP 시스템에서 INSERT/UPDATE 로직이 Java 가 아니라 Oracle SP
+     * 안에 있는 경우가 흔하다. 이전에는 Java 코드만 grep 해서 "코드를 못 찾음" 으로
+     * 답하던 한계가 있었다.
+     *
+     * <p>점수: distinct 키워드 hit ×15, INSERT/MERGE/UPDATE 의 등장 횟수 ×3 가산,
+     * TRIGGER 타입 ×2 (트리거는 자동 호출이라 INSERT 시점 답으로 매우 유의미).
+     */
+    private String grepDbObjectSources(Set<String> tables) {
+        // 너무 짧은 키워드 제거 (오탑 방지) — 6자 미만이면 패스
+        List<String> kws = new ArrayList<>();
+        for (String t : tables) if (t.length() >= 6) kws.add(t);
+        if (kws.isEmpty()) return "";
+
+        String url  = settings.getDb().getUrl();
+        String user = settings.getDb().getUsername();
+        String pass = settings.getDb().getPassword();
+        long start  = System.currentTimeMillis();
+
+        // (OWNER, NAME, TYPE) → 매칭 정보
+        Map<String, DbObjMatch> aggregate = new LinkedHashMap<>();
+
+        java.sql.Connection conn = null;
+        try {
+            Class.forName("oracle.jdbc.OracleDriver");
+            java.sql.DriverManager.setLoginTimeout(5);
+            conn = java.sql.DriverManager.getConnection(url, user, pass);
+
+            // 1) 어떤 오브젝트가 매칭되는지 — 키워드별 hits / DML 점수 집계
+            //    Oracle 11g 호환을 위해 ROWNUM 래핑 (FETCH FIRST 사용 X)
+            String findSql =
+                "SELECT * FROM ("
+              + "  SELECT OWNER, NAME, TYPE, "
+              + "         COUNT(*) AS HITS, "
+              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%INSERT%' THEN 1 ELSE 0 END) AS INS_CNT, "
+              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%MERGE%'  THEN 1 ELSE 0 END) AS MRG_CNT, "
+              + "         SUM(CASE WHEN UPPER(TEXT) LIKE '%UPDATE%' THEN 1 ELSE 0 END) AS UPD_CNT "
+              + "  FROM ALL_SOURCE "
+              + "  WHERE UPPER(TEXT) LIKE ? "
+              + "    AND TYPE IN ('PROCEDURE','FUNCTION','PACKAGE','PACKAGE BODY','TRIGGER') "
+              + "    AND OWNER NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','MDSYS','CTXSYS','XDB',"
+              + "                      'APEX_030200','APEX_040000','FLOWS_FILES') "
+              + "  GROUP BY OWNER, NAME, TYPE "
+              + "  ORDER BY HITS DESC"
+              + ") WHERE ROWNUM <= " + MAX_DB_OBJECTS_PER_KW;
+
+            for (String kw : kws) {
+                java.sql.PreparedStatement ps = conn.prepareStatement(findSql);
+                try {
+                    ps.setString(1, "%" + kw.toUpperCase() + "%");
+                    java.sql.ResultSet rs = ps.executeQuery();
+                    while (rs.next()) {
+                        String owner = rs.getString("OWNER");
+                        String name  = rs.getString("NAME");
+                        String type  = rs.getString("TYPE");
+                        int hits     = rs.getInt("HITS");
+                        int ins      = rs.getInt("INS_CNT");
+                        int mrg      = rs.getInt("MRG_CNT");
+                        int upd      = rs.getInt("UPD_CNT");
+                        String key   = owner + "." + name + "." + type;
+                        DbObjMatch m = aggregate.get(key);
+                        if (m == null) {
+                            m = new DbObjMatch();
+                            m.owner = owner; m.name = name; m.type = type;
+                            aggregate.put(key, m);
+                        }
+                        m.hitKeywords.add(kw);
+                        m.totalHits += hits;
+                        m.insCount = Math.max(m.insCount, ins);
+                        m.mrgCount = Math.max(m.mrgCount, mrg);
+                        m.updCount = Math.max(m.updCount, upd);
+                    }
+                    rs.close();
+                } finally {
+                    ps.close();
+                }
+            }
+
+            if (aggregate.isEmpty()) {
+                long el = System.currentTimeMillis() - start;
+                log.info("[Enricher] DB 오브젝트 grep: 키워드={} 매칭 0건 ({} ms)", kws, el);
+                return String.format(
+                        "_DB 오브젝트 스캔: `%s` 를 참조하는 SP/FUNC/PKG/TRIGGER **0 건** (%d ms). "
+                                + "오브젝트 명을 직접 검색해도 발견되지 않으면 동적 SQL/EXECUTE IMMEDIATE 또는 "
+                                + "외부 ETL 가능성 있음._\n",
+                        String.join(", ", kws), el);
+            }
+
+            // 2) 점수 매기고 상위 N 만 골라 본문 가져오기
+            List<DbObjMatch> ranked = new ArrayList<>(aggregate.values());
+            for (DbObjMatch m : ranked) {
+                m.priority = m.hitKeywords.size() * 15
+                           + m.insCount * 3 + m.mrgCount * 3 + m.updCount * 3
+                           + ("TRIGGER".equals(m.type) ? 30 : 0);
+            }
+            ranked.sort((a, b) -> Integer.compare(b.priority, a.priority));
+            if (ranked.size() > MAX_DB_OBJECT_SNIPPETS) {
+                ranked = ranked.subList(0, MAX_DB_OBJECT_SNIPPETS);
+            }
+
+            // 3) 각 오브젝트 본문에서 매칭 라인 ±컨텍스트 발췌
+            String fetchSrc =
+                "SELECT LINE, TEXT FROM ALL_SOURCE "
+              + "WHERE OWNER = ? AND NAME = ? AND TYPE = ? "
+              + "ORDER BY LINE";
+            for (DbObjMatch m : ranked) {
+                java.sql.PreparedStatement ps = conn.prepareStatement(fetchSrc);
+                try {
+                    ps.setString(1, m.owner);
+                    ps.setString(2, m.name);
+                    ps.setString(3, m.type);
+                    java.sql.ResultSet rs = ps.executeQuery();
+                    List<int[]> lines = new ArrayList<>(); // [line, hash]
+                    List<String> texts = new ArrayList<>();
+                    int firstHitLine = -1;
+                    while (rs.next()) {
+                        int ln = rs.getInt("LINE");
+                        String t = rs.getString("TEXT");
+                        if (t == null) t = "";
+                        // 매칭된 키워드가 등장하는 첫 라인을 찾는다 (가능하면 INSERT 가 함께 있는 라인)
+                        if (firstHitLine < 0) {
+                            String tu = t.toUpperCase();
+                            for (String kw : m.hitKeywords) {
+                                if (tu.contains(kw.toUpperCase())) {
+                                    firstHitLine = ln;
+                                    break;
+                                }
+                            }
+                        }
+                        lines.add(new int[]{ ln });
+                        texts.add(t);
+                    }
+                    rs.close();
+                    if (texts.isEmpty()) continue;
+                    int hitIdx = 0;
+                    if (firstHitLine > 0) {
+                        for (int i = 0; i < lines.size(); i++) {
+                            if (lines.get(i)[0] == firstHitLine) { hitIdx = i; break; }
+                        }
+                    }
+                    int from = Math.max(0, hitIdx - DB_OBJECT_SNIPPET_LINES / 3);
+                    int to   = Math.min(texts.size(), hitIdx + (DB_OBJECT_SNIPPET_LINES * 2 / 3));
+                    StringBuilder code = new StringBuilder();
+                    for (int i = from; i < to; i++) {
+                        // 줄 끝 개행이 이미 텍스트 안에 들어있는 경우가 있음 — rtrim
+                        String t = texts.get(i);
+                        while (t.endsWith("\n") || t.endsWith("\r")) {
+                            t = t.substring(0, t.length() - 1);
+                        }
+                        code.append(t).append('\n');
+                    }
+                    m.snippet = code.toString();
+                    m.snippetStartLine = from + 1; // 1-based
+                } finally {
+                    ps.close();
+                }
+            }
+
+            long el = System.currentTimeMillis() - start;
+            log.info("[Enricher] DB 오브젝트 grep: 키워드={} 후보={} 선택={} ({} ms)",
+                    kws, aggregate.size(), ranked.size(), el);
+
+            // 4) 마크다운 조립
+            StringBuilder out = new StringBuilder();
+            out.append(String.format(
+                    "DB 오브젝트 스캔 결과 — `%s` 매칭 **%d 개 오브젝트** (%d ms). 관련도 상위 %d:\n\n",
+                    String.join(", ", kws), aggregate.size(), el, ranked.size()));
+            for (DbObjMatch m : ranked) {
+                out.append("### `").append(m.owner).append('.').append(m.name)
+                   .append("` (").append(m.type).append(", ")
+                   .append("hits=").append(m.totalHits)
+                   .append(", INS=").append(m.insCount)
+                   .append(", MRG=").append(m.mrgCount)
+                   .append(", UPD=").append(m.updCount)
+                   .append(", score=").append(m.priority)
+                   .append(")\n\n");
+                if (m.snippet != null && !m.snippet.isEmpty()) {
+                    out.append("```sql\n-- line ~").append(m.snippetStartLine).append("\n")
+                       .append(m.snippet).append("```\n\n");
+                }
+            }
+            return out.toString();
+
+        } catch (Exception e) {
+            log.warn("[Enricher] DB 오브젝트 grep 실패: {}", e.getMessage());
+            return String.format("_⚠ DB 오브젝트 스캔 실패: %s_\n", e.getMessage());
+        } finally {
+            if (conn != null) try { conn.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    private static class DbObjMatch {
+        String owner, name, type;
+        Set<String> hitKeywords = new LinkedHashSet<>();
+        int totalHits;
+        int insCount, mrgCount, updCount;
+        int priority;
+        String snippet;
+        int snippetStartLine;
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────
