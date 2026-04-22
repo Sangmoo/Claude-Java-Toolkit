@@ -183,7 +183,13 @@ export default function ChatPage() {
           loadSessions() // refresh titles
           return
         }
-        accumulated += data + '\n'
+        // v4.4.x — 가짜 \n 제거 (이전: data + '\n').
+        //   원인: 모든 chunk 끝에 강제로 \n 을 붙여서
+        //   "🔍 분" + "\n" + "석 결과" + "\n" → 한글 단어가 줄바꿈됨
+        //   ("🔍 분\n석 결과" 처럼 "분석"이 갈라져 마크다운이 깨짐)
+        //   SseStreamController.sendSseData 가 이미 원본 newline 을
+        //   data: 라인 분할로 보존하므로 클라이언트에서 추가 X.
+        accumulated += data
         setStreamText(accumulated)
         scrollToBottom()
       }

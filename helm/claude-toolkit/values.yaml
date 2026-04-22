@@ -96,8 +96,11 @@ extraEnv: []
 # ── 헬스체크 ───────────────────────────────────────────────────────────────
 healthcheck:
   enabled: true
-  livenessPath: /actuator/health
-  readinessPath: /actuator/health
+  # v4.4.x — Spring Boot 표준 probe 분리 사용 (management.endpoint.health.probes.enabled=true)
+  #   liveness:  앱 자체 생존 — 실패 시 Pod 재시작
+  #   readiness: 트래픽 수신 준비 (Settings/DB warmup 완료) — 실패 시 트래픽 차단
+  livenessPath: /actuator/health/liveness
+  readinessPath: /actuator/health/readiness
   initialDelaySeconds: 60
   periodSeconds: 30
   timeoutSeconds: 10

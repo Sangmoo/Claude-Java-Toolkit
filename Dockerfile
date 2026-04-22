@@ -78,7 +78,12 @@ ENV CLAUDE_API_KEY="" \
 
 EXPOSE 8027
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8027/actuator/health || exit 1
+# v4.4.x — readiness probe 사용:
+#   /actuator/health/readiness 는 StartupReadiness 가 Settings/DB warmup 을
+#   완료한 후에야 UP 으로 응답. 이전 /actuator/health 는 Spring Boot 시작 즉시
+#   UP 이라 사용자가 "준비 안된" 상태에서 화면 진입해 빈 결과 / 오류를 봤음.
+# start-period 도 90초로 증가 (warmup 시간 확보)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8027/actuator/health/readiness || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --spring.profiles.active=${DB_TYPE:-h2}"]

@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -18,6 +19,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableScheduling
+@EnableAsync   // v4.4.x — StartupReadiness 비동기 warmup 용
 public class ClaudeToolkitUiApplication {
 
     public static void main(String[] args) {
