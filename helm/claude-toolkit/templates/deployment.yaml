@@ -79,10 +79,24 @@ spec:
                   name: {{ .Values.dbSecret.existingSecret | default (printf "%s-db" (include "claude-toolkit.fullname" .)) }}
                   key: {{ .Values.dbSecret.passwordKey }}
             {{- end }}
+            {{- if .Values.javaOpts }}
+            - name: JAVA_OPTS
+              value: {{ .Values.javaOpts | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- if .Values.healthcheck.enabled }}
+          # v4.4.0: startupProbe — Spring Boot 시작 시간이 길어도 (최대 5분) liveness 가
+          #         pod 를 죽이지 않도록 보호. failureThreshold * periodSeconds 까지 대기.
+          startupProbe:
+            httpGet:
+              path: {{ .Values.healthcheck.livenessPath }}
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: {{ .Values.healthcheck.timeoutSeconds }}
+            failureThreshold: 30   # 30 * 10s = 5분 시작 허용
           livenessProbe:
             httpGet:
               path: {{ .Values.healthcheck.livenessPath }}
@@ -90,6 +104,7 @@ spec:
             initialDelaySeconds: {{ .Values.healthcheck.initialDelaySeconds }}
             periodSeconds: {{ .Values.healthcheck.periodSeconds }}
             timeoutSeconds: {{ .Values.healthcheck.timeoutSeconds }}
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: {{ .Values.healthcheck.readinessPath }}
@@ -97,6 +112,7 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: {{ .Values.healthcheck.periodSeconds }}
             timeoutSeconds: {{ .Values.healthcheck.timeoutSeconds }}
+            failureThreshold: 3
           {{- end }}
           {{- with .Values.resources }}
           resources:

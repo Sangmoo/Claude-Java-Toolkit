@@ -261,21 +261,74 @@ helm/claude-toolkit/
     └── NOTES.txt       ← 설치 후 안내 메시지
 ```
 
-#### 로컬에서 차트 검증
+#### 로컬에서 차트 검증 (3단계)
 
+##### 1단계 — 도구 설치 (한 번만)
+
+**Windows (winget — 권장)**:
+```powershell
+# 사전: Docker Desktop 설치되어 있어야 함
+winget install Kubernetes.kind            # Kind (Kubernetes in Docker)
+winget install Kubernetes.kubectl         # kubectl
+winget install Helm.Helm                  # Helm
+```
+
+**macOS**:
 ```bash
-# Helm 설치 (한 번만)
-choco install kubernetes-helm           # Windows
-brew install helm                        # macOS
+brew install kind kubectl helm
+```
+
+**Linux (Ubuntu/Debian)**:
+```bash
+# Kind
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Helm
 curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list && \
-  sudo apt-get update && sudo apt-get install helm    # Ubuntu/Debian
+  sudo apt-get update && sudo apt-get install helm
+```
 
-# 차트 검증
-cd /path/to/claude-java-toolkit
+##### 2단계 — 자동 검증 스크립트 실행 (10~15분)
+
+```bash
+# 환경변수 설정 (있으면 좋음, 없어도 동작)
+export CLAUDE_API_KEY=sk-ant-...
+
+# 검증 자동 실행
+bash scripts/test-helm.sh
+
+# 옵션:
+bash scripts/test-helm.sh --skip-build   # 이미지 재빌드 생략 (재실행 시)
+bash scripts/test-helm.sh --keep         # 검증 후 클러스터 유지 (수동 디버깅)
+```
+
+스크립트가 자동으로:
+1. ✅ 도구 설치 확인 (docker / kind / kubectl / helm)
+2. ✅ Kind 클러스터 `claude-test` 생성
+3. ✅ Docker 이미지 빌드 → Kind 클러스터에 로드 (registry 불필요)
+4. ✅ Namespace + Secret 생성
+5. ✅ `helm lint` + `helm template` 정적 검증
+6. ✅ `helm install` (시나리오 A: H2 단일 인스턴스)
+7. ✅ Pod READY 1/1 대기 (최대 3분)
+8. ✅ 헬스체크 `/actuator/health` → `status=UP` 검증
+9. ✅ Prometheus 메트릭 노출 검증 (`claude_*` 줄 카운트)
+10. ✅ Spring Boot 시작 로그 확인
+
+##### 3단계 — 단순 명령으로 직접 검증 (수동)
+
+```bash
+# 차트만 정적 검증
 helm lint ./helm/claude-toolkit                              # 문법 검증
 helm template test ./helm/claude-toolkit --debug | less      # 매니페스트 미리보기
 ```
+
+**5가지 시나리오 상세** (B: PostgreSQL, C: Ingress+TLS, D: HPA 자동 확장, E: prometheus-operator) 는 [`helm/claude-toolkit/VALIDATION.md`](./helm/claude-toolkit/VALIDATION.md) 참고.
 
 #### Helm 설치 단계
 
