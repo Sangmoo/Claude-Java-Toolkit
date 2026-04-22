@@ -39,6 +39,8 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("harness",       "/harness");
         FEATURE_PATHS.put("codereview",    "/codereview");
         FEATURE_PATHS.put("pipelines",     "/pipelines");
+        // v4.4.x — Flow Analysis (Phase 1 백엔드, Phase 3 에서 페이지 추가 예정)
+        FEATURE_PATHS.put("flow-analysis", "/flow-analysis");
         // 생성
         FEATURE_PATHS.put("docgen",        "/docgen");
         FEATURE_PATHS.put("testgen",       "/testgen");
@@ -91,6 +93,7 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         if ("/harness/stream-init".equals(path)) return true;
         if ("/explain/stream-init".equals(path)) return true;
         if ("/chat/send".equals(path)) return true;
+        if ("/flow/stream/start".equals(path)) return true;
         // 기타 분석 실행 POST
         if (path.startsWith("/pipelines/") && path.endsWith("/run")) return true;
         // v4.4.x — 직접 REST API 호출도 사용량 추적 (사용량 모니터링 0 표시 문제)

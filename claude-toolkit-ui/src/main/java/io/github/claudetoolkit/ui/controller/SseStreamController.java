@@ -43,7 +43,7 @@ public class SseStreamController {
      * Spring SseEmitter.data(text)는 줄바꿈을 SSE data: 라인으로 분할하지 않아
      * 텍스트 내 \n\n 이 이벤트 종결자로 오인되어 데이터가 손실됨.
      */
-    static void sendSseData(SseEmitter emitter, String chunk) throws IOException {
+    public static void sendSseData(SseEmitter emitter, String chunk) throws IOException {
         SseEmitter.SseEventBuilder builder = SseEmitter.event();
         String[] lines = chunk.split("\n", -1);
         for (String line : lines) {
