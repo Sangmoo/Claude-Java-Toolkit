@@ -34,6 +34,8 @@ public class AdminPermissionController {
         new String[]{"flow-analysis","데이터 흐름 분석",   "분석"},
         // Phase B — Oracle SP → Java/Spring 마이그레이션 하네스 (4단계)
         new String[]{"sp-migration-harness", "SP→Java 마이그레이션 하네스", "분석"},
+        // Phase C — Oracle SQL 성능 최적화 하네스 (4단계)
+        new String[]{"sql-optimization-harness", "SQL 최적화 하네스", "분석"},
         new String[]{"package-overview","패키지 개요",     "분석"},
         new String[]{"project-map",     "전사 패키지 지도", "분석"},
         // 생성

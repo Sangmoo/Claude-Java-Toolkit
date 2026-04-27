@@ -71,6 +71,8 @@ public class SecurityConfig {
                     "/api/v1/log-rca/**",
                     // Phase B: SP → Java 마이그레이션 하네스 — POST /api/v1/sp-migration/{analyze,stream-init}, GET /stream/{id} (SSE)
                     "/api/v1/sp-migration/**",
+                    // Phase C: SQL 성능 최적화 하네스 — POST /api/v1/sql-optimization/{analyze,stream-init}, GET /stream/{id} (SSE)
+                    "/api/v1/sql-optimization/**",
                     // v4.2.x: 이메일 발송 (다수 수신자)
                     "/email/**"
                 )

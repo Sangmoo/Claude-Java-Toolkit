@@ -64,6 +64,7 @@ export const menuSections: MenuSection[] = [
       { label: '테이블 영향 분석',    path: '/impact',        icon: FaStream,        color: '#f59e0b', featureKey: 'flow-analysis' },
       { label: 'SP 흐름 분석',       path: '/sp-impact',     icon: FaCodeBranch,    color: '#8b5cf6', featureKey: 'flow-analysis' },
       { label: 'SP→Java 하네스',     path: '/sp-migration-harness', icon: FaExchangeAlt, color: '#10b981', featureKey: 'sp-migration-harness' },
+      { label: 'SQL 최적화 하네스',  path: '/sql-optimization-harness', icon: FaChartLine, color: '#f59e0b', featureKey: 'sql-optimization-harness' },
     ],
   },
   {

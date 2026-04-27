@@ -40,6 +40,27 @@ class AdminPermissionControllerFeatureRegistrationTest {
     }
 
     @Test
+    @DisplayName("Phase C — sql-optimization-harness 키가 '분석' 카테고리에 등록")
+    void sqlOptimizationHarnessFeatureRegistered() {
+        AdminPermissionController controller = new AdminPermissionController(null, null);
+        ResponseEntity<List<Map<String, Object>>> resp = controller.listFeatures();
+
+        for (Map<String, Object> category : resp.getBody()) {
+            if (!"분석".equals(category.get("category"))) continue;
+            @SuppressWarnings("unchecked")
+            List<Map<String, String>> items = (List<Map<String, String>>) category.get("items");
+            for (Map<String, String> item : items) {
+                if ("sql-optimization-harness".equals(item.get("key"))) {
+                    assertTrue(item.get("label").contains("SQL"),
+                            "라벨에 'SQL' 포함 필요: " + item.get("label"));
+                    return;
+                }
+            }
+        }
+        fail("sql-optimization-harness가 '분석' 카테고리에 없음 — Phase C 권한 게이팅 깨짐");
+    }
+
+    @Test
     @DisplayName("Phase B — sp-migration-harness 키가 '분석' 카테고리에 등록")
     void spMigrationHarnessFeatureRegistered() {
         AdminPermissionController controller = new AdminPermissionController(null, null);

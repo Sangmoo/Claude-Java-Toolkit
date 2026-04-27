@@ -43,6 +43,8 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("flow-analysis", "/flow-analysis");
         // Phase B — SP → Java 마이그레이션 하네스
         FEATURE_PATHS.put("sp-migration-harness", "/sp-migration-harness");
+        // Phase C — SQL 성능 최적화 하네스
+        FEATURE_PATHS.put("sql-optimization-harness", "/sql-optimization-harness");
         // v4.5 — 패키지 개요 (Hybrid UX, Java 패키지별 요약/ERD/흐름도)
         FEATURE_PATHS.put("package-overview", "/package-overview");
         FEATURE_PATHS.put("project-map",      "/project-map");
