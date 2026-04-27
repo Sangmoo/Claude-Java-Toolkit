@@ -587,10 +587,6 @@ footer{
         <img src="screenshots/10-error-log.png" alt="오류 로그" loading="lazy"/>
         <div class="gallery-caption">오류 로그 (Sentry-style) ✨</div>
       </a>
-      <a href="screenshots/12-flow-analysis.png" target="_blank" class="gallery-item">
-        <img src="screenshots/12-flow-analysis.png" alt="데이터 흐름 분석" loading="lazy"/>
-        <div class="gallery-caption">데이터 흐름 분석 🆕</div>
-      </a>
       <a href="screenshots/11-grafana.png" target="_blank" class="gallery-item">
         <img src="screenshots/11-grafana.png" alt="Grafana 대시보드" loading="lazy"/>
         <div class="gallery-caption">Grafana 대시보드 ✨</div>
@@ -634,6 +630,31 @@ footer{
           <span class="tag">코드 리뷰</span>
           <span class="tag">보안 감사</span>
           <span class="tag">복잡도 분석</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(6,182,212,.12);color:#06b6d4;">📦</div>
+        <div class="feat-title" data-i18n="feat.pkg.title">패키지 분석 (v4.5) 🆕</div>
+        <div class="feat-desc" data-i18n="feat.pkg.desc">Java 패키지 단위로 4탭 분석을 제공합니다. <strong>요약</strong> 탭은 Controller/Service/DAO/MyBatis 통계, <strong>ERD</strong> 탭은 연관 테이블의 Mermaid 다이어그램 + heatmap, <strong>풀 흐름도</strong> 탭은 패키지가 건드리는 모든 테이블에 대한 Java↔MyBatis↔Controller 추적, <strong>스토리</strong> 탭은 Claude 가 생성한 신입 친화 한국어 내러티브를 제공합니다. <code>/project-map</code> 에서 드릴다운 카드로 전사 패키지 지도를 검색·탐색할 수 있고, 스토리는 Markdown 파일로 export 됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">📊 4탭 UX</span>
+          <span class="tag">Mermaid ERD</span>
+          <span class="tag">React Flow</span>
+          <span class="tag">Claude Narrative</span>
+          <span class="tag">🗺 전사 지도</span>
+          <span class="tag">📤 Markdown export</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(34,211,238,.12);color:#22d3ee;">🔁</div>
+        <div class="feat-title" data-i18n="feat.flow.title">데이터 흐름 분석 (v4.4)</div>
+        <div class="feat-desc" data-i18n="feat.flow.desc">테이블/SP/SQL_ID 시작점에서 MyBatis · Java · Controller · MiPlatform 까지 전체 호출 체인을 자동 추적합니다. ReactFlow 다이어그램과 Claude 내러티브로 풀 데이터 흐름을 시각화하며, 분석 이력과 공유 링크를 지원합니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🌐 React Flow</span>
+          <span class="tag">SP/SQL_ID 추적</span>
+          <span class="tag">MiPlatform</span>
+          <span class="tag">📜 분석 이력</span>
+          <span class="tag">🔗 공유 링크</span>
         </div>
       </div>
       <div class="feat-card reveal">

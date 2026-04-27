@@ -29,14 +29,28 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
-### 🆕 v4.4.0 (진행 중) 하이라이트
+### 🆕 v4.5.0 하이라이트
+- 📦 **패키지 분석 (신규)** — Java 패키지 단위 4탭 분석 (`/package-overview`):
+  - 📊 요약 — 클래스 / Controller / Service / DAO / MyBatis 통계
+  - 🔗 ERD — 연관 테이블 Mermaid + heatmap (히트카운트)
+  - 🌊 풀 흐름도 — 패키지가 건드리는 모든 테이블 → MyBatis → Java → Controller 자동 병합
+  - 📜 스토리 — Claude 가 신입 친화 한국어 마크다운 내러티브 생성
+- 🗺 **전사 패키지 지도 (신규)** — `/project-map` 드릴다운 카드 그리드 + 검색 필터, 리프 레벨 도달 시 패키지 개요로 점프
+- 🔒 **보안 강화** — `POST /api/v1/package/refresh` ADMIN 권한 강제, `prefix` 200자 길이 캡
+- ⏱ **Claude 호출 45s 타임아웃** — `PackageStoryService` 가 외부 지연으로 톰캣 스레드를 hang 시키지 않음
+- 🛠 **`toolkit.indexer.*` 외부화** — `application.yml` 로 `maxJavaScan` / `maxFileSize` 튜닝
+- 📤 **패키지 스토리 Markdown export** — `GET /api/v1/package/story/export?name=...` 위키 복붙용
+- 📊 **어드민 캐시 통계** — `GET /api/v1/admin/caches` (ADMIN 전용)
+- 🧪 **테스트 12개 신규** — `PackageAnalysisControllerTest` + `PackageStoryServiceTest`
+
+### v4.4.0 하이라이트
 - 📜 **OpenAPI / Swagger UI** — `/swagger-ui.html` (ADMIN 전용) 인터랙티브 API 카탈로그 + `/v3/api-docs` JSON 스펙
 - 🐞 **자체 에러 모니터링 (Sentry-style)** — `/admin/error-log` dedupe + 자동 unresolved 복귀 + 스택트레이스 보존
 - 📈 **메트릭 5종 신규** — 캐시 / SSE / 하네스 4단계 / 에러율 / 파이프라인 단계. Grafana 18 패널
 - ⎈ **Helm Chart Kind 자동 검증** — `bash scripts/test-helm.sh` 한 번에 검증
 - 🤖 **자동 변경 로그** — release-please-action — feat/fix commit → CHANGELOG.md + GitHub Release 자동 생성
 - 🧪 **테스트 64개 + JaCoCo** — 커버리지 자동 리포팅
-- 🔁 **데이터 흐름 분석 (신규)** — 테이블/SP/SQL_ID 시작점에서 MyBatis · Java · Controller · MiPlatform 까지 자동 추적 → ReactFlow 다이어그램 + LLM narrative + 분석 이력/공유 링크. `/flow-analysis` (Admin 권한 관리에서 사용자별 on/off)
+- 🔁 **데이터 흐름 분석** — 테이블/SP/SQL_ID 시작점에서 MyBatis · Java · Controller · MiPlatform 까지 자동 추적 → ReactFlow 다이어그램 + LLM narrative + 분석 이력/공유 링크. `/flow-analysis` (Admin 권한 관리에서 사용자별 on/off)
 
 > 📋 전체 변경 이력은 [CHANGELOG.md](./CHANGELOG.md) — release-please 가 자동 갱신
 
@@ -471,6 +485,9 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 | **품질 대시보드** | `/harness/dashboard` | 누적 통계 / 판정 비율 / 품질 점수 추이 + 드릴다운 모달 |
 | **Java 코드 리뷰** | `/codereview` | OWASP Top 10, SOLID, 컨텍스트 주입 |
 | **복잡도 분석** | `/complexity` | 순환 복잡도 + 우선순위 필터 (단일/프로젝트 모드) |
+| **데이터 흐름 분석** | `/flow-analysis` | 테이블/SP/SQL_ID → MyBatis · Java · Controller · MiPlatform 자동 추적 |
+| **패키지 분석** 🆕 | `/package-overview` | Java 패키지 단위 4탭 (요약/ERD/풀흐름도/스토리), Markdown export |
+| **전사 패키지 지도** 🆕 | `/project-map` | 드릴다운 카드 그리드 + 검색 필터, 리프 → 패키지 개요로 점프 |
 
 ### 🛠 코드/문서 생성
 | 기능 | 경로 | 핵심 |

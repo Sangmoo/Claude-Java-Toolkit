@@ -12,9 +12,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — v4.4.0 진행 중
+## [Unreleased] — v4.5.0 진행 중
 
 ### Added (✨ Features)
+- **Package Analysis** — Java 패키지 단위 4탭 분석 (`/package-overview`):
+  요약 / ERD / 풀흐름도 / 스토리. Claude 가 신입 친화 한국어 마크다운 내러티브 생성.
+- **Project Map** — `/project-map` 드릴다운 카드 그리드, 클라이언트 검색 필터.
+- **CacheStatsController** — `GET /api/v1/admin/caches` (ADMIN 전용)로
+  packageStory · packageFlow · packageOverview 캐시 사이즈 모니터링.
+- **Story Markdown export** — `GET /api/v1/package/story/export?name=...` →
+  RFC5987 인코딩된 첨부 다운로드, 위키 복붙용.
+- **Optional pagination** — `GET /api/v1/package/overview?page=&size=` 둘 다
+  주면 server-side slice + 메타필드. 미지정 시 응답 shape 기존과 동일 (additive).
+- **`toolkit.indexer.*` 외부 설정** — `application.yml` 로
+  `maxJavaScan` / `maxFileSize` 튜닝 가능. 기본값은 기존 하드코딩 상수와 동일.
+- **Story system prompt 외부화** — `resources/prompts/package-story.txt`
+  로 분리, A/B 테스트 / 팀 커스터마이즈 용이.
+- **Tests** — `PackageAnalysisControllerTest` (7) + `PackageStoryServiceTest` (5)
+  = 12개 신규. 전부 `mvn test` green.
+
+### Security (🔒)
+- **`POST /api/v1/package/refresh` ADMIN 권한 강제** — `request.isUserInRole("ADMIN")`
+  인라인 가드. VIEWER/REVIEWER 호출 시 403 + JSON 에러.
+- **`POST /api/v1/package/settings` prefix 200자 길이 캡** — 무한 입력 방어.
+
+### Stability (🛡)
+- **`PackageStoryService` Claude 호출 45s 타임아웃** —
+  `Future.get(45, TimeUnit.SECONDS)` + `cancel(true)`. 외부 지연이 톰캣
+  스레드를 hang 시키지 않음. 실패 시 사용자 친화 에러 메시지로 graceful degrade.
+
+### Observability (📊)
+- **`@Timed("package.story.generate")`** — Micrometer 메트릭 (Actuator
+  자동 노출).
+- **`PackageOverviewPage` 마지막 인덱스 시간 표시** — refresh 후 자동 갱신.
+
+### UX (🎨)
+- `ProjectMapPage` 검색 입력 + X-clear, 검색 결과 별도 empty state.
+- `PackageOverviewPage` stale "Week 1 MVP" docstring 제거.
+
+### Docs (📚)
+- README.md / docs/index.html v4.5 섹션 + 카드 추가.
+- README 의 `12-flow-analysis.png` 죽은 참조 제거 (실제 파일 부재).
+
+---
+
+## [4.4.0] — 2025
+
+### Note
+v4.4.0 은 release-please 가 자동 갱신합니다 — 아래 항목은 v4.5 진행 중에 정리된 v4.4 신규/변경 사항의 manual snapshot 입니다.
+
+### Added (✨ Features) — v4.4
 - **OpenAPI / Swagger UI** — `/swagger-ui.html` (ADMIN 전용) + `/v3/api-docs` JSON 스펙
 - **자체 구축 에러 모니터링 (Sentry-style)** — `/admin/error-log` 페이지 + dedupe + 자동 unresolved 복귀
 - **메트릭 통합 5종 신규** — 캐시 히트/미스, SSE 동시 연결 게이지, 하네스 4단계 Timer, 에러 발생률 카운터, 파이프라인 단계 카운트
