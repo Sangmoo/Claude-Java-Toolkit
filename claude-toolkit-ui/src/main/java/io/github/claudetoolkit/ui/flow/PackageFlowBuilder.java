@@ -238,6 +238,11 @@ public class PackageFlowBuilder {
         return n;
     }
 
+    /** v4.5 — 어드민 캐시 통계 엔드포인트용. */
+    public int cacheSize() {
+        return cache.size();
+    }
+
     private static class CacheEntry {
         final MergedResult result;
         final long createdAt;

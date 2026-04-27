@@ -14,14 +14,12 @@ import { useToast } from '../../hooks/useToast'
 import MermaidChart from '../../components/common/MermaidChart'
 
 /**
- * v4.5 — 패키지 개요 페이지 (Hybrid UX, Week 1 MVP)
+ * v4.5 — 패키지 개요 페이지 (Hybrid UX)
  *
- *  [📊 요약]  [🔗 ERD]  [🌊 풀 흐름도]  [📜 스토리]  ← 탭
+ *  [📊 요약]  [🔗 ERD]  [🌊 풀 흐름도]  [📜 스토리]  ← 4탭 모두 활성
  *  ┌──────────┬──────────────────────┬──────────────┐
- *  │ 좌 트리   │ 중앙 — 요약 카드/리스트│ 우 — 상세 drawer│
+ *  │ 좌 트리   │ 중앙 — 탭별 컨텐츠     │ 우 — 상세 drawer│
  *  └──────────┴──────────────────────┴──────────────┘
- *
- * Week 1 에는 "📊 요약" 탭만 활성. 나머지 탭은 "준비중" 플레이스홀더.
  */
 
 // ── 타입 ─────────────────────────────────────────────────────────────────
@@ -196,6 +194,7 @@ export default function PackageOverviewPage() {
   const [loading,  setLoading]  = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [indexerReady, setIndexerReady] = useState(true)
+  const [lastScanMs, setLastScanMs] = useState<number>(0)
 
   // 선택 상태
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null)
@@ -221,6 +220,7 @@ export default function PackageOverviewPage() {
         setLevel(d.data.currentLevel ?? 5)
         setPrefix(d.data.currentPrefix ?? '')
         setIndexerReady(!!d.data.indexerReady)
+        setLastScanMs(d.data.lastScanMs ?? 0)
       }
     } catch (e) { console.warn('[Package] settings load failed', e) }
   }, [])
@@ -288,6 +288,7 @@ export default function PackageOverviewPage() {
       const d = await r.json()
       if (d.success && d.data) {
         toast.success(`재빌드 완료 — 클래스 ${d.data.javaClasses} / 패키지 ${d.data.javaPackages} (${d.data.elapsedMs}ms)`)
+        loadSettings()
         loadOverview(level, prefix)
       } else toast.error(d.error || '재빌드 실패')
     } catch (e: unknown) {
@@ -317,7 +318,13 @@ export default function PackageOverviewPage() {
             Java 패키지 단위 요약 · ERD · 흐름도 (Level {level}{prefix ? ` · prefix "${prefix}"` : ''})
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {lastScanMs > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}
+                  title={new Date(lastScanMs).toISOString()}>
+              마지막 인덱스: {new Date(lastScanMs).toLocaleString('ko-KR')}
+            </span>
+          )}
           <button style={styles.iconBtn} onClick={() => setSettingsOpen(true)} title="패키지 레벨/prefix 설정">
             <FaCog /> 설정
           </button>

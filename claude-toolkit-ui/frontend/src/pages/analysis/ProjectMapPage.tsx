@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FaMap, FaSync, FaChevronRight, FaArrowLeft, FaBoxes, FaHome,
+  FaMap, FaSync, FaChevronRight, FaArrowLeft, FaBoxes, FaHome, FaSearch, FaTimes,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 
@@ -65,6 +65,8 @@ export default function ProjectMapPage() {
   const [loading,      setLoading]      = useState(false)
   // v4.5 — 초기 settings 가 완료되기 전엔 loadAtCurrent 가 fire 하지 않도록 guard
   const [settingsReady, setSettingsReady] = useState(false)
+  // v4.5 — 카드 그리드 검색 필터 (클라이언트 측, 현재 레벨 내)
+  const [searchKw,     setSearchKw]     = useState<string>('')
 
   // breadcrumb 렌더용 파생 배열 (메모이즈)
   const pathSegs = useMemo(
@@ -157,9 +159,15 @@ export default function ProjectMapPage() {
 
   // ── 렌더 ────────────────────────────────────────────────────────────
 
-  const totalClasses    = packages.reduce((s, p) => s + p.classTotal, 0)
-  const totalMyBatis    = packages.reduce((s, p) => s + p.mybatisCount, 0)
-  const totalEndpoints  = packages.reduce((s, p) => s + p.endpointCount, 0)
+  const filteredPackages = useMemo(() => {
+    const kw = searchKw.trim().toLowerCase()
+    if (!kw) return packages
+    return packages.filter(p => p.packageName.toLowerCase().includes(kw))
+  }, [packages, searchKw])
+
+  const totalClasses    = filteredPackages.reduce((s, p) => s + p.classTotal, 0)
+  const totalMyBatis    = filteredPackages.reduce((s, p) => s + p.mybatisCount, 0)
+  const totalEndpoints  = filteredPackages.reduce((s, p) => s + p.endpointCount, 0)
 
   return (
     <div style={styles.page}>
@@ -200,15 +208,30 @@ export default function ProjectMapPage() {
         )}
       </div>
 
-      {/* 통계 요약 */}
+      {/* 통계 요약 + 검색 */}
       <div style={styles.summaryBar}>
-        <span>📦 <strong>{packages.length}</strong>개 패키지</span>
+        <span>📦 <strong>{filteredPackages.length}</strong>{searchKw ? ` / ${packages.length}` : ''}개 패키지</span>
         <span>· 🏗 클래스 <strong>{totalClasses}</strong></span>
         <span>· 📋 MyBatis <strong>{totalMyBatis}</strong></span>
         <span>· 🎯 Endpoint <strong>{totalEndpoints}</strong></span>
+        <span style={{ flex: 1 }} />
+        <span style={styles.searchWrap}>
+          <FaSearch size={11} style={{ color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            placeholder="패키지명 검색..."
+            value={searchKw}
+            onChange={e => setSearchKw(e.target.value)}
+            style={styles.searchInput}
+          />
+          {searchKw && (
+            <FaTimes size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
+                     onClick={() => setSearchKw('')} title="지우기" />
+          )}
+        </span>
         {currentLevel >= targetLevel && (
-          <span style={{ marginLeft: 'auto', color: '#f97316', fontWeight: 600 }}>
-            🎯 리프 레벨 도달 — 클릭 시 패키지 개요로 이동
+          <span style={{ color: '#f97316', fontWeight: 600 }}>
+            🎯 리프 — 클릭 시 패키지 개요로 이동
           </span>
         )}
       </div>
@@ -218,14 +241,19 @@ export default function ProjectMapPage() {
         {loading && (
           <div style={styles.emptyHint}>로딩 중...</div>
         )}
-        {!loading && packages.length === 0 && (
+        {!loading && filteredPackages.length === 0 && packages.length === 0 && (
           <div style={styles.emptyHint}>
             이 레벨에 패키지가 없습니다. 상위로 돌아가거나 Java 인덱스를 재빌드하세요.
           </div>
         )}
-        {!loading && packages.length > 0 && (
+        {!loading && filteredPackages.length === 0 && packages.length > 0 && (
+          <div style={styles.emptyHint}>
+            검색 결과 없음 — "{searchKw}"
+          </div>
+        )}
+        {!loading && filteredPackages.length > 0 && (
           <div style={styles.cardGrid}>
-            {packages.map(p => (
+            {filteredPackages.map(p => (
               <PackageCard
                 key={p.packageName}
                 pkg={p}
@@ -325,9 +353,20 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid var(--border-color)', borderRadius: 4, cursor: 'pointer',
   },
   summaryBar: {
-    display: 'flex', gap: 12, padding: '6px 16px',
+    display: 'flex', gap: 12, padding: '6px 16px', alignItems: 'center',
     background: 'var(--bg-card)', borderBottom: '1px solid var(--border-color)',
     fontSize: 11, color: 'var(--text-muted)',
+  },
+  searchWrap: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '3px 8px', background: 'var(--bg-secondary)',
+    border: '1px solid var(--border-color)', borderRadius: 4,
+    minWidth: 200,
+  },
+  searchInput: {
+    flex: 1, fontSize: 12, padding: '2px 0',
+    background: 'transparent', color: 'var(--text-primary)',
+    border: 'none', outline: 'none',
   },
   gridBody: { flex: 1, overflowY: 'auto', padding: 16 },
   cardGrid: {

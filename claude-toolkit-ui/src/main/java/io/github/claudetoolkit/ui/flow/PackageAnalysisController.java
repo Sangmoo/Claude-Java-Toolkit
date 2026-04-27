@@ -8,11 +8,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -294,6 +298,33 @@ public class PackageAnalysisController {
         } catch (Exception e) {
             log.warn("[Package] story 실패 name={}", packageName, e);
             return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("스토리 생성 실패: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "패키지 스토리 — Markdown 첨부 다운로드")
+    @GetMapping("/story/export")
+    public ResponseEntity<byte[]> exportStory(
+            @RequestParam("name") String packageName,
+            @RequestParam(value = "level", required = false) Integer level) {
+        int lv = level != null ? level : service.currentLevel();
+        try {
+            PackageStoryService.StoryResult r = storyService.generate(packageName, lv, false);
+            String md = r.markdown != null ? r.markdown : "";
+            byte[] body = md.getBytes(StandardCharsets.UTF_8);
+            String safeName = packageName.replaceAll("[^A-Za-z0-9._-]", "_");
+            String filename = "package-" + safeName + ".md";
+            String encoded = URLEncoder.encode(filename, "UTF-8").replace("+", "%20");
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + filename + "\"; filename*=UTF-8''" + encoded);
+            return new ResponseEntity<byte[]>(body, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            log.warn("[Package] story export 실패 name={}", packageName, e);
+            byte[] err = ("## ⚠ 스토리 export 실패\n\n" + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
+            return new ResponseEntity<byte[]>(err, headers, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
