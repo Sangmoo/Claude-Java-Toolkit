@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.3.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.6.0-brightgreen.svg)](#)
 [![Helm](https://img.shields.io/badge/helm-chart_0.1.0-0F1689.svg)](./helm/claude-toolkit)
 
 ---
@@ -29,7 +29,18 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
-### 🆕 v4.5.0 하이라이트
+### 🆕 v4.6.0 하이라이트 — 하네스 파이프라인 확장 (Phase A · D · B · C)
+
+기존 "코드 리뷰 하네스" 의 4단계(Analyst → Builder → Reviewer → Verifier) 패턴을 **공통 인프라로 추출**하고, 운영팀·DBA가 자주 마주하는 3가지 시나리오에 동일 패턴을 적용했습니다. 4개 하네스가 같은 Orchestrator·PromptLoader·UI 컴포넌트를 공유합니다.
+
+- 🛠 **공통 하네스 인프라 (Phase A)** — `HarnessOrchestrator` (sync + SSE 스트리밍, sentinel 자동 emit) · `PromptLoader` (`prompts/harness/{name}/{stage}.md` classpath 외부화 + 경로 인젝션 차단) · `HarnessAuditWriter` (옵셔널 감사 로그, `toolkit.harness.audit=true`) · 재사용 가능한 React `useHarnessStream` 훅 + `<HarnessStagePanels />` 컴포넌트
+- 🐞 **오류 로그 RCA 하네스 (Phase D)** — `/loganalyzer` 페이지에 "RCA 하네스 (4단계)" 모드 토글. **일반 RCA / 보안 RCA(OWASP Top 10)** 두 모드 지원. 가설 후보 → 검증 SQL+패치+롤백 계획 → 우도 평가 → 사내 표준 RCA 보고서 + 재발 방지 체크리스트 자동 생성
+- 🔄 **SP→Java 마이그레이션 하네스 (Phase B)** — `/sp-migration-harness` 신규 페이지. **DB 오브젝트 선택 버튼**으로 Oracle SP/Function/Package/Trigger를 ALL_SOURCE에서 자동 로드. SP 의미 분석 → Service+Mapper+XML+DTO+테스트 생성 → 행위 동등성 검증 → 컴파일·MyBatis XML 정합성 정적 검증
+- ⚡ **SQL 최적화 하네스 (Phase C)** — `/sql-optimization-harness` 신규 페이지. 쿼리·실행계획·통계·인덱스·변경 불가 제약 다중 입력 → 병목 분석 → **N개 후보 (rewrite + DDL + 힌트, 비용/리스크/롤백)** → 결과 동등성·다른 쿼리 영향 평가 → 단계별 Rollout Plan
+- 🔒 **권한 게이팅 통합** — 3개 신규 feature key (`loganalyzer-harness`, `sp-migration-harness`, `sql-optimization-harness`)가 어드민 권한 화면에서 즉시 ON/OFF. URL/CSRF/사이드바 메뉴까지 자동 적용
+- 🧪 **테스트 27건 신규** — Orchestrator/PromptLoader 14 + Log RCA 10 + SP Migration 9 + SQL Optimization 6 + 권한 등록 회귀 방지 3. 전체 142개 테스트 통과, 회귀 0건
+
+### v4.5.0 하이라이트
 - 📦 **패키지 분석 (신규)** — Java 패키지 단위 4탭 분석 (`/package-overview`):
   - 📊 요약 — 클래스 / Controller / Service / DAO / MyBatis 통계
   - 🔗 ERD — 연관 테이블 Mermaid + heatmap (히트카운트)
@@ -480,6 +491,8 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 | 기능 | 경로 | 핵심 |
 |------|------|------|
 | **코드 리뷰 하네스** | `/harness` | Analyst → Builder → Reviewer → **Verifier** 4단계 + Diff + 품질 점수 + 검증 판정 |
+| **SP→Java 마이그레이션 하네스** 🆕 | `/sp-migration-harness` | SP 의미 분석 → Service+Mapper+XML+DTO+테스트 생성 → 행위 동등성 → 정적 검증. **DB 오브젝트 자동 로드** |
+| **SQL 최적화 하네스** 🆕 | `/sql-optimization-harness` | 병목 분석 → N개 후보 (rewrite + DDL + 힌트) → 우도 평가 → 단계별 Rollout Plan |
 | **하네스 배치** | `/harness/batch` | Java/SQL 다중 항목 순차 분석, 다중 이메일 알림, 영구 이력 |
 | **DB 의존성 분석** | `/harness/dependency` | SP/Package/Java 의존 테이블·호출 관계·순환 위험 |
 | **품질 대시보드** | `/harness/dashboard` | 누적 통계 / 판정 비율 / 품질 점수 추이 + 드릴다운 모달 |
@@ -507,7 +520,7 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 ### 🔧 기타 도구
 | 기능 | 경로 | 핵심 |
 |------|------|------|
-| **로그 분석기** | `/loganalyzer` | 일반/보안 분석, `.log` 업로드 |
+| **로그 분석기** | `/loganalyzer` | 일반/보안 분석, `.log` 업로드, **🆕 RCA 하네스 4단계 모드** (가설→검증SQL+패치+롤백→우도→사내 표준 RCA 보고서) |
 | **정규식 생성기** | `/regex` | 자연어 → regex + 5개 언어 예제 + 빠른 예제 8종 |
 | **커밋 메시지 생성기** | `/commitmsg` | Conventional/Gitmoji/Simple/Angular 스타일 |
 | **통합 워크스페이스** | `/workspace` | 다중 분석 병렬 실행 (Java/SQL 언어별 기능 자동 노출) |
