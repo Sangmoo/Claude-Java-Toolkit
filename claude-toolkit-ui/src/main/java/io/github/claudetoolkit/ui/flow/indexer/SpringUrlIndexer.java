@@ -216,6 +216,11 @@ public class SpringUrlIndexer {
 
     public int     getEndpointCount()  { return all.size(); }
     public int     getUrlCount()       { return byUrl.size(); }
+
+    /** v4.5 — Package Overview 용: 전체 endpoint 목록 스냅샷. */
+    public List<ControllerEndpoint> allEndpoints() {
+        synchronized (all) { return new ArrayList<ControllerEndpoint>(all); }
+    }
     public boolean isReady()           { return ready.get(); }
     public long    getLastScanMs()     { return lastScanMs; }
     public int     getLastScanFiles()  { return lastScanFiles; }

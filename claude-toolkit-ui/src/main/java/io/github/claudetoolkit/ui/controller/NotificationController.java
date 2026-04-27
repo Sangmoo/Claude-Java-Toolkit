@@ -43,6 +43,7 @@ public class NotificationController {
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Object>> unreadCount(Principal principal) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (principal == null) { resp.put("count", 0); return ResponseEntity.ok(resp); }
         long count = notificationRepository.countByRecipientUsernameAndIsReadFalse(principal.getName());
         resp.put("count", count);
         return ResponseEntity.ok(resp);
@@ -51,6 +52,7 @@ public class NotificationController {
     /** 알림 목록 (최근 50개) */
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> list(Principal principal) {
+        if (principal == null) return ResponseEntity.ok(new ArrayList<Map<String, Object>>());
         List<Notification> all = notificationRepository
                 .findByRecipientUsernameOrderByCreatedAtDesc(principal.getName());
         List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
@@ -77,12 +79,15 @@ public class NotificationController {
     @PostMapping("/{id}/read")
     public ResponseEntity<Map<String, Object>> markRead(@PathVariable long id, Principal principal) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (principal == null) { resp.put("success", false); return ResponseEntity.ok(resp); }
         Notification n = notificationRepository.findById(id).orElse(null);
         if (n != null && n.getRecipientUsername().equals(principal.getName())) {
             n.setRead(true);
             notificationRepository.save(n);
+            resp.put("success", true);
+        } else {
+            resp.put("success", false);
         }
-        resp.put("success", true);
         return ResponseEntity.ok(resp);
     }
 

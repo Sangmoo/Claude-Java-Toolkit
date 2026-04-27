@@ -95,17 +95,28 @@ public class ReviewHistoryController {
     /**
      * Deletes the N most recent entries of a given type.
      * Usage: POST /history/purge?type=HARNESS_REVIEW&amp;count=5
+     *
+     * <p>v4.2.8 감사: 기존엔 권한 체크 없이 VIEWER 도 호출 가능했고 CSRF 도
+     * /history/** 전체가 ignore 돼 있어서 사실상 개방 상태였음.
+     * ADMIN 전용으로 제한.
      */
     @PostMapping("/purge")
     @ResponseBody
-    public java.util.Map<String, Object> purge(
+    public ResponseEntity<java.util.Map<String, Object>> purge(
             @RequestParam(defaultValue = "HARNESS_REVIEW") String type,
-            @RequestParam(defaultValue = "5")              int    count) {
+            @RequestParam(defaultValue = "5")              int    count,
+            HttpServletRequest request) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        if (!request.isUserInRole("ADMIN")) {
+            resp.put("success", false);
+            resp.put("error",   "ADMIN 권한이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
         int deleted = historyService.deleteRecentByType(type, count);
-        java.util.Map<String, Object> r = new java.util.LinkedHashMap<String, Object>();
-        r.put("deleted", deleted);
-        r.put("type",    type);
-        return r;
+        resp.put("success", true);
+        resp.put("deleted", deleted);
+        resp.put("type",    type);
+        return ResponseEntity.ok(resp);
     }
 
     /** Export all history as CSV (UTF-8 BOM for Excel compatibility) */

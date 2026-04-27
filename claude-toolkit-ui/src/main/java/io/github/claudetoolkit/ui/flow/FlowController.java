@@ -80,6 +80,64 @@ public class FlowController {
         }
     }
 
+    @Operation(summary = "소스 파일의 특정 라인 주변 발췌 — Service/Controller 노드 드로어용")
+    @GetMapping("/source")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> source(
+            @RequestParam("file") String relPath,
+            @RequestParam(value = "line", defaultValue = "1") int line,
+            @RequestParam(value = "context", defaultValue = "12") int context) {
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        try {
+            if (relPath == null || relPath.trim().isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("file 파라미터가 필요합니다."));
+            }
+            // Path-traversal 방어 — scanPath 밖으로 빠져나가는 경로 거부
+            String clean = relPath.replace('\\', '/').trim();
+            if (clean.contains("../") || clean.startsWith("/") || clean.contains(":")) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("허용되지 않은 경로입니다."));
+            }
+            io.github.claudetoolkit.ui.config.ToolkitSettings settings = service.getSettings();
+            if (settings.getProject() == null || settings.getProject().getScanPath() == null) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("scanPath 가 설정되지 않았습니다."));
+            }
+            java.nio.file.Path root = java.nio.file.Paths.get(
+                    io.github.claudetoolkit.ui.config.HostPathTranslator.translate(
+                            settings.getProject().getScanPath()));
+            java.nio.file.Path target = root.resolve(clean).normalize();
+            if (!target.startsWith(root)) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("scanPath 밖의 파일입니다."));
+            }
+            if (!java.nio.file.Files.isRegularFile(target)) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("파일을 찾을 수 없습니다: " + clean));
+            }
+            long size = java.nio.file.Files.size(target);
+            if (size > 5_000_000) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("파일이 너무 큽니다 (" + size + "B)."));
+            }
+            int ctx = Math.max(3, Math.min(context, 60));
+            int want = Math.max(1, line);
+            java.util.List<String> all = java.nio.file.Files.readAllLines(target,
+                    java.nio.charset.StandardCharsets.UTF_8);
+            int from = Math.max(0, want - ctx - 1);
+            int to   = Math.min(all.size(), want + ctx);
+            StringBuilder sb = new StringBuilder();
+            for (int i = from; i < to; i++) {
+                sb.append(String.format("%5d%s %s%n",
+                        i + 1, (i + 1 == want ? ">" : " "), all.get(i)));
+            }
+            data.put("file",     clean);
+            data.put("line",     want);
+            data.put("fromLine", from + 1);
+            data.put("toLine",   to);
+            data.put("total",    all.size());
+            data.put("snippet",  sb.toString());
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.warn("[Flow] source 발췌 실패 file={}: {}", relPath, e.getMessage());
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("발췌 실패: " + e.getMessage()));
+        }
+    }
+
     @Operation(summary = "인덱서 상태 조회 — MyBatis / Spring URL / MiPlatform")
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> status() {

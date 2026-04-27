@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import ReactFlow, {
-  Background, Controls, MiniMap, Handle, Position,
+  Background, Controls, MiniMap, Handle, Position, MarkerType,
   type Node as RfNode, type Edge as RfEdge, type NodeProps,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import {
   FaPlay, FaSync, FaTimes, FaDownload, FaSitemap,
   FaDatabase, FaFileCode, FaFileAlt, FaHistory, FaShareAlt, FaTrash,
+  FaExpand, FaCopy, FaCheck,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import { useSearchParams } from 'react-router-dom'
@@ -105,6 +106,58 @@ function FlowDiagramNode({ data }: NodeProps<{ raw: FlowNode; onSelect: (n: Flow
 
 const NODE_TYPES = { flow: FlowDiagramNode }
 
+// ── markdown 섹션 추출 ─────────────────────────────────────────────────────
+// 이모지 surrogate pair 매칭 이슈 피하려고 "##" 헤딩 라인 중 특정 문자열 포함 여부로 판단.
+// (이전 버전은 [📌] 문자 클래스가 u-flag 없이 깨져서 항상 0건이었음)
+function extractMarkdownSection(md: string, keywords: string[]): string {
+  if (!md) return ''
+  // 모든 ## 헤딩 라인을 찾고, 해당 라인의 내용에 keyword 중 하나가 포함되면 그 섹션 반환.
+  const lines = md.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!/^##\s/.test(line)) continue
+    const cleaned = line.replace(/[^가-힣A-Za-z0-9]/g, '') // 한글/영문/숫자만
+    if (!keywords.some((k) => cleaned.includes(k.replace(/\s+/g, '')))) continue
+    // 다음 ## 헤딩 전까지 수집
+    const body: string[] = []
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^##\s/.test(lines[j])) break
+      body.push(lines[j])
+    }
+    return body.join('\n').trim()
+  }
+  return ''
+}
+
+function extractSummarySection(md: string): string {
+  return extractMarkdownSection(md, ['한줄요약'])
+}
+function extractWarningSection(md: string): string {
+  // ## ⚠ 주의/추정 또는 ## 주의사항 등
+  return extractMarkdownSection(md, ['주의추정', '주의사항', '주의'])
+}
+
+// ── 엣지 DML 색상 매핑 (DML_OPTIONS 와 동일 팔레트) ────────────────────────
+
+const DML_EDGE_COLOR: Record<string, string> = {
+  INSERT: '#10b981',
+  UPDATE: '#f59e0b',
+  MERGE:  '#8b5cf6',
+  DELETE: '#ef4444',
+  SELECT: '#3b82f6',
+}
+const EDGE_NEUTRAL = '#94a3b8'
+
+function getEdgeStyle(label?: string): { color: string; dml: string | null } {
+  if (!label) return { color: EDGE_NEUTRAL, dml: null }
+  const up = label.toUpperCase()
+  // DML 키워드 우선 매칭 (writes/calls 같은 일반 라벨은 neutral)
+  for (const k of Object.keys(DML_EDGE_COLOR)) {
+    if (new RegExp(`\\b${k}\\b`).test(up)) return { color: DML_EDGE_COLOR[k], dml: k }
+  }
+  return { color: EDGE_NEUTRAL, dml: null }
+}
+
 // ── 레이아웃: type 별 column ────────────────────────────────────────────────
 
 function layoutNodes(nodes: FlowNode[], edges: FlowEdge[], onSelect: (n: FlowNode) => void) {
@@ -133,15 +186,33 @@ function layoutNodes(nodes: FlowNode[], edges: FlowEdge[], onSelect: (n: FlowNod
     })
   })
 
-  const rfEdges: RfEdge[] = edges.map((e, i) => ({
-    id: `e${i}-${e.from}-${e.to}`,
-    source: e.from, target: e.to,
-    label: e.label || '',
-    animated: !!e.label && /INSERT|UPDATE|MERGE|DELETE/i.test(e.label),
-    style: { stroke: '#94a3b8', strokeWidth: 1.5 },
-    labelStyle: { fontSize: 10, fill: 'var(--text-muted)' },
-    labelBgStyle: { fill: 'var(--bg-secondary)', fillOpacity: 0.85 },
-  }))
+  const rfEdges: RfEdge[] = edges.map((e, i) => {
+    const { color, dml } = getEdgeStyle(e.label)
+    return {
+      id: `e${i}-${e.from}-${e.to}`,
+      source: e.from, target: e.to,
+      type: 'smoothstep',
+      label: e.label || '',
+      animated: !!dml,
+      style: { stroke: color, strokeWidth: dml ? 2.2 : 1.5 },
+      markerEnd: { type: MarkerType.ArrowClosed, color, width: 18, height: 18 },
+      labelShowBg: true,
+      labelBgPadding: [6, 3],
+      labelBgBorderRadius: 4,
+      labelStyle: {
+        fontSize: 11,
+        fontWeight: dml ? 700 : 500,
+        fill: dml ? '#ffffff' : 'var(--text-primary)',
+        letterSpacing: dml ? 0.4 : 0,
+      },
+      labelBgStyle: {
+        fill: dml ? color : 'var(--bg-card, #ffffff)',
+        fillOpacity: 0.95,
+        stroke: color,
+        strokeWidth: dml ? 0 : 1,
+      },
+    }
+  })
 
   return { rfNodes, rfEdges }
 }
@@ -181,10 +252,52 @@ export default function FlowAnalysisPage() {
   const [savedHistoryId, setSavedHistoryId] = useState<number | null>(null)
   const [readOnly, setReadOnly] = useState(false)  // 공유 링크로 진입한 경우 입력 비활성
 
+  // v4.5 — AI 요약 모달 (한줄요약 + 주의사항)
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false)
+  const [summaryCopied, setSummaryCopied] = useState(false)
+  const summaryText = useMemo(() => extractSummarySection(narrative), [narrative])
+  const warningText = useMemo(() => extractWarningSection(narrative), [narrative])
+  // 분석이 끝나면(narrative 존재 + 스트리밍 끝) 버튼 표시 — 섹션 추출 실패해도 전체 narrative 는 보여줌
+  const showAiSummaryBtn = !!narrative && !streaming
+
+  const buildCopyText = () => {
+    const parts: string[] = []
+    if (summaryText) parts.push('## 📌 한 줄 요약\n' + summaryText)
+    if (warningText) parts.push('## ⚠ 주의사항\n' + warningText)
+    if (parts.length === 0 && narrative) return narrative  // 섹션 추출 실패 시 전체 narrative
+    return parts.join('\n\n')
+  }
+
+  const copySummary = async () => {
+    const text = buildCopyText()
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setSummaryCopied(true)
+      toast.success('요약이 클립보드에 복사됐습니다.')
+      setTimeout(() => setSummaryCopied(false), 1500)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text; ta.style.position = 'fixed'
+      document.body.appendChild(ta); ta.select()
+      try { document.execCommand('copy'); toast.success('복사됨'); setSummaryCopied(true); setTimeout(() => setSummaryCopied(false), 1500) }
+      catch { toast.error('복사 실패 — 수동으로 선택하세요.') }
+      document.body.removeChild(ta)
+    }
+  }
+
   const esRef = useRef<EventSource | null>(null)
 
   // SSE 종료 시 정리
   useEffect(() => () => { esRef.current?.close() }, [])
+
+  // v4.5 — 요약 모달: ESC 로 닫기
+  useEffect(() => {
+    if (!summaryModalOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSummaryModalOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [summaryModalOpen])
 
   // ── Phase 4: 이력 목록 로드 ────────────────────────────────────────
   const loadHistory = useCallback(async () => {
@@ -347,29 +460,35 @@ export default function FlowAnalysisPage() {
         }
       })
 
+      // 백엔드는 markdown chunk 를 unnamed(default) 이벤트로, 종료를 named "done" 이벤트로 보냄.
+      // onmessage 는 unnamed 이벤트만 받으므로 종료 처리는 addEventListener('done') 에서 한다.
       es.onmessage = (e: MessageEvent) => {
-        const data = e.data
-        if (data === '[DONE]' || data === 'done') {
-          es.close(); esRef.current = null
-          setStreaming(false)
-          setStatusText('')
-          // Phase 4 — 백엔드가 history 저장 → 목록 새로고침 + 최신 항목 ID 저장
-          ;(async () => {
-            try {
-              const r = await fetch('/api/v1/flow/history?limit=20', { credentials: 'include' })
-              const d = await r.json()
-              if (d.success && d.data && d.data.length > 0) {
-                setHistoryItems(d.data)
-                setSavedHistoryId(d.data[0].id)
-              }
-            } catch { /* silent */ }
-          })()
-          return
-        }
         if (!acc) setStatusText('')   // 첫 chunk 도착 → status 사라짐
-        acc += data
+        acc += e.data
         setNarrative(acc)
       }
+
+      const refreshHistoryAfterDone = async () => {
+        try {
+          const r = await fetch('/api/v1/flow/history?limit=20', { credentials: 'include' })
+          const d = await r.json()
+          if (d.success && Array.isArray(d.data)) {
+            setHistoryItems(d.data)
+            if (d.data.length > 0) setSavedHistoryId(d.data[0].id)
+          } else if (!d.success) {
+            console.warn('[Flow] history 로드 실패:', d.error)
+          }
+        } catch (err) {
+          console.warn('[Flow] history fetch 에러:', err)
+        }
+      }
+
+      es.addEventListener('done', () => {
+        es.close(); esRef.current = null
+        setStreaming(false)
+        setStatusText('')
+        refreshHistoryAfterDone()
+      })
 
       es.addEventListener('error_msg', (e: MessageEvent) => {
         toast.error(e.data || '스트리밍 오류')
@@ -607,6 +726,19 @@ export default function FlowAnalysisPage() {
                 </button>
               )}
             </div>
+
+            {/* v4.5 — AI 요약 버튼 (분석 완료 시에만 노출, 클릭 → 모달) */}
+            {showAiSummaryBtn && (
+              <button
+                style={styles.aiSummaryBtn}
+                onClick={() => setSummaryModalOpen(true)}
+                title="AI 한 줄 요약 + 주의사항을 팝업으로 보기"
+              >
+                <FaExpand size={12} />
+                <span style={{ flex: 1, textAlign: 'left' }}>🤖 AI 요약 보기</span>
+                <span style={styles.aiSummaryBadge}>팝업</span>
+              </button>
+            )}
           </div>
 
           {/* 진행 상태 */}
@@ -646,7 +778,7 @@ export default function FlowAnalysisPage() {
             </div>
           )}
 
-          {/* Claude narrative (markdown) */}
+          {/* Claude narrative (markdown) — 전체 내용 인라인 표시. 요약/주의는 상단 "AI 요약" 버튼으로도 접근 가능 */}
           {narrative && (
             <div style={styles.narrativeCard}>
               <div className="markdown-body">
@@ -717,6 +849,58 @@ export default function FlowAnalysisPage() {
           )}
         </div>
       </div>
+
+      {/* v4.5 — AI 요약 modal (한 줄 요약 + 주의사항) */}
+      {summaryModalOpen && narrative && (
+        <div style={styles.modalOverlay} onClick={() => setSummaryModalOpen(false)}>
+          <div style={styles.modalDialog} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>🤖 AI 요약</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  style={summaryCopied ? styles.modalCopyBtnDone : styles.modalCopyBtn}
+                  onClick={copySummary}
+                >
+                  {summaryCopied ? <><FaCheck size={11} /> 복사됨</> : <><FaCopy size={11} /> 전체 복사</>}
+                </button>
+                <button
+                  style={styles.modalCloseBtn}
+                  onClick={() => setSummaryModalOpen(false)}
+                  title="닫기 (Esc)"
+                ><FaTimes /></button>
+              </div>
+            </div>
+            <div style={styles.modalBody}>
+              {!summaryText && !warningText && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 12 }}>
+                  ℹ 한 줄 요약/주의 섹션 헤더를 찾지 못해 전체 응답을 표시합니다.
+                </div>
+              )}
+              {summaryText && (
+                <div style={styles.modalSection}>
+                  <div style={styles.modalSectionTitle}>📌 한 줄 요약</div>
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{summaryText}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              {warningText && (
+                <div style={styles.modalSection}>
+                  <div style={{ ...styles.modalSectionTitle, color: '#b45309' }}>⚠ 주의사항</div>
+                  <div className="markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{warningText}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              {!summaryText && !warningText && (
+                <div className="markdown-body">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{narrative}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -737,8 +921,32 @@ function Stat({ label, value }: { label: string; value: string }) {
 // ── 노드 상세 슬라이드아웃 ─────────────────────────────────────────────────
 function NodeDetailDrawer({ node, onClose }: { node: FlowNode; onClose: () => void }) {
   const meta = TYPE_META[node.type] ?? TYPE_META.service
-  const snippet = node.meta?.snippet
+  const backendSnippet = node.meta?.snippet  // MyBatis/SP 는 분석 시 이미 포함됨
   const hasMeta = node.meta && Object.keys(node.meta).length > 0
+
+  // v4.5 — Service/Controller/DAO 는 lazy fetch 로 파일 발췌
+  const [fetchedSnippet, setFetchedSnippet] = useState<string>('')
+  const [fetching, setFetching] = useState(false)
+  const [fetchError, setFetchError] = useState<string>('')
+
+  useEffect(() => {
+    // 백엔드 snippet 이 이미 있으면 불필요
+    if (backendSnippet) return
+    if (!node.file || !node.line) return
+    setFetching(true); setFetchError(''); setFetchedSnippet('')
+    const url = `/api/v1/flow/source?file=${encodeURIComponent(node.file)}&line=${node.line}&context=12`
+    fetch(url, { credentials: 'include' })
+      .then(async (r) => {
+        const d = await r.json()
+        if (d.success && d.data?.snippet) setFetchedSnippet(d.data.snippet)
+        else setFetchError(d.error || '발췌 실패')
+      })
+      .catch((e) => setFetchError(String(e?.message || e)))
+      .finally(() => setFetching(false))
+  }, [node.file, node.line, backendSnippet])
+
+  const displaySnippet = backendSnippet || fetchedSnippet
+
   return (
     <div style={styles.drawerOverlay} onClick={onClose}>
       <div style={styles.drawer} onClick={(e) => e.stopPropagation()}>
@@ -770,13 +978,25 @@ function NodeDetailDrawer({ node, onClose }: { node: FlowNode; onClose: () => vo
               <div style={styles.v} title={v}>{v}</div>
             </div>
           ))}
-          {snippet && (
-            <div>
-              <div style={{ ...styles.k, marginTop: 12, marginBottom: 6 }}>SQL/소스 발췌</div>
-              <pre style={styles.snippet}>{snippet}</pre>
+          {fetching && (
+            <div style={{ marginTop: 12, color: 'var(--text-muted)', fontSize: 12 }}>
+              📄 소스 발췌 불러오는 중...
             </div>
           )}
-          {!node.file && !snippet && !hasMeta && (
+          {fetchError && !displaySnippet && (
+            <div style={{ marginTop: 12, color: '#ef4444', fontSize: 12 }}>
+              ⚠ {fetchError}
+            </div>
+          )}
+          {displaySnippet && (
+            <div>
+              <div style={{ ...styles.k, marginTop: 12, marginBottom: 6 }}>
+                SQL/소스 발췌{!backendSnippet && node.line ? ` (라인 ${node.line} 전후)` : ''}
+              </div>
+              <pre style={styles.snippet}>{displaySnippet}</pre>
+            </div>
+          )}
+          {!node.file && !displaySnippet && !hasMeta && !fetching && (
             <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
               이 노드에 추가 메타데이터가 없습니다.
             </div>
@@ -898,6 +1118,75 @@ const styles: Record<string, React.CSSProperties> = {
   narrativeCard: {
     padding: '12px 16px', background: 'var(--bg-card)', borderRadius: 8,
     border: '1px solid var(--border-color)', overflowX: 'auto',
+  },
+
+  // v4.5 — AI 요약 버튼 (분석 시작 버튼 아래)
+  aiSummaryBtn: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    width: '100%', marginTop: 8, padding: '10px 14px',
+    fontSize: 13, fontWeight: 600, color: '#ffffff',
+    background: 'linear-gradient(135deg, #06b6d4, #0ea5e9)',
+    border: 'none',
+    borderRadius: 6, cursor: 'pointer',
+    textAlign: 'left' as const,
+    boxShadow: '0 2px 6px rgba(6,182,212,0.25)',
+    transition: 'transform 0.05s ease, box-shadow 0.15s ease',
+  },
+  aiSummaryBadge: {
+    fontSize: 10, fontWeight: 600,
+    padding: '2px 6px', borderRadius: 3,
+    background: 'rgba(255,255,255,0.25)', color: '#ffffff',
+  },
+  modalSection: {
+    marginBottom: 18,
+  },
+  modalSectionTitle: {
+    fontSize: 12, fontWeight: 700, letterSpacing: 0.4,
+    color: '#0e7490', textTransform: 'uppercase' as const,
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottom: '1px solid var(--border-color)',
+  },
+
+  // v4.5 — modal
+  modalOverlay: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+    display: 'flex', justifyContent: 'center', alignItems: 'center',
+    zIndex: 1000, padding: 24,
+    animation: 'modal-overlay-in 0.15s ease-out',
+  },
+  modalDialog: {
+    background: 'var(--bg-secondary)', borderRadius: 10,
+    boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+    border: '1px solid var(--border-color)',
+    width: 'min(760px, 92vw)', maxHeight: '80vh',
+    display: 'flex', flexDirection: 'column',
+    animation: 'modal-body-in 0.18s ease-out',
+  },
+  modalHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '12px 16px', borderBottom: '1px solid var(--border-color)',
+    background: 'var(--bg-card)', borderTopLeftRadius: 10, borderTopRightRadius: 10,
+  },
+  modalBody: {
+    flex: 1, overflowY: 'auto', padding: '16px 20px',
+    fontSize: 14, lineHeight: 1.65, color: 'var(--text-primary)',
+  },
+  modalCopyBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    padding: '5px 10px', fontSize: 11, fontWeight: 600,
+    background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)', borderRadius: 4, cursor: 'pointer',
+  },
+  modalCopyBtnDone: {
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    padding: '5px 10px', fontSize: 11, fontWeight: 600,
+    background: '#10b981', color: '#ffffff',
+    border: '1px solid #10b981', borderRadius: 4, cursor: 'pointer',
+  },
+  modalCloseBtn: {
+    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', fontSize: 14, padding: '4px 8px',
   },
   emptyHint: {
     flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

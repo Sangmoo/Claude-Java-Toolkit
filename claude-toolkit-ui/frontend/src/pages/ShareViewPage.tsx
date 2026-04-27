@@ -42,13 +42,16 @@ export default function ShareViewPage() {
 
   useEffect(() => {
     // v4.2.8: /api/v1/share/{token} 으로 변경 (이전엔 /share/{token} 이 JSON 으로 직접 나오던 버그)
-    fetch(`/api/v1/share/${token}`)
-      .then((r) => r.json())
+    fetch(`/api/v1/share/${token}`, { credentials: 'include' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((d) => {
         if (d.success === false) setError(d.error || '공유 링크를 불러올 수 없습니다.')
         else setData(d.data ?? d)
       })
-      .catch(() => setError('서버 연결에 실패했습니다.'))
+      .catch((e) => setError(e?.message?.includes('410') ? '공유 링크가 만료되었습니다.' : '서버 연결에 실패했습니다.'))
   }, [token])
 
   const handleCopy = async (text: string, section: string) => {

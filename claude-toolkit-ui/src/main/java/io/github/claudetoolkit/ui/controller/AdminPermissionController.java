@@ -32,6 +32,8 @@ public class AdminPermissionController {
         new String[]{"codereview",   "코드 리뷰",         "분석"},
         new String[]{"pipelines",    "분석 파이프라인",    "분석"},
         new String[]{"flow-analysis","데이터 흐름 분석",   "분석"},
+        new String[]{"package-overview","패키지 개요",     "분석"},
+        new String[]{"project-map",     "전사 패키지 지도", "분석"},
         // 생성
         new String[]{"docgen",       "기술 문서",          "생성"},
         new String[]{"testgen",      "테스트 생성",        "생성"},

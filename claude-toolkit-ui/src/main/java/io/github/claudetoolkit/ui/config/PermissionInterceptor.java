@@ -41,6 +41,9 @@ public class PermissionInterceptor implements WebMvcConfigurer {
         FEATURE_PATHS.put("pipelines",     "/pipelines");
         // v4.4.x — Flow Analysis (Phase 1 백엔드, Phase 3 에서 페이지 추가 예정)
         FEATURE_PATHS.put("flow-analysis", "/flow-analysis");
+        // v4.5 — 패키지 개요 (Hybrid UX, Java 패키지별 요약/ERD/흐름도)
+        FEATURE_PATHS.put("package-overview", "/package-overview");
+        FEATURE_PATHS.put("project-map",      "/project-map");
         // 생성
         FEATURE_PATHS.put("docgen",        "/docgen");
         FEATURE_PATHS.put("testgen",       "/testgen");

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JavaScriptLibraryMappings">
+    <excludedPredefinedLibrary name="claude-java-toolkit/claude-toolkit-ui/frontend/node/tmp/node-v22.14.0-win-x64/node_modules" />
+  </component>
+</project>

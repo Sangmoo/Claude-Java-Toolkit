@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "claude-toolkit-ui",
-      "runtimeExecutable": "mvn",
-      "runtimeArgs": ["spring-boot:run", "-pl", "claude-toolkit-ui"],
+      "runtimeExecutable": "C:\\Sangmoo\\claude-java-toolkit\\.claude\\start-ui.cmd",
+      "runtimeArgs": [],
       "port": 8027,
       "autoPort": true
     },

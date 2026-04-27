@@ -58,9 +58,11 @@ public class FlowHistoryService {
                     mapper.writeValueAsString(result),
                     narrative);
             repo.save(h);
+            log.info("[FlowHistory] save OK user={} id={} nodes={} edges={}",
+                    userId, h.getId(), h.getNodesCount(), h.getEdgesCount());
             pruneIfNeeded(userId);
         } catch (Exception ex) {
-            log.warn("[FlowHistory] save 실패 user={} : {}", userId, ex.getMessage());
+            log.warn("[FlowHistory] save 실패 user={} : {}", userId, ex.getMessage(), ex);
         }
     }
 

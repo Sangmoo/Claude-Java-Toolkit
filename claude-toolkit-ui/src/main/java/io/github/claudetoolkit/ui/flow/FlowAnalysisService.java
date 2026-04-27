@@ -60,6 +60,8 @@ public class FlowAnalysisService {
     private static final int MAX_JAVA_SCAN = 20_000;
     /** 한 statement 당 최대 호출자 수 — 같은 SQL 을 여러 DAO 가 부르면 너무 많아짐 */
     private static final int MAX_CALLERS_PER_STATEMENT = 5;
+    /** Stage 2.5 — 한 DAO 메서드당 최대 Service 호출자 수 */
+    private static final int MAX_SERVICE_CALLERS        = 5;
 
     private final ToolkitSettings    settings;
     private final MyBatisIndexer     mybatis;
@@ -75,6 +77,9 @@ public class FlowAnalysisService {
         this.spring     = spring;
         this.miplatform = miplatform;
     }
+
+    /** FlowController 의 /source 엔드포인트가 scanPath 를 쓰기 위해 노출. */
+    public ToolkitSettings getSettings() { return settings; }
 
     public FlowAnalysisResult analyze(FlowAnalysisRequest req) {
         long start = System.currentTimeMillis();
@@ -191,10 +196,13 @@ public class FlowAnalysisService {
             r.nodes.add(mbNode);
             r.edges.add(new FlowEdge(mbNode.id, tableNode.id, st.dml));
 
-            // Stage 2: Java 안에서 fullId 문자열 호출 위치 찾기
+            // Stage 2: Java 안에서 fullId 문자열 or .shortId( 호출 위치 찾기 (인터페이스 기반 MyBatis 지원)
             List<JavaCaller> callers = grepJavaCallers(st.fullId, MAX_CALLERS_PER_STATEMENT);
             r.stats.merge("javaCallersTotal", (Object) callers.size(),
                     (a, b) -> ((Integer) a) + ((Integer) b));
+            log.info("[Flow] Stage2 mybatis={} → callers={} (first={})",
+                    st.fullId, callers.size(),
+                    callers.isEmpty() ? "none" : (callers.get(0).className + "." + callers.get(0).methodName));
 
             for (JavaCaller jc : callers) {
                 FlowNode daoNode = new FlowNode(ids.next(),
@@ -204,39 +212,59 @@ public class FlowAnalysisService {
                 r.edges.add(new FlowEdge(daoNode.id, mbNode.id,
                         "calls \"" + st.fullId + "\""));
 
-                // Stage 3: 이 메서드를 호출하는 Controller endpoint
-                List<ControllerEndpoint> endpoints = spring.findByCallee(jc.methodName);
-                if (endpoints.size() > req.getMaxBranches()) {
-                    endpoints = endpoints.subList(0, req.getMaxBranches());
-                }
-                for (ControllerEndpoint ep : endpoints) {
-                    FlowNode ctrlNode = new FlowNode(ids.next(),
-                            "controller", ep.className + "." + ep.methodName)
-                            .put("url", ep.url).put("httpMethod", ep.httpMethod);
-                    ctrlNode.file = ep.file; ctrlNode.line = ep.line;
-                    r.nodes.add(ctrlNode);
-                    r.edges.add(new FlowEdge(ctrlNode.id, daoNode.id,
+                // Stage 2.5: DAO 메서드를 호출하는 Service/Manager 탐색
+                // (Controller 가 DAO 를 직접 호출하는 경우는 드물고 대부분 Service 가 중간 레이어)
+                List<JavaCaller> services = grepMethodCallers(
+                        jc.methodName, jc.className, MAX_SERVICE_CALLERS);
+                Set<String> serviceMethodNames = new LinkedHashSet<String>();
+                Map<String, FlowNode> serviceNodes = new LinkedHashMap<String, FlowNode>();
+                r.stats.merge("serviceCallersTotal", (Object) services.size(),
+                        (a, b) -> ((Integer) a) + ((Integer) b));
+                for (JavaCaller svc : services) {
+                    FlowNode svcNode = new FlowNode(ids.next(),
+                            svc.guessType(), svc.className + "." + svc.methodName);
+                    svcNode.file = svc.relPath; svcNode.line = svc.line;
+                    r.nodes.add(svcNode);
+                    r.edges.add(new FlowEdge(svcNode.id, daoNode.id,
                             "calls " + jc.methodName + "()"));
+                    serviceMethodNames.add(svc.methodName);
+                    serviceNodes.put(svc.methodName, svcNode);
+                }
 
-                    // Stage 4: MiPlatform 화면 매칭
-                    if (req.isIncludeUi()) {
-                        List<MiPlatformScreen> screens = miplatform.findByUrl(ep.url);
-                        if (screens.isEmpty()) screens = miplatform.findByUrlPartial(ep.url);
-                        if (screens.size() > req.getMaxBranches()) screens = screens.subList(0, req.getMaxBranches());
-                        for (MiPlatformScreen sc : screens) {
-                            FlowNode uiNode = new FlowNode(ids.next(), "ui", sc.title);
-                            uiNode.file = sc.file;
-                            r.nodes.add(uiNode);
-                            r.edges.add(new FlowEdge(uiNode.id, ctrlNode.id,
-                                    ep.httpMethod + " " + ep.url));
-                        }
-                        if (screens.isEmpty()) {
-                            r.warnings.add("Controller " + ep.url + " 를 호출하는 MiPlatform 화면 미발견");
-                        }
+                // Stage 3: Controller endpoint 매칭
+                // (a) Service 가 발견되면 Service.methodName → Controller
+                // (b) 항상 DAO.methodName → Controller 도 시도 (Controller 가 DAO 직접 호출하는 legacy 대응)
+                Set<String> addedCtrlForJc = new HashSet<String>();
+                boolean anyEndpointFound = false;
+
+                for (String svcMethod : serviceMethodNames) {
+                    FlowNode parentNode = serviceNodes.get(svcMethod);
+                    List<ControllerEndpoint> eps = spring.findByCallee(svcMethod);
+                    if (eps.size() > req.getMaxBranches()) {
+                        eps = eps.subList(0, req.getMaxBranches());
+                    }
+                    for (ControllerEndpoint ep : eps) {
+                        String key = ep.className + "#" + ep.methodName;
+                        if (!addedCtrlForJc.add(key)) continue;
+                        anyEndpointFound = true;
+                        addControllerAndUi(r, ids, ep, parentNode, svcMethod + "()", req);
                     }
                 }
-                if (endpoints.isEmpty()) {
-                    r.warnings.add(jc.className + "." + jc.methodName + " 를 호출하는 Controller 미발견");
+
+                List<ControllerEndpoint> directEps = spring.findByCallee(jc.methodName);
+                if (directEps.size() > req.getMaxBranches()) {
+                    directEps = directEps.subList(0, req.getMaxBranches());
+                }
+                for (ControllerEndpoint ep : directEps) {
+                    String key = ep.className + "#" + ep.methodName;
+                    if (!addedCtrlForJc.add(key)) continue;
+                    anyEndpointFound = true;
+                    addControllerAndUi(r, ids, ep, daoNode, jc.methodName + "()", req);
+                }
+
+                if (!anyEndpointFound) {
+                    r.warnings.add(jc.className + "." + jc.methodName
+                            + " 를 호출하는 Controller 미발견 (Service " + services.size() + " 개 경유 포함)");
                 }
             }
             pathIdx++;
@@ -427,6 +455,125 @@ public class FlowAnalysisService {
         return out;
     }
 
+    // ── Stage 3 helper: Controller 노드 + MiPlatform 화면 노드 추가 ──
+
+    /**
+     * Controller endpoint 를 node/edge 로 추가하고, 필요 시 MiPlatform 화면까지 확장.
+     * @param parentNode Service (또는 DAO) — Controller 가 {@code calls} 로 가리킬 하위 레이어
+     * @param calleeLabel edge label 에 들어갈 "메서드명()" 문자열
+     */
+    private void addControllerAndUi(FlowAnalysisResult r, IdGen ids,
+                                    ControllerEndpoint ep, FlowNode parentNode,
+                                    String calleeLabel, FlowAnalysisRequest req) {
+        FlowNode ctrlNode = new FlowNode(ids.next(),
+                "controller", ep.className + "." + ep.methodName)
+                .put("url", ep.url).put("httpMethod", ep.httpMethod);
+        ctrlNode.file = ep.file; ctrlNode.line = ep.line;
+        r.nodes.add(ctrlNode);
+        r.edges.add(new FlowEdge(ctrlNode.id, parentNode.id, "calls " + calleeLabel));
+
+        // Stage 4: MiPlatform 화면 매칭
+        if (req.isIncludeUi()) {
+            List<MiPlatformScreen> screens = miplatform.findByUrl(ep.url);
+            if (screens.isEmpty()) screens = miplatform.findByUrlPartial(ep.url);
+            if (screens.size() > req.getMaxBranches()) screens = screens.subList(0, req.getMaxBranches());
+            for (MiPlatformScreen sc : screens) {
+                FlowNode uiNode = new FlowNode(ids.next(), "ui", sc.title);
+                uiNode.file = sc.file;
+                r.nodes.add(uiNode);
+                r.edges.add(new FlowEdge(uiNode.id, ctrlNode.id, ep.httpMethod + " " + ep.url));
+            }
+            if (screens.isEmpty()) {
+                r.warnings.add("Controller " + ep.url + " 를 호출하는 MiPlatform 화면 미발견");
+            }
+        }
+    }
+
+    // ── Stage 2.5: .methodName( 패턴으로 호출자 Java 파일 grep (Service 레이어용) ──
+
+    /**
+     * 주어진 메서드명을 {@code .methodName(} 패턴으로 호출하는 Java 파일을 스캔.
+     * Stage 2 의 {@link #grepJavaCallers} 는 "namespace.id" literal 을 찾는데 비해,
+     * 이 메서드는 method-call 체인 (Service → DAO 같은) 을 타고 올라가기 위한 범용 grep.
+     *
+     * @param methodName       찾을 메서드 단순명
+     * @param excludeClassName 결과에서 제외할 클래스 (보통 호출대상 자신 — self-reference 루프 방지)
+     * @param max              최대 호출자 수
+     */
+    private List<JavaCaller> grepMethodCallers(String methodName, String excludeClassName, int max) {
+        List<JavaCaller> out = new ArrayList<JavaCaller>();
+        if (methodName == null || methodName.length() < 3) return out;
+        if (settings.getProject() == null) return out;
+        String resolved = HostPathTranslator.translate(settings.getProject().getScanPath());
+        Path root = Paths.get(resolved);
+        if (!Files.isDirectory(root)) return out;
+
+        // 너무 흔한 메서드명 (getX, setX, toString 등) 은 제외 — 노이즈 폭발 방지
+        if (isTooCommonMethod(methodName)) return out;
+
+        final String callPattern = "." + methodName + "(";
+        final String excludeLc   = excludeClassName == null ? "" : excludeClassName.toLowerCase();
+        final List<JavaCaller> hits = out;
+        final int[] scanned = { 0 };
+
+        try {
+            Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), 12, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    String n = dir.getFileName() != null ? dir.getFileName().toString() : "";
+                    if (n.equals("target") || n.equals("build") || n.equals("node_modules")
+                            || n.equals(".git") || n.equals(".idea") || n.equals("test")
+                            || n.startsWith(".")) return FileVisitResult.SKIP_SUBTREE;
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (scanned[0]++ > MAX_JAVA_SCAN) return FileVisitResult.TERMINATE;
+                    if (hits.size() >= max) return FileVisitResult.TERMINATE;
+                    String fname = file.getFileName().toString();
+                    if (!fname.endsWith(".java")) return FileVisitResult.CONTINUE;
+                    // 제외 대상 클래스와 파일명이 같으면 스킵 (자기 자신 호출 루프 방지)
+                    if (!excludeLc.isEmpty()
+                            && fname.toLowerCase().equals(excludeLc + ".java")) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    try {
+                        if (Files.size(file) > 2_000_000) return FileVisitResult.CONTINUE;
+                        String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+                        int idx = content.indexOf(callPattern);
+                        if (idx < 0) return FileVisitResult.CONTINUE;
+                        JavaCaller jc = new JavaCaller();
+                        jc.relPath    = root.relativize(file).toString().replace('\\', '/');
+                        jc.line       = lineOf(content, idx);
+                        jc.className  = guessClassName(content, file);
+                        jc.methodName = guessEnclosingMethod(content, idx);
+                        if (jc.methodName == null) jc.methodName = "unknownMethod";
+                        // 호출자가 Controller 면 Stage 3 에서 어차피 처리되므로 여기선 제외 (중복 방지)
+                        if ("controller".equals(jc.guessType())) return FileVisitResult.CONTINUE;
+                        hits.add(jc);
+                    } catch (Exception ignored) {}
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            log.debug("Java method-caller grep 실패: {}", e.getMessage());
+        }
+        return hits;
+    }
+
+    /** 노이즈 폭발을 일으키는 너무 흔한 이름들 — getter/setter/toString 등. */
+    private static boolean isTooCommonMethod(String name) {
+        if (name == null) return true;
+        String s = name;
+        if (s.equals("toString") || s.equals("hashCode") || s.equals("equals")
+                || s.equals("init") || s.equals("run") || s.equals("close")
+                || s.equals("add") || s.equals("put") || s.equals("get")
+                || s.equals("size") || s.equals("isEmpty")) return true;
+        // 너무 짧은 메서드는 오매칭 많음
+        if (s.length() < 4) return true;
+        return false;
+    }
+
     // ── Stage 2: Java 파일에서 namespace.id 호출처 grep ──
 
     private List<JavaCaller> grepJavaCallers(String fullId, int max) {
@@ -436,8 +583,11 @@ public class FlowAnalysisService {
         Path root = Paths.get(resolved);
         if (!Files.isDirectory(root)) return out;
 
-        final String literal = "\"" + fullId + "\"";  // 코드에서 정확히 이 문자열로 호출됨
-        final String shortId = fullId.substring(fullId.lastIndexOf('.') + 1); // namespace 없이 id 만 (fallback)
+        final String literal     = "\"" + fullId + "\"";  // SqlSession.selectOne 스타일
+        final String shortId     = fullId.substring(fullId.lastIndexOf('.') + 1);
+        final String shortLiteral = "\"" + shortId + "\"";
+        // 인터페이스 기반 MyBatis (mapper.shortId(...) 호출) — 최신 ERP 코드의 주류
+        final String methodCall  = "." + shortId + "(";
         final List<JavaCaller> hits = out;
         final int[] scanned = { 0 };
 
@@ -460,15 +610,18 @@ public class FlowAnalysisService {
                         if (Files.size(file) > 2_000_000) return FileVisitResult.CONTINUE;
                         String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
                         int idx = content.indexOf(literal);
-                        if (idx < 0) idx = content.indexOf("\"" + shortId + "\"");
+                        if (idx < 0) idx = content.indexOf(shortLiteral);
+                        // 인터페이스 기반 MyBatis: .shortId( 패턴으로 mapper 호출 탐색
+                        if (idx < 0) idx = content.indexOf(methodCall);
                         if (idx < 0) return FileVisitResult.CONTINUE;
-                        // 호출이 들어있는 메서드명 추출 — 가장 가까운 위쪽의 'public/private XXX yyy('
                         JavaCaller jc = new JavaCaller();
                         jc.relPath    = root.relativize(file).toString().replace('\\', '/');
                         jc.line       = lineOf(content, idx);
                         jc.className  = guessClassName(content, file);
                         jc.methodName = guessEnclosingMethod(content, idx);
-                        if (jc.methodName == null) jc.methodName = "unknownMethod";
+                        // 인터페이스 선언부에서 매칭된 경우 enclosing method 가 null → shortId 자체를 caller 메서드명으로 사용
+                        // (이렇게 해야 Stage 2.5 가 .shortId( 를 호출하는 Service 를 다시 찾을 수 있음)
+                        if (jc.methodName == null) jc.methodName = shortId;
                         hits.add(jc);
                     } catch (Exception ignored) {}
                     return FileVisitResult.CONTINUE;
@@ -617,6 +770,8 @@ public class FlowAnalysisService {
         String guessType() {
             String n = (className == null ? "" : className).toLowerCase();
             String p = (relPath  == null ? "" : relPath).toLowerCase();
+            if (n.endsWith("controller") || n.endsWith("restcontroller")
+                    || p.contains("/controller/")) return "controller";
             if (n.endsWith("dao") || n.endsWith("mapper") || n.endsWith("repository")
                     || p.contains("/dao/") || p.contains("/mapper/")) return "dao";
             if (n.endsWith("service") || n.endsWith("manager") || n.endsWith("serviceimpl")

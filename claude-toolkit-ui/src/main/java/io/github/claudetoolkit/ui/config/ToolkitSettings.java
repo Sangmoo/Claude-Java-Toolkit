@@ -138,6 +138,22 @@ public class ToolkitSettings {
          */
         private String miplatformRoot = "";
 
+        /**
+         * v4.5 — Package Overview 페이지에서 "패키지" 로 간주할 Java 패키지 깊이.
+         * <p>예: {@code io.github.claudetoolkit.ui.flow.indexer} 이면
+         *     L3 → {@code io.github.claudetoolkit},
+         *     L4 → {@code io.github.claudetoolkit.ui},
+         *     L5 → {@code io.github.claudetoolkit.ui.flow} (기본값).
+         * <p>ERP 프로젝트는 보통 L4~L5가 "업무 모듈" 단위.
+         */
+        private int packageLevel = 5;
+
+        /**
+         * v4.5 — 이 prefix 로 시작하는 패키지만 Package Overview 에 표시.
+         * 비어있으면 전체 노출. (예: {@code com.mycompany.erp})
+         */
+        private String packagePrefix = "";
+
         public String getScanPath()         { return scanPath; }
         public void setScanPath(String p)   { this.scanPath = p; }
 
@@ -146,6 +162,12 @@ public class ToolkitSettings {
 
         public String getMiplatformRoot()           { return miplatformRoot == null ? "" : miplatformRoot; }
         public void setMiplatformRoot(String s)     { this.miplatformRoot = s == null ? "" : s; }
+
+        public int  getPackageLevel()             { return packageLevel < 2 ? 5 : Math.min(packageLevel, 10); }
+        public void setPackageLevel(int l)        { this.packageLevel = l; }
+
+        public String getPackagePrefix()          { return packagePrefix == null ? "" : packagePrefix; }
+        public void setPackagePrefix(String s)    { this.packagePrefix = s == null ? "" : s.trim(); }
     }
 
     public static class Email {

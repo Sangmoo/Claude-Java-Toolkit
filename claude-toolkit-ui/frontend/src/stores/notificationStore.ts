@@ -73,10 +73,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markRead: async (id: number) => {
-    await fetch(`/notifications/${id}/read`, { method: 'POST', credentials: 'include' })
+    try {
+      const res = await fetch(`/notifications/${id}/read`, { method: 'POST', credentials: 'include' })
+      if (!res.ok) return // 실패시 로컬 상태 변경하지 않음
+    } catch { return }
     set((s) => {
-      // v4.2.7: 이미 읽은 알림을 다시 클릭한 경우 카운트를 잘못 감산하지 않도록
-      // wasUnread 체크 후에만 unreadCount 를 줄인다.
       const target = s.notifications.find((n) => n.id === id)
       const wasUnread = target != null && !target.isRead
       return {
@@ -87,7 +88,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAllRead: async () => {
-    await fetch('/notifications/read-all', { method: 'POST', credentials: 'include' })
+    try {
+      const res = await fetch('/notifications/read-all', { method: 'POST', credentials: 'include' })
+      if (!res.ok) return
+    } catch { return }
     set((s) => ({
       notifications: s.notifications.map((n) => ({ ...n, isRead: true })),
       unreadCount: 0,
