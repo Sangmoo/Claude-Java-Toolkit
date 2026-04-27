@@ -122,11 +122,13 @@ public class PackageAnalysisController {
         }
     }
 
-    @Operation(summary = "전 패키지 요약 카드 목록")
+    @Operation(summary = "전 패키지 요약 카드 목록 (page+size 둘 다 주면 페이지네이션)")
     @GetMapping("/overview")
     public ResponseEntity<ApiResponse<Map<String, Object>>> overview(
             @RequestParam(value = "level",  required = false) Integer level,
-            @RequestParam(value = "prefix", required = false) String   prefix) {
+            @RequestParam(value = "prefix", required = false) String   prefix,
+            @RequestParam(value = "page",   required = false) Integer page,
+            @RequestParam(value = "size",   required = false) Integer size) {
         int lv = level != null ? level : service.currentLevel();
         String pf = prefix != null ? prefix : service.currentPrefix();
         try {
@@ -135,7 +137,21 @@ public class PackageAnalysisController {
             data.put("level", lv);
             data.put("prefix", pf);
             data.put("packageCount", summaries.size());
-            data.put("packages", summaries);
+
+            // v4.5 — page + size 둘 다 유효하면 server-side slice. 아니면 기존 shape 유지 (additive only).
+            if (page != null && size != null && page >= 0 && size > 0) {
+                int total      = summaries.size();
+                int totalPages = (total + size - 1) / size;
+                int from       = Math.min(page * size, total);
+                int to         = Math.min(from + size, total);
+                data.put("packages",   summaries.subList(from, to));
+                data.put("pageNumber", page);
+                data.put("pageSize",   size);
+                data.put("totalPages", totalPages);
+                data.put("total",      total);
+            } else {
+                data.put("packages", summaries);
+            }
             data.put("indexerReady", javaIndex.isReady());
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {

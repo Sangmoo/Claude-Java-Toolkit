@@ -52,11 +52,9 @@ public class MyBatisCallerIndex {
 
     private static final Logger log = LoggerFactory.getLogger(MyBatisCallerIndex.class);
 
-    private static final int  MAX_JAVA_SCAN = 30_000;
-    private static final long MAX_FILE_SIZE = 2_000_000L;
-
     private final ToolkitSettings    settings;
     private final MyBatisIndexer     mybatis;
+    private final IndexerConfig      indexerConfig;
 
     /** file relPath → Set of MyBatis statement fullIds called in that file */
     private final Map<String, Set<String>> fileToStatements = new ConcurrentHashMap<String, Set<String>>();
@@ -68,9 +66,10 @@ public class MyBatisCallerIndex {
     private volatile int  lastScanFiles;
     private volatile int  lastScanMatches;
 
-    public MyBatisCallerIndex(ToolkitSettings settings, MyBatisIndexer mybatis) {
+    public MyBatisCallerIndex(ToolkitSettings settings, MyBatisIndexer mybatis, IndexerConfig indexerConfig) {
         this.settings = settings;
         this.mybatis  = mybatis;
+        this.indexerConfig = indexerConfig;
     }
 
     @PostConstruct
@@ -139,10 +138,11 @@ public class MyBatisCallerIndex {
                 }
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (scanned[0]++ > MAX_JAVA_SCAN) return FileVisitResult.TERMINATE;
+                    int maxScan = indexerConfig.getMaxJavaScan();
+                    if (maxScan > 0 && scanned[0]++ > maxScan) return FileVisitResult.TERMINATE;
                     if (!file.getFileName().toString().endsWith(".java")) return FileVisitResult.CONTINUE;
                     try {
-                        if (Files.size(file) > MAX_FILE_SIZE) return FileVisitResult.CONTINUE;
+                        if (Files.size(file) > indexerConfig.getMaxFileSize()) return FileVisitResult.CONTINUE;
                         String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
                         String relPath = root.relativize(file).toString().replace('\\', '/');
 

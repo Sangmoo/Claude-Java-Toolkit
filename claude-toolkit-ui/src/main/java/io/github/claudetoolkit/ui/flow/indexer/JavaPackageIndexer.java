@@ -37,9 +37,6 @@ public class JavaPackageIndexer {
 
     private static final Logger log = LoggerFactory.getLogger(JavaPackageIndexer.class);
 
-    private static final int  MAX_JAVA_SCAN = 30_000;
-    private static final long MAX_FILE_SIZE = 2_000_000L;
-
     private static final Pattern PACKAGE_DECL = Pattern.compile(
             "(?m)^\\s*package\\s+([a-zA-Z_][\\w.]*)\\s*;");
 
@@ -48,6 +45,7 @@ public class JavaPackageIndexer {
             "(class|interface|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)");
 
     private final ToolkitSettings settings;
+    private final IndexerConfig   indexerConfig;
 
     private final Map<String, List<JavaClassInfo>> byPackage =
             new ConcurrentHashMap<String, List<JavaClassInfo>>();
@@ -59,7 +57,10 @@ public class JavaPackageIndexer {
     private volatile long lastScanMs;
     private volatile int  lastScanFiles;
 
-    public JavaPackageIndexer(ToolkitSettings settings) { this.settings = settings; }
+    public JavaPackageIndexer(ToolkitSettings settings, IndexerConfig indexerConfig) {
+        this.settings = settings;
+        this.indexerConfig = indexerConfig;
+    }
 
     @PostConstruct
     public void initOnStartup() {
@@ -104,11 +105,12 @@ public class JavaPackageIndexer {
                 }
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (scanned[0]++ > MAX_JAVA_SCAN) return FileVisitResult.TERMINATE;
+                    int maxScan = indexerConfig.getMaxJavaScan();
+                    if (maxScan > 0 && scanned[0]++ > maxScan) return FileVisitResult.TERMINATE;
                     String fname = file.getFileName().toString();
                     if (!fname.endsWith(".java")) return FileVisitResult.CONTINUE;
                     try {
-                        if (Files.size(file) > MAX_FILE_SIZE) return FileVisitResult.CONTINUE;
+                        if (Files.size(file) > indexerConfig.getMaxFileSize()) return FileVisitResult.CONTINUE;
                         // 앞부분 8KB 만 읽어도 package + class 선언은 충분히 잡힘 (성능 최적화)
                         byte[] head = readHead(file, 8192);
                         String content = new String(head, StandardCharsets.UTF_8);

@@ -4,11 +4,18 @@ import io.github.claudetoolkit.starter.client.ClaudeClient;
 import io.github.claudetoolkit.ui.flow.indexer.JavaPackageIndexer.JavaClassInfo;
 import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer.MyBatisStatement;
 import io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer.ControllerEndpoint;
+import io.micrometer.core.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * v4.5 — 패키지 개요의 "📜 스토리" 탭용 Claude 내러티브 생성기.
@@ -37,11 +44,23 @@ public class PackageStoryService {
     private static final int  MAX_ITEMS_PER_TYPE = 30;
     private static final int  STORY_MAX_TOKENS   = 2000;
     private static final long CACHE_TTL_MS       = 30L * 60 * 1000;
+    private static final long CLAUDE_TIMEOUT_SEC = 45L;
+
+    private static final String FALLBACK_PROMPT =
+            "당신은 한국 ERP 시스템의 시니어 개발자입니다. 신입 개발자에게 Java 패키지의 구조와 역할을 한국어 마크다운으로 친절하게 설명하세요.";
 
     private final PackageAnalysisService packageService;
     private final ClaudeClient           claudeClient;
 
     private final Map<String, CacheEntry> cache = new java.util.concurrent.ConcurrentHashMap<String, CacheEntry>();
+
+    private final ExecutorService claudeExecutor = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "package-story-claude");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private static volatile String SYSTEM_PROMPT_CACHED;
 
     public PackageStoryService(PackageAnalysisService packageService,
                                ClaudeClient claudeClient) {
@@ -49,6 +68,7 @@ public class PackageStoryService {
         this.claudeClient   = claudeClient;
     }
 
+    @Timed(value = "package.story.generate", description = "Time spent generating package story via Claude")
     public StoryResult generate(String packageName, int level, boolean fresh) {
         String cacheKey = packageName + "@L" + level;
         long now = System.currentTimeMillis();
@@ -78,18 +98,33 @@ public class PackageStoryService {
         String sysPrompt = buildSystemPrompt();
         String userMsg   = buildUserMessage(detail);
 
+        Future<String> future = claudeExecutor.submit(() -> claudeClient.chat(sysPrompt, userMsg, STORY_MAX_TOKENS));
         try {
-            String md = claudeClient.chat(sysPrompt, userMsg, STORY_MAX_TOKENS);
+            String md = future.get(CLAUDE_TIMEOUT_SEC, TimeUnit.SECONDS);
             result.markdown = md;
             result.elapsedMs = System.currentTimeMillis() - t0;
             cache.put(cacheKey, new CacheEntry(md, System.currentTimeMillis()));
             log.info("[PackageStory] pkg={} {}ms tokens≈{}",
                     packageName, result.elapsedMs, userMsg.length() / 4);
-        } catch (Exception e) {
-            log.warn("[PackageStory] Claude 호출 실패 pkg={}: {}", packageName, e.getMessage());
-            result.markdown = "## ⚠ 스토리 생성 실패\n\n`" + e.getMessage() + "`\n\n"
+        } catch (TimeoutException te) {
+            future.cancel(true);
+            String msg = "Claude 호출 시간 초과 (" + CLAUDE_TIMEOUT_SEC + "s)";
+            log.warn("[PackageStory] {} pkg={}", msg, packageName);
+            result.markdown = "## ⚠ 스토리 생성 시간 초과\n\n`" + msg + "`\n\n"
+                    + "잠시 후 다시 시도하거나 관리자에게 문의하세요.";
+            result.error = msg;
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
+            log.warn("[PackageStory] Claude 호출 실패 pkg={}: {}", packageName, cause.getMessage());
+            result.markdown = "## ⚠ 스토리 생성 실패\n\n`" + cause.getMessage() + "`\n\n"
                     + "재시도하거나 관리자에게 문의하세요.";
-            result.error = e.getMessage();
+            result.error = cause.getMessage();
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            log.warn("[PackageStory] interrupted pkg={}", packageName);
+            result.markdown = "## ⚠ 스토리 생성 중단\n\n요청이 중단되었습니다.";
+            result.error = "interrupted";
         }
         return result;
     }
@@ -100,37 +135,25 @@ public class PackageStoryService {
         return n;
     }
 
+    /** v4.5 — 어드민 캐시 통계 엔드포인트용. */
+    public int cacheSize() {
+        return cache.size();
+    }
+
     // ── Prompt 빌더 ────────────────────────────────────────────────────
 
     private static String buildSystemPrompt() {
-        return  "당신은 한국 ERP 시스템의 시니어 개발자입니다.\n"
-              + "신입 개발자(입사 3개월 이내)에게 특정 Java 패키지의 구조와 역할을 설명합니다.\n"
-              + "\n"
-              + "[입력] 사용자가 패키지 메타데이터(클래스 목록, MyBatis 통계, Controller endpoints, "
-              + "연관 테이블, 외부 의존)를 제공합니다. 당신은 이 정보를 바탕으로 신입 친화적 한국어 마크다운을 작성합니다.\n"
-              + "\n"
-              + "[어조]\n"
-              + "- 기술 용어가 등장하면 1회 쉬운 풀이를 곁들이세요 (예: \"트랜잭션(데이터 변경의 '한 묶음')\").\n"
-              + "- 업무적 맥락을 추정해서 친절하게 설명하세요.\n"
-              + "- \"~해요\" 체, 선배가 옆에서 알려주는 느낌.\n"
-              + "\n"
-              + "[출력 규칙]\n"
-              + "1. 반드시 아래 섹션 순서·제목을 따르세요.\n"
-              + "   ## 🎯 이 패키지는 무엇을 하나요?\n"
-              + "      (1~2 문단, 업무적 역할 + 패키지 이름에서 추정)\n"
-              + "   ## 🏗️ 핵심 구성 요소\n"
-              + "      (레이어별 — Controller → Service → DAO → MyBatis. 각 레이어에서 중요 클래스 1~3개 설명)\n"
-              + "   ## 🗄️ 다루는 데이터\n"
-              + "      (연관 테이블 이름에서 담고 있을 비즈니스 정보 추정. 표 형식 권장)\n"
-              + "   ## 🔗 외부 의존 (다른 패키지와의 관계)\n"
-              + "      (externalDependencies 목록이 있으면 각각 왜 의존하는지 추정)\n"
-              + "   ## 📌 신입이 알면 좋을 포인트\n"
-              + "      (주의점, 관용구, 왜 이렇게 설계됐는지 추정. 3~5개 bullet)\n"
-              + "   ## ⚠ 주의 · AI 추정\n"
-              + "      (이 설명 중 실제 코드 주석에 없고 AI가 추정한 부분 명시)\n"
-              + "2. 입력에 없는 클래스/테이블/API 명을 절대 만들어내지 마세요 (환각 금지).\n"
-              + "3. 추정이면 반드시 \"추정\" 이라고 표기하세요.\n"
-              + "4. 너무 길지 않게 (전체 600~1000자 수준).\n";
+        String cached = SYSTEM_PROMPT_CACHED;
+        if (cached != null) return cached;
+        try (InputStream in = new ClassPathResource("prompts/package-story.txt").getInputStream()) {
+            cached = StreamUtils.copyToString(in, StandardCharsets.UTF_8);
+            SYSTEM_PROMPT_CACHED = cached;
+            return cached;
+        } catch (IOException e) {
+            log.warn("[PackageStory] prompts/package-story.txt 로드 실패, fallback 사용: {}", e.getMessage());
+            SYSTEM_PROMPT_CACHED = FALLBACK_PROMPT;
+            return FALLBACK_PROMPT;
+        }
     }
 
     private String buildUserMessage(PackageAnalysisService.PackageDetail d) {
