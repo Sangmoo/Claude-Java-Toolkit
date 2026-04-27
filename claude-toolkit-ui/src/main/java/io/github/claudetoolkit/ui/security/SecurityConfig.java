@@ -67,6 +67,8 @@ public class SecurityConfig {
                     "/pipelines/**",
                     // v4.4.x: 데이터 흐름 분석 — POST /flow/stream/start, GET /flow/stream (SSE)
                     "/flow/**",
+                    // Phase D: 오류 로그 RCA 하네스 — POST /api/v1/log-rca/{analyze,stream-init}, GET /stream/{id} (SSE)
+                    "/api/v1/log-rca/**",
                     // v4.2.x: 이메일 발송 (다수 수신자)
                     "/email/**"
                 )

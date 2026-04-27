@@ -53,7 +53,10 @@ public class AdminPermissionController {
         new String[]{"review-requests","팀 리뷰 요청",        "기록"},
         new String[]{"review-dashboard","리뷰 대시보드",       "기록"},
         // 도구
-        new String[]{"loganalyzer",  "로그 분석기",        "도구"},
+        new String[]{"loganalyzer",         "로그 분석기",                "도구"},
+        // Phase D — 로그 분석기 안의 "RCA 하네스 모드" sub-feature
+        // (loganalyzer 키가 OFF면 페이지 전체가 차단되고, 이 키는 페이지 내 토글 노출 여부)
+        new String[]{"loganalyzer-harness", "로그 분석기 — RCA 하네스 모드", "도구"},
         new String[]{"regex",        "정규식 생성기",      "도구"},
         new String[]{"commitmsg",    "커밋 메시지",        "도구"},
         new String[]{"maskgen",      "마스킹 스크립트",    "도구"},
