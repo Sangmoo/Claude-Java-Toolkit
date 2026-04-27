@@ -180,7 +180,7 @@ public class FlowAnalysisService {
         log.info("[Flow] Stage1 MyBatis: table={} matches={}", table, mbHits);
 
         // ── Stage 1b: DB ALL_SOURCE 에서 SP/Trigger 찾기 (다중 DML)
-        List<SpHit> sps = req.isIncludeDb() ? findSpsForTable(table, activeDmls) : Collections.<SpHit>emptyList();
+        List<SpHit> sps = req.isIncludeDb() ? findSpsForTable(table, activeDmls, r.warnings) : Collections.<SpHit>emptyList();
         if (sps.size() > req.getMaxBranches() * 2) {
             r.warnings.add("SP 매칭 " + sps.size() + " 건 — 상위 " + (req.getMaxBranches() * 2) + " 만 분석");
             sps = sps.subList(0, req.getMaxBranches() * 2);
@@ -299,7 +299,7 @@ public class FlowAnalysisService {
                                FlowAnalysisResult r, IdGen ids) {
         r.warnings.add("SP 시작점 분석은 Phase 2 에서 LLM 와 함께 강화 예정 — 현재는 SP 본문만 표시.");
         // 단순: ALL_SOURCE 에서 SP 본문 fetch + 그 안에서 만지는 테이블 추출
-        List<SpHit> sps = req.isIncludeDb() ? findSpByName(query) : Collections.<SpHit>emptyList();
+        List<SpHit> sps = req.isIncludeDb() ? findSpByName(query, r.warnings) : Collections.<SpHit>emptyList();
         for (SpHit sp : sps) {
             FlowNode spNode = new FlowNode(ids.next(), "sp", sp.owner + "." + sp.name)
                     .put("type", sp.type).put("snippet", sp.snippet);
@@ -352,7 +352,8 @@ public class FlowAnalysisService {
      * v4.4.x — 다중 DML 필터 지원. {@code wantSelect} 가 true 면 SELECT 만 하는 SP 도 포함
      * (어떻게 조회되는지 추적용).
      */
-    private List<SpHit> findSpsForTable(String table, Set<FlowAnalysisRequest.DmlFilter> dmls) {
+    private List<SpHit> findSpsForTable(String table, Set<FlowAnalysisRequest.DmlFilter> dmls,
+                                         List<String> warnings) {
         if (table == null || !settings.isDbConfigured()) return Collections.emptyList();
         boolean wantIns = dmls.contains(FlowAnalysisRequest.DmlFilter.INSERT);
         boolean wantUpd = dmls.contains(FlowAnalysisRequest.DmlFilter.UPDATE);
@@ -413,14 +414,15 @@ public class FlowAnalysisService {
             }
             rs.close(); ps.close();
         } catch (Exception e) {
-            log.warn("[Flow] SP grep 실패: {}", e.getMessage());
+            log.warn("[Flow] SP grep 실패 (table={}): {}", table, e.getMessage());
+            if (warnings != null) warnings.add("DB 연결 실패로 SP 경로가 불완전할 수 있습니다: " + e.getMessage());
         } finally {
             if (conn != null) try { conn.close(); } catch (Exception ignored) {}
         }
         return out;
     }
 
-    private List<SpHit> findSpByName(String query) {
+    private List<SpHit> findSpByName(String query, List<String> warnings) {
         // 단순 — 정확히 NAME 으로 매칭
         List<SpHit> out = new ArrayList<SpHit>();
         if (!settings.isDbConfigured()) return out;
@@ -448,7 +450,8 @@ public class FlowAnalysisService {
             }
             rs.close(); ps.close();
         } catch (Exception e) {
-            log.warn("[Flow] SP byName 실패: {}", e.getMessage());
+            log.warn("[Flow] SP byName 실패 (query={}): {}", query, e.getMessage());
+            if (warnings != null) warnings.add("DB 연결 실패로 SP 조회가 불완전할 수 있습니다: " + e.getMessage());
         } finally {
             if (conn != null) try { conn.close(); } catch (Exception ignored) {}
         }

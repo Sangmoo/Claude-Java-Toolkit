@@ -2,6 +2,8 @@ package io.github.claudetoolkit.ui.controller;
 
 import io.github.claudetoolkit.ui.history.ReviewHistory;
 import io.github.claudetoolkit.ui.history.ReviewHistoryService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,8 @@ import java.util.Map;
 @Controller
 @RequestMapping("/harness/dashboard")
 public class HarnessDashboardController {
+
+    private static final Logger log = LoggerFactory.getLogger(HarnessDashboardController.class);
 
     private final ReviewHistoryService historyService;
 
@@ -75,6 +79,9 @@ public class HarnessDashboardController {
         int end = output.indexOf("/10", start);
         if (end < 0 || end - start > 4) return 0;
         try { return Integer.parseInt(output.substring(start, end).trim()); }
-        catch (NumberFormatException e) { return 0; }
+        catch (NumberFormatException e) {
+            log.debug("[Harness] 종합 점수 파싱 실패 — raw: '{}'", output.substring(start, Math.min(end + 3, output.length())));
+            return 0;
+        }
     }
 }

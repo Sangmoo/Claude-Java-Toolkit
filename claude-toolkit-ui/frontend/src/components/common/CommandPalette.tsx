@@ -70,9 +70,16 @@ function fuzzyMatch(query: string, label: string, section: string, path: string)
 export default function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selectedIdx, setSelectedIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+
+  // 100ms 디바운스 — 연속 입력 중 불필요한 필터 재계산 방지
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query), 100)
+    return () => clearTimeout(id)
+  }, [query])
 
   // 전역 단축키 — Cmd+K / Ctrl+K 로 열기
   useEffect(() => {
@@ -103,7 +110,7 @@ export default function CommandPalette() {
 
   const filtered = useMemo(() => {
     const recentPaths = getRecentPaths()
-    if (!query) {
+    if (!debouncedQuery) {
       // 최근 항목 상단, 나머지는 원래 순서
       const recent = recentPaths
         .map((p) => allCommands.find((c) => c.path === p))
@@ -111,8 +118,8 @@ export default function CommandPalette() {
       const rest = allCommands.filter((c) => !recentPaths.includes(c.path))
       return [...recent.map((c) => ({ ...c, section: '최근 방문' })), ...rest]
     }
-    return allCommands.filter((c) => fuzzyMatch(query, c.label, c.section, c.path))
-  }, [query, allCommands])
+    return allCommands.filter((c) => fuzzyMatch(debouncedQuery, c.label, c.section, c.path))
+  }, [debouncedQuery, allCommands])
 
   // selectedIdx 가 filtered 길이 벗어나면 리셋
   useEffect(() => {

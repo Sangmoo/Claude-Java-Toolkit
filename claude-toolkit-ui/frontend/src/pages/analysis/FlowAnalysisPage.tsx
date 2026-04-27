@@ -501,6 +501,7 @@ export default function FlowAnalysisPage() {
         es.close(); esRef.current = null
         setStreaming(false)
         setStatusText('')
+        toast.error('스트리밍 연결이 끊어졌습니다. 분석을 다시 시도해주세요.')
       }
     } catch (e: any) {
       toast.error(`분석 시작 실패: ${e?.message || '네트워크 오류'}`)

@@ -187,6 +187,7 @@ public class ModelCostService {
         if (lower.contains("opus"))   return PRICING.get("claude-opus-4");
         if (lower.contains("haiku"))  return PRICING.get("claude-haiku-4");
         if (lower.contains("sonnet")) return PRICING.get("claude-sonnet-4");
+        log.warn("[Cost] 미등록 모델 '{}' — Default Sonnet 가격으로 fallback. PRICING 테이블 업데이트 필요.", model);
         return PRICING.get("default");
     }
 

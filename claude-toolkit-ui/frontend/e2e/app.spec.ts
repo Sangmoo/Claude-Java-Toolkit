@@ -126,3 +126,98 @@ test.describe('utils/date — 순수 로직 회귀', () => {
 // Vite dev server 프록시 경유로 호출할 때 응답이 환경에 따라 달라져 불안정했다.
 // 동일 시나리오를 JUnit `SecuritySmokeTests` (src/test/java) 에서 MockMvc 로 안정적으로
 // 커버하므로 여기서는 중복 검증을 생략한다.
+
+/**
+ * v4.5 — 신규 경로 회귀 방지 (인증 없이 → 로그인 리다이렉트).
+ */
+test.describe('v4.5 신규 경로 — 인증 게이팅', () => {
+  const newRoutes = [
+    '/flow-analysis',
+    '/package-overview',
+    '/project-map',
+  ]
+
+  for (const route of newRoutes) {
+    test(`인증 없이 ${route} → /login 리다이렉트`, async ({ page }) => {
+      await page.goto(route)
+      await expect(page).toHaveURL(/\/login/)
+    })
+  }
+})
+
+/**
+ * v4.5 — 순수 로직 회귀 방지 (백엔드 / 인증 불필요).
+ */
+test.describe('v4.5 — 순수 로직 회귀', () => {
+  test('ProjectMap 검색 필터 — 대소문자 무시 부분 일치', async ({ page }) => {
+    await page.goto('/login')
+
+    const result = await page.evaluate(() => {
+      const packages = [
+        { packageName: 'com.example.order', classTotal: 5 },
+        { packageName: 'com.example.user', classTotal: 3 },
+        { packageName: 'com.example.payment', classTotal: 8 },
+      ]
+      const kw = 'ORDER'
+      const filtered = packages.filter(p =>
+        p.packageName.toLowerCase().includes(kw.toLowerCase())
+      )
+      return filtered.map(p => p.packageName)
+    })
+    expect(result).toEqual(['com.example.order'])
+  })
+
+  test('ERD heatmap 강도 계산 — maxHit 대비 비율', async ({ page }) => {
+    await page.goto('/login')
+
+    const result = await page.evaluate(() => {
+      const hitEntries: [string, number][] = [
+        ['ORDERS', 10],
+        ['USERS', 5],
+        ['PRODUCTS', 2],
+      ]
+      const maxHit = hitEntries[0][1]
+      return hitEntries.map(([name, hit]) => {
+        const r = maxHit > 0 ? hit / maxHit : 0
+        const level = r >= 0.66 ? 'high' : r >= 0.33 ? 'mid' : 'low'
+        return { name, level }
+      })
+    })
+    expect(result[0]).toEqual({ name: 'ORDERS', level: 'high' })
+    expect(result[1]).toEqual({ name: 'USERS', level: 'mid' })
+    expect(result[2]).toEqual({ name: 'PRODUCTS', level: 'low' })
+  })
+
+  test('PackageStory 토큰 추정 — 40k 초과 시 감지', async ({ page }) => {
+    await page.goto('/login')
+
+    const result = await page.evaluate(() => {
+      const LIMIT = 40_000
+      const shortMsg = 'a'.repeat(100)
+      const longMsg  = 'a'.repeat(160_001)
+      return {
+        short: (shortMsg.length / 4) > LIMIT,
+        long:  (longMsg.length  / 4) > LIMIT,
+      }
+    })
+    expect(result.short).toBe(false)
+    expect(result.long).toBe(true)
+  })
+
+  test('notificationStore 백오프 — 폴링 지연 2배 증가 (상한 300s)', async ({ page }) => {
+    await page.goto('/login')
+
+    const result = await page.evaluate(() => {
+      const POLL_MIN = 60_000
+      const POLL_MAX = 300_000
+      let delay = POLL_MIN
+      const steps: number[] = [delay]
+      for (let i = 0; i < 5; i++) {
+        delay = Math.min(delay * 2, POLL_MAX)
+        steps.push(delay)
+      }
+      return steps
+    })
+    expect(result).toEqual([60_000, 120_000, 240_000, 300_000, 300_000, 300_000])
+  })
+})

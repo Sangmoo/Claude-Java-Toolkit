@@ -8,8 +8,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -119,31 +121,29 @@ public class ReviewHistoryController {
         return ResponseEntity.ok(resp);
     }
 
-    /** Export all history as CSV (UTF-8 BOM for Excel compatibility) */
+    /** Export all history as CSV (UTF-8 BOM for Excel compatibility).
+     *  StreamingResponseBody 로 행 단위 스트리밍 — 대용량 이력에서 메모리 2배 할당 방지. */
     @GetMapping("/export/csv")
-    public ResponseEntity<byte[]> exportCsv() {
+    public ResponseEntity<StreamingResponseBody> exportCsv() {
         List<ReviewHistory> all = historyService.findAll();
-        StringBuilder sb = new StringBuilder();
-        sb.append("ID,유형,제목,날짜,입력 미리보기,결과 미리보기\n");
-        for (ReviewHistory h : all) {
-            sb.append(h.getId()).append(",");
-            sb.append(csvEscape(h.getTypeLabel())).append(",");
-            sb.append(csvEscape(h.getTitle())).append(",");
-            sb.append(csvEscape(h.getFormattedDate())).append(",");
-            sb.append(csvEscape(truncate(h.getInputContent(), 300))).append(",");
-            sb.append(csvEscape(truncate(h.getOutputContent(), 300))).append("\n");
-        }
-        // BOM for Excel
-        byte[] bom  = new byte[]{(byte)0xEF, (byte)0xBB, (byte)0xBF};
-        byte[] body = sb.toString().getBytes(StandardCharsets.UTF_8);
-        byte[] out  = new byte[bom.length + body.length];
-        System.arraycopy(bom,  0, out, 0,           bom.length);
-        System.arraycopy(body, 0, out, bom.length,  body.length);
-
+        StreamingResponseBody stream = out -> {
+            out.write(new byte[]{(byte)0xEF, (byte)0xBB, (byte)0xBF}); // BOM for Excel
+            OutputStreamWriter w = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+            w.write("ID,유형,제목,날짜,입력 미리보기,결과 미리보기\n");
+            for (ReviewHistory h : all) {
+                w.write(h.getId() + ",");
+                w.write(csvEscape(h.getTypeLabel()) + ",");
+                w.write(csvEscape(h.getTitle()) + ",");
+                w.write(csvEscape(h.getFormattedDate()) + ",");
+                w.write(csvEscape(truncate(h.getInputContent(), 300)) + ",");
+                w.write(csvEscape(truncate(h.getOutputContent(), 300)) + "\n");
+            }
+            w.flush();
+        };
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"review-history.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(out);
+                .body(stream);
     }
 
     /** Single entry Markdown download */

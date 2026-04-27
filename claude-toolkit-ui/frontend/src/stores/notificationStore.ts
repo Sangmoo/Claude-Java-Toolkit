@@ -28,9 +28,25 @@ interface NotificationState {
 }
 
 let es: EventSource | null = null
-// v4.2.7: SSE 연결 실패 시 60 초 주기로 미읽음 카운트를 폴링하는 타이머 핸들.
-// 이전엔 setTimeout 한 번만 돌아서 한 번 실패한 뒤로는 아무 갱신도 안 되던 버그 수정.
-let pollTimer: ReturnType<typeof setInterval> | null = null
+// SSE 실패 시 지수 백오프 폴링: 60s → 120s → 240s → 300s 상한.
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let pollDelay = 60_000  // 현재 폴링 간격 (ms)
+const POLL_MIN = 60_000
+const POLL_MAX = 300_000
+
+function scheduleNextPoll(get: () => NotificationState) {
+  if (pollTimer) clearTimeout(pollTimer)
+  pollTimer = setTimeout(() => {
+    pollTimer = null
+    get().fetchUnreadCount()
+    if (!es) {
+      try { get().startSSE() } catch { /* ignore */ }
+    }
+    // SSE 재연결이 안 됐으면 다시 스케줄 (백오프 유지)
+    if (!es) scheduleNextPoll(get)
+  }, pollDelay)
+  pollDelay = Math.min(pollDelay * 2, POLL_MAX)
+}
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
@@ -134,7 +150,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   startSSE: () => {
     if (es) return
     // 이전 폴링 타이머가 남아있으면 정리 (중복 방지)
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
     try {
       es = new EventSource('/notifications/stream', { withCredentials: true })
       // v4.2.7 BUG FIX:
@@ -149,29 +165,21 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         if (get().dropdownOpen) get().fetchNotifications()
       })
       // 초기 'connected' 확인 이벤트도 참고용으로 수신 (NOOP)
-      es.addEventListener('connected', () => { /* ignore */ })
+      es.addEventListener('connected', () => {
+        // SSE 재연결 성공 → 백오프 초기화
+        pollDelay = POLL_MIN
+      })
       // 혹시 이름 없는 이벤트가 들어올 경우를 위한 호환성 핸들러
       es.onmessage = () => { get().fetchUnreadCount() }
       es.onerror = () => {
-        // v4.2.7: SSE 연결 실패시 60초 간격 "지속 폴링" 으로 전환.
-        // 이전 구현은 setTimeout 한 번만 돌아 이후 영원히 갱신이 멈췄음.
+        // SSE 연결 실패 → 지수 백오프 폴링으로 전환 (60s → 120s → 240s → 300s 상한)
         es?.close()
         es = null
-        if (!pollTimer) {
-          pollTimer = setInterval(() => {
-            get().fetchUnreadCount()
-            // 주기적으로 SSE 재연결도 시도 — 성공하면 자기 자신이 pollTimer 를 해제
-            if (!es) {
-              try { get().startSSE() } catch { /* ignore */ }
-            }
-          }, 60000)
-        }
+        if (!pollTimer) scheduleNextPoll(get)
       }
     } catch {
       // EventSource 자체 생성 실패 (CSP 등) — 폴링 모드로 진입
-      if (!pollTimer) {
-        pollTimer = setInterval(() => get().fetchUnreadCount(), 60000)
-      }
+      if (!pollTimer) scheduleNextPoll(get)
     }
     // 초기 카운트
     get().fetchUnreadCount()
@@ -180,6 +188,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   stopSSE: () => {
     es?.close()
     es = null
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null }
+    pollDelay = POLL_MIN
   },
 }))

@@ -1,5 +1,6 @@
 package io.github.claudetoolkit.ui.flow;
 
+import io.github.claudetoolkit.ui.flow.indexer.IndexerConfig;
 import io.github.claudetoolkit.ui.flow.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,7 @@ import java.util.concurrent.*;
  * <ul>
  *   <li>결과는 (packageName, level) 키로 <b>메모리 캐시</b> (기본 30분 TTL)</li>
  *   <li>동시 최대 4개 테이블 분석 (ForkJoinPool common) — 큰 병렬화는 DB 풀/메모리에 부담</li>
- *   <li>한 패키지당 분석 테이블 수는 {@link #MAX_TABLES_PER_PACKAGE} 로 상한</li>
+ *   <li>한 패키지당 분석 테이블 수는 {@code toolkit.indexer.max-tables-per-package} 로 상한</li>
  * </ul>
  */
 @Service
@@ -26,27 +27,24 @@ public class PackageFlowBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(PackageFlowBuilder.class);
 
-    /** 한 번에 분석할 최대 테이블 수 (너무 크면 너무 오래 걸림) */
-    private static final int MAX_TABLES_PER_PACKAGE = 30;
-    /** 병합 후 노드 수 상한 — ReactFlow 렌더 안정성 보호 */
-    private static final int MAX_MERGED_NODES       = 1500;
-    /** 병합 후 엣지 수 상한 — 동일 */
-    private static final int MAX_MERGED_EDGES       = 3000;
     /** 캐시 TTL (ms) — 30 분 */
-    private static final long CACHE_TTL_MS          = 30L * 60 * 1000;
+    private static final long CACHE_TTL_MS = 30L * 60 * 1000;
     /** 병렬 worker 수 */
-    private static final int PARALLELISM            = 4;
+    private static final int PARALLELISM   = 4;
 
     private final PackageAnalysisService packageService;
     private final FlowAnalysisService    flowService;
+    private final IndexerConfig          indexerConfig;
 
     /** 단순 TTL 캐시 */
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<String, CacheEntry>();
 
     public PackageFlowBuilder(PackageAnalysisService packageService,
-                              FlowAnalysisService    flowService) {
+                              FlowAnalysisService    flowService,
+                              IndexerConfig          indexerConfig) {
         this.packageService = packageService;
         this.flowService    = flowService;
+        this.indexerConfig  = indexerConfig;
     }
 
     /**
@@ -80,10 +78,11 @@ public class PackageFlowBuilder {
 
         List<String> targetTables = detail.tables;
         boolean truncated = false;
-        if (targetTables.size() > MAX_TABLES_PER_PACKAGE) {
+        int maxTables = indexerConfig.getMaxTablesPerPackage();
+        if (targetTables.size() > maxTables) {
             out.warnings.add("테이블 " + targetTables.size() + "개 중 상위 "
-                    + MAX_TABLES_PER_PACKAGE + "개만 분석합니다. (가독성 보호)");
-            targetTables = new ArrayList<String>(targetTables).subList(0, MAX_TABLES_PER_PACKAGE);
+                    + maxTables + "개만 분석합니다. (가독성 보호)");
+            targetTables = new ArrayList<String>(targetTables).subList(0, maxTables);
             truncated = true;
         }
         out.analyzedTables = new ArrayList<String>(targetTables);
@@ -193,12 +192,14 @@ public class PackageFlowBuilder {
         List<FlowEdge> allEdges = mergedEdges;
 
         // v4.5 — 노드/엣지 상한 (ReactFlow 렌더 안정성)
-        if (allNodes.size() > MAX_MERGED_NODES) {
-            warnings.add("병합 후 노드 " + allNodes.size() + "개 중 상위 " + MAX_MERGED_NODES
+        int maxNodes = indexerConfig.getMaxMergedNodes();
+        int maxEdges = indexerConfig.getMaxMergedEdges();
+        if (allNodes.size() > maxNodes) {
+            warnings.add("병합 후 노드 " + allNodes.size() + "개 중 상위 " + maxNodes
                     + "개만 표시합니다. 타입 필터로 레이어를 좁혀보세요.");
             // 타입 우선순위로 트림 (table → mybatis → dao → service → controller → ui → sp 순 중요도)
             // 간단히 그냥 앞쪽 N 개 유지
-            allNodes = new ArrayList<FlowNode>(allNodes.subList(0, MAX_MERGED_NODES));
+            allNodes = new ArrayList<FlowNode>(allNodes.subList(0, maxNodes));
             Set<String> keepIds = new HashSet<String>();
             for (FlowNode n : allNodes) keepIds.add(n.id);
             List<FlowEdge> trimmed = new ArrayList<FlowEdge>();
@@ -207,9 +208,9 @@ public class PackageFlowBuilder {
             }
             allEdges = trimmed;
         }
-        if (allEdges.size() > MAX_MERGED_EDGES) {
-            warnings.add("엣지 " + allEdges.size() + "개 중 상위 " + MAX_MERGED_EDGES + "개만 표시합니다.");
-            allEdges = new ArrayList<FlowEdge>(allEdges.subList(0, MAX_MERGED_EDGES));
+        if (allEdges.size() > maxEdges) {
+            warnings.add("엣지 " + allEdges.size() + "개 중 상위 " + maxEdges + "개만 표시합니다.");
+            allEdges = new ArrayList<FlowEdge>(allEdges.subList(0, maxEdges));
         }
 
         out.nodes = allNodes;

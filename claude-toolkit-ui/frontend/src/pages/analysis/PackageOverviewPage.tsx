@@ -604,7 +604,8 @@ function SummaryTabContent({
 
 function ErdTabContent({ selectedPkg, level }: { selectedPkg: string | null; level: number }) {
   const toast = useToast()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading]       = useState(false)
+  const [showAllTables, setShowAllTables] = useState(false)
   const [erd, setErd] = useState<ErdResponse | null>(null)
 
   // 옵션 (사용자가 토글 가능)
@@ -708,6 +709,12 @@ function ErdTabContent({ selectedPkg, level }: { selectedPkg: string | null; lev
           {/* 빈도 히트맵 테이블 */}
           {heatmap && hitEntries.length > 0 && (
             <Section title={`🌡 접근 빈도 히트맵 (MyBatis 기준)`}>
+              {/* 범례 */}
+              <div style={{ display: 'flex', gap: 14, marginBottom: 8, fontSize: 11, color: 'var(--text-sub)' }}>
+                <span><span style={{ color: '#ef4444' }}>●</span> 높음 (≥66%)</span>
+                <span><span style={{ color: '#f59e0b' }}>●</span> 보통 (33–65%)</span>
+                <span><span style={{ color: '#94a3b8' }}>●</span> 낮음 (&lt;33%)</span>
+              </div>
               <div style={styles.heatTableWrap}>
                 <table style={styles.heatTable}>
                   <thead>
@@ -748,7 +755,7 @@ function ErdTabContent({ selectedPkg, level }: { selectedPkg: string | null; lev
           {/* 테이블 상세 리스트 (컬럼 상세 OFF 시 요약용) */}
           {!columnDetail && erd.tables.length > 0 && (
             <Section title={`📑 테이블 요약 (${erd.tables.length})`}>
-              {erd.tables.slice(0, 30).map(t => (
+              {(showAllTables ? erd.tables : erd.tables.slice(0, 30)).map(t => (
                 <div key={t.name} style={styles.row}>
                   <span style={styles.rowMono}>{t.name}</span>
                   <span style={styles.rowHint}>{t.columns?.length ?? 0} cols</span>
@@ -756,7 +763,13 @@ function ErdTabContent({ selectedPkg, level }: { selectedPkg: string | null; lev
                 </div>
               ))}
               {erd.tables.length > 30 && (
-                <div style={styles.moreHint}>... 외 {erd.tables.length - 30}개</div>
+                <button
+                  onClick={() => setShowAllTables(v => !v)}
+                  style={{ marginTop: 6, fontSize: 11, color: 'var(--accent2)', background: 'none',
+                           border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {showAllTables ? '▲ 접기' : `▼ 더 보기 (${erd.tables.length - 30}개 더)`}
+                </button>
               )}
             </Section>
           )}

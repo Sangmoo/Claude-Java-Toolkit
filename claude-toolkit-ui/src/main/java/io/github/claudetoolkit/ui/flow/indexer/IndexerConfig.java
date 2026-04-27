@@ -14,6 +14,9 @@ import org.springframework.context.annotation.Configuration;
  *   indexer:
  *     max-java-scan: 30000
  *     max-file-size: 2000000
+ *     max-tables-per-package: 30
+ *     max-merged-nodes: 1500
+ *     max-merged-edges: 3000
  * </pre>
  */
 @Configuration
@@ -26,19 +29,27 @@ public class IndexerConfig {
     /** 단일 파일이 이 크기(바이트)를 초과하면 스킵. */
     private long maxFileSize = 2_000_000L;
 
-    public int getMaxJavaScan() {
-        return maxJavaScan;
-    }
+    /** PackageFlowBuilder — 한 패키지당 분석할 최대 테이블 수. */
+    private int maxTablesPerPackage = 30;
 
-    public void setMaxJavaScan(int maxJavaScan) {
-        this.maxJavaScan = maxJavaScan;
-    }
+    /** PackageFlowBuilder — ReactFlow 렌더 안정성을 위한 병합 후 노드 수 상한. */
+    private int maxMergedNodes = 1_500;
 
-    public long getMaxFileSize() {
-        return maxFileSize;
-    }
+    /** PackageFlowBuilder — 병합 후 엣지 수 상한. */
+    private int maxMergedEdges = 3_000;
 
-    public void setMaxFileSize(long maxFileSize) {
-        this.maxFileSize = maxFileSize;
-    }
+    public int getMaxJavaScan() { return maxJavaScan; }
+    public void setMaxJavaScan(int maxJavaScan) { this.maxJavaScan = maxJavaScan; }
+
+    public long getMaxFileSize() { return maxFileSize; }
+    public void setMaxFileSize(long maxFileSize) { this.maxFileSize = maxFileSize; }
+
+    public int getMaxTablesPerPackage() { return maxTablesPerPackage; }
+    public void setMaxTablesPerPackage(int maxTablesPerPackage) { this.maxTablesPerPackage = maxTablesPerPackage; }
+
+    public int getMaxMergedNodes() { return maxMergedNodes; }
+    public void setMaxMergedNodes(int maxMergedNodes) { this.maxMergedNodes = maxMergedNodes; }
+
+    public int getMaxMergedEdges() { return maxMergedEdges; }
+    public void setMaxMergedEdges(int maxMergedEdges) { this.maxMergedEdges = maxMergedEdges; }
 }

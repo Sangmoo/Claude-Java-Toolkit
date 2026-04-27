@@ -98,14 +98,25 @@ public class PackageStoryService {
         String sysPrompt = buildSystemPrompt();
         String userMsg   = buildUserMessage(detail);
 
-        Future<String> future = claudeExecutor.submit(() -> claudeClient.chat(sysPrompt, userMsg, STORY_MAX_TOKENS));
+        // 토큰 추정 (4 chars ≈ 1 token). 40k 토큰 초과 시 경고 로그 + 메시지 트림
+        int estimatedTokens = userMsg.length() / 4;
+        final String sendMsg;
+        if (estimatedTokens > 40_000) {
+            log.warn("[PackageStory] pkg={} 추정 입력 토큰 {}개 — 40k 초과, 메시지 트림", packageName, estimatedTokens);
+            sendMsg = userMsg.substring(0, 160_000)
+                    + "\n\n[메시지가 너무 길어 잘렸습니다. 위 데이터로 스토리를 작성하세요.]";
+        } else {
+            sendMsg = userMsg;
+        }
+
+        Future<String> future = claudeExecutor.submit(() -> claudeClient.chat(sysPrompt, sendMsg, STORY_MAX_TOKENS));
         try {
             String md = future.get(CLAUDE_TIMEOUT_SEC, TimeUnit.SECONDS);
             result.markdown = md;
             result.elapsedMs = System.currentTimeMillis() - t0;
             cache.put(cacheKey, new CacheEntry(md, System.currentTimeMillis()));
             log.info("[PackageStory] pkg={} {}ms tokens≈{}",
-                    packageName, result.elapsedMs, userMsg.length() / 4);
+                    packageName, result.elapsedMs, sendMsg.length() / 4);
         } catch (TimeoutException te) {
             future.cancel(true);
             String msg = "Claude 호출 시간 초과 (" + CLAUDE_TIMEOUT_SEC + "s)";
