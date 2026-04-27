@@ -48,6 +48,7 @@ const ProjectMapPage = lazy(() => import('./pages/analysis/ProjectMapPage'))
 const PackageDepsPage = lazy(() => import('./pages/analysis/PackageDepsPage'))
 const ImpactAnalysisPage = lazy(() => import('./pages/analysis/ImpactAnalysisPage'))
 const SpImpactPage = lazy(() => import('./pages/analysis/SpImpactPage'))
+const SpMigrationHarnessPage = lazy(() => import('./pages/analysis/SpMigrationHarnessPage'))
 const MockDataPage = lazy(() => import('./pages/analysis/MockDataPage'))
 const BatchPage = lazy(() => import('./pages/analysis/BatchPage'))
 const LogAnalyzerPage = lazy(() => import('./pages/analysis/LogAnalyzerPage'))
@@ -197,6 +198,7 @@ export default function App() {
           <Route path="/package-deps" element={<PackageDepsPage />} />
           <Route path="/impact" element={<ImpactAnalysisPage />} />
           <Route path="/sp-impact" element={<SpImpactPage />} />
+          <Route path="/sp-migration-harness" element={<SpMigrationHarnessPage />} />
           <Route path="/docgen" element={<DocGenPage />} />
           <Route path="/apispec" element={<ApiSpecPage />} />
           <Route path="/converter" element={<ConverterPage />} />

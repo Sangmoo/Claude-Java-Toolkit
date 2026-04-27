@@ -63,6 +63,7 @@ export const menuSections: MenuSection[] = [
       { label: '패키지 의존성 그래프', path: '/package-deps', icon: FaProjectDiagram, color: '#06b6d4', featureKey: 'package-overview' },
       { label: '테이블 영향 분석',    path: '/impact',        icon: FaStream,        color: '#f59e0b', featureKey: 'flow-analysis' },
       { label: 'SP 흐름 분석',       path: '/sp-impact',     icon: FaCodeBranch,    color: '#8b5cf6', featureKey: 'flow-analysis' },
+      { label: 'SP→Java 하네스',     path: '/sp-migration-harness', icon: FaExchangeAlt, color: '#10b981', featureKey: 'sp-migration-harness' },
     ],
   },
   {

@@ -40,6 +40,27 @@ class AdminPermissionControllerFeatureRegistrationTest {
     }
 
     @Test
+    @DisplayName("Phase B — sp-migration-harness 키가 '분석' 카테고리에 등록")
+    void spMigrationHarnessFeatureRegistered() {
+        AdminPermissionController controller = new AdminPermissionController(null, null);
+        ResponseEntity<List<Map<String, Object>>> resp = controller.listFeatures();
+
+        for (Map<String, Object> category : resp.getBody()) {
+            if (!"분석".equals(category.get("category"))) continue;
+            @SuppressWarnings("unchecked")
+            List<Map<String, String>> items = (List<Map<String, String>>) category.get("items");
+            for (Map<String, String> item : items) {
+                if ("sp-migration-harness".equals(item.get("key"))) {
+                    assertTrue(item.get("label").contains("SP"),
+                            "라벨에 'SP' 포함 필요: " + item.get("label"));
+                    return;
+                }
+            }
+        }
+        fail("sp-migration-harness가 '분석' 카테고리에 없음 — Phase B 권한 게이팅 깨짐");
+    }
+
+    @Test
     @DisplayName("loganalyzer-harness가 '도구' 카테고리에 위치")
     void logAnalyzerHarnessInCorrectCategory() {
         AdminPermissionController controller = new AdminPermissionController(null, null);

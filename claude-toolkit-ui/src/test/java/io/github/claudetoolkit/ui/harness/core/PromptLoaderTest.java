@@ -61,13 +61,14 @@ class PromptLoaderTest {
     }
 
     @Test
-    @DisplayName("허용 문자 — 영숫자/하이픈/언더스코어 통과")
+    @DisplayName("허용 문자 — 영숫자/하이픈/언더스코어가 IllegalArgumentException을 던지지 않음")
     void allowedChars_pass() {
-        // 파일이 없어도 fallback이 반환되면 식별자 검증을 통과한 것
-        assertEquals("fb", loader.loadOrDefault("sp-migration", "analyst",       "fb"));
-        assertEquals("fb", loader.loadOrDefault("log_rca",      "verifier",      "fb"));
-        assertEquals("fb", loader.loadOrDefault("v2",           "stage1",        "fb"));
-        assertEquals("fb", loader.loadOrDefault("CamelCase",    "Sub-Stage_2",   "fb"));
+        // 식별자 검증만 검사 — 파일이 있으면 내용이, 없으면 fallback이 반환됨.
+        // 어느 쪽이든 IllegalArgumentException이 발생하지 않으면 통과.
+        assertDoesNotThrow(() -> loader.loadOrDefault("sp-migration", "analyst",     "fb"));
+        assertDoesNotThrow(() -> loader.loadOrDefault("log_rca",      "verifier",    "fb"));
+        assertDoesNotThrow(() -> loader.loadOrDefault("v2",           "stage1",      "fb"));
+        assertDoesNotThrow(() -> loader.loadOrDefault("CamelCase",    "Sub-Stage_2", "fb"));
     }
 
     @Test
