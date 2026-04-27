@@ -4,6 +4,7 @@ import io.github.claudetoolkit.ui.config.HostPathTranslator;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
 import io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer;
 import io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer.MiPlatformScreen;
+import io.github.claudetoolkit.ui.flow.indexer.MyBatisCallerIndex;
 import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer;
 import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer.MyBatisStatement;
 import io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer;
@@ -65,17 +66,20 @@ public class FlowAnalysisService {
 
     private final ToolkitSettings    settings;
     private final MyBatisIndexer     mybatis;
+    private final MyBatisCallerIndex callerIndex;
     private final SpringUrlIndexer   spring;
     private final MiPlatformIndexer  miplatform;
 
     public FlowAnalysisService(ToolkitSettings settings,
                                MyBatisIndexer mybatis,
+                               MyBatisCallerIndex callerIndex,
                                SpringUrlIndexer spring,
                                MiPlatformIndexer miplatform) {
-        this.settings   = settings;
-        this.mybatis    = mybatis;
-        this.spring     = spring;
-        this.miplatform = miplatform;
+        this.settings    = settings;
+        this.mybatis     = mybatis;
+        this.callerIndex = callerIndex;
+        this.spring      = spring;
+        this.miplatform  = miplatform;
     }
 
     /** FlowController 의 /source 엔드포인트가 scanPath 를 쓰기 위해 노출. */
@@ -342,8 +346,102 @@ public class FlowAnalysisService {
 
     private void analyzeFromUi(String query, FlowAnalysisRequest req,
                                FlowAnalysisResult r, IdGen ids) {
-        r.warnings.add("MiPlatform XML 시작점 분석은 향후 강화 예정 (Phase 2 LLM).");
-        // TODO Phase 2 — UI XML → Controller URL → DAO → MyBatis → TABLE
+        // Stage 1: MiPlatform 화면 검색 (파일명 / 타이틀 키워드)
+        List<MiPlatformScreen> screens = miplatform.findByQuery(query);
+        if (screens.isEmpty()) {
+            r.warnings.add("MiPlatform 화면에서 '" + query + "' 에 매칭되는 XML 파일을 찾지 못했습니다.");
+            r.warnings.add("파일명 또는 화면 타이틀의 일부를 입력하세요 (예: SHOP_001, 발주입력).");
+            return;
+        }
+        if (screens.size() > req.getMaxBranches() * 2) {
+            r.warnings.add("MiPlatform 화면 매칭 " + screens.size() + " 건 — 상위 " + (req.getMaxBranches() * 2) + " 만 분석");
+            screens = screens.subList(0, req.getMaxBranches() * 2);
+        }
+        r.stats.put("miplatformMatches", screens.size());
+
+        // 중복 테이블 노드 방지 (table 이름 → 노드 id)
+        Map<String, FlowNode> tableNodes = new LinkedHashMap<String, FlowNode>();
+
+        for (MiPlatformScreen sc : screens) {
+            // UI 노드
+            FlowNode uiNode = new FlowNode(ids.next(), "ui", sc.title != null ? sc.title : sc.file);
+            uiNode.file = sc.file;
+            r.nodes.add(uiNode);
+
+            if (sc.urls == null || sc.urls.isEmpty()) {
+                r.warnings.add("화면 '" + sc.file + "' 의 URL 정보 없음 — MiPlatform XML 에서 URL 을 추출하지 못했습니다.");
+                continue;
+            }
+
+            // Stage 2: URL → Controller endpoint
+            for (String url : sc.urls) {
+                List<ControllerEndpoint> eps = spring.findByUrl(url);
+                if (eps.size() > req.getMaxBranches()) eps = eps.subList(0, req.getMaxBranches());
+
+                if (eps.isEmpty()) {
+                    r.warnings.add("URL '" + url + "' 에 매칭되는 Controller 미발견");
+                    continue;
+                }
+
+                for (ControllerEndpoint ep : eps) {
+                    FlowNode ctrlNode = new FlowNode(ids.next(),
+                            "controller", ep.className + "." + ep.methodName)
+                            .put("url", ep.url).put("httpMethod", ep.httpMethod);
+                    ctrlNode.file = ep.file; ctrlNode.line = ep.line;
+                    r.nodes.add(ctrlNode);
+                    r.edges.add(new FlowEdge(uiNode.id, ctrlNode.id, ep.httpMethod + " " + ep.url));
+
+                    // Stage 3: Controller 파일 → MyBatis 문 (callerIndex 역인덱스)
+                    String epFileNorm = ep.file != null ? ep.file.replace('\\', '/') : null;
+                    Set<String> stmtIds = epFileNorm != null
+                            ? callerIndex.statementsCalledByFile(epFileNorm)
+                            : Collections.<String>emptySet();
+
+                    if (stmtIds.isEmpty() && ep.callees != null) {
+                        // Controller 가 Service 를 거치는 경우 — callee 메서드명으로 Service 파일 찾기
+                        for (String callee : ep.callees) {
+                            List<JavaCaller> svcCallers = grepMethodCallers(callee, "", 3);
+                            for (JavaCaller svc : svcCallers) {
+                                Set<String> svcStmts = callerIndex.statementsCalledByFile(svc.relPath);
+                                stmtIds = union(stmtIds, svcStmts);
+                            }
+                        }
+                    }
+
+                    for (String fullId : stmtIds) {
+                        MyBatisStatement st = mybatis.findById(fullId);
+                        if (st == null) continue;
+                        // MyBatis 노드
+                        FlowNode mbNode = new FlowNode(ids.next(), "mybatis", st.fullId)
+                                .put("dml", st.dml).put("snippet", st.snippet);
+                        mbNode.file = st.file; mbNode.line = st.line;
+                        r.nodes.add(mbNode);
+                        r.edges.add(new FlowEdge(ctrlNode.id, mbNode.id, "uses"));
+
+                        // Stage 4: MyBatis → Table 노드
+                        if (st.tables != null) {
+                            for (String tbl : st.tables) {
+                                FlowNode tblNode = tableNodes.get(tbl);
+                                if (tblNode == null) {
+                                    tblNode = new FlowNode(ids.next(), "table", tbl);
+                                    tableNodes.put(tbl, tblNode);
+                                    r.nodes.add(tblNode);
+                                }
+                                r.edges.add(new FlowEdge(mbNode.id, tblNode.id, st.dml));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        r.stats.put("tablesFound", tableNodes.size());
+        log.info("[Flow] analyzeFromUi: query='{}' screens={} tables={}", query, screens.size(), tableNodes.size());
+    }
+
+    private static <T> Set<T> union(Set<T> a, Set<T> b) {
+        Set<T> out = new LinkedHashSet<T>(a);
+        out.addAll(b);
+        return out;
     }
 
     // ── DB SP grep (ChatContextEnricher 와 유사 로직, flow 전용 슬림 버전) ──

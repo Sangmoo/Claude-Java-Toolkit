@@ -228,6 +228,22 @@ public class MiPlatformIndexer {
         return file.getFileName().toString();
     }
 
+    /** 파일명 또는 타이틀에 keyword 가 포함되는 화면 목록 (대소문자 무시, 최대 20건) */
+    public List<MiPlatformScreen> findByQuery(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) return Collections.emptyList();
+        String kw = keyword.trim().toUpperCase();
+        List<MiPlatformScreen> out = new ArrayList<MiPlatformScreen>();
+        for (MiPlatformScreen sc : all) {
+            boolean matchFile  = sc.file  != null && sc.file.toUpperCase().contains(kw);
+            boolean matchTitle = sc.title != null && sc.title.toUpperCase().contains(kw);
+            if (matchFile || matchTitle) {
+                out.add(sc);
+                if (out.size() >= 20) break;
+            }
+        }
+        return out;
+    }
+
     /** URL 로 화면 lookup (정확 매칭) */
     public List<MiPlatformScreen> findByUrl(String url) {
         if (url == null) return Collections.emptyList();
