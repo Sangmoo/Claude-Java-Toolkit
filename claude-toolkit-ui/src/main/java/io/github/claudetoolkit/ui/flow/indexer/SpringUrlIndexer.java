@@ -42,15 +42,21 @@ public class SpringUrlIndexer {
 
     private static final Logger log = LoggerFactory.getLogger(SpringUrlIndexer.class);
 
-    /** 클래스 선언 줄 위에 붙는 @RequestMapping (single line 가정) */
-    private static final Pattern CLASS_MAPPING = Pattern.compile(
-            "@RequestMapping\\s*\\(([^)]*)\\)\\s*(?:@[A-Za-z]+(?:\\([^)]*\\))?\\s*)*"
-                    + "public\\s+(?:abstract\\s+)?class\\s+([A-Za-z_][A-Za-z0-9_]*)");
+    /**
+     * Two-pass class-level @RequestMapping extraction.
+     * Pass 1: find @RequestMapping(...) anywhere in the 800 chars before the class decl.
+     * Pass 2: find public [abstract] class Name.
+     * This handles @Controller appearing before @RequestMapping (the common ordering).
+     */
+    private static final Pattern CLASS_RM_PAT = Pattern.compile(
+            "@RequestMapping\\s*\\(([^)]{0,400})\\)");
+    private static final Pattern CLASS_DECL_PAT = Pattern.compile(
+            "public\\s+(?:abstract\\s+)?class\\s+([A-Za-z_][A-Za-z0-9_]*)");
 
     /** 메서드 어노테이션 — Get/Post/Put/Delete/Patch/Request Mapping. 메서드 이름까지 한꺼번에. */
     private static final Pattern METHOD_MAPPING = Pattern.compile(
-            "@(Request|Get|Post|Put|Delete|Patch)Mapping\\s*\\(([^)]*)\\)"
-                    + "(?:[\\s\\S]{0,500}?)"   // 어노테이션과 메서드 사이 다른 어노테이션 허용
+            "@(Request|Get|Post|Put|Delete|Patch)Mapping\\s*\\(([^)]{0,500})\\)"
+                    + "(?:[\\s\\S]{0,600}?)"   // 어노테이션과 메서드 사이 다른 어노테이션 허용
                     + "public\\s+[\\w<>\\[\\],?\\s\\.]+?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
             Pattern.MULTILINE);
 
@@ -144,19 +150,20 @@ public class SpringUrlIndexer {
                            Map<String, List<ControllerEndpoint>> outByUrl,
                            Map<String, List<ControllerEndpoint>> outByCallee,
                            List<ControllerEndpoint> outAll) {
-        // 클래스 prefix
+        // Two-pass class extraction: find class decl, then look back for @RequestMapping prefix.
+        // This handles @Controller placed before @RequestMapping (the common ERP controller pattern).
         String classPrefix = "";
         String className   = null;
-        Matcher cm = CLASS_MAPPING.matcher(content);
-        if (cm.find()) {
-            String url = extractUrl(cm.group(1));
-            if (url != null) classPrefix = normalize(url);
-            className = cm.group(2);
-        } else {
-            // 클래스 prefix 없으면 className 만이라도 추출
-            Matcher c2 = Pattern.compile("public\\s+(?:abstract\\s+)?class\\s+([A-Za-z_][A-Za-z0-9_]*)")
-                    .matcher(content);
-            if (c2.find()) className = c2.group(1);
+        Matcher cdm = CLASS_DECL_PAT.matcher(content);
+        if (cdm.find()) {
+            className = cdm.group(1);
+            int classPos    = cdm.start();
+            int searchFrom  = Math.max(0, classPos - 800);
+            Matcher crm = CLASS_RM_PAT.matcher(content.substring(searchFrom, classPos));
+            while (crm.find()) {  // take the LAST (closest to class decl) match
+                String url = extractUrl(crm.group(1));
+                if (url != null) classPrefix = normalize(url);
+            }
         }
 
         String relPath = root.relativize(file).toString().replace('\\', '/');

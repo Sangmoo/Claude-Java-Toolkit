@@ -8,10 +8,11 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   FaBoxes, FaCog, FaSync, FaTimes,
-  FaSearch, FaChevronRight, FaProjectDiagram, FaStream, FaBookOpen, FaCopy, FaCheck,
+  FaSearch, FaChevronRight, FaProjectDiagram, FaStream, FaBookOpen, FaCopy, FaCheck, FaComments,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import MermaidChart from '../../components/common/MermaidChart'
+import { useNavigate } from 'react-router-dom'
 
 /**
  * v4.5 — 패키지 개요 페이지 (Hybrid UX)
@@ -1091,6 +1092,7 @@ function FlowTabContent({ selectedPkg, level }: { selectedPkg: string | null; le
 
 function StoryTabContent({ selectedPkg, level }: { selectedPkg: string | null; level: number }) {
   const toast = useToast()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [story,   setStory]   = useState<StoryResponse | null>(null)
   const [copied,  setCopied]  = useState(false)
@@ -1171,6 +1173,18 @@ function StoryTabContent({ selectedPkg, level }: { selectedPkg: string | null; l
             onClick={copyMarkdown}
           >
             {copied ? <><FaCheck size={11} /> 복사됨</> : <><FaCopy size={11} /> 복사</>}
+          </button>
+        )}
+        {story?.markdown && (
+          <button
+            style={styles.iconBtn}
+            onClick={() => {
+              const ctx = `다음 패키지 스토리에 대해 질문합니다.\n\n**패키지**: \`${selectedPkg}\`\n\n${story.markdown.slice(0, 3000)}`
+              navigate('/chat?context=' + encodeURIComponent(ctx))
+            }}
+            title="이 스토리를 채팅으로 이어받아 질문하기"
+          >
+            <FaComments size={11} /> 채팅으로 이어받기
           </button>
         )}
         <button style={styles.iconBtn} onClick={() => loadStory(true)} disabled={loading}>

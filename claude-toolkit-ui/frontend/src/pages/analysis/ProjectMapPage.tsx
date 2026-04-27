@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FaMap, FaSync, FaChevronRight, FaArrowLeft, FaBoxes, FaHome, FaSearch, FaTimes,
+  FaMap, FaSync, FaChevronRight, FaArrowLeft, FaBoxes, FaHome, FaSearch, FaTimes, FaBookOpen,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 
@@ -67,6 +67,11 @@ export default function ProjectMapPage() {
   const [settingsReady, setSettingsReady] = useState(false)
   // v4.5 — 카드 그리드 검색 필터 (클라이언트 측, 현재 레벨 내)
   const [searchKw,     setSearchKw]     = useState<string>('')
+
+  // 일괄 스토리 생성
+  interface BulkStatus { running: boolean; total: number; done: number; failed: number; current: string; pct: number }
+  const [bulk,     setBulk]     = useState<BulkStatus | null>(null)
+  const bulkEsRef = useRef<EventSource | null>(null)
 
   // breadcrumb 렌더용 파생 배열 (메모이즈)
   const pathSegs = useMemo(
@@ -157,6 +162,33 @@ export default function ProjectMapPage() {
     if (configPrefix !== currentPath) setCurrentPath(configPrefix)
   }
 
+  const startBulk = async () => {
+    try {
+      const r = await fetch('/api/v1/package/story/bulk', { method: 'POST', credentials: 'include' })
+      const d = await r.json()
+      if (!d.success) { toast.error(d.error || '일괄 생성 시작 실패'); return }
+      if (!d.data?.started) { toast.warning(d.data?.message || '이미 실행 중'); return }
+      toast.info(`스토리 일괄 생성 시작 (${d.data.queued}개 패키지)`)
+      // SSE 연결
+      if (bulkEsRef.current) bulkEsRef.current.close()
+      const es = new EventSource('/api/v1/package/story/bulk/stream', { withCredentials: true })
+      bulkEsRef.current = es
+      es.addEventListener('progress', (e: MessageEvent) => {
+        try {
+          const s: BulkStatus = JSON.parse(e.data)
+          setBulk(s)
+          if (!s.running) { es.close(); bulkEsRef.current = null }
+        } catch { /* ignore */ }
+      })
+      es.onerror = () => { es.close(); bulkEsRef.current = null }
+    } catch { toast.error('일괄 생성 호출 실패') }
+  }
+
+  const cancelBulk = async () => {
+    await fetch('/api/v1/package/story/bulk/cancel', { method: 'POST', credentials: 'include' })
+    toast.info('취소 요청됨')
+  }
+
   // ── 렌더 ────────────────────────────────────────────────────────────
 
   const filteredPackages = useMemo(() => {
@@ -187,8 +219,36 @@ export default function ProjectMapPage() {
           <button style={styles.iconBtn} onClick={loadAtCurrent} title="새로고침">
             <FaSync style={loading ? { animation: 'spin 1s linear infinite' } : undefined} />
           </button>
+          {bulk?.running ? (
+            <button style={{ ...styles.iconBtn, color: '#ef4444' }} onClick={cancelBulk} title="일괄 생성 취소">
+              <FaTimes /> 취소
+            </button>
+          ) : (
+            <button style={styles.iconBtn} onClick={startBulk} title="현재 레벨 전 패키지 스토리를 일괄 생성합니다 (캐시 미스 항목만)">
+              <FaBookOpen /> 스토리 일괄 생성
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 일괄 스토리 생성 진행률 */}
+      {bulk && (bulk.running || bulk.done > 0) && (
+        <div style={{
+          padding: '6px 16px', background: '#1e293b', color: '#e2e8f0',
+          display: 'flex', alignItems: 'center', gap: 10, fontSize: 12,
+        }}>
+          <FaBookOpen style={{ color: '#06b6d4' }} />
+          <span style={{ flex: 1 }}>
+            {bulk.running
+              ? `스토리 생성 중... ${bulk.current || ''}`
+              : `완료 — ${bulk.done}개 생성, ${bulk.failed}개 실패`}
+          </span>
+          <div style={{ width: 120, height: 4, background: '#334155', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ width: `${bulk.pct}%`, height: '100%', background: '#06b6d4', transition: 'width 0.5s' }} />
+          </div>
+          <span style={{ minWidth: 52, textAlign: 'right', color: '#94a3b8' }}>{bulk.done}/{bulk.total}</span>
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div style={styles.breadcrumb}>

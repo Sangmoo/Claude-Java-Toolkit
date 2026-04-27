@@ -77,6 +77,7 @@ public class SecurityConfig {
                 .antMatchers("/assets/**", "/favicon.svg", "/manifest.json",
                              "/react/**",
                              "/api/v1/auth/login",          // React JSON 로그인
+                             "/api/v1/status/progress",     // warmup 진행률 — 로그인 전 배너 표시용
                              "/login", "/login/2fa", "/login/2fa/**",
                              "/setup", "/setup/**",
                              "/share/**", "/api/v1/share/**", "/actuator/**").permitAll()

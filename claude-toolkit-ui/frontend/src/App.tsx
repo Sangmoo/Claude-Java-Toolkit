@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { useThemeStore } from './stores/themeStore'
@@ -45,6 +45,9 @@ const HarnessDependencyPage = lazy(() => import('./pages/analysis/HarnessDepende
 const FlowAnalysisPage = lazy(() => import('./pages/analysis/FlowAnalysisPage'))
 const PackageOverviewPage = lazy(() => import('./pages/analysis/PackageOverviewPage'))
 const ProjectMapPage = lazy(() => import('./pages/analysis/ProjectMapPage'))
+const PackageDepsPage = lazy(() => import('./pages/analysis/PackageDepsPage'))
+const ImpactAnalysisPage = lazy(() => import('./pages/analysis/ImpactAnalysisPage'))
+const SpImpactPage = lazy(() => import('./pages/analysis/SpImpactPage'))
 const MockDataPage = lazy(() => import('./pages/analysis/MockDataPage'))
 const BatchPage = lazy(() => import('./pages/analysis/BatchPage'))
 const LogAnalyzerPage = lazy(() => import('./pages/analysis/LogAnalyzerPage'))
@@ -105,15 +108,56 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+interface WarmupState { ready: boolean; label: string; pct: number; error?: string }
+
+function WarmupBanner({ w }: { w: WarmupState }) {
+  if (w.ready) return null
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+      background: '#1e293b', color: '#e2e8f0',
+      padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 10,
+      fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+    }}>
+      <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⚙</span>
+      <span style={{ flex: 1 }}>{w.label}</span>
+      <div style={{ width: 120, height: 4, background: '#334155', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${w.pct}%`, height: '100%', background: '#06b6d4', transition: 'width 0.5s ease' }} />
+      </div>
+      <span style={{ minWidth: 32, textAlign: 'right', color: '#94a3b8' }}>{w.pct}%</span>
+      {w.error && <span style={{ color: '#f87171', marginLeft: 8 }}>⚠ {w.error}</span>}
+    </div>
+  )
+}
+
 export default function App() {
   const checkAuth = useAuthStore((s) => s.checkAuth)
   const theme = useThemeStore((s) => s.theme)
+  const [warmup, setWarmup] = useState<WarmupState | null>(null)
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme) }, [theme])
   useEffect(() => { checkAuth() }, [checkAuth])
 
+  useEffect(() => {
+    let stopped = false
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/v1/status/progress')
+        if (!res.ok) return
+        const d = await res.json()
+        if (stopped) return
+        setWarmup({ ready: !!d.ready, label: d.label ?? d.stage, pct: d.pct ?? 0, error: d.error })
+        if (!d.ready) setTimeout(poll, 1200)
+        else setTimeout(() => setWarmup(null), 2000)  // hide banner 2s after ready
+      } catch { /* backend not up yet — silently retry */ }
+    }
+    poll()
+    return () => { stopped = true }
+  }, [])
+
   return (
     <ErrorBoundary>
+    {warmup && !warmup.ready && <WarmupBanner w={warmup} />}
     <Suspense fallback={<Loading />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -150,6 +194,9 @@ export default function App() {
           <Route path="/flow-analysis" element={<FlowAnalysisPage />} />
           <Route path="/package-overview" element={<PackageOverviewPage />} />
           <Route path="/project-map" element={<ProjectMapPage />} />
+          <Route path="/package-deps" element={<PackageDepsPage />} />
+          <Route path="/impact" element={<ImpactAnalysisPage />} />
+          <Route path="/sp-impact" element={<SpImpactPage />} />
           <Route path="/docgen" element={<DocGenPage />} />
           <Route path="/apispec" element={<ApiSpecPage />} />
           <Route path="/converter" element={<ConverterPage />} />

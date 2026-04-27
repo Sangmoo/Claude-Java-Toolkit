@@ -9,10 +9,10 @@ import 'reactflow/dist/style.css'
 import {
   FaPlay, FaSync, FaTimes, FaDownload, FaSitemap,
   FaDatabase, FaFileCode, FaFileAlt, FaHistory, FaShareAlt, FaTrash,
-  FaExpand, FaCopy, FaCheck,
+  FaExpand, FaCopy, FaCheck, FaComments,
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 /**
  * v4.4.x — 데이터 흐름 분석 페이지 (Phase 3)
@@ -226,6 +226,7 @@ interface HistoryItem {
 
 export default function FlowAnalysisPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   // 입력 폼
@@ -575,6 +576,18 @@ export default function FlowAnalysisPage() {
           {narrative && !streaming && (
             <button style={styles.iconBtn} onClick={downloadMd} title="결과 다운로드">
               <FaDownload /> Markdown
+            </button>
+          )}
+          {narrative && !streaming && (
+            <button
+              style={styles.iconBtn}
+              onClick={() => {
+                const ctx = `다음 데이터 흐름 분석 결과에 대해 질문합니다.\n\n**분석 대상**: ${query}\n\n${narrative.slice(0, 3000)}`
+                navigate('/chat?context=' + encodeURIComponent(ctx))
+              }}
+              title="이 분석 결과를 채팅으로 이어받아 질문하기"
+            >
+              <FaComments /> 채팅으로 이어받기
             </button>
           )}
         </div>
