@@ -5,6 +5,7 @@ import io.github.claudetoolkit.ui.api.ApiResponse;
 import io.github.claudetoolkit.ui.flow.history.FlowHistory;
 import io.github.claudetoolkit.ui.flow.history.FlowHistoryService;
 import io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer;
+import io.github.claudetoolkit.ui.flow.indexer.MyBatisCallerIndex;
 import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer;
 import io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer;
 import io.github.claudetoolkit.ui.flow.model.FlowAnalysisRequest;
@@ -46,6 +47,7 @@ public class FlowController {
 
     private final FlowAnalysisService     service;
     private final MyBatisIndexer          mybatis;
+    private final MyBatisCallerIndex      callerIndex;
     private final SpringUrlIndexer        spring;
     private final MiPlatformIndexer       miplatform;
     private final FlowHistoryService      history;
@@ -54,18 +56,20 @@ public class FlowController {
 
     public FlowController(FlowAnalysisService service,
                           MyBatisIndexer mybatis,
+                          MyBatisCallerIndex callerIndex,
                           SpringUrlIndexer spring,
                           MiPlatformIndexer miplatform,
                           FlowHistoryService history,
                           SharedResultRepository shareRepo,
                           ObjectMapper mapper) {
-        this.service    = service;
-        this.mybatis    = mybatis;
-        this.spring     = spring;
-        this.miplatform = miplatform;
-        this.history    = history;
-        this.shareRepo  = shareRepo;
-        this.mapper     = mapper;
+        this.service      = service;
+        this.mybatis      = mybatis;
+        this.callerIndex  = callerIndex;
+        this.spring       = spring;
+        this.miplatform   = miplatform;
+        this.history      = history;
+        this.shareRepo    = shareRepo;
+        this.mapper       = mapper;
     }
 
     @Operation(summary = "데이터 흐름 분석 — 테이블 / SP / SQL_ID / MiPlatform 화면을 시작점으로 추적")
@@ -265,6 +269,164 @@ public class FlowController {
     private static String truncate200(String s) {
         if (s == null) return "";
         return s.length() > 200 ? s.substring(0, 200) : s;
+    }
+
+    @Operation(summary = "Impact Analysis — 테이블 변경 영향 역추적 (TABLE → 코드 → 화면)")
+    @GetMapping("/impact")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> impact(
+            @RequestParam("table") String table,
+            @RequestParam(value = "dml", required = false) String dml) {
+        if (table == null || table.trim().isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("table 파라미터가 필요합니다."));
+        }
+        String tableUp = table.trim().toUpperCase();
+        try {
+            // 1. TABLE → MyBatis statements
+            List<MyBatisIndexer.MyBatisStatement> stmts = dml != null && !dml.equalsIgnoreCase("ALL")
+                    ? mybatis.findStatementsForTable(tableUp, dml)
+                    : mybatis.findStatementsForTable(tableUp, (String) null);
+
+            // 2. Statements → Java files (역인덱스)
+            java.util.Set<String> javaFiles = new java.util.LinkedHashSet<String>();
+            for (MyBatisIndexer.MyBatisStatement st : stmts) {
+                if (st.fullId != null) javaFiles.addAll(callerIndex.filesCallingStatement(st.fullId));
+            }
+
+            // 3. Java files → Controller endpoints (파일 경로 매칭)
+            java.util.Set<String> javaFilesNorm = new java.util.LinkedHashSet<String>();
+            for (String f : javaFiles) javaFilesNorm.add(f.replace('\\', '/'));
+            List<SpringUrlIndexer.ControllerEndpoint> endpoints = new ArrayList<SpringUrlIndexer.ControllerEndpoint>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : spring.allEndpoints()) {
+                String epFile = ep.file != null ? ep.file.replace('\\', '/') : "";
+                if (javaFilesNorm.contains(epFile)) endpoints.add(ep);
+            }
+
+            // 4. Controller endpoints → MiPlatform screens (URL 매칭)
+            java.util.Set<String> screens = new java.util.LinkedHashSet<String>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
+                for (MiPlatformIndexer.MiPlatformScreen s : miplatform.findByUrl(ep.url)) {
+                    screens.add(s.file != null ? s.file : "");
+                }
+            }
+
+            // Build response
+            List<Map<String, Object>> stmtList = new ArrayList<Map<String, Object>>();
+            for (MyBatisIndexer.MyBatisStatement st : stmts) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("fullId", st.fullId); m.put("dml", st.dml); m.put("file", st.file); m.put("line", st.line);
+                stmtList.add(m);
+            }
+            List<Map<String, Object>> epList = new ArrayList<Map<String, Object>>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("url", ep.url); m.put("httpMethod", ep.httpMethod);
+                m.put("className", ep.className); m.put("methodName", ep.methodName);
+                m.put("file", ep.file); m.put("line", ep.line);
+                epList.add(m);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("table",      tableUp);
+            data.put("dml",        dml != null ? dml.toUpperCase() : "ALL");
+            data.put("statements", stmtList);
+            data.put("javaFiles",  new ArrayList<String>(javaFiles));
+            data.put("endpoints",  epList);
+            data.put("screens",    new ArrayList<String>(screens));
+            data.put("counts", new LinkedHashMap<String, Object>() {{
+                put("statements", stmtList.size());
+                put("javaFiles",  javaFiles.size());
+                put("endpoints",  epList.size());
+                put("screens",    screens.size());
+            }});
+            log.info("[Flow] impact: table={} dml={} stmts={} javaFiles={} eps={} screens={}",
+                    tableUp, dml, stmtList.size(), javaFiles.size(), epList.size(), screens.size());
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.error("[Flow] impact 실패 table={}", table, e);
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("impact 분석 실패: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "SP Flow 분석 — SP 호출 역추적 (SP → MyBatis → Java → Controller → MiPlatform)")
+    @GetMapping("/sp-impact")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> spImpact(
+            @RequestParam("sp") String sp) {
+        if (sp == null || sp.trim().isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("sp 파라미터가 필요합니다."));
+        }
+        String spName = sp.trim().toUpperCase();
+        // Match CALL/EXEC/EXECUTE/{ CALL ... } or bare SP name reference in snippet
+        java.util.regex.Pattern spPat = java.util.regex.Pattern.compile(
+                "(?i)(?:(?:CALL|EXEC(?:UTE)?)\\s+|\\{\\s*CALL\\s+)" + java.util.regex.Pattern.quote(spName) + "\\b"
+                + "|\\b" + java.util.regex.Pattern.quote(spName) + "\\s*\\(");
+        try {
+            // 1. Scan all MyBatis statements for SP references in snippet
+            List<MyBatisIndexer.MyBatisStatement> stmts = new ArrayList<MyBatisIndexer.MyBatisStatement>();
+            for (MyBatisIndexer.MyBatisStatement st : mybatis.allStatements()) {
+                if (st.snippet != null && spPat.matcher(st.snippet).find()) {
+                    stmts.add(st);
+                }
+            }
+
+            // 2. Statements → Java files
+            java.util.Set<String> javaFiles = new java.util.LinkedHashSet<String>();
+            for (MyBatisIndexer.MyBatisStatement st : stmts) {
+                if (st.fullId != null) javaFiles.addAll(callerIndex.filesCallingStatement(st.fullId));
+            }
+
+            // 3. Java files → Controller endpoints
+            java.util.Set<String> javaFilesNorm = new java.util.LinkedHashSet<String>();
+            for (String f : javaFiles) javaFilesNorm.add(f.replace('\\', '/'));
+            List<SpringUrlIndexer.ControllerEndpoint> endpoints = new ArrayList<SpringUrlIndexer.ControllerEndpoint>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : spring.allEndpoints()) {
+                String epFile = ep.file != null ? ep.file.replace('\\', '/') : "";
+                if (javaFilesNorm.contains(epFile)) endpoints.add(ep);
+            }
+
+            // 4. Controller endpoints → MiPlatform screens
+            java.util.Set<String> screens = new java.util.LinkedHashSet<String>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
+                for (MiPlatformIndexer.MiPlatformScreen s : miplatform.findByUrl(ep.url)) {
+                    screens.add(s.file != null ? s.file : "");
+                }
+            }
+
+            // Build response
+            List<Map<String, Object>> stmtList = new ArrayList<Map<String, Object>>();
+            for (MyBatisIndexer.MyBatisStatement st : stmts) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("fullId", st.fullId); m.put("dml", st.dml); m.put("file", st.file); m.put("line", st.line);
+                m.put("snippet", st.snippet);
+                stmtList.add(m);
+            }
+            List<Map<String, Object>> epList = new ArrayList<Map<String, Object>>();
+            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
+                Map<String, Object> m = new LinkedHashMap<String, Object>();
+                m.put("url", ep.url); m.put("httpMethod", ep.httpMethod);
+                m.put("className", ep.className); m.put("methodName", ep.methodName);
+                m.put("file", ep.file); m.put("line", ep.line);
+                epList.add(m);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<String, Object>();
+            data.put("sp",         spName);
+            data.put("statements", stmtList);
+            data.put("javaFiles",  new ArrayList<String>(javaFiles));
+            data.put("endpoints",  epList);
+            data.put("screens",    new ArrayList<String>(screens));
+            data.put("counts", new LinkedHashMap<String, Object>() {{
+                put("statements", stmtList.size());
+                put("javaFiles",  javaFiles.size());
+                put("endpoints",  epList.size());
+                put("screens",    screens.size());
+            }});
+            log.info("[Flow] sp-impact: sp={} stmts={} javaFiles={} eps={} screens={}",
+                    spName, stmtList.size(), javaFiles.size(), epList.size(), screens.size());
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.error("[Flow] sp-impact 실패 sp={}", sp, e);
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("SP 분석 실패: " + e.getMessage()));
+        }
     }
 
     @Operation(summary = "모든 인덱스 강제 재빌드 (settings 변경 후 또는 운영자 요청)")

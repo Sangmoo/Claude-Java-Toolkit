@@ -16,6 +16,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * v4.5 — 패키지 개요의 "📜 스토리" 탭용 Claude 내러티브 생성기.
@@ -59,6 +62,14 @@ public class PackageStoryService {
         t.setDaemon(true);
         return t;
     });
+
+    // ── Bulk job state ────────────────────────────────────────────────────
+    private final AtomicBoolean bulkRunning  = new AtomicBoolean(false);
+    private final AtomicInteger bulkTotal    = new AtomicInteger(0);
+    private final AtomicInteger bulkDone     = new AtomicInteger(0);
+    private final AtomicInteger bulkFailed   = new AtomicInteger(0);
+    private final AtomicReference<String> bulkCurrent = new AtomicReference<>("");
+    private volatile boolean bulkCancelled = false;
 
     private static volatile String SYSTEM_PROMPT_CACHED;
 
@@ -149,6 +160,60 @@ public class PackageStoryService {
     /** v4.5 — 어드민 캐시 통계 엔드포인트용. */
     public int cacheSize() {
         return cache.size();
+    }
+
+    // ── Bulk story generation ─────────────────────────────────────────────
+
+    /** 비동기 일괄 스토리 생성 시작. 이미 실행 중이면 false 반환. */
+    public synchronized boolean startBulk(List<String> packages, int level) {
+        if (bulkRunning.get()) return false;
+        bulkTotal.set(packages.size());
+        bulkDone.set(0);
+        bulkFailed.set(0);
+        bulkCurrent.set("");
+        bulkCancelled = false;
+        bulkRunning.set(true);
+        claudeExecutor.submit(() -> runBulk(new ArrayList<String>(packages), level));
+        return true;
+    }
+
+    private void runBulk(List<String> packages, int level) {
+        try {
+            for (String pkg : packages) {
+                if (bulkCancelled) break;
+                bulkCurrent.set(pkg);
+                try {
+                    generate(pkg, level, false);
+                    bulkDone.incrementAndGet();
+                } catch (Exception e) {
+                    bulkFailed.incrementAndGet();
+                    log.warn("[PackageStory] 일괄생성 실패 pkg={}: {}", pkg, e.getMessage());
+                }
+                if (!bulkCancelled) {
+                    try { Thread.sleep(500); } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt(); break;
+                    }
+                }
+            }
+        } finally {
+            bulkRunning.set(false);
+            bulkCurrent.set("");
+        }
+    }
+
+    public void cancelBulk() { bulkCancelled = true; }
+
+    public Map<String, Object> getBulkStatus() {
+        int total = bulkTotal.get();
+        int done  = bulkDone.get();
+        Map<String, Object> m = new LinkedHashMap<String, Object>();
+        m.put("running", bulkRunning.get());
+        m.put("total",   total);
+        m.put("done",    done);
+        m.put("failed",  bulkFailed.get());
+        m.put("current", bulkCurrent.get());
+        m.put("pct",     total > 0 ? (int)(100.0 * done / total) : 0);
+        return m;
     }
 
     // ── Prompt 빌더 ────────────────────────────────────────────────────

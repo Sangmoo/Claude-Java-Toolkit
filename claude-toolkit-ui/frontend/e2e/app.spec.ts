@@ -135,6 +135,9 @@ test.describe('v4.5 신규 경로 — 인증 게이팅', () => {
     '/flow-analysis',
     '/package-overview',
     '/project-map',
+    '/package-deps',
+    '/impact',
+    '/sp-impact',
   ]
 
   for (const route of newRoutes) {

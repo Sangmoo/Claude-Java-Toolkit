@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
@@ -326,6 +327,87 @@ public class PackageAnalysisController {
             headers.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
             return new ResponseEntity<byte[]>(err, headers, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Operation(summary = "패키지 간 의존성 그래프 (Spring endpoint callee 기반)")
+    @GetMapping("/dependency-graph")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> dependencyGraph(
+            @RequestParam(value = "level",  required = false) Integer level,
+            @RequestParam(value = "prefix", required = false) String  prefix) {
+        int lv = level != null ? level : service.currentLevel();
+        String pf = prefix != null ? prefix : service.currentPrefix();
+        try {
+            Map<String, Object> graph = service.buildDependencyGraph(lv, pf);
+            return ResponseEntity.ok(ApiResponse.ok(graph));
+        } catch (Exception e) {
+            log.warn("[Package] dependency-graph 실패", e);
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("그래프 생성 실패: " + e.getMessage()));
+        }
+    }
+
+    // ── 일괄 스토리 생성 ──────────────────────────────────────────────────
+
+    @Operation(summary = "현재 레벨 전 패키지 스토리 일괄 생성 시작 (ADMIN 전용)")
+    @PostMapping("/story/bulk")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> startBulk(
+            HttpServletRequest request,
+            @RequestParam(value = "level", required = false) Integer level) {
+        if (!request.isUserInRole("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.<Map<String, Object>>error("ADMIN 권한이 필요합니다."));
+        }
+        int lv = level != null ? level : service.currentLevel();
+        List<PackageAnalysisService.PackageSummary> pkgs = service.listOverview(lv, service.currentPrefix());
+        List<String> names = new ArrayList<String>();
+        for (PackageAnalysisService.PackageSummary p : pkgs) names.add(p.packageName);
+        boolean started = storyService.startBulk(names, lv);
+        Map<String, Object> out = new LinkedHashMap<String, Object>();
+        out.put("started",  started);
+        out.put("queued",   names.size());
+        out.put("message",  started ? "일괄 생성 시작됨" : "이미 실행 중입니다.");
+        return ResponseEntity.ok(ApiResponse.ok(out));
+    }
+
+    @Operation(summary = "일괄 스토리 생성 진행 상태 조회")
+    @GetMapping("/story/bulk")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> bulkStatus() {
+        return ResponseEntity.ok(ApiResponse.ok(storyService.getBulkStatus()));
+    }
+
+    @Operation(summary = "일괄 스토리 생성 취소")
+    @PostMapping("/story/bulk/cancel")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelBulk(HttpServletRequest request) {
+        if (!request.isUserInRole("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.<Map<String, Object>>error("ADMIN 권한이 필요합니다."));
+        }
+        storyService.cancelBulk();
+        Map<String, Object> out = new LinkedHashMap<String, Object>();
+        out.put("cancelled", true);
+        return ResponseEntity.ok(ApiResponse.ok(out));
+    }
+
+    @Operation(summary = "일괄 스토리 생성 SSE 진행률 스트림")
+    @GetMapping(value = "/story/bulk/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter bulkStream() {
+        SseEmitter emitter = new SseEmitter(10L * 60 * 1000);  // 10분 timeout
+        Thread t = new Thread(() -> {
+            try {
+                while (true) {
+                    Map<String, Object> status = storyService.getBulkStatus();
+                    emitter.send(SseEmitter.event().name("progress")
+                            .data(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(status)));
+                    boolean running = Boolean.TRUE.equals(status.get("running"));
+                    if (!running) { emitter.complete(); break; }
+                    Thread.sleep(1000);
+                }
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+        }, "bulk-story-sse");
+        t.setDaemon(true);
+        t.start();
+        return emitter;
     }
 
     @Operation(summary = "모든 인덱서 재빌드 (Java/MyBatis caller/Spring)")
