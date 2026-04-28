@@ -81,9 +81,10 @@ class HarnessSpMigrationStreamingTest {
         }).when(claudeClient).chatStreamWithContinuation(
                 anyString(), anyString(), anyInt(), anyInt(), any());
 
-        // 토큰/모델 메타 — ReviewHistoryService 가 metric 기록할 때 호출
-        when(claudeClient.getLastInputTokens()).thenReturn(100L);
-        when(claudeClient.getLastOutputTokens()).thenReturn(200L);
+        // 토큰/모델 메타 — ReviewHistoryService 가 metric 기록할 때 호출.
+        // ClaudeClient.getLast*Tokens() 는 int 반환이므로 thenReturn 도 int 로 맞춤.
+        when(claudeClient.getLastInputTokens()).thenReturn(100);
+        when(claudeClient.getLastOutputTokens()).thenReturn(200);
         when(claudeClient.getEffectiveModel()).thenReturn("test-model");
     }
 

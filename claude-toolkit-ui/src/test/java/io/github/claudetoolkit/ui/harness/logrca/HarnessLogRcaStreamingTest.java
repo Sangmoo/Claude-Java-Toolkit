@@ -65,8 +65,8 @@ class HarnessLogRcaStreamingTest {
         }).when(claudeClient).chatStreamWithContinuation(
                 anyString(), anyString(), anyInt(), anyInt(), any());
 
-        when(claudeClient.getLastInputTokens()).thenReturn(80L);
-        when(claudeClient.getLastOutputTokens()).thenReturn(180L);
+        when(claudeClient.getLastInputTokens()).thenReturn(80);
+        when(claudeClient.getLastOutputTokens()).thenReturn(180);
         when(claudeClient.getEffectiveModel()).thenReturn("test-model");
     }
 

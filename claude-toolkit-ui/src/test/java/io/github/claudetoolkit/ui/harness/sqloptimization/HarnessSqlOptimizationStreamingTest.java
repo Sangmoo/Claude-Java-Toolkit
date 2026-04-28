@@ -65,8 +65,8 @@ class HarnessSqlOptimizationStreamingTest {
         }).when(claudeClient).chatStreamWithContinuation(
                 anyString(), anyString(), anyInt(), anyInt(), any());
 
-        when(claudeClient.getLastInputTokens()).thenReturn(150L);
-        when(claudeClient.getLastOutputTokens()).thenReturn(250L);
+        when(claudeClient.getLastInputTokens()).thenReturn(150);
+        when(claudeClient.getLastOutputTokens()).thenReturn(250);
         when(claudeClient.getEffectiveModel()).thenReturn("test-model");
     }
 
