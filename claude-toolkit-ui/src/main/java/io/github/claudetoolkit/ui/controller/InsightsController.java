@@ -243,9 +243,7 @@ public class InsightsController {
     }
 
     private static String typeLabel(String type) {
-        if (type == null) return "";
-        ReviewHistory dummy = new ReviewHistory(type, "", "", "");
-        return dummy.getTypeLabel();
+        return ReviewHistory.typeLabelOf(type);
     }
 
     /** 1등이면 100백분위, 꼴찌면 0백분위 */

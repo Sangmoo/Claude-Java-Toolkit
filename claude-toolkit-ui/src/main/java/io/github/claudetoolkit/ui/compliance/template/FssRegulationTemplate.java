@@ -194,7 +194,6 @@ public final class FssRegulationTemplate {
 
     private static String typeLabel(String type) {
         if (type == null) return "-";
-        ReviewHistory dummy = new ReviewHistory(type, "", "", "");
-        return dummy.getTypeLabel();
+        return ReviewHistory.typeLabelOf(type);
     }
 }

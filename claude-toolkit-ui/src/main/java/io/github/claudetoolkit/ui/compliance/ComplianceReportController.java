@@ -72,8 +72,14 @@ public class ComplianceReportController {
                 return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error(
                         type.getLabel() + " 리포트는 아직 준비 중입니다 (Stage 2 예정)."));
             }
-            LocalDate from = LocalDate.parse(fromStr);
-            LocalDate to   = LocalDate.parse(toStr);
+            LocalDate from, to;
+            try {
+                from = LocalDate.parse(fromStr);
+                to   = LocalDate.parse(toStr);
+            } catch (java.time.format.DateTimeParseException dpe) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error(
+                        "날짜 형식이 잘못되었습니다 (yyyy-MM-dd 형식 필요): " + dpe.getParsedString()));
+            }
             String generatedBy = auth != null ? auth.getName() : "anonymous";
 
             ComplianceReportService.GeneratedReport gr =

@@ -143,6 +143,17 @@ public class ReviewHistory {
 
     /** Korean label for the history type */
     public String getTypeLabel() {
+        return typeLabelOf(type);
+    }
+
+    /**
+     * v4.6.x — type 문자열만으로 한국어 라벨 변환하는 정적 헬퍼.
+     *
+     * <p>이전엔 호출부가 {@code new ReviewHistory(type, "", "", "")} dummy 인스턴스를
+     * 만들고 {@link #getTypeLabel()} 호출했었는데 fragile 하고 nullable=false 컬럼
+     * 정책이 바뀌면 깨질 수 있어서 정적 메서드로 추출. 라벨 매핑의 단일 진실 출처.
+     */
+    public static String typeLabelOf(String type) {
         if ("SQL_REVIEW".equals(type))      return "SQL 리뷰";
         if ("SQL_SECURITY".equals(type))    return "SQL 보안";
         if ("DOC_GEN".equals(type))         return "문서 생성";
@@ -168,7 +179,7 @@ public class ReviewHistory {
         if ("SQL_BATCH".equals(type))       return "SQL 배치";
         if ("SQL_TRANSLATE".equals(type))   return "SQL 번역";
         if ("HARNESS_REVIEW".equals(type))  return "하네스 리뷰";
-        return type;
+        return type != null ? type : "";
     }
 
     /** Accent colour hex for the type badge */

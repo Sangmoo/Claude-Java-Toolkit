@@ -858,11 +858,7 @@ public class DataRestController {
 
     /** ReviewHistory.getTypeLabel() 의 static 버전 — type 문자열만으로 한국어 라벨 변환 */
     private static String typeLabel(String type) {
-        if (type == null) return "";
-        // 직접 인스턴스 만들어서 getTypeLabel 위임 (라벨 매핑 단일 소스)
-        io.github.claudetoolkit.ui.history.ReviewHistory dummy =
-                new io.github.claudetoolkit.ui.history.ReviewHistory(type, "", "", "");
-        return dummy.getTypeLabel();
+        return io.github.claudetoolkit.ui.history.ReviewHistory.typeLabelOf(type);
     }
 
     @GetMapping("/admin/team-dashboard")
