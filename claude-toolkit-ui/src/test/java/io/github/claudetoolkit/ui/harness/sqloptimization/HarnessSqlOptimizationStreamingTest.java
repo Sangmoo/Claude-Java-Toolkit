@@ -51,7 +51,7 @@ class HarnessSqlOptimizationStreamingTest {
     @MockBean private ClaudeClient claudeClient;
 
     @BeforeEach
-    void stubClaudeClient() {
+    void stubClaudeClient() throws Exception {
         doAnswer(inv -> {
             Consumer<String> sink = inv.getArgument(3);
             sink.accept("[fake stage output]");

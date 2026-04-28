@@ -65,7 +65,9 @@ class HarnessSpMigrationStreamingTest {
     @MockBean private ClaudeClient claudeClient;
 
     @BeforeEach
-    void stubClaudeClient() {
+    void stubClaudeClient() throws Exception {
+        // chatStream / chatStreamWithContinuation 가 IOException 을 declare 하므로
+        // Mockito.when() 체인에서도 checked 처리 필요 → 메서드 시그니처에 throws.
         // chatStream(system, user, maxTokens, sink) — Consumer 에 가짜 chunk 즉시 emit
         doAnswer(inv -> {
             Consumer<String> sink = inv.getArgument(3);
