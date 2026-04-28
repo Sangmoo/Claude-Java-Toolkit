@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.6.1-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.7.0-brightgreen.svg)](#)
 [![Helm](https://img.shields.io/badge/helm-chart_0.1.0-0F1689.svg)](./helm/claude-toolkit)
 
 ---
@@ -29,7 +29,35 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
-### 🆕 v4.6.1 하이라이트 — UX 개선 + 정확도/안정성 패치
+### 🆕 v4.7.0 하이라이트 — 인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드
+
+5개 큰 영역을 한 번에 끌어올린 메이저 릴리스. 각 항목은 운영팀 / 외부감사인 / 사용자
+모두를 별도 시나리오로 지원하도록 설계됐고, 모든 변경은 *기존 파이프라인 부담 없이*
+선택적으로 활성화/사용할 수 있습니다.
+
+- 🛡 **한국 컴플라이언스 리포트 (4종, ADMIN 전용 신규 페이지)** — `/admin/compliance-report`
+  - **전자금융감독규정 (FSS)** / **개인정보보호법 (PIPA)** / **정보통신망법** / **외부감사 종합**
+    4종 모두 활성화. 8\~10개 섹션 markdown + 자동 점검 표 + 수동 검토 체크리스트.
+  - 외부감사 종합 리포트는 **3개 법령 횡단 비교 표** 로 ✅/⚠️ 한눈에 파악 가능
+  - 다운로드 3종: **.md / .xlsx (Apache POI 4시트) / 인쇄·PDF** (브라우저 네이티브 저장)
+  - 옵션 **🤖 AI 경영진 요약** — Claude 가 3-5문장 한국어 요약을 markdown 상단에 prepend
+  - **영구 저장 이력** — 생성된 리포트는 H2 DB(`compliance_report` 테이블)에 자동 저장,
+    "저장된 리포트 이력" 모달에서 과거 리포트 다시 보기·다운로드·삭제 (최대 500건)
+- 🔬 **시스템 헬스 대시보드 확장** — `/admin/health` 가 기존 4개 카드(서버/JVM/DB/시스템) +
+  **5개 신규 카드** (인덱서 5종 / 캐시 3종 / Claude API / 감사 로그 / 오류 로그) 로 확장.
+  silent JPQL 실패 같은 사고가 또 발생하면 운영팀이 즉시 발견 가능. 30초 자동 갱신.
+- 📊 **사용자/팀 인사이트 (`/roi-report` 확장)** — 기존 시스템 통계 + 새 두 섹션:
+  - *내 활동* — 본인 분석/채팅/시간 절감 + Top 5 기능 BarChart + 12주 누적 LineChart
+  - *팀 비교* — 팀 평균/누적 + **본인 순위·백분위 시각 진행 바** + Top 5 사용자 (ADMIN)
+- 🔍 **검색 강화 (필터 + 정렬 + 매치 강조)** — `/api/v1/search` 에 type/from/to/sort 파라미터,
+  매치 위치 ±60자 발췌 snippet, 결과에 `<mark>` 노란 강조. SearchPage 에 필터 토글 + URL 동기화.
+- ⚡ **분석 비용 미리보기** — 모든 분석 시작 버튼 옆에 인라인 표시:
+  `🪙 ~12K 토큰 · 예상 $0.062 (Sonnet 4)`. 한국어 1.8 chars/token + 영어 3.5 chars/token
+  휴리스틱(±15% 오차). 23개 분석 페이지 자동 적용.
+- 🧪 **SSE 회귀 테스트 4건 + FSS 단위 테스트 8건** — 스트리밍 경로 이력 저장 누락 / 리포트
+  markdown 빌더 회귀 방지. mvn test 한 번이면 백엔드 전반 검증.
+
+### v4.6.1 하이라이트 — UX 개선 + 정확도/안정성 패치
 
 이번 패치는 사용자 워크플로의 자잘한 마찰을 한 번에 정리하는 데 집중했습니다. 큰 신규 기능은 없지만, **현장에서 바로 체감되는** 개선이 모여 있습니다.
 
@@ -550,7 +578,9 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 |------|------|------|
 | **리뷰 이력** | `/history` | 자동 저장, 검색/필터, **SARIF/Excel 내보내기** ✨, 공유 링크, 즐겨찾기 |
 | **즐겨찾기** | `/favorites` | 태그별 정리, H2 영속화, (사용자, 이력) 중복 방지 |
-| **검색** ✨ | `/search` | 메뉴 카탈로그 + 분석 이력 통합 검색. **상단바 글로벌 검색창**(팔레트 accent 색상)에서 모든 페이지 어디서든 호출 가능 |
+| **검색** ✨ | `/search` | 메뉴 카탈로그 + 분석 이력 통합 검색. **상단바 글로벌 검색창**(팔레트 accent 색상)에서 모든 페이지 어디서든 호출 가능. **타입/날짜 필터 + 정렬 + 매치 강조** ✨ v4.7 |
+| **ROI 리포트 + 인사이트** ✨ v4.7 | `/roi-report` | 시스템 통계 + **내 활동** (Top 5 기능 / 12주 추이) + **팀 비교** (백분위·순위·진행 바, ADMIN) |
+| **컴플라이언스 리포트** ✨ v4.7 | `/admin/compliance-report` (ADMIN) | FSS / PIPA / 정보통신망법 / 외부감사 4종, **Markdown / Excel(POI 4시트) / 인쇄·PDF** + AI 경영진 요약 + **영구 저장 이력** (최대 500건) |
 | **사용량** | `/usage` | 일/월별 토큰 사용량 + 사용자별 제한 |
 | **ROI 리포트** | `/roi-report` | 절감 시간 환산 + 누적 분석 통계 |
 | **리뷰 요청** | `/review-requests` | VIEWER 작성 → REVIEWER/ADMIN 승인/거절 + 코멘트 + @멘션 |

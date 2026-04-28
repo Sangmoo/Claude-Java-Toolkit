@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,16 +42,22 @@ public class ComplianceReportService {
                 }
             });
 
+    /** 영구 저장 상한 — 초과 시 가장 오래된 것부터 자동 prune */
+    private static final long PERSISTED_MAX = 500;
+
     private final ComplianceDataAggregator aggregator;
     private final ExecutiveSummaryGenerator execSummary;
     private final ComplianceExcelExporter excelExporter;
+    private final ComplianceReportRepository reportRepo;
 
     public ComplianceReportService(ComplianceDataAggregator aggregator,
                                    ExecutiveSummaryGenerator execSummary,
-                                   ComplianceExcelExporter excelExporter) {
+                                   ComplianceExcelExporter excelExporter,
+                                   ComplianceReportRepository reportRepo) {
         this.aggregator    = aggregator;
         this.execSummary   = execSummary;
         this.excelExporter = excelExporter;
+        this.reportRepo    = reportRepo;
     }
 
     /**
@@ -134,8 +141,33 @@ public class ComplianceReportService {
             }
         }
 
+        // v4.6.x Stage 4 — 영구 저장 (이력 페이지에서 다시 조회 가능)
+        ComplianceReportRecord saved;
+        try {
+            ComplianceReportRecord rec = new ComplianceReportRecord(
+                    type.getKey(),
+                    type.getLabel(),
+                    from,
+                    to,
+                    data.generatedBy,
+                    markdown,
+                    execSummaryText != null && !execSummaryText.isEmpty(),
+                    data.totalAnalysisInPeriod,
+                    data.security != null ? data.security.highSeverityCount : 0,
+                    data.auth     != null ? data.auth.loginFailures        : 0,
+                    data.masking  != null ? (data.masking.maskingAnalyses + data.masking.inputMaskingUses) : 0
+            );
+            saved = reportRepo.save(rec);
+            pruneOverLimit();
+        } catch (Exception persistErr) {
+            // 영속화 실패해도 사용자 응답은 정상 → 메모리 LRU 만 사용
+            log.warn("[Compliance] 영구 저장 실패 — 메모리 LRU 만 사용: {}", persistErr.getMessage());
+            saved = null;
+        }
+
         GeneratedReport gr = new GeneratedReport();
-        gr.id          = UUID.randomUUID().toString();
+        // 영속화 성공시 DB id 사용 (이력 페이지에서 동일 id 로 다시 조회), 실패시 UUID
+        gr.id          = saved != null ? String.valueOf(saved.getId()) : UUID.randomUUID().toString();
         gr.type        = type;
         gr.from        = from;
         gr.to          = to;
@@ -148,9 +180,64 @@ public class ComplianceReportService {
                 type.getKey(), from, to);
 
         reports.put(gr.id, gr);
-        log.info("[Compliance] 리포트 생성 완료 id={} length={}자 execSummary={}",
-                gr.id, markdown.length(), execSummaryText != null);
+        log.info("[Compliance] 리포트 생성 완료 id={} length={}자 execSummary={} persisted={}",
+                gr.id, markdown.length(), execSummaryText != null, saved != null);
         return gr;
+    }
+
+    /** 영속 상한 초과 시 가장 오래된 레코드부터 삭제 */
+    private void pruneOverLimit() {
+        try {
+            while (reportRepo.count() > PERSISTED_MAX) {
+                ComplianceReportRecord oldest = reportRepo.findTopByOrderByCreatedAtAsc();
+                if (oldest == null) break;
+                reportRepo.delete(oldest);
+            }
+        } catch (Exception ignored) { /* prune 실패해도 메인 흐름엔 영향 X */ }
+    }
+
+    /**
+     * v4.6.x Stage 4 — 저장된 리포트 이력 목록 (최신순).
+     * markdown 본문은 제외하고 메타데이터만 (목록 화면 빠르게).
+     */
+    public List<ComplianceReportRecord> listHistory(int limit) {
+        int safeLimit = Math.max(1, Math.min(200, limit));
+        return reportRepo.findRecent(org.springframework.data.domain.PageRequest.of(0, safeLimit));
+    }
+
+    /**
+     * v4.6.x Stage 4 — 영구 저장된 리포트를 DB id 로 다시 로드 (markdown 포함).
+     * GeneratedReport DTO 형태로 변환해서 반환 — 프론트가 동일 객체 형태로 다룸.
+     */
+    public GeneratedReport loadFromHistory(long recordId) {
+        ComplianceReportRecord rec = reportRepo.findById(recordId).orElse(null);
+        if (rec == null) return null;
+        ComplianceReportType type = ComplianceReportType.fromKey(rec.getType());
+        if (type == null) return null;
+        GeneratedReport gr = new GeneratedReport();
+        gr.id              = String.valueOf(rec.getId());
+        gr.type            = type;
+        gr.from            = rec.getAuditFrom();
+        gr.to              = rec.getAuditTo();
+        gr.generatedAt     = rec.getFormattedCreatedAt() + ":00";
+        gr.generatedBy     = rec.getGeneratedBy();
+        gr.markdown        = rec.getMarkdown();
+        gr.executiveSummary = null; // markdown 안에 이미 포함됨
+        gr.aggregatedData  = null;  // Excel 재생성은 불가 — 새로 생성 필요
+        gr.suggestedFilename = String.format("compliance-%s-%s_%s.md",
+                rec.getType(), rec.getAuditFrom(), rec.getAuditTo());
+        // LRU 에도 등록 (다운로드 엔드포인트가 캐시 우선 조회)
+        reports.put(gr.id, gr);
+        return gr;
+    }
+
+    /** v4.6.x Stage 4 — 이력 항목 삭제 */
+    public boolean deleteHistory(long recordId) {
+        if (!reportRepo.existsById(recordId)) return false;
+        reportRepo.deleteById(recordId);
+        // LRU 에서도 제거
+        reports.remove(String.valueOf(recordId));
+        return true;
     }
 
     /** Excel(.xlsx) 바이트 변환 — 리포트 ID 로 조회된 경우만 가능. */
@@ -162,9 +249,20 @@ public class ComplianceReportService {
         return excelExporter.toExcel(gr, gr.aggregatedData);
     }
 
-    /** id 로 조회 — 다운로드 시점에 markdown 을 가져오는 데 사용 */
+    /**
+     * id 로 조회 — 다운로드 시점에 markdown 을 가져오는 데 사용.
+     * LRU 캐시 우선, 미스 시 DB 에서 로드 (이력 페이지에서 과거 리포트 다운로드 가능하게).
+     */
     public GeneratedReport find(String id) {
-        return reports.get(id);
+        GeneratedReport cached = reports.get(id);
+        if (cached != null) return cached;
+        // 캐시 미스 → DB 조회 시도 (id 가 long parsable 일 때만)
+        try {
+            long recId = Long.parseLong(id);
+            return loadFromHistory(recId);
+        } catch (NumberFormatException ignore) {
+            return null;
+        }
     }
 
     /** 생성된 리포트 메타데이터. */

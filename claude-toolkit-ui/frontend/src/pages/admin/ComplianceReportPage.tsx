@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   FaShieldAlt, FaPlay, FaSpinner, FaDownload, FaCopy, FaCheck, FaInfoCircle, FaFileAlt,
-  FaFileExcel, FaPrint, FaRobot,
+  FaFileExcel, FaPrint, FaRobot, FaHistory, FaTimes, FaTrash, FaEye,
 } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -28,6 +28,21 @@ interface GeneratedReport {
   suggestedFilename: string
 }
 
+interface HistoryRow {
+  id: number
+  type: string
+  typeLabel: string
+  auditFrom: string
+  auditTo: string
+  createdAt: string
+  generatedBy: string
+  hasExecutiveSummary: boolean
+  totalAnalysisInPeriod: number
+  highSeverityCount: number
+  loginFailures: number
+  maskingActivities: number
+}
+
 /**
  * v4.6.x — 한국 컴플라이언스 리포트 페이지 (ADMIN 전용).
  *
@@ -43,6 +58,10 @@ export default function ComplianceReportPage() {
   const [loading, setLoading]     = useState(false)
   const [copied, setCopied]       = useState(false)
   const [withExecSummary, setWithExecSummary] = useState(false)
+  // Stage 4 — 이력 모달 상태
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyRows, setHistoryRows] = useState<HistoryRow[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const api = useApi()
   const toast = useToast()
 
@@ -93,6 +112,57 @@ export default function ComplianceReportPage() {
     window.open(`/api/v1/admin/compliance/${report.id}/download?format=xlsx`, '_blank')
   }
 
+  // ── Stage 4: 이력 모달 ─────────────────────────────────────────────────
+
+  const openHistory = async () => {
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    try {
+      const d = await api.get('/api/v1/admin/compliance/history?limit=100') as HistoryRow[] | null
+      setHistoryRows(d || [])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const loadHistoryItem = async (recordId: number) => {
+    try {
+      const d = await api.get(`/api/v1/admin/compliance/history/${recordId}`) as GeneratedReport | null
+      if (d) {
+        setReport(d)
+        setHistoryOpen(false)
+        toast.success('이력에서 리포트를 불러왔습니다')
+        // 페이지 상단으로 스크롤
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        toast.error('해당 이력을 찾을 수 없습니다')
+      }
+    } catch (e) {
+      toast.error('이력 로드 실패: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  const deleteHistoryItem = async (recordId: number, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (!confirm('이 컴플라이언스 리포트를 영구 삭제하시겠습니까?')) return
+    try {
+      const res = await fetch(`/api/v1/admin/compliance/history/${recordId}`, {
+        method: 'DELETE', credentials: 'include',
+      })
+      const j = await res.json()
+      if (j.success) {
+        toast.success('삭제 완료')
+        setHistoryRows((rows) => rows.filter((r) => r.id !== recordId))
+        // 현재 화면에 표시 중인 리포트가 삭제됐다면 같이 클리어
+        if (report && report.id === String(recordId)) setReport(null)
+      } else {
+        toast.error(j.error || '삭제 실패')
+      }
+    } catch (err) {
+      toast.error('삭제 호출 실패: ' + (err instanceof Error ? err.message : String(err)))
+    }
+  }
+
   /**
    * Stage 3 — 인쇄용 보기 + 브라우저 네이티브 PDF 저장.
    *
@@ -133,12 +203,26 @@ export default function ComplianceReportPage() {
 
   return (
     <div style={{ padding: '4px 0' }}>
-      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <FaShieldAlt style={{ color: '#f59e0b' }} /> 한국 컴플라이언스 리포트
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
-          ADMIN 전용 · 4종 (FSS / PIPA / 정보통신망법 / 외부감사 종합)
-        </span>
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FaShieldAlt style={{ color: '#f59e0b' }} /> 한국 컴플라이언스 리포트
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
+            ADMIN 전용 · 4종 (FSS / PIPA / 정보통신망법 / 외부감사 종합)
+          </span>
+        </h2>
+        <button
+          onClick={openHistory}
+          style={{
+            padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+            background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+          }}
+          title="저장된 컴플라이언스 리포트 이력 보기"
+        >
+          <FaHistory /> 저장된 리포트 이력
+        </button>
+      </div>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
         review_history · audit_log 기반 자동 집계 리포트.
         법적 컴플라이언스 증빙으로 사용하기 전엔 법무 / 컴플라이언스 팀 검토를 받으세요.
@@ -276,12 +360,155 @@ export default function ComplianceReportPage() {
           <br /><br />
           <small>
             4종 활성: 전자금융감독규정 / 개인정보보호법 / 정보통신망법 / 외부감사 종합.
-            <br />PDF · Excel 다운로드는 Stage 3 에서 추가됩니다.
+            <br />Markdown / Excel / PDF 다운로드 + AI 경영진 요약 + 영구 저장 이력.
           </small>
+        </div>
+      )}
+
+      {/* Stage 4 — 이력 모달 ───────────────────────────────────────────── */}
+      {historyOpen && (
+        <div onClick={() => setHistoryOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, padding: 24,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: 'var(--bg-secondary)', borderRadius: 10,
+            border: '1px solid var(--border-color)',
+            width: 'min(1100px, 96vw)', maxHeight: '88vh',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 16px', borderBottom: '1px solid var(--border-color)',
+              background: 'var(--bg-card)', borderTopLeftRadius: 10, borderTopRightRadius: 10,
+            }}>
+              <span style={{ fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FaHistory /> 저장된 컴플라이언스 리포트 이력
+                {historyRows.length > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                    ({historyRows.length}건)
+                  </span>
+                )}
+              </span>
+              <button onClick={() => setHistoryOpen(false)} style={{
+                background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                cursor: 'pointer', fontSize: 14, padding: 4,
+              }} title="닫기">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+              {historyLoading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                  <FaSpinner className="spin" /> 이력 불러오는 중...
+                </div>
+              ) : historyRows.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 13 }}>
+                  저장된 리포트가 없습니다.
+                  <br /><small>리포트 생성 시 자동으로 영구 저장됩니다 (최대 500건, 가장 오래된 것부터 자동 삭제)</small>
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={th}>타입</th>
+                      <th style={th}>감사 기간</th>
+                      <th style={th}>생성</th>
+                      <th style={th} title="기간 내 분석 / HIGH 보안 / 로그인 실패 / 마스킹">핵심 지표</th>
+                      <th style={th}>AI 요약</th>
+                      <th style={{ ...th, textAlign: 'right' }}>액션</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyRows.map((row) => (
+                      <tr key={row.id}
+                          onClick={() => loadHistoryItem(row.id)}
+                          style={{
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--border-color)',
+                            transition: 'background 0.1s',
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-primary)' }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                          title="클릭하여 리포트 본문 불러오기"
+                      >
+                        <td style={td}>
+                          <span style={{
+                            display: 'inline-block', fontSize: 10, padding: '2px 6px',
+                            background: 'var(--accent-subtle)', color: 'var(--accent)',
+                            borderRadius: 3, fontWeight: 600,
+                          }}>{row.typeLabel}</span>
+                        </td>
+                        <td style={{ ...td, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                          {row.auditFrom}<br/><span style={{ color: 'var(--text-muted)' }}>~ {row.auditTo}</span>
+                        </td>
+                        <td style={{ ...td, fontSize: 11 }}>
+                          {row.createdAt}
+                          <div style={{ color: 'var(--text-muted)', fontSize: 10 }}>by {row.generatedBy}</div>
+                        </td>
+                        <td style={{ ...td, fontSize: 11, fontFamily: 'monospace' }}>
+                          분석 <strong>{row.totalAnalysisInPeriod}</strong> · HIGH <strong style={{ color: row.highSeverityCount > 0 ? '#ef4444' : undefined }}>{row.highSeverityCount}</strong>
+                          <div style={{ color: 'var(--text-muted)' }}>
+                            로그인실패 {row.loginFailures} · 마스킹 {row.maskingActivities}
+                          </div>
+                        </td>
+                        <td style={{ ...td, textAlign: 'center' }}>
+                          {row.hasExecutiveSummary ? <FaRobot style={{ color: 'var(--accent)' }} title="AI 요약 포함" /> : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => loadHistoryItem(row.id)}
+                            style={iconBtn} title="본문 보기">
+                            <FaEye />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/api/v1/admin/compliance/${row.id}/download?format=md`, '_blank')}
+                            style={iconBtn} title=".md 다운로드">
+                            <FaDownload />
+                          </button>
+                          <button
+                            onClick={() => window.open(`/api/v1/admin/compliance/${row.id}/download?format=xlsx`, '_blank')}
+                            style={iconBtn} title=".xlsx 다운로드">
+                            <FaFileExcel style={{ color: '#10b981' }} />
+                          </button>
+                          <button
+                            onClick={(e) => deleteHistoryItem(row.id, e)}
+                            style={{ ...iconBtn, color: '#ef4444' }} title="삭제">
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={{
+              padding: '8px 16px', fontSize: 10, color: 'var(--text-muted)',
+              borderTop: '1px solid var(--border-color)', textAlign: 'center',
+            }}>
+              💡 행 클릭 시 본문 로드 · 최대 500건 보관 (초과 시 가장 오래된 것부터 자동 삭제)
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
+}
+
+const th: React.CSSProperties = {
+  textAlign: 'left', padding: '8px 6px', fontSize: 11, fontWeight: 700,
+  color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4,
+}
+const td: React.CSSProperties = {
+  padding: '8px 6px', verticalAlign: 'top',
+}
+const iconBtn: React.CSSProperties = {
+  background: 'transparent', border: 'none', cursor: 'pointer',
+  color: 'var(--text-muted)', padding: '4px 6px', fontSize: 12,
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

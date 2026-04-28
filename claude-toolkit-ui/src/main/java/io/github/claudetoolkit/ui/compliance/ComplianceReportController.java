@@ -42,6 +42,84 @@ public class ComplianceReportController {
         this.service = service;
     }
 
+    /**
+     * v4.6.x Stage 4 — 영구 저장된 리포트 이력 목록 (메타만, markdown 제외).
+     */
+    @GetMapping("/history")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> history(
+            @RequestParam(value = "limit", defaultValue = "50") int limit) {
+        try {
+            List<ComplianceReportRecord> rows = service.listHistory(limit);
+            List<Map<String, Object>> result = new ArrayList<>(rows.size());
+            for (ComplianceReportRecord r : rows) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",                   r.getId());
+                m.put("type",                 r.getType());
+                m.put("typeLabel",            r.getTypeLabel());
+                m.put("auditFrom",            r.getAuditFrom().toString());
+                m.put("auditTo",              r.getAuditTo().toString());
+                m.put("createdAt",            r.getFormattedCreatedAt());
+                m.put("generatedBy",          r.getGeneratedBy());
+                m.put("hasExecutiveSummary",  r.isHasExecutiveSummary());
+                // 핵심 지표 4개 — 한 줄 미리보기
+                m.put("totalAnalysisInPeriod", r.getTotalAnalysisInPeriod());
+                m.put("highSeverityCount",     r.getHighSeverityCount());
+                m.put("loginFailures",         r.getLoginFailures());
+                m.put("maskingActivities",     r.getMaskingActivities());
+                result.add(m);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(result));
+        } catch (Exception e) {
+            log.warn("[Compliance] /history 실패", e);
+            return ResponseEntity.ok(ApiResponse.<List<Map<String, Object>>>error("이력 조회 실패: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * v4.6.x Stage 4 — 저장된 리포트 다시 로드 (markdown 포함, 결과 패널에 표시용).
+     * 다운로드는 기존 {@code /{reportId}/download} 사용 (DB id 도 동일하게 받음).
+     */
+    @GetMapping("/history/{recordId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> loadHistory(@PathVariable("recordId") long recordId) {
+        try {
+            ComplianceReportService.GeneratedReport gr = service.loadFromHistory(recordId);
+            if (gr == null) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("리포트를 찾을 수 없습니다: " + recordId));
+            }
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("id",                gr.id);
+            data.put("type",              gr.type.getKey());
+            data.put("typeLabel",         gr.type.getLabel());
+            data.put("from",              gr.from.toString());
+            data.put("to",                gr.to.toString());
+            data.put("generatedAt",       gr.generatedAt);
+            data.put("generatedBy",       gr.generatedBy);
+            data.put("markdown",          gr.markdown);
+            data.put("hasExecutiveSummary", false);  // 이미 markdown 안에 포함되어 있어 별도 표시 불필요
+            data.put("suggestedFilename", gr.suggestedFilename);
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.warn("[Compliance] /history/{} 실패", recordId, e);
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("이력 로드 실패: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * v4.6.x Stage 4 — 저장된 리포트 항목 삭제 (실수 생성·테스트 데이터 정리용).
+     */
+    @DeleteMapping("/history/{recordId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deleteHistory(@PathVariable("recordId") long recordId) {
+        try {
+            boolean deleted = service.deleteHistory(recordId);
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("deleted", deleted);
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.warn("[Compliance] /history/{} 삭제 실패", recordId, e);
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("삭제 실패: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/types")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> types() {
         List<Map<String, Object>> list = new ArrayList<>();

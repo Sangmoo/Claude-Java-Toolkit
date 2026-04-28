@@ -519,7 +519,7 @@ footer{
         <div class="stat-label" data-i18n="stats.features">AI 기능</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num" data-count="73">0</div>
+        <div class="stat-num" data-count="74">0</div>
         <div class="stat-label" data-i18n="stats.pages">React 페이지</div>
       </div>
       <div class="stat-item">
@@ -535,12 +535,100 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     v4.7.0 — 메이저 릴리스 콜아웃
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(245,158,11,.05),rgba(124,107,240,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">v4.7.0 — 메이저 릴리스</p>
+      <h2 class="section-title">인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        운영팀 / 외부감사인 / 사용자 모두를 위한 5개 영역 동시 강화. 한국 컴플라이언스 4종 자동 리포트와 영구 이력 저장이 추가되며, 사용자별 인사이트와 시스템 헬스 모니터링까지 포함된 메이저 업데이트입니다.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🛡</div>
+        <div class="feat-title">한국 컴플라이언스 리포트 (4종)</div>
+        <div class="feat-desc"><strong>FSS / PIPA / 정보통신망법 / 외부감사 종합</strong> 4종 자동 집계 리포트. review_history + audit_log 기반으로 자동 점검 표 + 수동 검토 체크리스트 + 종합 의견 작성. <strong>Markdown / Excel(4시트) / 인쇄·PDF</strong> 다운로드 + Claude 기반 <strong>AI 경영진 요약</strong> 옵션. 생성 시 자동으로 H2 영구 저장 (최대 500건), <strong>"저장된 리포트 이력" 모달</strong> 에서 과거 리포트 다시 보기·다운로드·삭제.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">📋 4종 법령</span>
+          <span class="tag">📊 4시트 Excel</span>
+          <span class="tag">🤖 AI 요약</span>
+          <span class="tag">💾 영구 이력</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🔬</div>
+        <div class="feat-title">시스템 헬스 대시보드 확장</div>
+        <div class="feat-desc">기존 4개 카드(서버/JVM/DB/시스템) + <strong>5개 신규 카드</strong>: 인덱서 5종 (MyBatis SQL · Spring URL · MiPlatform · Java 패키지 · MyBatis Caller) · 캐시 3종 (분석 / Java 파일 / DB 객체) · Claude API · 감사 로그 · 오류 로그. 30초 자동 갱신, 미해결 오류 강조 + 딥링크.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🗺 인덱서 5종</span>
+          <span class="tag">📚 캐시 3종</span>
+          <span class="tag">🐞 오류 추적</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(6,182,212,.12);color:#06b6d4;">📊</div>
+        <div class="feat-title">사용자/팀 인사이트</div>
+        <div class="feat-desc"><code>/roi-report</code> 페이지에 두 신규 섹션. <strong>내 활동</strong> — 본인 분석/채팅/시간 절감 + Top 5 기능 BarChart + 12주 누적 추이 LineChart. <strong>팀 비교</strong> (ADMIN) — 팀 평균/누적 + <strong>본인 순위·백분위 진행 바</strong> + Top 5 사용자.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">📈 12주 추이</span>
+          <span class="tag">🏆 백분위</span>
+          <span class="tag">👥 팀 비교</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(168,85,247,.12);color:#a855f7;">🔍</div>
+        <div class="feat-title">검색 강화 — 필터 + 정렬 + 매치 강조</div>
+        <div class="feat-desc"><code>/api/v1/search</code> 에 <strong>type / from / to / sort</strong> 4개 파라미터. 매치 위치 ±60자 발췌 snippet + <code>&lt;mark&gt;</code> 노란 강조. SearchPage 에 필터 토글 + URL 동기화 (공유·새로고침 안전). title/type/input/output 매치 필드 라벨 칩 표시.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🎯 4개 필터</span>
+          <span class="tag">🟡 매치 강조</span>
+          <span class="tag">🔗 URL 동기화</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">⚡</div>
+        <div class="feat-title">분석 비용 미리보기</div>
+        <div class="feat-desc">모든 분석 시작 버튼 옆에 인라인 표시 — <code>🪙 ~12K 토큰 · 예상 $0.062 (Sonnet 4)</code>. 한국어 1.8 chars/token + 영어 3.5 chars/token 휴리스틱(±15% 오차). 큰 입력으로 무심코 비용 발생하는 사고 방지. <strong>23개 분석 페이지</strong> 자동 적용 (AnalysisPageTemplate 단일 변경).</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">💰 사전 추정</span>
+          <span class="tag">🌐 23 페이지</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🧪</div>
+        <div class="feat-title">회귀 테스트 12건 추가</div>
+        <div class="feat-desc">SSE 스트리밍 경로의 분석 이력 저장 누락 회귀 방지 — SP 마이그레이션 / SQL 최적화 / Log RCA 하네스 + Impact 분석 4종 통합 테스트. FSS 컴플라이언스 markdown 빌더 8 케이스 단위 테스트. <code>mvn test</code> 한 번이면 백엔드 전반 검증.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🛡 회귀 방지</span>
+          <span class="tag">⚡ DB 의존 없음</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      v4.6.1 — UX/안정성 패치 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,transparent,rgba(124,107,240,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">v4.6.1 — 최근 업데이트</p>
+      <p class="section-eyebrow">v4.6.1 — 이전 업데이트</p>
       <h2 class="section-title">현장 피드백 기반 UX · 정확도 패치</h2>
       <p class="section-desc" style="margin:0 auto;max-width:720px">
         큰 신규 기능보다는 사용자가 매일 마주치는 마찰을 한 번에 정리하는 데 집중한 패치입니다. 검색·이력·정확도 세 축에서 즉시 체감되는 개선이 모여 있습니다.
