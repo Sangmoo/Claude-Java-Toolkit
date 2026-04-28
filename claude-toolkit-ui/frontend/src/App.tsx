@@ -65,6 +65,7 @@ const GitDiffPage = lazy(() => import('./pages/analysis/GitDiffPage'))
 const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'))
 const AdminPermissionsPage = lazy(() => import('./pages/admin/AdminPermissionsPage'))
 const AdminHealthPage = lazy(() => import('./pages/admin/AdminHealthPage'))
+const ComplianceReportPage = lazy(() => import('./pages/admin/ComplianceReportPage'))
 const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'))
 const AuditLogPage = lazy(() => import('./pages/admin/AuditLogPage'))
 const TeamDashboardPage = lazy(() => import('./pages/admin/TeamDashboardPage'))
@@ -230,6 +231,7 @@ export default function App() {
           {/* Admin */}
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/health" element={<AdminHealthPage />} />
+          <Route path="/admin/compliance-report" element={<ComplianceReportPage />} />
           <Route path="/admin/audit-dashboard" element={<AuditLogPage />} />
           <Route path="/admin/permissions" element={<AdminPermissionsPage />} />
           <Route path="/admin/team-dashboard" element={<TeamDashboardPage />} />
