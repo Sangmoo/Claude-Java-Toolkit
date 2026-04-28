@@ -712,40 +712,157 @@ public class DataRestController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<?>>> search(@RequestParam(defaultValue = "") String q, Authentication auth) {
+    public ResponseEntity<ApiResponse<List<?>>> search(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(value = "type", defaultValue = "") String type,
+            @RequestParam(value = "from", defaultValue = "") String from,
+            @RequestParam(value = "to",   defaultValue = "") String to,
+            @RequestParam(value = "sort", defaultValue = "recent") String sort,
+            Authentication auth) {
         if (q.trim().isEmpty()) {
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
         try {
-            // ReviewHistory 엔티티의 실제 필드는 type / title / inputContent / outputContent / username / createdAt.
-            // 이전 구현은 존재하지 않는 menuName/inputText 를 LIKE 비교해 JPQL 이 매번 throw → silent catch 로
-            // 항상 빈 결과만 반환하던 버그가 있었다.
-            @SuppressWarnings("unchecked")
-            List<io.github.claudetoolkit.ui.history.ReviewHistory> rows = (List<io.github.claudetoolkit.ui.history.ReviewHistory>) em.createQuery(
+            // 동적 JPQL 조립 — 타입/날짜 필터는 비어 있을 때 절을 빼서 인덱스 스캔 폭을 줄인다.
+            StringBuilder jpql = new StringBuilder(
                 "SELECT h FROM ReviewHistory h WHERE h.username = :u AND " +
                 "(LOWER(h.type) LIKE :q OR LOWER(h.title) LIKE :q OR " +
-                " LOWER(h.inputContent) LIKE :q OR LOWER(h.outputContent) LIKE :q) " +
-                "ORDER BY h.createdAt DESC"
-            ).setParameter("u", auth.getName())
-             .setParameter("q", "%" + q.toLowerCase() + "%")
-             .setMaxResults(50).getResultList();
+                " LOWER(h.inputContent) LIKE :q OR LOWER(h.outputContent) LIKE :q)");
+            if (!type.trim().isEmpty()) jpql.append(" AND h.type = :type");
+            java.time.LocalDateTime fromDt = parseDateOrNull(from, false);
+            java.time.LocalDateTime toDt   = parseDateOrNull(to,   true);
+            if (fromDt != null) jpql.append(" AND h.createdAt >= :fromDt");
+            if (toDt   != null) jpql.append(" AND h.createdAt <= :toDt");
+            jpql.append(" ORDER BY h.createdAt ").append("oldest".equals(sort) ? "ASC" : "DESC");
 
-            // 프론트엔드(SearchPage) 가 기대하는 키로 평탄화: id, menuName, title, snippet, createdAt
+            javax.persistence.Query query = em.createQuery(jpql.toString())
+                    .setParameter("u", auth.getName())
+                    .setParameter("q", "%" + q.toLowerCase() + "%");
+            if (!type.trim().isEmpty()) query.setParameter("type", type.trim());
+            if (fromDt != null) query.setParameter("fromDt", fromDt);
+            if (toDt   != null) query.setParameter("toDt",   toDt);
+
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> rows =
+                    (List<io.github.claudetoolkit.ui.history.ReviewHistory>)
+                            query.setMaxResults(100).getResultList();
+
+            // 프론트엔드(SearchPage) 가 기대하는 키로 평탄화 + 매치 위치 기반 snippet
+            String qLower = q.toLowerCase();
             List<Map<String, Object>> result = new ArrayList<>(rows.size());
             for (io.github.claudetoolkit.ui.history.ReviewHistory h : rows) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id",        h.getId());
-                m.put("menuName",  h.getTypeLabel());           // 한국어 라벨 (예: "SQL 리뷰")
+                m.put("type",      h.getType());
+                m.put("menuName",  h.getTypeLabel());           // 한국어 라벨
                 m.put("title",     h.getTitle());
-                m.put("snippet",   h.getOutputPreview());       // 200자 컷 + 마크다운 기호 제거
+                m.put("snippet",   buildSnippet(h, qLower));    // 매치 주변 ±60자
+                m.put("matchField", findMatchField(h, qLower));  // input/output/title/type
                 m.put("createdAt", h.getFormattedDate());        // MM-dd HH:mm
+                result.add(m);
+            }
+            // 'relevance' 정렬 — 매치 필드 우선순위 (title > type > input > output) + 매치 횟수
+            if ("relevance".equals(sort)) {
+                result.sort((a, b) -> Integer.compare(
+                        relevanceScore(b, qLower),
+                        relevanceScore(a, qLower)));
+            }
+            return ResponseEntity.ok(ApiResponse.ok(result));
+        } catch (Exception e) {
+            log.warn("[Search] 검색 실패 q={} type={} sort={}", q, type, sort, e);
+            return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
+        }
+    }
+
+    /**
+     * 검색 필터에 노출할 type 목록 — review_history 에 실제로 존재하는 타입 + 사용자 본인 행만.
+     * (다른 사용자가 만든 타입까지 보이면 노이즈)
+     */
+    @GetMapping("/search/types")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> searchTypes(Authentication auth) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object[]> rows = em.createQuery(
+                "SELECT h.type, COUNT(h) FROM ReviewHistory h WHERE h.username = :u " +
+                "GROUP BY h.type ORDER BY COUNT(h) DESC"
+            ).setParameter("u", auth.getName()).getResultList();
+            List<Map<String, Object>> result = new ArrayList<>(rows.size());
+            for (Object[] row : rows) {
+                String type = (String) row[0];
+                Long count = ((Number) row[1]).longValue();
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("type",  type);
+                m.put("label", typeLabel(type));
+                m.put("count", count);
                 result.add(m);
             }
             return ResponseEntity.ok(ApiResponse.ok(result));
         } catch (Exception e) {
-            log.warn("[Search] 검색 실패 q={}", q, e);
+            log.warn("[Search] /search/types 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
+    }
+
+    private static java.time.LocalDateTime parseDateOrNull(String s, boolean endOfDay) {
+        if (s == null || s.trim().isEmpty()) return null;
+        try {
+            java.time.LocalDate d = java.time.LocalDate.parse(s.trim());
+            return endOfDay ? d.atTime(23, 59, 59) : d.atStartOfDay();
+        } catch (Exception ignored) { return null; }
+    }
+
+    private static String buildSnippet(io.github.claudetoolkit.ui.history.ReviewHistory h, String qLower) {
+        // 1) 매치된 필드를 찾고 그 위치 기준으로 ±60자 발췌
+        String[][] candidates = {
+                { h.getInputContent()  != null ? h.getInputContent()  : "", "input"  },
+                { h.getOutputContent() != null ? h.getOutputContent() : "", "output" },
+                { h.getTitle()         != null ? h.getTitle()         : "", "title"  },
+        };
+        for (String[] cand : candidates) {
+            String text = cand[0];
+            int idx = text.toLowerCase().indexOf(qLower);
+            if (idx >= 0) {
+                int from2 = Math.max(0, idx - 60);
+                int to2   = Math.min(text.length(), idx + qLower.length() + 60);
+                String prefix = from2 > 0 ? "..." : "";
+                String suffix = to2 < text.length() ? "..." : "";
+                String slice = text.substring(from2, to2)
+                        .replaceAll("\\s+", " ")
+                        .replaceAll("[#*`>]", "");
+                return prefix + slice + suffix;
+            }
+        }
+        // 2) fallback — outputContent 의 첫 200자 (마크다운 제거)
+        return h.getOutputPreview();
+    }
+
+    private static String findMatchField(io.github.claudetoolkit.ui.history.ReviewHistory h, String qLower) {
+        if (h.getTitle() != null && h.getTitle().toLowerCase().contains(qLower))               return "title";
+        if (h.getType()  != null && h.getType().toLowerCase().contains(qLower))                return "type";
+        if (h.getInputContent()  != null && h.getInputContent().toLowerCase().contains(qLower)) return "input";
+        if (h.getOutputContent() != null && h.getOutputContent().toLowerCase().contains(qLower)) return "output";
+        return "";
+    }
+
+    /** relevance 정렬용 — title > type 매치를 가장 높이 평가, output 매치는 가장 낮음 */
+    private static int relevanceScore(Map<String, Object> r, String qLower) {
+        String field = (String) r.getOrDefault("matchField", "");
+        switch (field) {
+            case "title":  return 100;
+            case "type":   return 80;
+            case "input":  return 50;
+            case "output": return 20;
+            default:       return 0;
+        }
+    }
+
+    /** ReviewHistory.getTypeLabel() 의 static 버전 — type 문자열만으로 한국어 라벨 변환 */
+    private static String typeLabel(String type) {
+        if (type == null) return "";
+        // 직접 인스턴스 만들어서 getTypeLabel 위임 (라벨 매핑 단일 소스)
+        io.github.claudetoolkit.ui.history.ReviewHistory dummy =
+                new io.github.claudetoolkit.ui.history.ReviewHistory(type, "", "", "");
+        return dummy.getTypeLabel();
     }
 
     @GetMapping("/admin/team-dashboard")
