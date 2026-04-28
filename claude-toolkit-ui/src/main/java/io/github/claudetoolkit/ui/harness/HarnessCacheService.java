@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Startup-time cache for:
  *  - Java source files under the configured project scan path
- *  - Oracle DB objects (PROCEDURE / FUNCTION / PACKAGE / TRIGGER)
+ *  - Oracle DB objects (TABLE / VIEW / PROCEDURE / FUNCTION / PACKAGE / TRIGGER)
  *
  * <p>Cache is populated in a background daemon thread after the application
  * context is fully ready ({@link ApplicationReadyEvent}), so it never delays
@@ -172,7 +172,7 @@ public class HarnessCacheService {
 
     /**
      * Queries Oracle {@code ALL_OBJECTS} for stored objects and updates the cache.
-     * Only valid objects of type PROCEDURE, FUNCTION, PACKAGE, TRIGGER are included.
+     * Only valid objects of type TABLE, VIEW, PROCEDURE, FUNCTION, PACKAGE, TRIGGER are included.
      * System objects (SYS, SYSTEM, DBMS_%) are filtered out on the DB side.
      */
     public void refreshDbCache() {
@@ -201,7 +201,7 @@ public class HarnessCacheService {
                     "SELECT * FROM ("
                   + "  SELECT OBJECT_NAME, OBJECT_TYPE, OWNER "
                   + "  FROM ALL_OBJECTS "
-                  + "  WHERE OBJECT_TYPE IN ('PROCEDURE','FUNCTION','PACKAGE','TRIGGER') "
+                  + "  WHERE OBJECT_TYPE IN ('TABLE','VIEW','PROCEDURE','FUNCTION','PACKAGE','TRIGGER') "
                   + "    AND STATUS = 'VALID' "
                   + "    AND OWNER NOT IN ('SYS','SYSTEM','OUTLN','DBSNMP','MDSYS','CTXSYS','XDB',"
                   + "                      'APEX_030200','APEX_040000','FLOWS_FILES') "

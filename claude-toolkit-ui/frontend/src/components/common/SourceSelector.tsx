@@ -8,9 +8,25 @@ interface DbObject { name: string; type: string; owner: string }
 interface SourceSelectorProps {
   mode: 'java' | 'sql' | 'both'
   onSelect: (code: string, lang: 'java' | 'sql') => void
+  /**
+   * 표시·선택 가능한 DB 오브젝트 타입 화이트리스트.
+   * 미지정 시 SP 계열 4종(PROCEDURE/FUNCTION/PACKAGE/TRIGGER) 사용.
+   * 예: ['TABLE'] — 테이블만, ['PROCEDURE','FUNCTION','PACKAGE','TRIGGER'] — SP 계열만.
+   */
+  dbTypes?: string[]
+  /**
+   * true 면 DB 오브젝트 선택 시 ALL_SOURCE 본문을 가져오지 않고
+   * "OWNER.NAME" 형태의 식별자 문자열을 onSelect 로 전달.
+   * (TABLE/VIEW 처럼 ALL_SOURCE 에 본문이 없는 객체나, 이름만 필요한 화면용)
+   */
+  pickName?: boolean
+  /** 트리거 버튼 라벨 (기본: "소스 선택"). */
+  buttonLabel?: string
+  /** 트리거 버튼 title. */
+  buttonTitle?: string
 }
 
-const DB_TYPES = ['ALL', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'TRIGGER']
+const DEFAULT_DB_TYPES = ['PROCEDURE', 'FUNCTION', 'PACKAGE', 'TRIGGER']
 const JAVA_CATEGORIES = [
   { key: 'ALL', label: '전체', pattern: null },
   { key: 'Controller', label: 'Controller', pattern: /controller/i },
@@ -21,13 +37,25 @@ const JAVA_CATEGORIES = [
   { key: 'Util', label: 'Util', pattern: /util/i },
 ]
 
-export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) {
+export default function SourceSelector({
+  mode, onSelect,
+  dbTypes,
+  pickName = false,
+  buttonLabel,
+  buttonTitle,
+}: SourceSelectorProps) {
+  // 화이트리스트에 들어 있는 DB 타입만 칩으로 노출. 한 종류뿐이면 칩 영역 자체 숨김.
+  const allowedDbTypes = (dbTypes && dbTypes.length > 0)
+    ? dbTypes.map((t) => t.toUpperCase())
+    : DEFAULT_DB_TYPES
+  const dbTypeChips = allowedDbTypes.length > 1 ? ['ALL', ...allowedDbTypes] : allowedDbTypes
+
   const [tab, setTab] = useState<'file' | 'db'>(mode === 'sql' ? 'db' : 'file')
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState<FileEntry[]>([])
   const [dbObjects, setDbObjects] = useState<DbObject[]>([])
   const [q, setQ] = useState('')
-  const [dbTypeFilter, setDbTypeFilter] = useState('ALL')
+  const [dbTypeFilter, setDbTypeFilter] = useState(allowedDbTypes.length === 1 ? allowedDbTypes[0] : 'ALL')
   const [javaCatFilter, setJavaCatFilter] = useState('ALL')
   const [fileLoaded, setFileLoaded] = useState(false)
   const [fileRefreshing, setFileRefreshing] = useState(false)
@@ -55,11 +83,17 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
 
   const loadDb = useCallback(async (kw: string, type: string) => {
     try {
+      // 단일 타입 필터일 땐 백엔드 type 파라미터로 좁히고,
+      // 'ALL' 일 땐 백엔드에서 전체를 받은 뒤 클라이언트에서 화이트리스트로 한 번 더 거름.
       const typeParam = type === 'ALL' ? '' : `&type=${type}`
       const res = await fetch(`/harness/cache/db-objects?q=${encodeURIComponent(kw)}${typeParam}`, { credentials: 'include' })
       if (res.ok) {
         const d = await res.json()
-        setDbObjects(d.objects || [])
+        const all: DbObject[] = d.objects || []
+        const filtered = type === 'ALL'
+          ? all.filter((o) => allowedDbTypes.includes((o.type || '').toUpperCase()))
+          : all
+        setDbObjects(filtered)
         // v4.4.x — 백엔드가 보내주는 상태로 정확한 메시지 표시
         setDbConfigured(typeof d.configured === 'boolean' ? d.configured : null)
         setDbError(d.dbError || null)
@@ -67,7 +101,8 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
         setDbLoaded(!!d.loaded)
       }
     } catch { /* silent */ }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedDbTypes.join('|')])
 
   // DB 캐시 강제 재빌드 (관리자가 Settings 변경 후 또는 fail 후 수동 재시도)
   const triggerDbRefresh = async () => {
@@ -133,6 +168,14 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
   }
 
   const selectDb = async (obj: DbObject) => {
+    // 이름만 필요한 화면(테이블 영향분석 등)은 ALL_SOURCE 조회 없이 식별자만 반환
+    if (pickName) {
+      const ident = obj.owner ? `${obj.owner}.${obj.name}` : obj.name
+      onSelect(ident, 'sql')
+      setOpen(false)
+      toast.success(`${obj.name} 선택됨`)
+      return
+    }
     const res = await fetch(`/harness/cache/db-source?name=${encodeURIComponent(obj.name)}&type=${encodeURIComponent(obj.type)}`, { credentials: 'include' })
     const d = await res.json()
     if (d.success) { onSelect(d.source, 'sql'); setOpen(false); toast.success(`${obj.name} 로드`) }
@@ -141,8 +184,12 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
 
   return (
     <>
-      <button onClick={() => { setOpen(true); setQ('') }} style={triggerBtn}>
-        {mode === 'sql' ? <FaDatabase /> : <FaFolderOpen />} 소스 선택
+      <button
+        onClick={() => { setOpen(true); setQ('') }}
+        style={triggerBtn}
+        title={buttonTitle}
+      >
+        {mode === 'sql' ? <FaDatabase /> : <FaFolderOpen />} {buttonLabel || '소스 선택'}
       </button>
 
       {open && (
@@ -179,9 +226,9 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                 ))}
               </div>
             )}
-            {tab === 'db' && (
+            {tab === 'db' && dbTypeChips.length > 1 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }}>
-                {DB_TYPES.map((t) => (
+                {dbTypeChips.map((t) => (
                   <button key={t} onClick={() => setDbTypeFilter(t)} style={filterChip(dbTypeFilter === t)}>
                     {t === 'ALL' ? '전체' : t}
                   </button>
@@ -245,10 +292,15 @@ export default function SourceSelector({ mode, onSelect }: SourceSelectorProps) 
                       </button>
                     </div>
                   ) : dbTypeFilter !== 'ALL' ? (
-                    <Empty msg={`${dbTypeFilter} 타입 객체가 없습니다.`} />
+                    <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <div style={{ marginBottom: '10px' }}>{dbTypeFilter} 타입 객체가 없습니다.</div>
+                      <button onClick={triggerDbRefresh} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
+                        <FaSync /> 다시 불러오기
+                      </button>
+                    </div>
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                      <div style={{ marginBottom: '10px' }}>이 스키마에 PROCEDURE / FUNCTION / PACKAGE / TRIGGER 가 없습니다.</div>
+                      <div style={{ marginBottom: '10px' }}>이 스키마에 {allowedDbTypes.join(' / ')} 가 없습니다.</div>
                       <button onClick={triggerDbRefresh} style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: 'pointer' }}>
                         <FaSync /> 다시 불러오기
                       </button>

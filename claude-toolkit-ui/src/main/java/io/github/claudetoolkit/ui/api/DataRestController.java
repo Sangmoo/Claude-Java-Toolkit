@@ -717,14 +717,33 @@ public class DataRestController {
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
         try {
-            List<?> list = em.createQuery(
+            // ReviewHistory 엔티티의 실제 필드는 type / title / inputContent / outputContent / username / createdAt.
+            // 이전 구현은 존재하지 않는 menuName/inputText 를 LIKE 비교해 JPQL 이 매번 throw → silent catch 로
+            // 항상 빈 결과만 반환하던 버그가 있었다.
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.history.ReviewHistory> rows = (List<io.github.claudetoolkit.ui.history.ReviewHistory>) em.createQuery(
                 "SELECT h FROM ReviewHistory h WHERE h.username = :u AND " +
-                "(LOWER(h.menuName) LIKE :q OR LOWER(h.inputText) LIKE :q) ORDER BY h.createdAt DESC"
+                "(LOWER(h.type) LIKE :q OR LOWER(h.title) LIKE :q OR " +
+                " LOWER(h.inputContent) LIKE :q OR LOWER(h.outputContent) LIKE :q) " +
+                "ORDER BY h.createdAt DESC"
             ).setParameter("u", auth.getName())
              .setParameter("q", "%" + q.toLowerCase() + "%")
              .setMaxResults(50).getResultList();
-            return ResponseEntity.ok(ApiResponse.ok(list));
+
+            // 프론트엔드(SearchPage) 가 기대하는 키로 평탄화: id, menuName, title, snippet, createdAt
+            List<Map<String, Object>> result = new ArrayList<>(rows.size());
+            for (io.github.claudetoolkit.ui.history.ReviewHistory h : rows) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",        h.getId());
+                m.put("menuName",  h.getTypeLabel());           // 한국어 라벨 (예: "SQL 리뷰")
+                m.put("title",     h.getTitle());
+                m.put("snippet",   h.getOutputPreview());       // 200자 컷 + 마크다운 기호 제거
+                m.put("createdAt", h.getFormattedDate());        // MM-dd HH:mm
+                result.add(m);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(result));
         } catch (Exception e) {
+            log.warn("[Search] 검색 실패 q={}", q, e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
         }
     }

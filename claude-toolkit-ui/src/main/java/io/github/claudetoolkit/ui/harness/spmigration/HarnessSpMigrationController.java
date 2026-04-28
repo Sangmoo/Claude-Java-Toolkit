@@ -125,7 +125,8 @@ public class HarnessSpMigrationController {
     // ── SSE 스트리밍: 2단계 채널 ────────────────────────────────────────────
 
     @GetMapping(value = "/stream/{streamId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@PathVariable("streamId") String streamId) {
+    public SseEmitter stream(@PathVariable("streamId") String streamId,
+                             java.security.Principal principal) {
         SseEmitter emitter = new SseEmitter(0L);
         PendingInput input = pending.remove(streamId);
         if (input == null) {
@@ -136,9 +137,14 @@ public class HarnessSpMigrationController {
             return emitter;
         }
 
+        // 백그라운드 스레드에서 SecurityContext 가 비므로 요청 스레드에서 username capture
+        final String capturedUser = principal != null ? principal.getName() : null;
+        final StringBuilder accumulated = new StringBuilder();
+
         Thread t = new Thread(() -> {
             try {
                 Consumer<String> sink = chunk -> {
+                    accumulated.append(chunk);
                     try { SseStreamController.sendSseData(emitter, chunk); }
                     catch (IOException ioe) { throw new RuntimeException(ioe); }
                 };
@@ -146,6 +152,17 @@ public class HarnessSpMigrationController {
                         input.spSource, input.spName, input.spType,
                         input.tableDdl, input.indexDdl,
                         input.callExample, input.businessContext, sink);
+                // 스트리밍 완료 → 리뷰 이력에 저장 (sync /analyze 와 동일 형식)
+                try {
+                    String savedOutput = accumulated.toString()
+                            .replaceAll("\\[\\[HARNESS_STAGE:\\d+\\]\\]\\n?", "");
+                    String historyInput = (input.spSource != null && !input.spSource.isEmpty())
+                            ? input.spSource
+                            : ("[SP_NAME] " + input.spName + " " + input.spType);
+                    historyService.save("SP_MIGRATION_HARNESS", historyInput, savedOutput, capturedUser);
+                } catch (Exception saveErr) {
+                    log.warn("[SpMigrationHarness] 이력 저장 실패 — 스트림은 정상 종료", saveErr);
+                }
                 emitter.send(SseEmitter.event().name("done").data("ok"));
                 emitter.complete();
             } catch (Exception e) {

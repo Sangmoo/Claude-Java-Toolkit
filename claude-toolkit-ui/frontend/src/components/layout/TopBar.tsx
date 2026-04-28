@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { FaRobot, FaSun, FaMoon, FaBell, FaSignOutAlt, FaBars, FaSyncAlt, FaCheckDouble, FaTimes, FaTrash, FaGlobe } from 'react-icons/fa'
+import { FaRobot, FaSun, FaMoon, FaBell, FaSignOutAlt, FaBars, FaSyncAlt, FaCheckDouble, FaTimes, FaTrash, FaGlobe, FaSearch } from 'react-icons/fa'
 import { useThemeStore } from '../../stores/themeStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useSidebarStore } from '../../stores/sidebarStore'
 import { useNotificationStore } from '../../stores/notificationStore'
 import { useSessionTimer } from '../../hooks/useSessionTimer'
 import { formatDate, formatRelative } from '../../utils/date'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import i18n, { LANGUAGE_OPTIONS, type SupportedLang } from '../../i18n'
 
 const pathMap: Record<string, string> = {
@@ -138,6 +138,75 @@ function NotificationDropdown() {
   )
 }
 
+/**
+ * 상단 바 가운데 영역의 글로벌 검색.
+ * Enter 또는 버튼 클릭 → /search?q=... 로 이동 (SearchPage 가 URL 파라미터로 자동 검색).
+ */
+function TopBarSearch() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [q, setQ] = useState('')
+
+  // /search 경로로 진입 시 URL 의 q 와 동기화
+  useEffect(() => {
+    if (location.pathname === '/search') {
+      const params = new URLSearchParams(location.search)
+      setQ(params.get('q') || '')
+    }
+  }, [location.pathname, location.search])
+
+  const submit = () => {
+    const v = q.trim()
+    if (!v) return
+    navigate(`/search?q=${encodeURIComponent(v)}`)
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); submit() }}
+      role="search"
+      style={{
+        flex: 1, display: 'flex', justifyContent: 'center',
+        maxWidth: 560, minWidth: 0, margin: '0 16px',
+      }}
+    >
+      <div style={{
+        position: 'relative', display: 'flex', alignItems: 'center',
+        width: '100%', maxWidth: 460,
+        // 테두리는 Settings 에서 선택한 팔레트 accent 컬러 사용 (테마별 자동 변경)
+        background: 'var(--bg-secondary)', border: '1px solid var(--accent)',
+        borderRadius: 8, padding: '0 8px',
+        boxShadow: '0 0 0 2px var(--accent-subtle)',
+      }}>
+        <FaSearch style={{ color: 'var(--accent)', fontSize: 12, marginRight: 6, flexShrink: 0 }} />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="메뉴, 이력 검색…"
+          aria-label="전역 검색"
+          style={{
+            flex: 1, minWidth: 0,
+            background: 'transparent', border: 'none', outline: 'none',
+            padding: '7px 0', fontSize: 13, color: 'var(--text-primary)',
+          }}
+        />
+        {q && (
+          <button
+            type="button"
+            onClick={() => setQ('')}
+            aria-label="검색어 지우기"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: '4px', fontSize: 11,
+            }}
+          ><FaTimes /></button>
+        )}
+      </div>
+    </form>
+  )
+}
+
 /** v4.3.0 — 언어 선택 드롭다운 (5개 언어: ko/en/ja/zh/de) */
 function LanguageSwitcher() {
   const [open, setOpen] = useState(false)
@@ -235,7 +304,7 @@ export default function TopBar() {
 
   return (
     <div className="top-bar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         {collapsed && (
           <button className="top-bar-btn" onClick={toggleCollapse} title="사이드바 열기">
             <FaBars />
@@ -255,6 +324,8 @@ export default function TopBar() {
         </span>
         <Breadcrumb />
       </div>
+
+      <TopBarSearch />
 
       <div className="top-bar-actions">
         <LanguageSwitcher />

@@ -519,7 +519,7 @@ footer{
         <div class="stat-label" data-i18n="stats.features">AI 기능</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num" data-count="65">0</div>
+        <div class="stat-num" data-count="73">0</div>
         <div class="stat-label" data-i18n="stats.pages">React 페이지</div>
       </div>
       <div class="stat-item">
@@ -529,6 +529,82 @@ footer{
       <div class="stat-item">
         <div class="stat-num" data-count="5">0</div>
         <div class="stat-label" data-i18n="stats.modules">지원 언어</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
+     v4.6.1 — UX/안정성 패치 콜아웃
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,transparent,rgba(124,107,240,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">v4.6.1 — 최근 업데이트</p>
+      <h2 class="section-title">현장 피드백 기반 UX · 정확도 패치</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:720px">
+        큰 신규 기능보다는 사용자가 매일 마주치는 마찰을 한 번에 정리하는 데 집중한 패치입니다. 검색·이력·정확도 세 축에서 즉시 체감되는 개선이 모여 있습니다.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🔎</div>
+        <div class="feat-title">상단바 글로벌 검색 + 검색 버그 수정</div>
+        <div class="feat-desc">상단바 가운데에 상시 검색창을 추가했습니다. 테두리는 Settings 팔레트의 accent 색상을 자동 추종합니다. 백엔드 <code>/api/v1/search</code> 가 존재하지 않는 필드(<code>menuName</code> / <code>inputText</code>) 를 참조해 항상 빈 결과를 반환하던 결정적 버그를 수정 — 이제 메뉴 카탈로그와 분석 이력이 한 화면에 정확히 매칭됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🎨 팔레트 추종</span>
+          <span class="tag">🐛 silent-catch 제거</span>
+          <span class="tag">📂 메뉴 + 이력 통합</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">💾</div>
+        <div class="feat-title">스트리밍 분석 이력 저장 누락 수정</div>
+        <div class="feat-desc">동기 <code>/analyze</code> 경로만 <code>review_history</code> 에 저장되고 SSE 스트리밍 경로는 누락되어 있어, 실제 사용 경로의 결과가 이력·검색에 잡히지 않던 버그를 수정. <strong>테이블 영향 분석 / SP→Java 하네스 / SQL 최적화 하네스 / 오류 로그 RCA 하네스</strong> 4종 모두 스트리밍 완료 시점에 저장되도록 통일했습니다.</div>
+        <div class="feat-tags">
+          <span class="tag">📜 4종 통일</span>
+          <span class="tag">🧵 백그라운드 username capture</span>
+          <span class="tag">🔍 검색 가능</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🎯</div>
+        <div class="feat-title">MyBatis Caller Index 정확도 패치</div>
+        <div class="feat-desc">같은 메서드명(<code>insertOrder</code> 등) 을 가진 매퍼가 여러 개 있을 때, 단순 <code>.shortId(</code> 매칭으로 모든 매퍼의 호출자로 잘못 기록되어 테이블 영향 분석에서 무관한 Java/Controller 가 부풀려져 보이던 버그를 수정. mapper 클래스명이 그 파일에 단어 경계로 존재하는지까지 검증하는 디스앰비귀에이션 로직을 추가했습니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🐞 false-positive 제거</span>
+          <span class="tag">🔬 mapper 클래스 검증</span>
+          <span class="tag">🛡 word-boundary</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(124,107,240,.15);color:var(--accent2);">📋</div>
+        <div class="feat-title">테이블 영향 분석 — 파일 모달 뷰어</div>
+        <div class="feat-desc"><code>/impact</code> 페이지를 <strong>TABLE → MyBatis → Java → Controller</strong> 4단계 역추적으로 단순화하고, MyBatis 구문 / Java 파일 / Controller 행을 클릭하면 모달로 전체 소스가 열리며 <strong>전체 복사</strong> 버튼으로 클립보드에 즉시 복사할 수 있습니다. DB 테이블 픽커도 함께 추가.</div>
+        <div class="feat-tags">
+          <span class="tag">📋 모달 + 복사</span>
+          <span class="tag">🔌 DB 테이블 픽커</span>
+          <span class="tag">🛡 path-traversal 방어</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(34,211,238,.12);color:#22d3ee;">🛠</div>
+        <div class="feat-title">하네스 스트리밍 마크다운 줄바꿈 버그 수정</div>
+        <div class="feat-desc"><code>useHarnessStream</code> 이 매 SSE 메시지마다 <code>'\n'</code> 을 인위적으로 덧붙이고 있어 Claude 가 단어 중간에서 청크를 끊으면 <code>"활\n용"</code> 이 마크다운 soft-break 로 단어가 갈라져 보이던 버그를 수정. flush 기준을 줄바꿈 단위 → STAGE_MARKER prefix 보호로 변경.</div>
+        <div class="feat-tags">
+          <span class="tag">🐛 단어 분리 0건</span>
+          <span class="tag">🌊 SSE 라운드트립 정합</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(168,85,247,.12);color:#a855f7;">🗑</div>
+        <div class="feat-title">미사용 메뉴 정리</div>
+        <div class="feat-desc">패키지 의존성 그래프(<code>/package-deps</code>) 와 SP 흐름 분석(<code>/sp-impact</code>) 두 메뉴를 백엔드 엔드포인트 + 프론트 라우트 + e2e 회귀 테스트까지 완전히 제거했습니다. 잔존 참조 0건. 패키지 분석은 <code>/package-overview</code> 의 4탭(요약/ERD/풀흐름도/스토리) 으로, SP 추적은 데이터 흐름 분석에서 SP 시작점으로 처리됩니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🧹 코드 정리</span>
+          <span class="tag">📦 번들 슬림화</span>
+        </div>
       </div>
     </div>
   </div>
@@ -658,6 +734,28 @@ footer{
         </div>
       </div>
       <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🗂</div>
+        <div class="feat-title">테이블 영향 분석</div>
+        <div class="feat-desc">특정 테이블 변경의 영향 범위를 <strong>TABLE → MyBatis → Java → Controller</strong> 4단계로 역추적합니다. Settings 에 연결된 Oracle DB 의 <strong>테이블 픽커</strong> 로 이름을 즉시 채우고, MyBatis 구문 / Java 파일 / Controller 행을 클릭하면 <strong>모달로 전체 소스가 열려 클립보드 복사</strong> 까지 한 번에 처리합니다. <code>MyBatisCallerIndex</code> 의 mapper 클래스 단위 검증으로 같은 메서드명을 갖는 다른 매퍼의 false-positive 가 제거되어 결과 정확도가 크게 향상됐습니다.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.6.1</span>
+          <span class="tag">📋 파일 모달 + 복사</span>
+          <span class="tag">🔌 DB 테이블 픽커</span>
+          <span class="tag">🎯 정확도 패치</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🔎</div>
+        <div class="feat-title">전역 검색</div>
+        <div class="feat-desc">상단바 가운데에 상시 노출되는 검색창으로 어느 페이지에서든 즉시 호출 가능합니다. 테두리는 <strong>Settings 팔레트의 accent 색상으로 자동 동기화</strong>(테마 변경 시 즉시 추종)되고, Enter / 버튼 클릭으로 <code>/search?q=...</code> 로 이동해 <strong>메뉴 카탈로그 + 분석 이력</strong> 두 종류 결과를 한 화면에 보여 줍니다. URL 파라미터로 진입하면 자동 검색되어 공유·새로고침에 안전.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.6.1</span>
+          <span class="tag">🎨 팔레트 추종</span>
+          <span class="tag">📂 메뉴 + 이력 통합</span>
+          <span class="tag">🔗 URL 파라미터</span>
+        </div>
+      </div>
+      <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(52,211,153,.12);color:var(--green);">📄</div>
         <div class="feat-title" data-i18n="feat.doc.title">문서 자동 생성</div>
         <div class="feat-desc" data-i18n="feat.doc.desc">소스코드를 분석해 Markdown·Typst 형식의 기술 문서를 즉시 생성하고, ERD 다이어그램도 자동으로 만들어냅니다</div>
@@ -680,7 +778,7 @@ footer{
       <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">🔬</div>
         <div class="feat-title" data-i18n="feat.harness.title">하네스 파이프라인 (4종)</div>
-        <div class="feat-desc" data-i18n="feat.harness.desc">동일한 Analyst → Builder → Reviewer → Verifier 4단계 패턴을 4가지 시나리오에 적용한 하네스 제품군입니다. <strong>코드 리뷰</strong> (Java/SQL Verifier 정적 검증), <strong>오류 로그 RCA</strong> (가설→검증SQL+패치+롤백→우도→사내 표준 보고서, 일반/보안 모드), <strong>SP→Java 마이그레이션</strong> (Oracle SP 자동 로드 → Service+Mapper+XML+DTO+테스트), <strong>SQL 최적화</strong> (병목 분석 → N개 후보 → 우도 평가 → 단계별 Rollout Plan). 공통 PromptLoader · Orchestrator · 권한 게이팅 · SSE 스트리밍 인프라 공유.</div>
+        <div class="feat-desc" data-i18n="feat.harness.desc">동일한 Analyst → Builder → Reviewer → Verifier 4단계 패턴을 4가지 시나리오에 적용한 하네스 제품군입니다. <strong>코드 리뷰</strong> (Java/SQL Verifier 정적 검증), <strong>오류 로그 RCA</strong> (가설→검증SQL+패치+롤백→우도→사내 표준 보고서, 일반/보안 모드), <strong>SP→Java 마이그레이션</strong> (Oracle SP 자동 로드 → Service+Mapper+XML+DTO+테스트), <strong>SQL 최적화</strong> (병목 분석 → N개 후보 → 우도 평가 → 단계별 Rollout Plan). 공통 PromptLoader · Orchestrator · 권한 게이팅 · SSE 스트리밍 인프라 공유. <strong>v4.6.1</strong>: 스트리밍 경로의 분석 이력 저장 누락 수정, 마크다운 청크 경계에서 단어가 갈라져 보이던 버그 수정, "소스선택하기" 버튼이 메뉴별로 PROCEDURE/FUNCTION/PACKAGE/TRIGGER 만 노출되도록 필터링.</div>
         <div class="feat-tags">
           <span class="tag">🔬 코드 리뷰</span>
           <span class="tag">🐞 오류 로그 RCA</span>
@@ -688,6 +786,8 @@ footer{
           <span class="tag">⚡ SQL 최적화</span>
           <span class="tag">🛡 권한 게이팅</span>
           <span class="tag">⚡ SSE 스트리밍</span>
+          <span class="tag">💾 이력 저장 (v4.6.1)</span>
+          <span class="tag">🛠 마크다운 버그 수정</span>
         </div>
       </div>
       <div class="feat-card reveal">

@@ -46,18 +46,10 @@ export default function SpMigrationHarnessPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error])
 
-  /** SourceSelector 콜백 — 사용자가 DB 객체(또는 Java 파일)를 선택하면 SP 본문에 채움. */
-  const handleSourceSelect = (code: string, lang: 'java' | 'sql') => {
-    if (lang === 'sql') {
-      setSpSource(code)
-      toast.success('DB 객체 본문을 SP 본문 영역에 로드했습니다')
-    } else {
-      // Java 파일은 비즈니스 컨텍스트로 — 기존 구현 참고용
-      setBusinessContext((prev) => prev
-        ? prev + '\n\n// ── 기존 Java 구현 (참고용) ──\n\n' + code
-        : '// ── 기존 Java 구현 (참고용) ──\n\n' + code)
-      toast.success('Java 파일을 비즈니스 컨텍스트에 참고용으로 추가했습니다')
-    }
+  /** SourceSelector 콜백 — DB 객체 본문을 SP 본문 영역에 채움. */
+  const handleSourceSelect = (code: string) => {
+    setSpSource(code)
+    toast.success('DB 객체 본문을 SP 본문 영역에 로드했습니다')
   }
 
   const start = async () => {
@@ -113,7 +105,12 @@ export default function SpMigrationHarnessPage() {
           <div style={panelHeaderStyle}>
             <span style={{ fontWeight: 600, fontSize: '13px' }}>마이그레이션 입력</span>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <SourceSelector mode="both" onSelect={handleSourceSelect} />
+              <SourceSelector
+                mode="sql"
+                buttonLabel="소스선택하기"
+                buttonTitle="Settings에 연결된 DB 의 SP/FUNCTION/PACKAGE/TRIGGER 선택"
+                onSelect={handleSourceSelect}
+              />
               <button style={smallBtn} onClick={clearAll} title="초기화" disabled={streaming}>
                 <FaEraser /> 초기화
               </button>

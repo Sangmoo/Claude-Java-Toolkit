@@ -94,7 +94,12 @@ public class MyBatisCallerIndex {
         }
 
         // 1) shortId → List<fullId> 맵 구성 (동일 shortId 가 여러 Mapper 에 존재할 수 있음)
+        // + fullId → mapperClass 매핑 — 같은 shortId 의 false positive 를 막기 위함
+        // (예: OrderMapper.insert 와 UserMapper.insert 가 같은 shortId 면, Java 파일에
+        //  ".insert(" 만 매치해서는 둘 다 잡히므로 mapperClass 가 파일 안에 있는지를
+        //  추가 검증한다 → import / @Autowired / 변수타입 등으로 클래스명이 거의 항상 노출됨)
         Map<String, List<String>> shortIdToFullIds = new HashMap<String, List<String>>();
+        Map<String, String>       mapperClassByFullId = new HashMap<String, String>();
         for (MyBatisStatement st : mybatis.allStatements()) {
             if (st.fullId == null) continue;
             int dot = st.fullId.lastIndexOf('.');
@@ -106,6 +111,15 @@ public class MyBatisCallerIndex {
             List<String> list = shortIdToFullIds.get(shortId);
             if (list == null) { list = new ArrayList<String>(); shortIdToFullIds.put(shortId, list); }
             list.add(st.fullId);
+
+            // mapperClass = fullId 의 namespace 마지막 segment.
+            // namespace 가 com.foo.bar.OrderMapper 면 "OrderMapper",
+            // 그냥 "OrderMapper" 면 그대로 "OrderMapper".
+            int dot2 = st.fullId.lastIndexOf('.', dot - 1);
+            String mapperClass = (dot2 >= 0)
+                    ? st.fullId.substring(dot2 + 1, dot)
+                    : st.fullId.substring(0, dot);
+            mapperClassByFullId.put(st.fullId, mapperClass);
         }
 
         if (shortIdToFullIds.isEmpty()) {
@@ -121,7 +135,8 @@ public class MyBatisCallerIndex {
             return;
         }
 
-        final Map<String, List<String>> finalShortIds = shortIdToFullIds;
+        final Map<String, List<String>> finalShortIds       = shortIdToFullIds;
+        final Map<String, String>       finalMapperClassMap = mapperClassByFullId;
         final int[] scanned = { 0 };
         final int[] matched = { 0 };
 
@@ -147,10 +162,24 @@ public class MyBatisCallerIndex {
                         String relPath = root.relativize(file).toString().replace('\\', '/');
 
                         Set<String> callsInFile = new LinkedHashSet<String>();
+                        // mapperClass 별 word-boundary 검증 결과를 파일 단위로 캐시 (반복 regex 방지)
+                        Map<String, Boolean> classPresentCache = new HashMap<String, Boolean>();
+
                         for (Map.Entry<String, List<String>> e : finalShortIds.entrySet()) {
                             String shortId = e.getKey();
-                            if (content.contains("." + shortId + "(")) {
-                                callsInFile.addAll(e.getValue());
+                            if (!content.contains("." + shortId + "(")) continue;
+                            // ".shortId(" 만으로는 어떤 Mapper 인지 모름 →
+                            // 같은 shortId 를 가진 fullId 들 중, "그 mapperClass 가 이 파일에
+                            // 노출되어 있는" 것만 호출자로 인정한다.
+                            for (String fullId : e.getValue()) {
+                                String mapperClass = finalMapperClassMap.get(fullId);
+                                if (mapperClass == null) continue;
+                                Boolean cached = classPresentCache.get(mapperClass);
+                                if (cached == null) {
+                                    cached = containsWord(content, mapperClass);
+                                    classPresentCache.put(mapperClass, cached);
+                                }
+                                if (cached) callsInFile.add(fullId);
                             }
                         }
                         if (!callsInFile.isEmpty()) {
@@ -213,5 +242,29 @@ public class MyBatisCallerIndex {
                 || lower.equals("get")     || lower.equals("set")      || lower.equals("put")
                 || lower.equals("add")     || lower.equals("size")     || lower.equals("isempty")
                 || lower.equals("clone")   || lower.equals("clear");
+    }
+
+    /**
+     * 파일 내용에서 식별자 단위로 단어가 등장하는지 검사 (\bWORD\b).
+     * Java 식별자는 [A-Za-z0-9_$] 가 식별자 문자라, 단순 substring contains 면
+     * "OrderMapper" 이 "OrderMapperImpl" 안에서도 매치되어 false positive 가 또
+     * 발생할 수 있다. 그래서 앞·뒤 글자가 식별자 문자가 아닌지 직접 확인.
+     */
+    private static boolean containsWord(String content, String word) {
+        if (content == null || word == null || word.isEmpty()) return false;
+        int from = 0;
+        while (true) {
+            int idx = content.indexOf(word, from);
+            if (idx < 0) return false;
+            char before = idx == 0 ? ' ' : content.charAt(idx - 1);
+            int  endIdx = idx + word.length();
+            char after  = endIdx >= content.length() ? ' ' : content.charAt(endIdx);
+            if (!isJavaIdentChar(before) && !isJavaIdentChar(after)) return true;
+            from = idx + 1;
+        }
+    }
+
+    private static boolean isJavaIdentChar(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '$';
     }
 }

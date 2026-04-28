@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-1.8%2B-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.7.x-green.svg)](https://spring.io/projects/spring-boot)
-[![Version](https://img.shields.io/badge/version-4.6.0-brightgreen.svg)](#)
+[![Version](https://img.shields.io/badge/version-4.6.1-brightgreen.svg)](#)
 [![Helm](https://img.shields.io/badge/helm-chart_0.1.0-0F1689.svg)](./helm/claude-toolkit)
 
 ---
@@ -29,7 +29,24 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
-### 🆕 v4.6.0 하이라이트 — 하네스 파이프라인 확장 (Phase A · D · B · C)
+### 🆕 v4.6.1 하이라이트 — UX 개선 + 정확도/안정성 패치
+
+이번 패치는 사용자 워크플로의 자잘한 마찰을 한 번에 정리하는 데 집중했습니다. 큰 신규 기능은 없지만, **현장에서 바로 체감되는** 개선이 모여 있습니다.
+
+- 🔎 **상단바 글로벌 검색** — 모든 페이지의 상단 가운데 영역에 검색창이 상시 노출됩니다. Settings 팔레트의 accent 색상으로 테두리가 자동 동기화되고 (테마 변경 시 즉시 추종), Enter / 버튼 클릭으로 `/search?q=...` 로 이동합니다. URL 파라미터로 진입하면 자동 검색되어 공유·새로고침에 안전.
+- 🗂 **검색 페이지 — 메뉴 + 이력 통합** — 메뉴 카탈로그를 클라이언트 필터로 즉시 매칭(예: "하네스" → 코드 리뷰/SP→Java/SQL 최적화 하네스 3건) + 백엔드 `/api/v1/search` 가 `review_history` 의 `type/title/inputContent/outputContent` 4개 컬럼을 LIKE 검색해 메뉴와 분석 이력을 한 화면에 보여 줍니다.
+- 🐛 **검색 백엔드 버그 수정** — 이전 구현은 존재하지 않는 `h.menuName` / `h.inputText` 필드를 참조해 JPQL 이 매번 throw 하고 silent catch 가 빈 결과만 반환하던 결정적 버그가 있었습니다. 실제 엔티티 필드(`type`/`title`/`inputContent`/`outputContent`) 로 정정하고, 프론트엔드 친화 DTO(`{id, menuName, title, snippet, createdAt}`) 로 평탄화 응답.
+- 💾 **분석 이력 저장 — 4개 기능 추가/수정** — 기존엔 동기 `/analyze` 경로만 `review_history` 에 저장됐고 SSE 스트리밍 경로는 누락이었습니다. 이번 패치로 **테이블 영향 분석 / SP→Java 마이그레이션 하네스 / SQL 최적화 하네스 / 오류 로그 RCA 하네스** 가 스트리밍 완료 시점에도 저장되도록 통일. `ReviewHistoryService.save(type, input, output, username)` 오버로드를 추가해 백그라운드 스레드에서도 username 을 명시 전달 가능.
+- 📋 **테이블 영향 분석 — 파일 모달 뷰어 + 클립보드 복사** — `/impact` 페이지에서 MiPlatform 단계는 제외하고 `TABLE → MyBatis → Java → Controller` 4단계만 노출. **MyBatis 구문 / Java 파일 / Controller 행 모두 클릭하면 모달로 전체 소스가 열리고**, 우상단 "전체 복사" 버튼으로 클립보드에 즉시 복사. 백엔드 `GET /api/v1/flow/file?path=...` 엔드포인트(scanPath 제한, 5MB 상한, path-traversal 방어) 신설.
+- 🛠 **MyBatisCallerIndex false-positive 제거** — 같은 shortId(예: `insertOrder`) 를 가진 mapper 가 여러 개 존재할 때, 단순 `.shortId(` 매칭만으로 모든 mapper 의 호출자로 잘못 기록되던 버그가 있었습니다. 이제 fullId 별 **mapperClass 명이 그 Java 파일에 단어 경계로 존재하는지** 까지 검증해 무관한 매퍼·서비스가 끌려나오지 않습니다 (테이블 영향 분석에서 Java/Controller 결과가 부풀어 보이던 문제 해결).
+- 🔌 **DB 객체 캐시 — TABLE 포함** — `HarnessCacheService` 가 `ALL_OBJECTS` 에서 PROCEDURE/FUNCTION/PACKAGE/TRIGGER 만 가져오던 것을 **TABLE / VIEW 까지 확장**. "소스선택하기" 버튼이 새 메뉴에서 테이블 픽커로 동작.
+- 🎯 **소스선택하기 버튼 — 메뉴별 타입 필터링** — `SourceSelector` 에 `dbTypes` 화이트리스트 + `pickName`(이름만 반환) 옵션 추가. 메뉴별 적용:
+  - 테이블 영향 분석 → `TABLE` 만
+  - SP→Java 하네스 / SQL 최적화 하네스 → DB 오브젝트 (Java 파일 탭 제거)
+- 🐞 **하네스 스트리밍 마크다운 줄바꿈 버그 수정** — `useHarnessStream` 이 매 SSE 메시지마다 `'\n'` 을 인위적으로 덧붙이고 있어 Claude 가 단어 중간("활"/"용") 에서 청크를 끊으면 `"활\n용"` 이 마크다운 soft-break 로 단어가 갈라져 보이던 버그. flush 기준을 줄바꿈 단위에서 **STAGE_MARKER prefix 보호**로 변경하여 단어 분리 0건.
+- 🗑 **메뉴 정리** — 패키지 의존성 그래프(`/package-deps`) · SP 흐름 분석(`/sp-impact`) 두 메뉴를 백엔드 엔드포인트 + 프론트 라우트 + e2e 회귀 테스트까지 완전 제거. 잔존 참조 0건.
+
+### v4.6.0 하이라이트 — 하네스 파이프라인 확장 (Phase A · D · B · C)
 
 기존 "코드 리뷰 하네스" 의 4단계(Analyst → Builder → Reviewer → Verifier) 패턴을 **공통 인프라로 추출**하고, 운영팀·DBA가 자주 마주하는 3가지 시나리오에 동일 패턴을 적용했습니다. 4개 하네스가 같은 Orchestrator·PromptLoader·UI 컴포넌트를 공유합니다.
 
@@ -499,6 +516,7 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 | **Java 코드 리뷰** | `/codereview` | OWASP Top 10, SOLID, 컨텍스트 주입 |
 | **복잡도 분석** | `/complexity` | 순환 복잡도 + 우선순위 필터 (단일/프로젝트 모드) |
 | **데이터 흐름 분석** | `/flow-analysis` | 테이블/SP/SQL_ID → MyBatis · Java · Controller · MiPlatform 자동 추적 |
+| **테이블 영향 분석** ✨ | `/impact` | 테이블 → MyBatis → Java → Controller 4단계 역추적, **파일 행 클릭 → 모달 + 전체 복사**, DB 테이블 픽커 |
 | **패키지 분석** 🆕 | `/package-overview` | Java 패키지 단위 4탭 (요약/ERD/풀흐름도/스토리), Markdown export |
 | **전사 패키지 지도** 🆕 | `/project-map` | 드릴다운 카드 그리드 + 검색 필터, 리프 → 패키지 개요로 점프 |
 
@@ -532,7 +550,7 @@ kubectl delete pvc -l app.kubernetes.io/instance=claude-toolkit -n claude-toolki
 |------|------|------|
 | **리뷰 이력** | `/history` | 자동 저장, 검색/필터, **SARIF/Excel 내보내기** ✨, 공유 링크, 즐겨찾기 |
 | **즐겨찾기** | `/favorites` | 태그별 정리, H2 영속화, (사용자, 이력) 중복 방지 |
-| **검색** | `/search` | 전체 이력 키워드 검색 |
+| **검색** ✨ | `/search` | 메뉴 카탈로그 + 분석 이력 통합 검색. **상단바 글로벌 검색창**(팔레트 accent 색상)에서 모든 페이지 어디서든 호출 가능 |
 | **사용량** | `/usage` | 일/월별 토큰 사용량 + 사용자별 제한 |
 | **ROI 리포트** | `/roi-report` | 절감 시간 환산 + 누적 분석 통계 |
 | **리뷰 요청** | `/review-requests` | VIEWER 작성 → REVIEWER/ADMIN 승인/거절 + 코멘트 + @멘션 |

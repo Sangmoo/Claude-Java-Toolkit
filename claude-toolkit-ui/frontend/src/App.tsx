@@ -45,9 +45,7 @@ const HarnessDependencyPage = lazy(() => import('./pages/analysis/HarnessDepende
 const FlowAnalysisPage = lazy(() => import('./pages/analysis/FlowAnalysisPage'))
 const PackageOverviewPage = lazy(() => import('./pages/analysis/PackageOverviewPage'))
 const ProjectMapPage = lazy(() => import('./pages/analysis/ProjectMapPage'))
-const PackageDepsPage = lazy(() => import('./pages/analysis/PackageDepsPage'))
 const ImpactAnalysisPage = lazy(() => import('./pages/analysis/ImpactAnalysisPage'))
-const SpImpactPage = lazy(() => import('./pages/analysis/SpImpactPage'))
 const SpMigrationHarnessPage = lazy(() => import('./pages/analysis/SpMigrationHarnessPage'))
 const SqlOptimizationHarnessPage = lazy(() => import('./pages/analysis/SqlOptimizationHarnessPage'))
 const MockDataPage = lazy(() => import('./pages/analysis/MockDataPage'))
@@ -196,9 +194,7 @@ export default function App() {
           <Route path="/flow-analysis" element={<FlowAnalysisPage />} />
           <Route path="/package-overview" element={<PackageOverviewPage />} />
           <Route path="/project-map" element={<ProjectMapPage />} />
-          <Route path="/package-deps" element={<PackageDepsPage />} />
           <Route path="/impact" element={<ImpactAnalysisPage />} />
-          <Route path="/sp-impact" element={<SpImpactPage />} />
           <Route path="/sp-migration-harness" element={<SpMigrationHarnessPage />} />
           <Route path="/sql-optimization-harness" element={<SqlOptimizationHarnessPage />} />
           <Route path="/docgen" element={<DocGenPage />} />

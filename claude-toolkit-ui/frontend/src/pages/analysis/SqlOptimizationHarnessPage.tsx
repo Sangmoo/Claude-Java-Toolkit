@@ -44,16 +44,10 @@ export default function SqlOptimizationHarnessPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error])
 
-  /** SourceSelector 콜백 — DB 객체(SP/Function 등) 또는 Java 파일 → 쿼리 영역에 채움. */
-  const handleSourceSelect = (code: string, lang: 'java' | 'sql') => {
-    if (lang === 'sql') {
-      setQuery(code)
-      toast.success('DB 객체 본문을 쿼리 영역에 로드했습니다')
-    } else {
-      // Java MyBatis xml/Mapper 일 가능성 — query에 채워서 사용자가 SQL 부분만 발췌
-      setQuery((prev) => prev ? prev + '\n\n-- ── 추가 소스 ──\n' + code : code)
-      toast.info('Java 파일을 쿼리 영역에 추가 — SQL 부분만 발췌해서 사용하세요')
-    }
+  /** SourceSelector 콜백 — DB 객체(SP/Function 등) 본문을 쿼리 영역에 채움. */
+  const handleSourceSelect = (code: string) => {
+    setQuery(code)
+    toast.success('DB 객체 본문을 쿼리 영역에 로드했습니다')
   }
 
   const start = async () => {
@@ -105,7 +99,12 @@ export default function SqlOptimizationHarnessPage() {
           <div style={panelHeaderStyle}>
             <span style={{ fontWeight: 600, fontSize: '13px' }}>최적화 입력</span>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <SourceSelector mode="both" onSelect={handleSourceSelect} />
+              <SourceSelector
+                mode="sql"
+                buttonLabel="소스선택하기"
+                buttonTitle="Settings에 연결된 DB 의 SP/FUNCTION/PACKAGE/TRIGGER 선택"
+                onSelect={handleSourceSelect}
+              />
               <button style={smallBtn} onClick={clearAll} title="초기화" disabled={streaming}>
                 <FaEraser /> 초기화
               </button>

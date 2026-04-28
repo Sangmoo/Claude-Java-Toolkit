@@ -77,6 +77,12 @@ export function useHarnessStream<K extends string>(stageKeys: readonly K[]): Use
   /**
    * 청크에서 [[HARNESS_STAGE:N]] 마커를 분리.
    * 마커가 chunk 경계에 걸칠 수 있어 accumRef로 누적하며 처리.
+   *
+   * 안전한 flush 길이는 "buf 의 끝부분이 STAGE_MARKER 의 prefix 와 일치하는지"
+   * 만으로 판정한다. 이전 구현은 줄바꿈 단위로만 flush 하면서 호출부가 매 청크마다
+   * '\n' 을 인위적으로 덧붙이고 있었기 때문에, Claude 가 단어 중간("활"/"용") 에서
+   * 청크를 끊을 때 "활\n용" 가 누적되어 마크다운 soft-break 로 단어가 갈라져
+   * 보이는 버그가 있었다.
    */
   const processChunk = (chunk: string) => {
     accumRef.current += chunk
@@ -86,11 +92,17 @@ export function useHarnessStream<K extends string>(stageKeys: readonly K[]): Use
     while (true) {
       const markerIdx = buf.indexOf(STAGE_MARKER)
       if (markerIdx === -1) {
-        // 마커 없음 — 마지막 줄바꿈까지만 안전 flush (마크다운 부분 렌더링 방지)
-        const lastNewline = buf.lastIndexOf('\n')
-        let safeLen = 0
-        if (lastNewline >= 0) safeLen = lastNewline + 1
-        else if (buf.length > 200) safeLen = buf.length - 24
+        // 마커 없음 — 끝부분이 STAGE_MARKER 의 부분일 수 있는 만큼만 hold-back 후 전부 flush.
+        // (예: buf 가 "...[[HARN" 으로 끝나면 마커일 가능성이 있어 8자만 보류)
+        let holdBack = 0
+        const maxPrefix = STAGE_MARKER.length - 1
+        for (let len = Math.min(maxPrefix, buf.length); len > 0; len--) {
+          if (buf.substring(buf.length - len) === STAGE_MARKER.substring(0, len)) {
+            holdBack = len
+            break
+          }
+        }
+        const safeLen = buf.length - holdBack
         if (safeLen > 0) {
           appendToCurrentStage(buf.substring(0, safeLen))
           buf = buf.substring(safeLen)
@@ -173,7 +185,9 @@ export function useHarnessStream<K extends string>(stageKeys: readonly K[]): Use
           if (accumRef.current.length > 0) { appendToCurrentStage(accumRef.current); accumRef.current = '' }
           es.close(); esRef.current = null; setStreaming(false); return
         }
-        processChunk(e.data + '\n')
+        // SSE 라운드트립이 원본 청크 텍스트(개행 포함) 를 그대로 보존하므로
+        // 호출부에서 '\n' 을 추가로 붙이지 않는다. (단어 중간 분리 버그 방지)
+        processChunk(e.data)
       }
       es.addEventListener('done', () => {
         if (accumRef.current.length > 0) { appendToCurrentStage(accumRef.current); accumRef.current = '' }

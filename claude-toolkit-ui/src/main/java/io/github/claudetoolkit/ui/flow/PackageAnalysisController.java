@@ -329,22 +329,6 @@ public class PackageAnalysisController {
         }
     }
 
-    @Operation(summary = "패키지 간 의존성 그래프 (Spring endpoint callee 기반)")
-    @GetMapping("/dependency-graph")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> dependencyGraph(
-            @RequestParam(value = "level",  required = false) Integer level,
-            @RequestParam(value = "prefix", required = false) String  prefix) {
-        int lv = level != null ? level : service.currentLevel();
-        String pf = prefix != null ? prefix : service.currentPrefix();
-        try {
-            Map<String, Object> graph = service.buildDependencyGraph(lv, pf);
-            return ResponseEntity.ok(ApiResponse.ok(graph));
-        } catch (Exception e) {
-            log.warn("[Package] dependency-graph 실패", e);
-            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("그래프 생성 실패: " + e.getMessage()));
-        }
-    }
-
     // ── 일괄 스토리 생성 ──────────────────────────────────────────────────
 
     @Operation(summary = "현재 레벨 전 패키지 스토리 일괄 생성 시작 (ADMIN 전용)")

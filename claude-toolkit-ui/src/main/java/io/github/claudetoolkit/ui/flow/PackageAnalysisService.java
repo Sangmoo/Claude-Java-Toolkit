@@ -208,55 +208,6 @@ public class PackageAnalysisService {
         return overviewCache.size();
     }
 
-    // ── 패키지 의존성 그래프 ───────────────────────────────────────────
-
-    /**
-     * 현재 레벨의 전 패키지에 대해 Spring endpoint callee 기반으로 패키지 간 의존성을 계산.
-     * 반환 형식: {@code { nodes: [...], edges: [...], level: N }}
-     */
-    public Map<String, Object> buildDependencyGraph(int level, String prefix) {
-        List<PackageSummary> summaries = listOverview(level, prefix);
-        Set<String> pkgNames = new LinkedHashSet<String>();
-        for (PackageSummary s : summaries) pkgNames.add(s.packageName);
-
-        List<Map<String, Object>> nodes = new ArrayList<Map<String, Object>>();
-        List<Map<String, Object>> edges = new ArrayList<Map<String, Object>>();
-        Set<String> edgeSet = new HashSet<String>();
-
-        for (PackageSummary s : summaries) {
-            Map<String, Object> node = new LinkedHashMap<String, Object>();
-            node.put("id",              s.packageName);
-            node.put("packageName",     s.packageName);
-            node.put("classTotal",      s.classTotal);
-            node.put("controllerCount", s.controllerCount);
-            node.put("serviceCount",    s.serviceCount);
-            node.put("daoCount",        s.daoCount);
-            nodes.add(node);
-
-            List<ControllerEndpoint> eps = springEndpointsMatching(s.packageName, level);
-            List<String> deps = inferExternalDeps(eps, s.packageName, level);
-            for (String dep : deps) {
-                if (!pkgNames.contains(dep) || dep.equals(s.packageName)) continue;
-                String key = s.packageName + "->" + dep;
-                if (edgeSet.add(key)) {
-                    Map<String, Object> edge = new LinkedHashMap<String, Object>();
-                    edge.put("id",     key);
-                    edge.put("source", s.packageName);
-                    edge.put("target", dep);
-                    edges.add(edge);
-                }
-            }
-        }
-
-        Map<String, Object> result = new LinkedHashMap<String, Object>();
-        result.put("nodes", nodes);
-        result.put("edges", edges);
-        result.put("level", level);
-        result.put("packageCount", nodes.size());
-        result.put("edgeCount",    edges.size());
-        return result;
-    }
-
     // ── Detail (패키지 하나 상세) ──────────────────────────────────────
 
     public PackageDetail getDetail(String packageName, int level) {

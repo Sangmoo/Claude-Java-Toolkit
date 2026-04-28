@@ -10,6 +10,7 @@ import io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer;
 import io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer;
 import io.github.claudetoolkit.ui.flow.model.FlowAnalysisRequest;
 import io.github.claudetoolkit.ui.flow.model.FlowAnalysisResult;
+import io.github.claudetoolkit.ui.history.ReviewHistoryService;
 import io.github.claudetoolkit.ui.share.SharedResult;
 import io.github.claudetoolkit.ui.share.SharedResultRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +54,7 @@ public class FlowController {
     private final FlowHistoryService      history;
     private final SharedResultRepository  shareRepo;
     private final ObjectMapper            mapper;
+    private final ReviewHistoryService    reviewHistory;
 
     public FlowController(FlowAnalysisService service,
                           MyBatisIndexer mybatis,
@@ -61,15 +63,17 @@ public class FlowController {
                           MiPlatformIndexer miplatform,
                           FlowHistoryService history,
                           SharedResultRepository shareRepo,
-                          ObjectMapper mapper) {
-        this.service      = service;
-        this.mybatis      = mybatis;
-        this.callerIndex  = callerIndex;
-        this.spring       = spring;
-        this.miplatform   = miplatform;
-        this.history      = history;
-        this.shareRepo    = shareRepo;
-        this.mapper       = mapper;
+                          ObjectMapper mapper,
+                          ReviewHistoryService reviewHistory) {
+        this.service       = service;
+        this.mybatis       = mybatis;
+        this.callerIndex   = callerIndex;
+        this.spring        = spring;
+        this.miplatform    = miplatform;
+        this.history       = history;
+        this.shareRepo     = shareRepo;
+        this.mapper        = mapper;
+        this.reviewHistory = reviewHistory;
     }
 
     @Operation(summary = "데이터 흐름 분석 — 테이블 / SP / SQL_ID / MiPlatform 화면을 시작점으로 추적")
@@ -139,6 +143,56 @@ public class FlowController {
         } catch (Exception e) {
             log.warn("[Flow] source 발췌 실패 file={}: {}", relPath, e.getMessage());
             return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("발췌 실패: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "프로젝트 파일 전체 내용 조회 — Impact 분석 결과의 Java 파일을 모달로 보기 위한 엔드포인트")
+    @GetMapping("/file")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> file(
+            @RequestParam("path") String relPath) {
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        try {
+            if (relPath == null || relPath.trim().isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("path 파라미터가 필요합니다."));
+            }
+            String clean = relPath.replace('\\', '/').trim();
+            // Path-traversal 방어 — scanPath 밖으로 빠져나가는 경로 거부
+            if (clean.contains("../") || clean.startsWith("/") || clean.contains(":")) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("허용되지 않은 경로입니다."));
+            }
+            io.github.claudetoolkit.ui.config.ToolkitSettings settings = service.getSettings();
+            if (settings.getProject() == null || settings.getProject().getScanPath() == null) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("scanPath 가 설정되지 않았습니다."));
+            }
+            java.nio.file.Path root = java.nio.file.Paths.get(
+                    io.github.claudetoolkit.ui.config.HostPathTranslator.translate(
+                            settings.getProject().getScanPath()));
+            java.nio.file.Path target = root.resolve(clean).normalize();
+            if (!target.startsWith(root)) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("scanPath 밖의 파일입니다."));
+            }
+            if (!java.nio.file.Files.isRegularFile(target)) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("파일을 찾을 수 없습니다: " + clean));
+            }
+            long size = java.nio.file.Files.size(target);
+            if (size > 5_000_000) {
+                return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("파일이 너무 큽니다 (" + size + "B)."));
+            }
+            byte[] bytes = java.nio.file.Files.readAllBytes(target);
+            // 한국 SI/금융 환경에서는 Java/MyBatis 소스가 MS949 (CP949) 로 저장된 경우가 많아
+            // UTF-8 강제 디코드 시 한글이 깨진다. 우선 UTF-8 strict decode 시도 후 실패하면
+            // MS949 로 fallback. BOM(EF BB BF) 은 별도로 제거.
+            DecodedFile decoded = decodeWithFallback(bytes);
+            String name = target.getFileName().toString();
+            data.put("file",     clean);
+            data.put("name",     name);
+            data.put("size",     size);
+            data.put("encoding", decoded.charset);
+            data.put("content",  decoded.content);
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.warn("[Flow] file 조회 실패 path={}: {}", relPath, e.getMessage());
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("파일 조회 실패: " + e.getMessage()));
         }
     }
 
@@ -340,6 +394,15 @@ public class FlowController {
             }});
             log.info("[Flow] impact: table={} dml={} stmts={} javaFiles={} eps={} screens={}",
                     tableUp, dml, stmtList.size(), javaFiles.size(), epList.size(), screens.size());
+
+            // 리뷰 이력에 저장 — 사용자가 /history 와 /search 에서 다시 찾을 수 있도록
+            try {
+                String input  = "TABLE=" + tableUp + (dml != null ? " DML=" + dml.toUpperCase() : "");
+                String output = mapper.writeValueAsString(data);
+                reviewHistory.save("TABLE_IMPACT", input, output);
+            } catch (Exception saveErr) {
+                log.warn("[Flow] impact 이력 저장 실패 — 분석 응답은 정상 반환", saveErr);
+            }
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (Exception e) {
             log.error("[Flow] impact 실패 table={}", table, e);
@@ -347,85 +410,75 @@ public class FlowController {
         }
     }
 
-    @Operation(summary = "SP Flow 분석 — SP 호출 역추적 (SP → MyBatis → Java → Controller → MiPlatform)")
-    @GetMapping("/sp-impact")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> spImpact(
-            @RequestParam("sp") String sp) {
-        if (sp == null || sp.trim().isEmpty()) {
-            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("sp 파라미터가 필요합니다."));
+    /**
+     * 파일 바이트 → 문자열 디코드. 인코딩 자동 감지 (UTF-8 우선, 실패 시 MS949).
+     *
+     * <p>한국 SI/금융 환경의 레거시 Java/MyBatis 소스는 MS949 (= Windows-31J = CP949)
+     * 로 저장된 경우가 흔하다. UTF-8 으로 강제 디코드하면 한글이 ?�... 처럼 깨진다.
+     *
+     * <p>전략:
+     * <ol>
+     *   <li>UTF-8 BOM (EF BB BF) 또는 UTF-16 BOM (FF FE / FE FF) 이 있으면 해당 인코딩으로</li>
+     *   <li>UTF-8 strict decode 시도 (malformed/unmappable → 예외)</li>
+     *   <li>실패하면 MS949 로 디코드 (이는 거의 항상 성공 — 1바이트는 ASCII, 2바이트 시퀀스는 한글)</li>
+     * </ol>
+     */
+    private static DecodedFile decodeWithFallback(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return new DecodedFile("", "UTF-8");
         }
-        String spName = sp.trim().toUpperCase();
-        // Match CALL/EXEC/EXECUTE/{ CALL ... } or bare SP name reference in snippet
-        java.util.regex.Pattern spPat = java.util.regex.Pattern.compile(
-                "(?i)(?:(?:CALL|EXEC(?:UTE)?)\\s+|\\{\\s*CALL\\s+)" + java.util.regex.Pattern.quote(spName) + "\\b"
-                + "|\\b" + java.util.regex.Pattern.quote(spName) + "\\s*\\(");
+        // BOM 처리
+        int offset = 0;
+        int length = bytes.length;
+        java.nio.charset.Charset bomCharset = null;
+        if (length >= 3
+                && (bytes[0] & 0xff) == 0xEF
+                && (bytes[1] & 0xff) == 0xBB
+                && (bytes[2] & 0xff) == 0xBF) {
+            offset = 3; length -= 3;
+            bomCharset = java.nio.charset.StandardCharsets.UTF_8;
+        } else if (length >= 2
+                && (bytes[0] & 0xff) == 0xFF
+                && (bytes[1] & 0xff) == 0xFE) {
+            offset = 2; length -= 2;
+            bomCharset = java.nio.charset.StandardCharsets.UTF_16LE;
+        } else if (length >= 2
+                && (bytes[0] & 0xff) == 0xFE
+                && (bytes[1] & 0xff) == 0xFF) {
+            offset = 2; length -= 2;
+            bomCharset = java.nio.charset.StandardCharsets.UTF_16BE;
+        }
+        if (bomCharset != null) {
+            return new DecodedFile(new String(bytes, offset, length, bomCharset),
+                    bomCharset.name() + " (BOM)");
+        }
+        // UTF-8 strict 시도
         try {
-            // 1. Scan all MyBatis statements for SP references in snippet
-            List<MyBatisIndexer.MyBatisStatement> stmts = new ArrayList<MyBatisIndexer.MyBatisStatement>();
-            for (MyBatisIndexer.MyBatisStatement st : mybatis.allStatements()) {
-                if (st.snippet != null && spPat.matcher(st.snippet).find()) {
-                    stmts.add(st);
-                }
+            java.nio.charset.CharsetDecoder dec = java.nio.charset.StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
+            String s = dec.decode(java.nio.ByteBuffer.wrap(bytes, offset, length)).toString();
+            return new DecodedFile(s, "UTF-8");
+        } catch (java.nio.charset.CharacterCodingException notUtf8) {
+            // MS949 로 fallback — 한국 환경의 사실상 표준 Java/Oracle 인코딩
+            try {
+                java.nio.charset.Charset ms949 = java.nio.charset.Charset.forName("MS949");
+                return new DecodedFile(new String(bytes, offset, length, ms949), "MS949");
+            } catch (java.nio.charset.UnsupportedCharsetException noMs949) {
+                // 최후의 fallback — 손실되더라도 어떤 결과는 반환
+                return new DecodedFile(
+                        new String(bytes, offset, length, java.nio.charset.StandardCharsets.ISO_8859_1),
+                        "ISO-8859-1 (fallback)");
             }
+        }
+    }
 
-            // 2. Statements → Java files
-            java.util.Set<String> javaFiles = new java.util.LinkedHashSet<String>();
-            for (MyBatisIndexer.MyBatisStatement st : stmts) {
-                if (st.fullId != null) javaFiles.addAll(callerIndex.filesCallingStatement(st.fullId));
-            }
-
-            // 3. Java files → Controller endpoints
-            java.util.Set<String> javaFilesNorm = new java.util.LinkedHashSet<String>();
-            for (String f : javaFiles) javaFilesNorm.add(f.replace('\\', '/'));
-            List<SpringUrlIndexer.ControllerEndpoint> endpoints = new ArrayList<SpringUrlIndexer.ControllerEndpoint>();
-            for (SpringUrlIndexer.ControllerEndpoint ep : spring.allEndpoints()) {
-                String epFile = ep.file != null ? ep.file.replace('\\', '/') : "";
-                if (javaFilesNorm.contains(epFile)) endpoints.add(ep);
-            }
-
-            // 4. Controller endpoints → MiPlatform screens
-            java.util.Set<String> screens = new java.util.LinkedHashSet<String>();
-            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
-                for (MiPlatformIndexer.MiPlatformScreen s : miplatform.findByUrl(ep.url)) {
-                    screens.add(s.file != null ? s.file : "");
-                }
-            }
-
-            // Build response
-            List<Map<String, Object>> stmtList = new ArrayList<Map<String, Object>>();
-            for (MyBatisIndexer.MyBatisStatement st : stmts) {
-                Map<String, Object> m = new LinkedHashMap<String, Object>();
-                m.put("fullId", st.fullId); m.put("dml", st.dml); m.put("file", st.file); m.put("line", st.line);
-                m.put("snippet", st.snippet);
-                stmtList.add(m);
-            }
-            List<Map<String, Object>> epList = new ArrayList<Map<String, Object>>();
-            for (SpringUrlIndexer.ControllerEndpoint ep : endpoints) {
-                Map<String, Object> m = new LinkedHashMap<String, Object>();
-                m.put("url", ep.url); m.put("httpMethod", ep.httpMethod);
-                m.put("className", ep.className); m.put("methodName", ep.methodName);
-                m.put("file", ep.file); m.put("line", ep.line);
-                epList.add(m);
-            }
-
-            Map<String, Object> data = new LinkedHashMap<String, Object>();
-            data.put("sp",         spName);
-            data.put("statements", stmtList);
-            data.put("javaFiles",  new ArrayList<String>(javaFiles));
-            data.put("endpoints",  epList);
-            data.put("screens",    new ArrayList<String>(screens));
-            data.put("counts", new LinkedHashMap<String, Object>() {{
-                put("statements", stmtList.size());
-                put("javaFiles",  javaFiles.size());
-                put("endpoints",  epList.size());
-                put("screens",    screens.size());
-            }});
-            log.info("[Flow] sp-impact: sp={} stmts={} javaFiles={} eps={} screens={}",
-                    spName, stmtList.size(), javaFiles.size(), epList.size(), screens.size());
-            return ResponseEntity.ok(ApiResponse.ok(data));
-        } catch (Exception e) {
-            log.error("[Flow] sp-impact 실패 sp={}", sp, e);
-            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error("SP 분석 실패: " + e.getMessage()));
+    private static final class DecodedFile {
+        final String content;
+        final String charset;
+        DecodedFile(String content, String charset) {
+            this.content = content;
+            this.charset = charset;
         }
     }
 

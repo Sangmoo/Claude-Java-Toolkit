@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import SourceSelector from '../../components/common/SourceSelector'
 
 /**
  * v4.4.x — 데이터 흐름 분석 페이지 (Phase 3)
@@ -644,7 +645,22 @@ export default function FlowAnalysisPage() {
 
           {/* 입력 폼 */}
           <div style={styles.formCard}>
-            <label style={styles.label}>분석 대상 질문</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={styles.label}>분석 대상 질문</label>
+              <SourceSelector
+                mode="sql"
+                dbTypes={['PROCEDURE', 'FUNCTION', 'PACKAGE', 'TRIGGER']}
+                pickName
+                buttonLabel="소스선택하기"
+                buttonTitle="Settings에 연결된 DB 의 SP/FUNCTION/PACKAGE/TRIGGER 선택"
+                onSelect={(ident) => {
+                  if (streaming) return
+                  // "OWNER.NAME" 형태 — SP 시작점으로 분석할 수 있도록 query 와 targetType 을 함께 세팅
+                  setQuery(ident)
+                  setTargetType('SP')
+                }}
+              />
+            </div>
             <textarea
               style={styles.textarea}
               value={query}

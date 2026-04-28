@@ -59,16 +59,30 @@ public class ReviewHistoryService {
      * @param outputContent Claude's generated output
      */
     public void save(String type, String inputContent, String outputContent) {
-        save(type, inputContent, outputContent, null);
+        saveInternal(type, inputContent, outputContent, null, currentUsername());
     }
 
     public void save(String type, String inputContent, String outputContent, Long costValue) {
+        saveInternal(type, inputContent, outputContent, costValue, currentUsername());
+    }
+
+    /**
+     * 백그라운드 스레드(예: SSE 스트리밍 핸들러)에서 호출할 때 사용하는 오버로드.
+     * SecurityContext 가 비어 있어 {@link #currentUsername()} 가 null 이 되므로,
+     * 호출부가 요청 스레드에서 미리 capture 한 username 을 명시적으로 전달한다.
+     */
+    public void save(String type, String inputContent, String outputContent, String username) {
+        saveInternal(type, inputContent, outputContent, null, username);
+    }
+
+    private void saveInternal(String type, String inputContent, String outputContent,
+                              Long costValue, String username) {
         long inputTok  = claudeClient.getLastInputTokens();
         long outputTok = claudeClient.getLastOutputTokens();
         String title = buildTitle(inputContent);
         ReviewHistory h = new ReviewHistory(type, title, inputContent, outputContent, costValue,
                 inputTok > 0 ? inputTok : null, outputTok > 0 ? outputTok : null);
-        h.setUsername(currentUsername());  // v4.2.x: GET /history 가 username 으로 필터링하므로 필수
+        h.setUsername(username);  // v4.2.x: GET /history 가 username 으로 필터링하므로 필수
         ReviewHistory saved = repository.save(h);
 
         // Prune oldest if over limit

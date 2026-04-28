@@ -121,7 +121,8 @@ public class HarnessLogRcaController {
     // ── SSE 스트리밍: 2단계 채널 ────────────────────────────────────────────
 
     @GetMapping(value = "/stream/{streamId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter stream(@PathVariable("streamId") String streamId) {
+    public SseEmitter stream(@PathVariable("streamId") String streamId,
+                             java.security.Principal principal) {
         SseEmitter emitter = new SseEmitter(0L); // no timeout — 하네스가 길어도 OK
         PendingInput input = pending.remove(streamId);
         if (input == null) {
@@ -132,9 +133,13 @@ public class HarnessLogRcaController {
             return emitter;
         }
 
+        final String capturedUser = principal != null ? principal.getName() : null;
+        final StringBuilder accumulated = new StringBuilder();
+
         Thread t = new Thread(() -> {
             try {
                 Consumer<String> sink = chunk -> {
+                    accumulated.append(chunk);
                     try {
                         SseStreamController.sendSseData(emitter, chunk);
                     } catch (IOException ioe) {
@@ -144,6 +149,13 @@ public class HarnessLogRcaController {
                 rcaService.analyzeStream(
                         input.errorLog, input.timeline, input.relatedCode,
                         input.env, input.analysisMode, sink);
+                try {
+                    String savedOutput = accumulated.toString()
+                            .replaceAll("\\[\\[HARNESS_STAGE:\\d+\\]\\]\\n?", "");
+                    historyService.save("LOG_RCA_HARNESS", input.errorLog, savedOutput, capturedUser);
+                } catch (Exception saveErr) {
+                    log.warn("[LogRcaHarness] 이력 저장 실패 — 스트림은 정상 종료", saveErr);
+                }
                 emitter.send(SseEmitter.event().name("done").data("ok"));
                 emitter.complete();
             } catch (Exception e) {
