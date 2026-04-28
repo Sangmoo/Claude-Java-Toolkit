@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from '../../components/common/SourceSelector'
+import CostHint from '../../components/common/CostHint'
 import { copyToClipboard, printAsHtml, markdownToHtml } from '../../utils/clipboard'
 import EmailModal from '../../components/common/EmailModal'
 
@@ -334,9 +335,12 @@ export default function CodeReviewPage() {
           <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
             {/* v4.2.8: 질문 리포머 — 모호한 입력을 Claude 가 명료화 */}
             <QuestionReformer value={code} onUpdate={setCode} />
-            <button onClick={startAnalysis} disabled={streaming || !code.trim()} style={{ ...analyzeBtn, opacity: streaming || !code.trim() ? 0.5 : 1 }}>
-              {streaming ? <><FaSpinner className="spin" /> 분석 중 (4단계)...</> : <><FaPlay /> 4단계 분석 시작</>}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <CostHint inputText={code} outputRatio={2.5} />
+              <button onClick={startAnalysis} disabled={streaming || !code.trim()} style={{ ...analyzeBtn, opacity: streaming || !code.trim() ? 0.5 : 1 }}>
+                {streaming ? <><FaSpinner className="spin" /> 분석 중 (4단계)...</> : <><FaPlay /> 4단계 분석 시작</>}
+              </button>
+            </div>
           </div>
         </div>
 

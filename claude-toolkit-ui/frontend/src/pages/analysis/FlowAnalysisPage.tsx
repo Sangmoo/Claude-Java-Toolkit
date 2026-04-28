@@ -14,6 +14,7 @@ import {
 import { useToast } from '../../hooks/useToast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import SourceSelector from '../../components/common/SourceSelector'
+import CostHint from '../../components/common/CostHint'
 
 /**
  * v4.4.x — 데이터 흐름 분석 페이지 (Phase 3)
@@ -745,7 +746,7 @@ export default function FlowAnalysisPage() {
                 <FaFileCode size={11} style={{ marginRight: 4 }} /> MiPlatform 화면 매칭
               </label>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
               {!streaming ? (
                 <button style={styles.runBtn} onClick={startAnalysis} disabled={!query.trim()}>
                   <FaPlay /> 분석 시작
@@ -755,6 +756,7 @@ export default function FlowAnalysisPage() {
                   <FaTimes /> 중단
                 </button>
               )}
+              <CostHint inputText={query} outputRatio={2.0} />
             </div>
 
             {/* v4.5 — AI 요약 버튼 (분석 완료 시에만 노출, 클릭 → 모달) */}

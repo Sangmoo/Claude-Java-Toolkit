@@ -5,6 +5,7 @@ import {
 } from 'react-icons/fa'
 import HarnessStagePanels, { type StageDef } from '../../components/common/HarnessStagePanels'
 import SourceSelector from '../../components/common/SourceSelector'
+import CostHint from '../../components/common/CostHint'
 import { useHarnessStream } from '../../hooks/useHarnessStream'
 import { useToast } from '../../hooks/useToast'
 
@@ -169,7 +170,11 @@ export default function SqlOptimizationHarnessPage() {
             />
           </div>
 
-          <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+            <CostHint
+              inputText={[query, executionPlan, tableStats, existingIndexes, dataVolume, constraints].filter(Boolean).join('\n')}
+              outputRatio={2.5}
+            />
             <button
               onClick={start}
               disabled={streaming || !query.trim()}

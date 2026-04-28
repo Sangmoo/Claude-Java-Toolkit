@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from './SourceSelector'
+import CostHint from './CostHint'
 import type { IconType } from 'react-icons'
 
 export interface AnalysisOption {
@@ -276,7 +277,8 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
             onDragLeave={config.allowFileUpload ? handleDragLeave : undefined}
           />
 
-          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+            <CostHint inputText={input} />
             <button onClick={startAnalysis} disabled={streaming || !input.trim()}
               style={{ ...analyzeBtn, opacity: streaming || !input.trim() ? 0.5 : 1 }}>
               {streaming ? <><FaSpinner className="spin" /> 분석 중...</> : <><FaPlay /> 분석 시작</>}
