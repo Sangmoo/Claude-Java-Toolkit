@@ -61,6 +61,7 @@ public class ComplianceReportController {
             @RequestParam("type") String typeKey,
             @RequestParam("from") String fromStr,
             @RequestParam("to")   String toStr,
+            @RequestParam(value = "executiveSummary", defaultValue = "false") boolean executiveSummary,
             Authentication auth) {
         try {
             ComplianceReportType type = ComplianceReportType.fromKey(typeKey);
@@ -83,7 +84,7 @@ public class ComplianceReportController {
             String generatedBy = auth != null ? auth.getName() : "anonymous";
 
             ComplianceReportService.GeneratedReport gr =
-                    service.generate(type, from, to, generatedBy);
+                    service.generate(type, from, to, generatedBy, executiveSummary);
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("id",                gr.id);
@@ -94,6 +95,7 @@ public class ComplianceReportController {
             data.put("generatedAt",       gr.generatedAt);
             data.put("generatedBy",       gr.generatedBy);
             data.put("markdown",          gr.markdown);
+            data.put("hasExecutiveSummary", gr.executiveSummary != null && !gr.executiveSummary.isEmpty());
             data.put("suggestedFilename", gr.suggestedFilename);
             return ResponseEntity.ok(ApiResponse.ok(data));
         } catch (IllegalArgumentException e) {
@@ -116,23 +118,52 @@ public class ComplianceReportController {
             h.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
             return new ResponseEntity<>(err, h, org.springframework.http.HttpStatus.NOT_FOUND);
         }
-        // Stage 1 — markdown only
-        if (!"md".equalsIgnoreCase(format)) {
-            byte[] err = ("# 지원하지 않는 포맷\n\nStage 1 은 markdown(.md) 다운로드만 지원합니다.\nPDF / Excel 은 Stage 3 에서 추가 예정.").getBytes(StandardCharsets.UTF_8);
-            HttpHeaders h = new HttpHeaders();
-            h.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
-            return new ResponseEntity<>(err, h, org.springframework.http.HttpStatus.BAD_REQUEST);
+        String fmt = format != null ? format.trim().toLowerCase() : "md";
+        switch (fmt) {
+            case "md":   return downloadMarkdown(gr, reportId);
+            case "xlsx": return downloadExcel   (gr, reportId);
+            default: {
+                byte[] err = ("# 지원하지 않는 포맷\n\n현재 지원: md, xlsx. PDF 는 *프린트 보기* 에서 브라우저로 직접 저장하세요.").getBytes(StandardCharsets.UTF_8);
+                HttpHeaders h = new HttpHeaders();
+                h.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
+                return new ResponseEntity<>(err, h, org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
         }
+    }
+
+    private ResponseEntity<byte[]> downloadMarkdown(
+            ComplianceReportService.GeneratedReport gr, String reportId) {
         byte[] body = gr.markdown.getBytes(StandardCharsets.UTF_8);
         String filename = gr.suggestedFilename != null ? gr.suggestedFilename : ("compliance-" + reportId + ".md");
+        return wrapDownload(body, "text/markdown; charset=UTF-8", filename);
+    }
+
+    private ResponseEntity<byte[]> downloadExcel(
+            ComplianceReportService.GeneratedReport gr, String reportId) {
+        try {
+            byte[] body = service.toExcel(reportId);
+            String filename = String.format("compliance-%s-%s_%s.xlsx",
+                    gr.type.getKey(), gr.from, gr.to);
+            return wrapDownload(body,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename);
+        } catch (Exception e) {
+            log.warn("[Compliance] Excel 내보내기 실패", e);
+            byte[] err = ("# Excel 생성 실패\n\n" + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+            HttpHeaders h = new HttpHeaders();
+            h.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
+            return new ResponseEntity<>(err, h, org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private ResponseEntity<byte[]> wrapDownload(byte[] body, String contentType, String filename) {
         String encoded;
         try { encoded = URLEncoder.encode(filename, "UTF-8").replace("+", "%20"); }
-        catch (Exception e) { encoded = "compliance-report.md"; }
-
+        catch (Exception e) { encoded = "compliance-report"; }
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("text/markdown; charset=UTF-8"));
+        headers.setContentType(MediaType.parseMediaType(contentType));
         headers.add(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"compliance-report.md\"; filename*=UTF-8''" + encoded);
+                "attachment; filename=\"compliance-report\"; filename*=UTF-8''" + encoded);
         return new ResponseEntity<>(body, headers, org.springframework.http.HttpStatus.OK);
     }
 }
