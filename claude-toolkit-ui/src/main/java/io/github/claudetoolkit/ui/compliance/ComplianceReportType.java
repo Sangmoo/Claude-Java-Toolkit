@@ -17,23 +17,23 @@ public enum ComplianceReportType {
         "SQL Injection / 권한 / 로그 / 암호화 항목별 진단 + 분석 활동 통계",
         true),
 
-    /** 개인정보보호법 데이터 처리 흐름 — Stage 2 */
+    /** 개인정보보호법 데이터 처리 흐름 — Stage 2 활성 */
     PRIVACY("privacy",
         "개인정보보호법 데이터 처리 흐름",
-        "개인정보 컬럼 → 사용 코드 → API 출력 추적 + 마스킹 활동",
-        false),
+        "개인정보 처리 활동 + 마스킹 + 처리방침 / 동의 / 처리위탁 점검 안내",
+        true),
 
-    /** 정보통신망법 보안 점검 — Stage 2 */
+    /** 정보통신망법 보안 점검 — Stage 2 활성 */
     NETWORK_ACT("network-act",
         "정보통신망법 보안 점검",
-        "접근통제 / 암호화 / 로그 보존 항목별 진단",
-        false),
+        "접근통제 / 접속기록 보존 / 침해사고 대응 / Brute-force 탐지",
+        true),
 
-    /** 외부감사 대응 종합 리포트 — Stage 2 */
+    /** 외부감사 대응 종합 리포트 — Stage 2 활성 */
     EXTERNAL_AUDIT("external-audit",
         "외부감사 대응 종합 리포트",
-        "위 셋 종합 + 감사 로그 + 분석 이력 요약",
-        false);
+        "FSS · PIPA · 정보통신망법 횡단 비교 + 위험사항 + 증빙 체크리스트",
+        true);
 
     private final String key;
     private final String label;

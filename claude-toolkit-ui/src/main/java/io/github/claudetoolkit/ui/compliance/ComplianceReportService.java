@@ -1,6 +1,9 @@
 package io.github.claudetoolkit.ui.compliance;
 
+import io.github.claudetoolkit.ui.compliance.template.ExternalAuditTemplate;
 import io.github.claudetoolkit.ui.compliance.template.FssRegulationTemplate;
+import io.github.claudetoolkit.ui.compliance.template.NetworkActTemplate;
+import io.github.claudetoolkit.ui.compliance.template.PrivacyActTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -79,13 +82,18 @@ public class ComplianceReportService {
             case FSS:
                 markdown = FssRegulationTemplate.build(data);
                 break;
-            // Stage 2 — 나머지 3종 템플릿 추가 예정
             case PRIVACY:
+                markdown = PrivacyActTemplate.build(data);
+                break;
             case NETWORK_ACT:
+                markdown = NetworkActTemplate.build(data);
+                break;
             case EXTERNAL_AUDIT:
+                markdown = ExternalAuditTemplate.build(data);
+                break;
             default:
                 throw new IllegalStateException(
-                        "이 타입은 아직 구현되지 않았습니다 (Stage 2 예정): " + type.getKey());
+                        "알 수 없는 리포트 타입: " + type.getKey());
         }
 
         GeneratedReport gr = new GeneratedReport();

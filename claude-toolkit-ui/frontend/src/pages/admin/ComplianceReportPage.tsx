@@ -103,7 +103,7 @@ export default function ComplianceReportPage() {
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
         <FaShieldAlt style={{ color: '#f59e0b' }} /> 한국 컴플라이언스 리포트
         <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 6 }}>
-          ADMIN 전용 · Stage 1 — FSS / Markdown
+          ADMIN 전용 · 4종 (FSS / PIPA / 정보통신망법 / 외부감사 종합)
         </span>
       </h2>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
@@ -205,7 +205,8 @@ export default function ComplianceReportPage() {
           상단 폼에서 리포트 타입과 감사 기간을 선택한 뒤 *리포트 생성* 을 눌러주세요.
           <br /><br />
           <small>
-            현재 활성: 전자금융감독규정 (FSS) — 나머지 3종 (개인정보보호법 / 정보통신망법 / 외부감사) 은 Stage 2 에서 추가됩니다.
+            4종 활성: 전자금융감독규정 / 개인정보보호법 / 정보통신망법 / 외부감사 종합.
+            <br />PDF · Excel 다운로드는 Stage 3 에서 추가됩니다.
           </small>
         </div>
       )}
