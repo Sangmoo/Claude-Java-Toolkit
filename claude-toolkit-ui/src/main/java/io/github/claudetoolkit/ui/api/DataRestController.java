@@ -97,19 +97,38 @@ public class DataRestController {
     public ResponseEntity<ApiResponse<List<?>>> history(
             Authentication auth,
             @org.springframework.web.bind.annotation.RequestParam(value = "page", required = false) Integer page,
-            @org.springframework.web.bind.annotation.RequestParam(value = "size", required = false) Integer size) {
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", required = false) Integer size,
+            @org.springframework.web.bind.annotation.RequestParam(value = "tag",  required = false) String  tag) {
         try {
             int effectiveSize = (size != null && size > 0) ? Math.min(size, 500) : 200;
             int effectivePage = (page != null && page >= 0) ? page : 0;
             int offset = effectivePage * effectiveSize;
 
-            long total = ((Number) em.createQuery(
-                "SELECT COUNT(h) FROM ReviewHistory h WHERE h.username = :u"
-            ).setParameter("u", auth.getName()).getSingleResult()).longValue();
+            // v4.7.x: tag 필터가 있으면 콤마 구분 컬럼에서 정확 매칭 (CONCAT(',', tags, ',') LIKE '%,tag,%')
+            String trimmedTag = (tag != null) ? tag.trim() : "";
+            boolean filterByTag = !trimmedTag.isEmpty();
 
-            List<?> list = em.createQuery(
-                "SELECT h FROM ReviewHistory h WHERE h.username = :u ORDER BY h.createdAt DESC"
-            ).setParameter("u", auth.getName())
+            String countJpql, listJpql;
+            if (filterByTag) {
+                countJpql = "SELECT COUNT(h) FROM ReviewHistory h WHERE h.username = :u " +
+                        "AND LOWER(CONCAT(',', COALESCE(h.tags, ''), ',')) LIKE LOWER(CONCAT('%,', :tag, ',%'))";
+                listJpql  = "SELECT h FROM ReviewHistory h WHERE h.username = :u " +
+                        "AND LOWER(CONCAT(',', COALESCE(h.tags, ''), ',')) LIKE LOWER(CONCAT('%,', :tag, ',%')) " +
+                        "ORDER BY h.createdAt DESC";
+            } else {
+                countJpql = "SELECT COUNT(h) FROM ReviewHistory h WHERE h.username = :u";
+                listJpql  = "SELECT h FROM ReviewHistory h WHERE h.username = :u ORDER BY h.createdAt DESC";
+            }
+
+            javax.persistence.Query countQ = em.createQuery(countJpql).setParameter("u", auth.getName());
+            javax.persistence.Query listQ  = em.createQuery(listJpql).setParameter("u", auth.getName());
+            if (filterByTag) {
+                countQ.setParameter("tag", trimmedTag);
+                listQ.setParameter("tag", trimmedTag);
+            }
+            long total = ((Number) countQ.getSingleResult()).longValue();
+
+            List<?> list = listQ
              .setFirstResult(offset)
              .setMaxResults(effectiveSize)
              .getResultList();

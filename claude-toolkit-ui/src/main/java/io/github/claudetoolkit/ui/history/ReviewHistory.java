@@ -75,6 +75,19 @@ public class ReviewHistory {
     @Column(columnDefinition = "TEXT")
     private String reviewNote;
 
+    /**
+     * v4.7.x: 사용자 정의 태그 — 콤마(,) 구분 문자열로 저장.
+     *
+     * <p>예: {@code "성능,SLA위반,DB"} — 검색 필터 / 분류용. 태그 모양은
+     * 자유 텍스트지만 입력 시 trim + 빈 토큰 제거 + 소문자/대문자 그대로 보존
+     * (한글 태그 지원). 정규화는 {@link #normalizeTags(String)} 참고.
+     *
+     * <p>VARCHAR(500) 으로 충분한 이유: UI 가 한 이력당 최대 10개 태그 제한
+     * 권장 (1태그 평균 8자 → 100자 내, 안전 마진 5배). 한도 초과 시 컨트롤러에서 거부.
+     */
+    @Column(length = 500)
+    private String tags;
+
     /** Required by JPA — do not use directly */
     protected ReviewHistory() {}
 
@@ -129,6 +142,49 @@ public class ReviewHistory {
     public void setReviewedAt(LocalDateTime t) { this.reviewedAt = t; }
     public String getReviewNote()              { return reviewNote; }
     public void setReviewNote(String n)        { this.reviewNote = n; }
+
+    // v4.7.x: 태그
+    public String getTags()                    { return tags; }
+    public void setTags(String t)              { this.tags = normalizeTags(t); }
+
+    /**
+     * 콤마 구분 태그 문자열을 List 로 분해. null/빈 문자열이면 빈 리스트.
+     * JSON 직렬화 시 {@code tagList} 필드로 노출되도록 명시적 getter 사용.
+     */
+    public java.util.List<String> getTagList() {
+        if (tags == null || tags.trim().isEmpty()) return java.util.Collections.emptyList();
+        java.util.List<String> result = new java.util.ArrayList<String>();
+        for (String t : tags.split(",")) {
+            String trimmed = t.trim();
+            if (!trimmed.isEmpty()) result.add(trimmed);
+        }
+        return result;
+    }
+
+    /**
+     * 태그 입력 정규화 — trim + 빈 토큰 제거 + 중복 제거 (대소문자 무시).
+     * 콤마 자체가 태그 안에 들어오면 공백으로 치환 (구분자 충돌 방지).
+     * 결과는 콤마 구분 문자열, null 입력 / 모두 빈 토큰이면 null 반환 (DB 에 빈 문자열 대신 NULL 저장).
+     */
+    public static String normalizeTags(String raw) {
+        if (raw == null) return null;
+        String[] parts = raw.split(",");
+        java.util.LinkedHashMap<String, String> seen = new java.util.LinkedHashMap<String, String>();
+        for (String p : parts) {
+            String t = p.replace(",", " ").trim();
+            if (t.isEmpty()) continue;
+            if (t.length() > 30) t = t.substring(0, 30);  // 단일 태그 길이 상한
+            String key = t.toLowerCase();
+            if (!seen.containsKey(key)) seen.put(key, t);
+        }
+        if (seen.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (String v : seen.values()) {
+            if (sb.length() > 0) sb.append(',');
+            sb.append(v);
+        }
+        return sb.toString();
+    }
 
     public long getTotalTokens() {
         long i = inputTokens  != null ? inputTokens  : 0;

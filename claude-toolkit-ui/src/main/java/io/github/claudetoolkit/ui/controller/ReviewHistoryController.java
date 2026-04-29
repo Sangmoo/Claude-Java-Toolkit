@@ -46,7 +46,68 @@ public class ReviewHistoryController {
         map.put("date",     h.getFormattedDate());
         map.put("input",    h.getInputContent());
         map.put("output",   h.getOutputContent());
+        map.put("tags",     h.getTags() != null ? h.getTags() : "");
         return map;
+    }
+
+    /**
+     * v4.7.x — 이력 항목의 태그 업데이트.
+     *
+     * <p>본인 소유 이력만 수정 가능. ADMIN 은 다른 사용자 이력도 가능.
+     * 입력은 콤마 구분 문자열 (정규화는 엔티티가 담당). 빈 문자열이면 태그 제거.
+     */
+    @PostMapping("/{id}/tags")
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> updateTags(
+            @PathVariable long id,
+            @RequestParam(value = "tags", required = false) String tags,
+            HttpServletRequest request,
+            org.springframework.security.core.Authentication auth) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        ReviewHistory h = historyService.findById(id);
+        if (h == null) {
+            resp.put("success", false);
+            resp.put("error",   "이력을 찾을 수 없습니다.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
+        }
+        // 본인 소유 또는 ADMIN 만 수정 허용
+        boolean isOwner = auth != null && auth.getName() != null && auth.getName().equals(h.getUsername());
+        boolean isAdmin = request.isUserInRole("ADMIN");
+        if (!isOwner && !isAdmin) {
+            resp.put("success", false);
+            resp.put("error",   "본인 또는 ADMIN 만 태그를 수정할 수 있습니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
+        // 태그 개수 상한 체크 (DOS / 노이즈 방지) — entity 가 정규화 후 결과 측정
+        ReviewHistory updated = historyService.updateTags(id, tags);
+        if (updated == null) {
+            resp.put("success", false);
+            resp.put("error",   "업데이트 실패");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(resp);
+        }
+        resp.put("success", true);
+        resp.put("tags",    updated.getTags() != null ? updated.getTags() : "");
+        resp.put("tagList", updated.getTagList());
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * v4.7.x — 본인이 가진 모든 태그를 빈도순으로 반환 (자동완성 / 필터 dropdown 용).
+     */
+    @GetMapping("/tags/all")
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> allTags(
+            org.springframework.security.core.Authentication auth) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        if (auth == null || auth.getName() == null) {
+            resp.put("success", false);
+            resp.put("error",   "인증 필요");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(resp);
+        }
+        java.util.List<java.util.Map<String, Object>> tags = historyService.aggregateTagsByUsername(auth.getName());
+        resp.put("success", true);
+        resp.put("tags",    tags);
+        return ResponseEntity.ok(resp);
     }
 
     /**

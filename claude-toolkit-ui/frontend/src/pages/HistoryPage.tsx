@@ -5,6 +5,7 @@ import {
   FaHistory, FaSearch, FaTrash, FaStar, FaCopy, FaCheck,
   FaChevronDown, FaChevronUp, FaDownload, FaCheckCircle, FaTimesCircle, FaClock,
   FaReply, FaComment, FaPaperPlane, FaFileExport, FaShareAlt, FaFileCode, FaInfoCircle, FaFileExcel,
+  FaTag, FaTags, FaPlus, FaTimes,
 } from 'react-icons/fa'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
@@ -27,6 +28,15 @@ interface HistoryItem {
   reviewedBy?: string
   reviewedAt?: string
   reviewNote?: string
+  /** v4.7.x — 콤마 구분 태그 문자열 (백엔드에서 전달) */
+  tags?: string | null
+  /** v4.7.x — JPA `getTagList()` 직렬화 결과. 백엔드 serializer 가 자동 생성 */
+  tagList?: string[]
+}
+
+interface TagAggregate {
+  tag: string
+  count: number
 }
 
 interface FavoriteRef {
@@ -68,6 +78,13 @@ export default function HistoryPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // v4.7.x: 태그 필터 (선택된 태그) + 전체 태그 목록 (자동완성/dropdown)
+  const [activeTag, setActiveTag] = useState<string>('')
+  const [allTags, setAllTags] = useState<TagAggregate[]>([])
+  // 태그 편집 중인 history id + 입력 중인 태그 텍스트
+  const [tagEditId, setTagEditId] = useState<number | null>(null)
+  const [tagEditText, setTagEditText] = useState<string>('')
+  const [tagSuggestOpen, setTagSuggestOpen] = useState(false)
   const api = useApi()
   const toast = useToast()
   const user = useAuthStore((s) => s.user)
@@ -78,9 +95,11 @@ export default function HistoryPage() {
   const canDelete = user?.role === 'ADMIN' || user?.role === 'REVIEWER'
 
   // v4.2.7: 페이지네이션 지원 — 응답 헤더 X-Has-More 로 "더 보기" 버튼 제어
+  // v4.7.x: tag 필터가 설정되어 있으면 ?tag= 파라미터 동봉 (서버에서 정확 매칭)
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/history?page=0&size=${PAGE_SIZE}`, { credentials: 'include' })
+      const tagParam = activeTag ? `&tag=${encodeURIComponent(activeTag)}` : ''
+      const res = await fetch(`/api/v1/history?page=0&size=${PAGE_SIZE}${tagParam}`, { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
       const data = (json.data ?? json) as HistoryItem[]
@@ -88,14 +107,15 @@ export default function HistoryPage() {
       setCurrentPage(0)
       setHasMore((res.headers.get('X-Has-More') || 'false') === 'true')
     } catch { /* silent */ }
-  }, [])
+  }, [activeTag])
 
   const loadMoreHistory = async () => {
     if (loadingMore || !hasMore) return
     setLoadingMore(true)
     try {
       const nextPage = currentPage + 1
-      const res = await fetch(`/api/v1/history?page=${nextPage}&size=${PAGE_SIZE}`, { credentials: 'include' })
+      const tagParam = activeTag ? `&tag=${encodeURIComponent(activeTag)}` : ''
+      const res = await fetch(`/api/v1/history?page=${nextPage}&size=${PAGE_SIZE}${tagParam}`, { credentials: 'include' })
       if (!res.ok) return
       const json = await res.json()
       const data = (json.data ?? json) as HistoryItem[]
@@ -106,6 +126,51 @@ export default function HistoryPage() {
       setHasMore((res.headers.get('X-Has-More') || 'false') === 'true')
     } catch { /* silent */ }
     finally { setLoadingMore(false) }
+  }
+
+  // v4.7.x: 사용자의 모든 태그를 빈도순으로 로드 (자동완성/dropdown 용)
+  const loadAllTags = useCallback(async () => {
+    try {
+      const res = await fetch('/history/tags/all', { credentials: 'include' })
+      if (!res.ok) return
+      const d = await res.json()
+      if (d?.success && Array.isArray(d.tags)) setAllTags(d.tags as TagAggregate[])
+    } catch { /* silent */ }
+  }, [])
+
+  // v4.7.x: 태그 업데이트 — 콤마 구분 문자열 전송, 응답으로 정규화된 결과 반영
+  const saveTags = async (id: number, rawTags: string) => {
+    try {
+      const res = await fetch(`/history/${id}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ tags: rawTags }),
+        credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d?.success) {
+        const tagsStr  = (d.tags as string | undefined) || ''
+        const tagList  = (d.tagList as string[] | undefined) || []
+        setItems((prev) => prev.map((i) => i.id === id
+          ? { ...i, tags: tagsStr, tagList }
+          : i))
+        toast.success('태그가 저장되었습니다.')
+        loadAllTags()  // 빈도 집계 갱신
+      } else {
+        toast.error(d?.error || '태그 저장 실패')
+      }
+    } catch {
+      toast.error('태그 저장 요청 실패')
+    } finally {
+      setTagEditId(null)
+      setTagEditText('')
+      setTagSuggestOpen(false)
+    }
+  }
+
+  // 태그 클릭 → 활성 필터 토글 (이미 활성이면 해제)
+  const toggleTagFilter = (tag: string) => {
+    setActiveTag((prev) => prev === tag ? '' : tag)
   }
 
   // v4.2.7: 페이지 로드시 즐겨찾기 목록을 받아서 historyId → favoriteId 맵 구성
@@ -124,7 +189,7 @@ export default function HistoryPage() {
     if (list) setMentionCandidates(list)
   }, [])
 
-  useEffect(() => { loadHistory(); loadFavorited(); loadMentionCandidates() }, [loadHistory, loadFavorited, loadMentionCandidates])
+  useEffect(() => { loadHistory(); loadFavorited(); loadMentionCandidates(); loadAllTags() }, [loadHistory, loadFavorited, loadMentionCandidates, loadAllTags])
 
   const loadComments = async (historyId: number) => {
     try {
@@ -470,6 +535,20 @@ export default function HistoryPage() {
               · {selectedIds.size}건 선택됨
             </span>
           )}
+          {/* v4.7.x: 활성 태그 필터 — 클릭하면 해제 */}
+          {activeTag && (
+            <span
+              onClick={() => setActiveTag('')}
+              title="태그 필터 해제"
+              style={{
+                fontSize: '12px', fontWeight: 600,
+                padding: '3px 10px', borderRadius: '12px',
+                background: '#3b82f6', color: '#fff', cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+              }}>
+              <FaTag style={{ fontSize: '10px' }} /> {activeTag} <FaTimes style={{ fontSize: '10px' }} />
+            </span>
+          )}
         </h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
@@ -481,6 +560,25 @@ export default function HistoryPage() {
               onChange={(e) => setFilter(e.target.value)}
             />
           </div>
+          {/* v4.7.x: 태그 dropdown — 빈도순 상위 태그 빠른 선택 */}
+          {allTags.length > 0 && (
+            <select
+              value={activeTag}
+              onChange={(e) => setActiveTag(e.target.value)}
+              style={{
+                fontSize: '13px', padding: '6px 10px',
+                border: '1px solid var(--border-color)', borderRadius: '6px',
+                background: activeTag ? '#3b82f6' : 'transparent',
+                color: activeTag ? '#fff' : 'var(--text-sub)',
+                cursor: 'pointer',
+              }}
+              title="태그로 필터링">
+              <option value="">전체 태그</option>
+              {allTags.map((t) => (
+                <option key={t.tag} value={t.tag}>#{t.tag} ({t.count})</option>
+              ))}
+            </select>
+          )}
           {/* v4.2.7: 전체선택 토글 */}
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-sub)', cursor: filtered.length ? 'pointer' : 'not-allowed', userSelect: 'none' }}>
             <input
@@ -554,6 +652,30 @@ export default function HistoryPage() {
                 />
                 <span style={badgeStyle}>{item.type}</span>
                 <ReviewStatusBadge status={item.reviewStatus} />
+                {/* v4.7.x: 태그 chip — 클릭하면 해당 태그로 필터 토글 */}
+                {(item.tagList && item.tagList.length > 0) && (
+                  <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                    {item.tagList.slice(0, 3).map((t) => (
+                      <span
+                        key={t}
+                        onClick={(e) => { e.stopPropagation(); toggleTagFilter(t) }}
+                        title={`태그 #${t} 로 필터`}
+                        style={{
+                          fontSize: '10px', padding: '1px 7px', borderRadius: '10px',
+                          background: activeTag === t ? '#3b82f6' : 'rgba(59,130,246,0.12)',
+                          color:      activeTag === t ? '#fff'    : '#3b82f6',
+                          cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap',
+                        }}>
+                        #{t}
+                      </span>
+                    ))}
+                    {item.tagList.length > 3 && (
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', alignSelf: 'center' }} title={`+${item.tagList.length - 3}개 더`}>
+                        +{item.tagList.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <span style={{ flex: 1, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-sub)' }}>
                   {item.title || item.inputContent?.slice(0, 80)}
                 </span>
@@ -709,6 +831,27 @@ export default function HistoryPage() {
                     note={item.reviewNote}
                   />
 
+                  {/* v4.7.x: 태그 편집 — 본인 소유 이력만 편집 가능 (UI 만 — 백엔드도 동일 정책) */}
+                  <TagEditor
+                    item={item}
+                    isOwner={!!user?.username && (user.username === item.username)}
+                    isEditing={tagEditId === item.id}
+                    editText={tagEditText}
+                    setEditText={setTagEditText}
+                    suggestOpen={tagSuggestOpen}
+                    setSuggestOpen={setTagSuggestOpen}
+                    allTags={allTags}
+                    onStartEdit={() => {
+                      setTagEditId(item.id)
+                      setTagEditText(item.tags || '')
+                      setTagSuggestOpen(true)
+                    }}
+                    onCancel={() => { setTagEditId(null); setTagEditText(''); setTagSuggestOpen(false) }}
+                    onSave={() => saveTags(item.id, tagEditText)}
+                    onTagClick={toggleTagFilter}
+                    activeTag={activeTag}
+                  />
+
                   <h4 style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px', marginTop: '14px' }}>입력</h4>
                   <pre style={{ background: 'var(--bg-primary)', padding: '10px', borderRadius: '6px', fontSize: '12px', marginBottom: '12px', whiteSpace: 'pre-wrap', maxHeight: '150px', overflow: 'auto' }}>
                     {item.inputContent}
@@ -812,6 +955,175 @@ export default function HistoryPage() {
         />
       )}
     </>
+  )
+}
+
+/**
+ * v4.7.x — 이력 항목 확장 영역에 들어가는 태그 편집기.
+ *
+ * - 보기 모드: 태그 chip 들 + 편집 버튼 (소유자만 노출)
+ * - 편집 모드: 콤마 구분 텍스트 입력 + 자동완성 dropdown (사용자가 가진 다른 태그)
+ *   + 저장/취소 버튼
+ */
+function TagEditor({
+  item, isOwner, isEditing, editText, setEditText,
+  suggestOpen, setSuggestOpen, allTags,
+  onStartEdit, onCancel, onSave, onTagClick, activeTag,
+}: {
+  item: HistoryItem
+  isOwner: boolean
+  isEditing: boolean
+  editText: string
+  setEditText: (s: string) => void
+  suggestOpen: boolean
+  setSuggestOpen: (b: boolean) => void
+  allTags: TagAggregate[]
+  onStartEdit: () => void
+  onCancel: () => void
+  onSave: () => void
+  onTagClick: (t: string) => void
+  activeTag: string
+}) {
+  // 편집 중 입력의 마지막 토큰을 추출해서 자동완성 후보로 사용
+  const lastToken = (() => {
+    if (!editText) return ''
+    const parts = editText.split(',')
+    return (parts[parts.length - 1] || '').trim().toLowerCase()
+  })()
+  const filteredSuggest = allTags
+    .filter((t) => !editText.toLowerCase().split(',').map(s => s.trim()).includes(t.tag.toLowerCase()))
+    .filter((t) => !lastToken || t.tag.toLowerCase().includes(lastToken))
+    .slice(0, 12)
+
+  const appendTag = (tag: string) => {
+    const parts = editText.split(',')
+    parts[parts.length - 1] = ` ${tag}`
+    const next = parts.join(',').replace(/^\s*,/, '').trim() + ', '
+    setEditText(next)
+  }
+
+  const tags = item.tagList || []
+
+  return (
+    <div style={{
+      marginTop: '10px',
+      padding: '8px 10px',
+      background: 'var(--bg-primary)',
+      border: '1px solid var(--border-color)',
+      borderRadius: '8px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <FaTags style={{ color: '#3b82f6', fontSize: '12px' }} />
+        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>태그</span>
+
+        {!isEditing ? (
+          <>
+            {tags.length === 0 ? (
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                (태그 없음)
+              </span>
+            ) : (
+              tags.map((t) => (
+                <span
+                  key={t}
+                  onClick={() => onTagClick(t)}
+                  title={`#${t} 로 필터`}
+                  style={{
+                    fontSize: '11px', fontWeight: 600,
+                    padding: '2px 8px', borderRadius: '10px',
+                    background: activeTag === t ? '#3b82f6' : 'rgba(59,130,246,0.12)',
+                    color:      activeTag === t ? '#fff'    : '#3b82f6',
+                    cursor: 'pointer',
+                  }}>
+                  #{t}
+                </span>
+              ))
+            )}
+            {isOwner && (
+              <button
+                onClick={onStartEdit}
+                style={{
+                  background: 'none', border: '1px dashed var(--border-color)',
+                  color: 'var(--text-muted)', borderRadius: '10px',
+                  fontSize: '10px', padding: '1px 8px', cursor: 'pointer',
+                }}>
+                <FaPlus style={{ fontSize: '8px' }} /> 태그 추가
+              </button>
+            )}
+          </>
+        ) : (
+          <div style={{ flex: 1, position: 'relative', minWidth: '240px' }}>
+            <input
+              autoFocus
+              type="text"
+              value={editText}
+              onChange={(e) => { setEditText(e.target.value); setSuggestOpen(true) }}
+              onFocus={() => setSuggestOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); onSave() }
+                if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+              }}
+              placeholder="태그를 콤마로 구분 (예: 성능, SLA위반, DB)"
+              style={{
+                width: '100%', fontSize: '12px',
+                padding: '4px 8px', border: '1px solid var(--accent)',
+                borderRadius: '6px', background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }} />
+
+            {suggestOpen && filteredSuggest.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0,
+                marginTop: '2px', zIndex: 20,
+                background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                borderRadius: '6px', maxHeight: '180px', overflowY: 'auto',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              }}>
+                {filteredSuggest.map((t) => (
+                  <div
+                    key={t.tag}
+                    onClick={() => appendTag(t.tag)}
+                    style={{
+                      padding: '5px 10px', fontSize: '11px',
+                      cursor: 'pointer', display: 'flex',
+                      justifyContent: 'space-between', gap: '6px',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-primary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                    <span>#{t.tag}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t.count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isEditing && (
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              onClick={onSave}
+              title="저장 (Enter)"
+              style={{
+                background: 'var(--accent)', color: '#fff', border: 'none',
+                fontSize: '10px', padding: '3px 10px', borderRadius: '4px', cursor: 'pointer',
+              }}>
+              <FaCheck style={{ fontSize: '9px' }} /> 저장
+            </button>
+            <button
+              onClick={onCancel}
+              title="취소 (Esc)"
+              style={{
+                background: 'transparent', color: 'var(--text-muted)',
+                border: '1px solid var(--border-color)',
+                fontSize: '10px', padding: '3px 10px', borderRadius: '4px', cursor: 'pointer',
+              }}>
+              <FaTimes style={{ fontSize: '9px' }} /> 취소
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

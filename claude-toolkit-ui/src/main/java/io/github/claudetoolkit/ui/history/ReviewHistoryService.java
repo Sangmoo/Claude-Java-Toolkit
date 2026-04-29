@@ -195,6 +195,64 @@ public class ReviewHistoryService {
         return (int) repository.count();
     }
 
+    // ── v4.7.x: 태그 관리 ─────────────────────────────────────────
+
+    /**
+     * 이력 단일 항목의 태그를 업데이트.
+     * @param id     이력 ID
+     * @param rawTags 콤마 구분 태그 (정규화는 entity 가 담당)
+     * @return 업데이트된 엔티티 (없으면 null)
+     */
+    public ReviewHistory updateTags(long id, String rawTags) {
+        ReviewHistory h = repository.findById(id).orElse(null);
+        if (h == null) return null;
+        h.setTags(rawTags);
+        return repository.save(h);
+    }
+
+    /**
+     * 사용자가 보유한 모든 태그를 빈도순으로 반환.
+     * @return [{tag, count}, ...] 빈도 내림차순
+     */
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> aggregateTagsByUsername(String username) {
+        List<String> rows = repository.findAllTagsByUsername(username);
+        java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<String, Integer>();
+        for (String row : rows) {
+            if (row == null) continue;
+            for (String t : row.split(",")) {
+                String trimmed = t.trim();
+                if (trimmed.isEmpty()) continue;
+                String key = trimmed; // 대소문자 그대로 (한글 태그 보존)
+                Integer prev = counts.get(key);
+                counts.put(key, prev == null ? 1 : prev + 1);
+            }
+        }
+        // 빈도 내림차순 정렬
+        java.util.List<java.util.Map.Entry<String, Integer>> entries = new java.util.ArrayList<java.util.Map.Entry<String, Integer>>(counts.entrySet());
+        entries.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<java.util.Map<String, Object>>();
+        for (java.util.Map.Entry<String, Integer> e : entries) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<String, Object>();
+            m.put("tag",   e.getKey());
+            m.put("count", e.getValue());
+            result.add(m);
+        }
+        return result;
+    }
+
+    /**
+     * 사용자 + 태그로 이력 검색 (페이지네이션).
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewHistory> findByUsernameAndTag(String username, String tag, int page, int size) {
+        int effectiveSize = Math.max(1, Math.min(size, 500));
+        int effectivePage = Math.max(0, page);
+        return repository.findByUsernameAndTag(
+                username, tag,
+                PageRequest.of(effectivePage, effectiveSize));
+    }
+
     // ── private helpers ──────────────────────────────────────────────────────
 
     /** SecurityContext 에서 현재 로그인 사용자명 추출 — 백그라운드 스레드에서는 null */
