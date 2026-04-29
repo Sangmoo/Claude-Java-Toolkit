@@ -5,6 +5,7 @@ import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload } fr
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from './SourceSelector'
 import CostHint from './CostHint'
+import FollowUpQAPanel from './FollowUpQAPanel'
 import type { IconType } from 'react-icons'
 
 export interface AnalysisOption {
@@ -319,7 +320,19 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '14px' }}>
             {result ? (
-              <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>
+              <>
+                <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>
+                {/* v4.7.x — #4 결과 후속 질문 패널. 스트리밍이 끝난 뒤에만 노출하여
+                    사용자가 결과를 충분히 본 뒤 질문하도록 유도. 결과가 변경되면 (재분석)
+                    내부 useEffect 가 메시지/세션을 자동 리셋. */}
+                {!streaming && (
+                  <FollowUpQAPanel
+                    resultText={result}
+                    inputText={input}
+                    featureLabel={config.title}
+                  />
+                )}
+              </>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '14px' }}>
                 {streaming ? '결과를 기다리는 중...' : '분석을 시작하면 결과가 여기에 표시됩니다.'}
