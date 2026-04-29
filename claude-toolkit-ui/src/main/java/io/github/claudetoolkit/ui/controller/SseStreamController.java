@@ -204,7 +204,9 @@ public class SseStreamController {
         }
 
         // ── 캐시 히트 시 즉시 반환 (C15) ──────────────────────────
-        final String cachedResult = cacheService.get(input.feature, input.input);
+        // v4.7.x — 4개 컴포넌트 (feature + input + input2 + sourceType) 로 키 분리.
+        // 같은 SQL + reviewType=review vs security 가 다른 캐시 엔트리를 갖도록.
+        final String cachedResult = cacheService.get(input.feature, input.input, input.input2, input.sourceType);
         if (cachedResult != null) {
             Thread cacheThread = new Thread(new Runnable() {
                 public void run() {
@@ -295,9 +297,10 @@ public class SseStreamController {
                                     catch (IOException e) { emitter.completeWithError(e); }
                                 }
                             });
-                    // 캐시 저장
+                    // 캐시 저장 — v4.7.x: 4-arg key 로 (input2/sourceType 분리)
                     if (resultBuf.length() > 0) {
-                        cacheService.put(input.feature, input.input, resultBuf.toString());
+                        cacheService.put(input.feature, input.input, input.input2,
+                                input.sourceType, resultBuf.toString());
                     }
                     // v4.2.x: 리뷰 이력 저장 (백엔드는 이전엔 SSE 경로에서 저장 안 했음)
                     saveHistory(input.feature, input.input, resultBuf.toString(), capturedUser);

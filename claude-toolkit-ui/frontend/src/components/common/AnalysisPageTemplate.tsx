@@ -53,6 +53,8 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   const [result, setResult] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [copied, setCopied] = useState(false)
+  // v4.7.x — 캐시 적중 인디케이터 (백엔드가 done 이벤트 data='cached' 로 알려줌)
+  const [cacheHit, setCacheHit] = useState(false)
   const [optionValues, setOptionValues] = useState<Record<string, string>>(() => {
     const d: Record<string, string> = {}
     config.options?.forEach((o) => { if (o.defaultValue) d[o.name] = o.defaultValue })
@@ -102,6 +104,7 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   const startAnalysis = async () => {
     if (!input.trim() || streaming) return
     setResult('')
+    setCacheHit(false)
     setStreaming(true)
     try {
       // 백엔드 /stream/init은 feature, input, input2, sourceType 4개 파라미터만 받음
@@ -154,7 +157,11 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         if (e.data === '[DONE]' || e.data === 'done') { es.close(); esRef.current = null; setStreaming(false); return }
         acc += e.data + '\n'; setResult(acc)
       }
-      es.addEventListener('done', () => { es.close(); esRef.current = null; setStreaming(false) })
+      es.addEventListener('done', (ev: MessageEvent) => {
+        // v4.7.x — 캐시 적중 시 백엔드가 data='cached' 로 알림
+        if (ev.data === 'cached') setCacheHit(true)
+        es.close(); esRef.current = null; setStreaming(false)
+      })
       es.addEventListener('error_msg', (ev: MessageEvent) => { toast.error(ev.data); es.close(); esRef.current = null; setStreaming(false) })
       es.onerror = () => {
         // 정상 종료된 경우 acc에 내용이 있음
@@ -289,7 +296,20 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         {/* 결과 패널 */}
         <div style={panelStyle}>
           <div style={panelHeader}>
-            <span style={{ fontWeight: 600, fontSize: '13px' }}>결과 {streaming && <FaSpinner className="spin" style={{ marginLeft: '6px', fontSize: '11px' }} />}</span>
+            <span style={{ fontWeight: 600, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              결과
+              {streaming && <FaSpinner className="spin" style={{ fontSize: '11px' }} />}
+              {cacheHit && !streaming && (
+                <span
+                  title="동일한 입력+옵션으로 최근 1시간 내 분석한 결과가 있어 Claude API 호출 없이 즉시 반환됐습니다 (토큰 비용 0)."
+                  style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                    background: 'rgba(16,185,129,0.15)', color: '#10b981', fontWeight: 700,
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                  }}
+                >⚡ 캐시 적중</span>
+              )}
+            </span>
             {result && (
               <div style={{ display: 'flex', gap: '5px' }}>
                 <button style={smallBtn} onClick={copyResult}>{copied ? <FaCheck style={{ color: 'var(--green)' }} /> : <FaCopy />}</button>
