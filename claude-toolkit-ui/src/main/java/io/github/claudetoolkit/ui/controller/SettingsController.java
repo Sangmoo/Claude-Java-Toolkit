@@ -33,6 +33,8 @@ public class SettingsController {
     private final io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer    flowMybatisIndexer;
     private final io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer  flowSpringIndexer;
     private final io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer flowMiplatformIndexer;
+    // v4.7.x — Settings 변경 감사 로그
+    private final io.github.claudetoolkit.ui.audit.ConfigChangeLogService   configChangeLog;
 
     public SettingsController(ToolkitSettings settings,
                               OracleMetaService oracleMetaService,
@@ -43,7 +45,8 @@ public class SettingsController {
                               io.github.claudetoolkit.ui.harness.HarnessCacheService harnessCacheService,
                               io.github.claudetoolkit.ui.flow.indexer.MyBatisIndexer    flowMybatisIndexer,
                               io.github.claudetoolkit.ui.flow.indexer.SpringUrlIndexer  flowSpringIndexer,
-                              io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer flowMiplatformIndexer) {
+                              io.github.claudetoolkit.ui.flow.indexer.MiPlatformIndexer flowMiplatformIndexer,
+                              io.github.claudetoolkit.ui.audit.ConfigChangeLogService configChangeLog) {
         this.settings              = settings;
         this.oracleMetaService     = oracleMetaService;
         this.projectScannerService = projectScannerService;
@@ -54,6 +57,7 @@ public class SettingsController {
         this.flowMybatisIndexer    = flowMybatisIndexer;
         this.flowSpringIndexer     = flowSpringIndexer;
         this.flowMiplatformIndexer = flowMiplatformIndexer;
+        this.configChangeLog       = configChangeLog;
     }
 
     @GetMapping
@@ -102,6 +106,9 @@ public class SettingsController {
             return "redirect:/settings?error=invalid_db_url";
         }
 
+        // v4.7.x — 변경 전 값 스냅샷 (감사 로그 비교용)
+        SettingsSnapshot before = SettingsSnapshot.capture(settings, claudeProperties);
+
         settings.getDb().setUrl(dbUrl.trim());
         settings.getDb().setUsername(dbUsername.trim());
         settings.getDb().setPassword(dbPassword.trim());
@@ -131,6 +138,10 @@ public class SettingsController {
         }
 
         persistenceService.save();
+
+        // v4.7.x — 감사 로그 기록 (변경된 항목만 자동 필터)
+        SettingsSnapshot after = SettingsSnapshot.capture(settings, claudeProperties);
+        recordSettingsChanges(before, after);
 
         // Settings 저장 후 캐시 자동 갱신 (백그라운드)
         Thread cacheThread = new Thread(new Runnable() {
@@ -189,6 +200,85 @@ public class SettingsController {
     private String maskApiKey(String key) {
         if (key == null || key.length() < 8) return key == null || key.isEmpty() ? "(미설정)" : "****";
         return key.substring(0, 10) + "..." + key.substring(key.length() - 4);
+    }
+
+    /**
+     * v4.7.x — 변경 전/후 비교 후 감사 로그 기록.
+     * 같은 값이면 자동으로 noop (recordIfChanged 의 동작).
+     */
+    private void recordSettingsChanges(SettingsSnapshot before, SettingsSnapshot after) {
+        String C = io.github.claudetoolkit.ui.audit.ConfigChangeLogService.CATEGORY_SETTINGS;
+        // 비민감 — 그대로 기록
+        configChangeLog.recordIfChanged("settings.db.url",         "Oracle DB URL",      C, before.dbUrl,         after.dbUrl,         false);
+        configChangeLog.recordIfChanged("settings.db.username",    "Oracle DB 계정명",   C, before.dbUsername,    after.dbUsername,    false);
+        configChangeLog.recordIfChanged("settings.project.scanPath", "프로젝트 스캔 경로", C, before.scanPath,      after.scanPath,      false);
+        configChangeLog.recordIfChanged("settings.project.miplatformRoot",     "MiPlatform 루트",   C, before.miplatformRoot,     after.miplatformRoot,     false);
+        configChangeLog.recordIfChanged("settings.project.miplatformPatterns", "MiPlatform 패턴",   C, before.miplatformPatterns, after.miplatformPatterns, false);
+        configChangeLog.recordIfChanged("settings.projectContext", "프로젝트 메모",       C, before.projectContext, after.projectContext, false);
+        configChangeLog.recordIfChanged("settings.claude.model",   "Claude 모델",         C, before.claudeModel,   after.claudeModel,   false);
+        configChangeLog.recordIfChanged("settings.accentColor",    "팔레트 색상",         C, before.accentColor,   after.accentColor,   false);
+        configChangeLog.recordIfChanged("settings.email.host",     "Email SMTP 호스트",   C, before.emailHost,     after.emailHost,     false);
+        configChangeLog.recordIfChanged("settings.email.port",     "Email SMTP 포트",     C, before.emailPort,     after.emailPort,     false);
+        configChangeLog.recordIfChanged("settings.email.username", "Email 발송 계정",     C, before.emailUsername, after.emailUsername, false);
+        configChangeLog.recordIfChanged("settings.email.from",     "Email 발신자",        C, before.emailFrom,     after.emailFrom,     false);
+        configChangeLog.recordIfChanged("settings.email.tls",      "Email TLS",          C, before.emailTls,      after.emailTls,      false);
+        configChangeLog.recordIfChanged("settings.cacheRefreshCron", "캐시 갱신 cron",   C, before.cacheRefreshCron, after.cacheRefreshCron, false);
+        configChangeLog.recordIfChanged("settings.jira.baseUrl",   "Jira 베이스 URL",     C, before.jiraBaseUrl,   after.jiraBaseUrl,   false);
+        configChangeLog.recordIfChanged("settings.jira.projectKey","Jira 프로젝트 Key",   C, before.jiraProjectKey, after.jiraProjectKey, false);
+        configChangeLog.recordIfChanged("settings.jira.email",     "Jira 사용자 Email",   C, before.jiraEmail,     after.jiraEmail,     false);
+        // 민감 — 마스킹 처리
+        configChangeLog.recordIfChanged("settings.db.password",    "Oracle DB 비밀번호",  C, before.dbPassword,    after.dbPassword,    true);
+        configChangeLog.recordIfChanged("settings.claude.apiKey",  "Claude API Key",     C, before.claudeApiKey,  after.claudeApiKey,  true);
+        configChangeLog.recordIfChanged("settings.email.password", "Email SMTP 비밀번호", C, before.emailPassword, after.emailPassword, true);
+        configChangeLog.recordIfChanged("settings.slackWebhookUrl","Slack Webhook URL",  C, before.slackWebhookUrl, after.slackWebhookUrl, true);
+        configChangeLog.recordIfChanged("settings.teamsWebhookUrl","Teams Webhook URL",  C, before.teamsWebhookUrl, after.teamsWebhookUrl, true);
+        configChangeLog.recordIfChanged("settings.jira.apiToken",  "Jira API Token",     C, before.jiraApiToken,  after.jiraApiToken,  true);
+    }
+
+    /**
+     * v4.7.x — 비교 가능한 단일 시점의 Settings 스냅샷.
+     * 변경 전 / 후 두 번 capture 해서 차이만 감사 로그에 기록한다.
+     */
+    private static final class SettingsSnapshot {
+        String dbUrl, dbUsername, dbPassword;
+        String scanPath, miplatformRoot, miplatformPatterns;
+        String projectContext;
+        String claudeModel, claudeApiKey;
+        String accentColor;
+        String emailHost, emailPort, emailUsername, emailPassword, emailFrom, emailTls;
+        String cacheRefreshCron;
+        String slackWebhookUrl, teamsWebhookUrl;
+        String jiraBaseUrl, jiraProjectKey, jiraEmail, jiraApiToken;
+
+        static SettingsSnapshot capture(ToolkitSettings s, ClaudeProperties cp) {
+            SettingsSnapshot ss = new SettingsSnapshot();
+            ss.dbUrl              = nz(s.getDb() != null ? s.getDb().getUrl() : null);
+            ss.dbUsername         = nz(s.getDb() != null ? s.getDb().getUsername() : null);
+            ss.dbPassword         = nz(s.getDb() != null ? s.getDb().getPassword() : null);
+            ss.scanPath           = nz(s.getProject() != null ? s.getProject().getScanPath() : null);
+            ss.miplatformRoot     = nz(s.getProject() != null ? s.getProject().getMiplatformRoot() : null);
+            ss.miplatformPatterns = nz(s.getProject() != null ? s.getProject().getMiplatformPatterns() : null);
+            ss.projectContext     = nz(s.getProjectContext());
+            ss.claudeModel        = nz(s.getClaudeModel());
+            ss.claudeApiKey       = nz(cp != null ? cp.getApiKey() : null);
+            ss.accentColor        = nz(s.getAccentColor());
+            ss.emailHost          = nz(s.getEmail() != null ? s.getEmail().getHost() : null);
+            ss.emailPort          = s.getEmail() != null ? String.valueOf(s.getEmail().getPort()) : "";
+            ss.emailUsername      = nz(s.getEmail() != null ? s.getEmail().getUsername() : null);
+            ss.emailPassword      = nz(s.getEmail() != null ? s.getEmail().getPassword() : null);
+            ss.emailFrom          = nz(s.getEmail() != null ? s.getEmail().getFrom() : null);
+            ss.emailTls           = s.getEmail() != null ? String.valueOf(s.getEmail().isTls()) : "true";
+            ss.cacheRefreshCron   = nz(s.getCacheRefreshCron());
+            ss.slackWebhookUrl    = nz(s.getSlackWebhookUrl());
+            ss.teamsWebhookUrl    = nz(s.getTeamsWebhookUrl());
+            ss.jiraBaseUrl        = nz(s.getJiraBaseUrl());
+            ss.jiraProjectKey     = nz(s.getJiraProjectKey());
+            ss.jiraEmail          = nz(s.getJiraEmail());
+            ss.jiraApiToken       = nz(s.getJiraApiToken());
+            return ss;
+        }
+
+        private static String nz(String s) { return s == null ? "" : s; }
     }
 
     /** AJAX: validates Claude API key by making a minimal test request. */
