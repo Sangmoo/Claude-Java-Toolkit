@@ -535,6 +535,83 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     v4.7.1 — 운영/UX 5종 강화 콜아웃
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(139,92,246,.05),rgba(249,115,22,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">v4.7.1 — 누적 패치</p>
+      <h2 class="section-title">운영 인프라 + 사용자 워크플로 5종 강화</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자가 <strong>현장에서 바로 체감</strong>할 수 있는 5가지 영역 동시 강화. 모두 기존 컴포넌트 재사용 위주로 백엔드 구조 변경 최소화.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🛡</div>
+        <div class="feat-title">Settings 변경 감사 로그</div>
+        <div class="feat-desc">22개 시스템 설정 (DB / Claude / scanPath / SMTP / rate-limit 등) 변경 시 <strong>이전값/새값/변경자/IP/시각</strong> 자동 기록. 외부감사인이 "settings 가 언제 누구에 의해 어떻게 바뀌었는지" 1쿼리로 추적. 패스워드 / API 키 등 민감 필드는 자동 마스킹 (<code>***</code> 평문 보관 X). 신규 페이지 <code>/admin/config-changes</code>.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">📋 22 필드</span>
+          <span class="tag">🔐 자동 마스킹</span>
+          <span class="tag">👤 ADMIN 전용</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">⚡</div>
+        <div class="feat-title">파일 해시 기반 분석 캐시</div>
+        <div class="feat-desc">입력 정규화 (BOM / CRLF / trailing whitespace / 연속 빈 줄 축약) → 같은 의미의 입력은 항상 같은 키로 매핑. 캐시 키도 <strong>4-arg (feature + input + input2 + sourceType)</strong> 로 분리해 <code>review</code> vs <code>security</code> 옵션 충돌 버그 회귀 방지. JVM 라이프타임 hit/miss 카운터 + 적중률, 모든 결과 헤더에 <strong>⚡ 캐시 적중</strong> 칩 (Claude API 비용 0).</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🔑 4-arg 키</span>
+          <span class="tag">📈 hit rate</span>
+          <span class="tag">💰 비용 0</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">🏷</div>
+        <div class="feat-title">리뷰 이력 태깅 시스템</div>
+        <div class="feat-desc">각 분석 결과에 콤마 구분 태그 (예: <code>성능, SLA위반, DB</code>) — 본인 또는 ADMIN 만 수정. 헤더 dropdown 빈도순 빠른 선택 + 클릭으로 토글 필터. 카드 행 칩 + 확장 영역 자동완성 dropdown (Enter 저장 / Esc 취소). 정규화: trim / 빈·중복 제거 / 30자 상한, <code>,DB,</code> 패턴으로 콤마 매칭 충돌 방지.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🔍 자동완성</span>
+          <span class="tag">📊 빈도순</span>
+          <span class="tag">⚡ 정확 매칭</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">💬</div>
+        <div class="feat-title">결과 후속 질문 패널 (Follow-up Q&amp;A)</div>
+        <div class="feat-desc">분석 결과 직후 같은 화면에서 "왜 이 결과가 나왔나요?" / "PostgreSQL 에서는?" 등 추가 질문 — 페이지 이동 없이 결과를 보면서 질문. 기존 <code>/chat/send</code> + <code>/chat/stream</code> SSE 인프라 그대로 재사용 (백엔드 변경 0). 결과 + 원본 입력 + 페이지 라벨을 첫 질문 시 1회 컨텍스트로 전달, 이후 멀티턴. <strong>22+ 분석 페이지에 한 번에 적용.</strong></div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🔄 SSE 재사용</span>
+          <span class="tag">🌐 22 페이지</span>
+          <span class="tag">📝 멀티턴</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(249,115,22,.12);color:#f97316;">🔗</div>
+        <div class="feat-title">분석 체이닝 — 결과 후 다음 단계 1-클릭</div>
+        <div class="feat-desc">14개 feature × 평균 3개 다음단계 매핑 (총 ~40개 체이닝 경로) — <code>sql_review → /explain → /sql/index-advisor → /sql-translate → /erd</code> 등 자연스러운 흐름. <strong>sessionStorage 기반 1회용 handoff</strong> (60초 TTL), URL 길이 제한·로그 노출 우려 0. <code>sameInput</code> / <code>extractFirstCodeBlock</code> 변환 정책으로 다음 페이지 입력 자동 채움. 자동 채워진 페이지에는 <strong>🔗 체이닝 입력</strong> 인디케이터.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🗺 40+ 경로</span>
+          <span class="tag">🚀 1-클릭</span>
+          <span class="tag">📦 sessionStorage</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      v4.7.0 — 메이저 릴리스 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(245,158,11,.05),rgba(124,107,240,.04));">

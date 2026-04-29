@@ -100,4 +100,75 @@ class ReviewHistoryTest {
         // 형식: "MM-dd HH:mm" → 11자
         assertTrue(formatted.matches("\\d{2}-\\d{2} \\d{2}:\\d{2}"), "예: 04-22 14:30, 실제: " + formatted);
     }
+
+    // ── v4.7.x: 태그 정규화 (#12) ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("normalizeTags — null 입력은 null 반환")
+    void normalizeTags_null() {
+        assertNull(ReviewHistory.normalizeTags(null));
+    }
+
+    @Test
+    @DisplayName("normalizeTags — 빈 / 공백만 → null 반환 (DB 에 NULL 저장)")
+    void normalizeTags_emptyOrWhitespace() {
+        assertNull(ReviewHistory.normalizeTags(""));
+        assertNull(ReviewHistory.normalizeTags("   "));
+        assertNull(ReviewHistory.normalizeTags(",,,"));
+        assertNull(ReviewHistory.normalizeTags(" , , "));
+    }
+
+    @Test
+    @DisplayName("normalizeTags — 양쪽 공백 trim + 빈 토큰 제거")
+    void normalizeTags_trimsAndDropsEmpty() {
+        assertEquals("성능,DB", ReviewHistory.normalizeTags("  성능 , , DB  "));
+        assertEquals("a,b,c", ReviewHistory.normalizeTags(",a,,b, , c,,,"));
+    }
+
+    @Test
+    @DisplayName("normalizeTags — 대소문자 무시 중복 제거 (첫 등장 표기 보존)")
+    void normalizeTags_dedupCaseInsensitive() {
+        // "DB" 와 "db" 는 같은 태그로 간주, 첫 등장 표기 ("DB") 보존
+        assertEquals("DB,성능", ReviewHistory.normalizeTags("DB, db, DB, 성능, db"));
+    }
+
+    @Test
+    @DisplayName("normalizeTags — 단일 태그 30자 상한")
+    void normalizeTags_lengthCap() {
+        String long31 = "abcdefghijklmnopqrstuvwxyzABCDE";  // 31자
+        String result = ReviewHistory.normalizeTags(long31);
+        assertEquals(30, result.length());
+        assertEquals(long31.substring(0, 30), result);
+    }
+
+    @Test
+    @DisplayName("normalizeTags — 한글 태그 + 영어 태그 혼합 보존")
+    void normalizeTags_mixedKorean() {
+        assertEquals("성능,SLA위반,db-issue",
+                ReviewHistory.normalizeTags("성능, SLA위반, db-issue"));
+    }
+
+    @Test
+    @DisplayName("getTagList — null tags 는 빈 리스트")
+    void getTagList_nullTags() {
+        ReviewHistory h = new ReviewHistory("X", "t", "i", "o");
+        assertTrue(h.getTagList().isEmpty());
+    }
+
+    @Test
+    @DisplayName("getTagList — 콤마 구분 문자열을 List 로 분해")
+    void getTagList_split() {
+        ReviewHistory h = new ReviewHistory("X", "t", "i", "o");
+        h.setTags("성능, DB, SLA위반");
+        assertEquals(java.util.Arrays.asList("성능", "DB", "SLA위반"), h.getTagList());
+    }
+
+    @Test
+    @DisplayName("setTags — 자동 정규화 (대소문자 dedup + trim)")
+    void setTags_normalizesOnAssign() {
+        ReviewHistory h = new ReviewHistory("X", "t", "i", "o");
+        h.setTags("DB, db, 성능,, 성능 ");
+        // 첫 등장 표기 ("DB") 보존, 중복 제거됨
+        assertEquals("DB,성능", h.getTags());
+    }
 }

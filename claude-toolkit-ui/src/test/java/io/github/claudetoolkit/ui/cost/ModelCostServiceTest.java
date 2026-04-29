@@ -175,6 +175,9 @@ class ModelCostServiceTest {
         }
         public List<ReviewHistory> findWithTokenUsage() { return entries; }
         public List<ReviewHistory> searchByKeyword(String q, Pageable pageable) { return Collections.emptyList(); }
+        // v4.7.x — #12 태그 시스템 추가 메서드 (테스트에서 호출 안 됨, 빈 결과)
+        public List<ReviewHistory> findByUsernameAndTag(String username, String tag, Pageable pageable) { return Collections.emptyList(); }
+        public List<String> findAllTagsByUsername(String username) { return Collections.emptyList(); }
         // ── JpaRepository stubs (호출 안 됨) ──
         public List<ReviewHistory> findAll() { return entries; }
         public List<ReviewHistory> findAll(org.springframework.data.domain.Sort sort) { return entries; }
