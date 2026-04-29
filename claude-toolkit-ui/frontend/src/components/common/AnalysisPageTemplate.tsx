@@ -1,11 +1,13 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload } from 'react-icons/fa'
+import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload, FaLink } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from './SourceSelector'
 import CostHint from './CostHint'
 import FollowUpQAPanel from './FollowUpQAPanel'
+import NextStepHints from './NextStepHints'
+import { consumeChainPayload } from './analysisChain'
 import type { IconType } from 'react-icons'
 
 export interface AnalysisOption {
@@ -65,6 +67,19 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const Icon = config.icon
+  // v4.7.x — #2 분석 체이닝: 이전 페이지에서 NextStepHints 로 넘어온 payload 자동 입력
+  const [chainSource, setChainSource] = useState<string>('')
+
+  useEffect(() => {
+    const payload = consumeChainPayload()
+    if (payload) {
+      setInput(payload.value)
+      setChainSource(payload.sourceFeature)
+      toast.success(`이전 분석 결과에서 입력이 자동 채워졌습니다 (출처: ${payload.sourceFeature})`)
+    }
+    // config.feature 가 바뀌면 (라우트 변경 → 페이지 재마운트) 새 payload 검사
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.feature])
 
   const setOption = useCallback((name: string, value: string) => {
     setOptionValues((prev) => ({ ...prev, [name]: value }))
@@ -106,6 +121,7 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     if (!input.trim() || streaming) return
     setResult('')
     setCacheHit(false)
+    setChainSource('')  // 분석을 직접 실행한 시점부터는 체이닝 인디케이터 제거
     setStreaming(true)
     try {
       // 백엔드 /stream/init은 feature, input, input2, sourceType 4개 파라미터만 받음
@@ -196,7 +212,21 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
         {/* 입력 패널 */}
         <div style={panelStyle}>
           <div style={panelHeader}>
-            <span style={{ fontWeight: 600, fontSize: '13px' }}>{config.inputLabel || '입력'}</span>
+            <span style={{ fontWeight: 600, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {config.inputLabel || '입력'}
+              {/* v4.7.x — 이전 분석 결과에서 자동 채워진 경우 인디케이터 */}
+              {chainSource && (
+                <span
+                  title={`이전 분석 (${chainSource}) 결과에서 자동 전달됨 — 분석 시작하면 인디케이터는 사라집니다`}
+                  style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                    background: 'rgba(249,115,22,0.15)', color: '#f97316', fontWeight: 700,
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                  }}>
+                  <FaLink style={{ fontSize: 9 }} /> 체이닝 입력
+                </span>
+              )}
+            </span>
             <div style={{ display: 'flex', gap: '5px' }}>
               {config.sourceMode && <SourceSelector mode={config.sourceMode} onSelect={handleSourceSelect} />}
               {config.allowFileUpload && (
@@ -322,6 +352,15 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
             {result ? (
               <>
                 <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown></div>
+                {/* v4.7.x — #2 분석 체이닝: 결과 직후 후속 단계 제안 카드.
+                    매핑이 없는 feature 는 컴포넌트가 null 반환 → 자연스럽게 숨겨짐. */}
+                {!streaming && (
+                  <NextStepHints
+                    feature={config.feature}
+                    resultText={result}
+                    inputText={input}
+                  />
+                )}
                 {/* v4.7.x — #4 결과 후속 질문 패널. 스트리밍이 끝난 뒤에만 노출하여
                     사용자가 결과를 충분히 본 뒤 질문하도록 유도. 결과가 변경되면 (재분석)
                     내부 useEffect 가 메시지/세션을 자동 리셋. */}
