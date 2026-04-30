@@ -77,4 +77,45 @@ public class DbProfileController {
         map.put("description", p.getDescription() != null ? p.getDescription() : "");
         return map;
     }
+
+    /**
+     * v4.7.x — #G3 Live DB Phase 0: 분석 채널 활성/비활성 토글 (ADMIN 전용).
+     *
+     * <p>SecurityConfig 가 /db-profiles/** 를 ADMIN 으로 제한하므로 추가 권한 검사 없음.
+     * 활성화는 사용자 책임 — 이 프로필의 user 가 read-only 권한만 가져야 한다는
+     * 명시적 확인.
+     */
+    @PostMapping("/{id}/live-analysis")
+    @ResponseBody
+    public java.util.Map<String, Object> toggleLiveAnalysis(
+            @PathVariable Long id,
+            @RequestParam("enabled") boolean enabled) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        boolean result = service.toggleLiveAnalysis(id, enabled);
+        resp.put("success", true);
+        resp.put("id",      id);
+        resp.put("enabled", result);
+        return resp;
+    }
+
+    /**
+     * v4.7.x — Live DB 분석에 사용 가능한 활성 프로필 목록 (분석 페이지 dropdown 용).
+     * 모든 사용자 read 가능 — 비밀번호 제외 메타만 반환.
+     */
+    @GetMapping("/active-live")
+    @ResponseBody
+    public java.util.List<java.util.Map<String, Object>> activeLiveProfiles() {
+        java.util.List<DbProfile> profiles = service.findActiveLiveAnalysisProfiles();
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        for (DbProfile p : profiles) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<String, Object>();
+            m.put("id",          p.getId());
+            m.put("name",        p.getName());
+            m.put("description", p.getDescription() != null ? p.getDescription() : "");
+            m.put("maskedUrl",   p.getMaskedUrl());
+            // 비밀번호 / username 은 노출 X (보안)
+            result.add(m);
+        }
+        return result;
+    }
 }

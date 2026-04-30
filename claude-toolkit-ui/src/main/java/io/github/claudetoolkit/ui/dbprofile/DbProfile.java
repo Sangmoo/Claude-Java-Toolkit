@@ -34,6 +34,30 @@ public class DbProfile {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * v4.7.x — #G3 Live DB Phase 0: 이 프로필이 분석 페이지에서 *직접 EXPLAIN/통계 조회* 에
+     * 사용 가능한지. 기본 false — ADMIN 이 명시적으로 활성화해야 함.
+     *
+     * <p>활성화 조건: 이 프로필의 user 가 *읽기 전용* 권한만 갖고 있어야 함 (DDL/DML 권한 X).
+     * 이 플래그는 사용자 책임으로 명시적 토글하므로, "확인했음" 의 의미.
+     */
+    @Column(nullable = false)
+    private boolean readOnlyForLiveAnalysis = false;
+
+    /**
+     * v4.7.x — Live DB 분석 시 사용할 별도 user (옵션). null 이면 기본 {@link #username} 사용.
+     * 운영 user 와 분석 user 를 분리할 수 있게 함 — 권한 모델이 깨끗.
+     */
+    @Column(length = 200)
+    private String liveAnalysisUser;
+
+    /**
+     * v4.7.x — Live DB 쿼리 statement timeout 초. null 이면 글로벌 default 사용
+     * (LiveDbConfig.defaultTimeoutSeconds, 기본 30초).
+     */
+    @Column
+    private Integer liveQueryTimeoutSeconds;
+
     protected DbProfile() {}
 
     public DbProfile(String name, String url, String username, String password, String description) {
@@ -79,4 +103,12 @@ public class DbProfile {
 
     public LocalDateTime getCreatedAt()         { return createdAt; }
     public void setCreatedAt(LocalDateTime v)   { this.createdAt = v; }
+
+    // v4.7.x — #G3 Live DB
+    public boolean isReadOnlyForLiveAnalysis()                  { return readOnlyForLiveAnalysis; }
+    public void    setReadOnlyForLiveAnalysis(boolean v)        { this.readOnlyForLiveAnalysis = v; }
+    public String  getLiveAnalysisUser()                        { return liveAnalysisUser; }
+    public void    setLiveAnalysisUser(String u)                { this.liveAnalysisUser = u; }
+    public Integer getLiveQueryTimeoutSeconds()                 { return liveQueryTimeoutSeconds; }
+    public void    setLiveQueryTimeoutSeconds(Integer s)        { this.liveQueryTimeoutSeconds = s; }
 }

@@ -42,6 +42,14 @@ toolkit:
     max: ${TOOLKIT_HISTORY_MAX:200}       # 전체 리뷰 이력 상한 (초과시 가장 오래된 것부터 제거)
   favorites:
     max: ${TOOLKIT_FAVORITES_MAX:500}     # 전체 즐겨찾기 상한
+  # v4.7.x — #G3 Live DB: 분석 페이지가 DB 에 직접 EXPLAIN/통계 조회 가능 여부.
+  # 기본 OFF — 운영 환경에서 자동 활성화 사고 방지. ADMIN 이 명시적으로 켤 때만 동작.
+  # 활성화해도 SqlClassifier 가 SELECT/EXPLAIN/DESC/WITH 만 통과시키므로 이중 차단.
+  livedb:
+    enabled: ${TOOLKIT_LIVEDB_ENABLED:false}
+    default-timeout-seconds: ${TOOLKIT_LIVEDB_TIMEOUT:30}
+    max-rows: ${TOOLKIT_LIVEDB_MAX_ROWS:1000}
+    max-calls-per-minute: ${TOOLKIT_LIVEDB_RATE_LIMIT:10}
 
 # ── Actuator / Health / Metrics ───────────────────────────────────────────
 management:
