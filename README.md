@@ -67,9 +67,9 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
   - `sameInput` / `extractFirstCodeBlock` 변환 정책으로 다음 페이지 입력 자동 채움
   - 자동 채워진 페이지에는 입력 헤더에 **🔗 체이닝 입력** 인디케이터
 
-- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 (#G3, Phase 0~2)** — Oracle 1차 지원
-  - 사용자가 SQL 만 입력 → 백엔드가 자동으로 **EXPLAIN PLAN + DBA_TABLES 통계
-    + DBA_INDEXES** 수집 → Claude system prompt 에 prepend (실데이터 기반 분석)
+- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 (#G3, Phase 0~3)** — Oracle + PostgreSQL
+  - 사용자가 SQL 만 입력 → 백엔드가 자동으로 **EXPLAIN PLAN + 테이블 통계 + 인덱스 메타**
+    수집 → Claude system prompt 에 prepend (실데이터 기반 분석)
   - 기존 22+ 분석 페이지 중 6개 SQL 페이지 (`/advisor`, `/explain`, `/sql/index-advisor`,
     `/sql-translate`, `/sql-batch`, `/erd`) 에 자동 적용 — 페이지에 🔌 Live DB chip 노출
   - **이중 보안 차단**: ① `SqlClassifier` 가 SELECT/EXPLAIN/DESC/WITH 만 통과
@@ -77,8 +77,13 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
     ② `ReadOnlyJdbcTemplate` 가 statement timeout + max rows 강제,
     ③ `toolkit.livedb.enabled=false` kill switch + DbProfile 별 명시적 ADMIN 토글
   - **Default OFF** — 운영 환경에서 자동 활성화 사고 방지
-  - DBA 권한 없을 때 graceful fallback (DBA→ALL→USER 자동 fallback)
-  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 16 클래스 + 55 단위 테스트
+  - DBMS 별 매핑:
+    - **Oracle 11g~19c**: `DBA_TABLES`/`ALL_TABLES`/`USER_TABLES` 권한별 fallback,
+      `DBA_INDEXES` + `DBA_IND_COLUMNS`, `EXPLAIN PLAN SET STATEMENT_ID + DBMS_XPLAN.DISPLAY`
+    - **PostgreSQL 11+**: `pg_class.reltuples` + `pg_stat_user_tables`,
+      `pg_index` + `pg_attribute` + `LATERAL unnest WITH ORDINALITY` 로 컬럼 위치 보존,
+      `EXPLAIN (FORMAT TEXT, COSTS true)` (ANALYZE 없이 — 부하 0)
+  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 17 클래스 + 61 단위 테스트
 
 ### 🆕 v4.7.0 하이라이트 — 인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드
 

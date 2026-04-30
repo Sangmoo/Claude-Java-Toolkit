@@ -32,7 +32,8 @@ public class LiveDbContextService {
 
     private final DbProfileService          profileService;
     private final LiveDbConfig              config;
-    private final OracleLiveDbContextProvider oracleProvider = new OracleLiveDbContextProvider();
+    private final OracleLiveDbContextProvider   oracleProvider   = new OracleLiveDbContextProvider();
+    private final PostgresLiveDbContextProvider postgresProvider = new PostgresLiveDbContextProvider();
 
     /** 프로필 ID → DataSource 캐시 — 매번 새 connection pool 만드는 비용 회피 */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
@@ -99,19 +100,25 @@ public class LiveDbContextService {
     }
 
     /**
-     * Phase 1: Oracle 전용. DbProfile.url 에 "oracle" 이 들어있으면 Oracle.
-     * Phase 3 에서 PostgreSQL provider 추가 시 url 패턴 또는 dbType 컬럼으로 분기.
+     * URL prefix 로 DBMS 자동 감지. DbProfile 별 dbType 컬럼은 추후 확장용 — 1차에선
+     * URL 만으로 충분 (드라이버 매핑과 동일 분기).
+     *
+     * <ul>
+     *   <li>{@code jdbc:oracle:} 또는 url 안 "oracle" → {@link OracleLiveDbContextProvider}</li>
+     *   <li>{@code jdbc:postgresql:} → {@link PostgresLiveDbContextProvider}</li>
+     *   <li>그 외 → null (Live DB 첨부 skip)</li>
+     * </ul>
      */
     private LiveDbContextProvider pickProvider(DbProfile profile) {
         String url = profile.getUrl();
         if (url == null) return null;
         String lower = url.toLowerCase();
-        if (lower.contains("oracle") || lower.startsWith("jdbc:oracle:")) {
+        if (lower.startsWith("jdbc:oracle:") || lower.contains("oracle:thin:")) {
             return oracleProvider;
         }
-        // Phase 3 에서 추가:
-        // if (lower.contains("postgresql") || lower.startsWith("jdbc:postgresql:"))
-        //     return postgresProvider;
+        if (lower.startsWith("jdbc:postgresql:")) {
+            return postgresProvider;
+        }
         return null;
     }
 
@@ -147,12 +154,15 @@ public class LiveDbContextService {
 
         // 드라이버 자동 감지 (URL prefix 기반)
         String url = profile.getUrl();
-        if (url != null && url.startsWith("jdbc:oracle:")) {
-            ds.setDriverClassName("oracle.jdbc.OracleDriver");
+        if (url != null) {
+            if (url.startsWith("jdbc:oracle:")) {
+                ds.setDriverClassName("oracle.jdbc.OracleDriver");
+            } else if (url.startsWith("jdbc:postgresql:")) {
+                ds.setDriverClassName("org.postgresql.Driver");
+            }
+            // 다른 DBMS 추가 시 여기에:
+            // else if (url.startsWith("jdbc:mysql:")) ds.setDriverClassName("com.mysql.cj.jdbc.Driver");
         }
-        // PostgreSQL 은 Phase 3 에서:
-        // else if (url != null && url.startsWith("jdbc:postgresql:"))
-        //     ds.setDriverClassName("org.postgresql.Driver");
 
         dataSourceCache.put(id, ds);
         return ds;
