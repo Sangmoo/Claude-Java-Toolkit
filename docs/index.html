@@ -607,6 +607,19 @@ footer{
           <span class="tag">📦 sessionStorage</span>
         </div>
       </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🔌</div>
+        <div class="feat-title">Live DB 직접 연결 — EXPLAIN/통계 자동 수집 (#G3 Phase 0~2)</div>
+        <div class="feat-desc">사용자가 SQL 만 입력 → 백엔드가 자동으로 <strong>EXPLAIN PLAN + DBA_TABLES 통계 + DBA_INDEXES</strong> 수집 → Claude prompt 에 prepend. <strong>이중 보안 차단</strong>: ① <code>SqlClassifier</code> 가 SELECT/EXPLAIN/DESC/WITH 만 통과 (멀티 statement / 주석 우회 / 문자열 리터럴 안 ; 까지 처리), ② <code>ReadOnlyJdbcTemplate</code> 가 statement timeout + max rows 강제, ③ <code>toolkit.livedb.enabled=false</code> kill switch + DbProfile 별 명시적 ADMIN 토글. <strong>Default OFF</strong>. 6개 SQL 페이지 자동 적용 (<code>/advisor</code>, <code>/explain</code>, <code>/sql/index-advisor</code>, <code>/sql-translate</code>, <code>/sql-batch</code>, <code>/erd</code>) — 페이지에 🔌 Live DB chip 노출. Oracle 1차 (DBA→ALL→USER 권한별 fallback).</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🛡 이중 차단</span>
+          <span class="tag">🔒 Default OFF</span>
+          <span class="tag">📊 실데이터</span>
+          <span class="tag">🧪 55 tests</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>

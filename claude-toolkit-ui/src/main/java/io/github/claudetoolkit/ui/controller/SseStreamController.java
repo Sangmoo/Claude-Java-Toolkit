@@ -66,6 +66,14 @@ public class SseStreamController {
     /** v4.3.0: Prometheus 메트릭. ObjectProvider 로 받지 않고 직접 주입 — Spring 이 자동 발견 */
     private final ToolkitMetrics          metrics;
 
+    /**
+     * v4.7.x — #G3 Live DB Phase 2: 분석 페이지가 dbProfileId 를 보내면 자동으로
+     * 실시간 DB 메타 (테이블 통계 / 인덱스 / EXPLAIN) 를 system prompt 에 prepend.
+     * 옵셔널 — Live DB 기능이 비활성이거나 빈에 등록 안 되면 null 로 동작.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.livedb.LiveDbContextService liveDbContextService;
+
     public SseStreamController(ClaudeClient claudeClient,
                                ToolkitSettings settings,
                                HarnessReviewService harnessService,
@@ -166,13 +174,14 @@ public class SseStreamController {
     @PostMapping("/init")
     @ResponseBody
     public String initStream(
-            @RequestParam(value = "feature",    defaultValue = "")        String feature,
-            @RequestParam(value = "input",      defaultValue = "")        String input,
-            @RequestParam(value = "input2",     defaultValue = "")        String input2,
-            @RequestParam(value = "sourceType", defaultValue = "General") String sourceType) {
+            @RequestParam(value = "feature",     defaultValue = "")        String feature,
+            @RequestParam(value = "input",       defaultValue = "")        String input,
+            @RequestParam(value = "input2",      defaultValue = "")        String input2,
+            @RequestParam(value = "sourceType",  defaultValue = "General") String sourceType,
+            @RequestParam(value = "dbProfileId", required = false)         Long   dbProfileId) {
 
         final String id = java.util.UUID.randomUUID().toString();
-        pending.put(id, new StreamInput(feature, input, input2, sourceType));
+        pending.put(id, new StreamInput(feature, input, input2, sourceType, dbProfileId));
 
         // Auto-expire
         Thread cleaner = new Thread(new Runnable() {
@@ -259,6 +268,12 @@ public class SseStreamController {
                         if (memo != null && !memo.trim().isEmpty()) {
                             sysPrompt = sysPrompt + "\n\n[프로젝트 컨텍스트]\n" + memo;
                         }
+                        // v4.7.x — #G3 Live DB: 번역 대상 SQL 의 source DB 메타 첨부
+                        String liveDbMd = maybeAttachLiveDbContext(
+                                input.feature, input.input, input.dbProfileId);
+                        if (!liveDbMd.isEmpty()) {
+                            sysPrompt = sysPrompt + "\n\n" + liveDbMd;
+                        }
                         String userMsg = translateService.buildUserMessage(input.input, sourceDb, targetDb);
                         final StringBuilder translateBuf = new StringBuilder();
                         claudeClient.chatStream(sysPrompt, userMsg,
@@ -284,6 +299,13 @@ public class SseStreamController {
                     String memoContext  = settings.getProjectContext();
                     if (memoContext != null && !memoContext.trim().isEmpty()) {
                         systemPrompt = systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memoContext;
+                    }
+                    // v4.7.x — #G3 Live DB Phase 2: SQL 관련 feature + 사용자가 프로필 선택 시
+                    // 실시간 DB 메타 (테이블 통계 / 인덱스 / EXPLAIN PLAN) 자동 첨부
+                    String liveDbMd = maybeAttachLiveDbContext(
+                            input.feature, input.input, input.dbProfileId);
+                    if (!liveDbMd.isEmpty()) {
+                        systemPrompt = systemPrompt + "\n\n" + liveDbMd;
                     }
                     String userMessage = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
 
@@ -449,6 +471,36 @@ public class SseStreamController {
         return input;
     }
 
+    /**
+     * v4.7.x — #G3 Live DB Phase 2: 사용자가 dbProfileId 를 보냈고 SQL 관련 feature 인 경우
+     * 실시간 DB 메타 (테이블 통계 + 인덱스 + EXPLAIN PLAN) markdown 을 반환.
+     *
+     * <p>다음 조건 중 하나라도 만족 안 하면 빈 문자열:
+     * <ul>
+     *   <li>{@link io.github.claudetoolkit.ui.livedb.LiveDbContextService} 빈 미등록 (Live DB 비활성)</li>
+     *   <li>feature 가 SQL 화이트리스트 아님</li>
+     *   <li>dbProfileId 가 null</li>
+     *   <li>프로필이 readOnlyForLiveAnalysis=false (관리자가 활성화 안 함)</li>
+     *   <li>컨텍스트 수집 실패 — graceful fallback (빈 markdown)</li>
+     * </ul>
+     */
+    private String maybeAttachLiveDbContext(String feature, String userSql, Long dbProfileId) {
+        if (liveDbContextService == null) return "";
+        if (dbProfileId == null) return "";
+        if (!io.github.claudetoolkit.ui.livedb.SqlAnalysisFeatures.shouldAttachLiveDbContext(feature)) {
+            return "";
+        }
+        try {
+            String md = liveDbContextService.fetchAsMarkdown(userSql, dbProfileId);
+            return md != null ? md : "";
+        } catch (Exception e) {
+            // 컨텍스트 수집 실패가 분석 자체를 막으면 안 됨 — silent skip + log
+            org.slf4j.LoggerFactory.getLogger(SseStreamController.class)
+                    .warn("[LiveDb] context attach failed (analysis continues): {}", e.getMessage());
+            return "";
+        }
+    }
+
     // ── Inner DTO ─────────────────────────────────────────────────────────────
 
     private static class StreamInput {
@@ -456,12 +508,19 @@ public class SseStreamController {
         final String input;
         final String input2;
         final String sourceType;
+        /** v4.7.x — #G3 Live DB: 사용자가 선택한 DbProfile ID (옵셔널). null 이면 Live DB 비사용. */
+        final Long   dbProfileId;
 
         StreamInput(String feature, String input, String input2, String sourceType) {
-            this.feature    = feature;
-            this.input      = input;
-            this.input2     = input2;
-            this.sourceType = sourceType;
+            this(feature, input, input2, sourceType, null);
+        }
+
+        StreamInput(String feature, String input, String input2, String sourceType, Long dbProfileId) {
+            this.feature     = feature;
+            this.input       = input;
+            this.input2      = input2;
+            this.sourceType  = sourceType;
+            this.dbProfileId = dbProfileId;
         }
     }
 }

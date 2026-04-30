@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload, FaLink } from 'react-icons/fa'
+import { FaPlay, FaCopy, FaCheck, FaDownload, FaSpinner, FaEraser, FaUpload, FaLink, FaPlug } from 'react-icons/fa'
 import { useToast } from '../../hooks/useToast'
 import SourceSelector from './SourceSelector'
 import CostHint from './CostHint'
@@ -9,6 +9,26 @@ import FollowUpQAPanel from './FollowUpQAPanel'
 import NextStepHints from './NextStepHints'
 import { consumeChainPayload } from './analysisChain'
 import type { IconType } from 'react-icons'
+
+/**
+ * v4.7.x — #G3 Live DB Phase 2: Live DB 컨텍스트 자동 첨부 대상 feature.
+ * 백엔드 SqlAnalysisFeatures 와 동기화 — 추가/제거 시 양쪽 모두 갱신 필요.
+ */
+const LIVE_DB_FEATURES = new Set([
+  'sql_review',
+  'explain_plan',
+  'index_advisor',
+  'sql_translate',
+  'sql_batch',
+  'erd_analysis',
+])
+
+interface LiveDbProfile {
+  id: number
+  name: string
+  description?: string
+  maskedUrl?: string
+}
 
 export interface AnalysisOption {
   name: string
@@ -70,6 +90,11 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   // v4.7.x — #2 분석 체이닝: 이전 페이지에서 NextStepHints 로 넘어온 payload 자동 입력
   const [chainSource, setChainSource] = useState<string>('')
 
+  // v4.7.x — #G3 Live DB Phase 2: SQL 페이지에서만 노출되는 프로필 선택
+  const isLiveDbCapable = LIVE_DB_FEATURES.has(config.feature)
+  const [liveDbProfiles, setLiveDbProfiles]   = useState<LiveDbProfile[]>([])
+  const [liveDbProfileId, setLiveDbProfileId] = useState<number | null>(null)
+
   useEffect(() => {
     const payload = consumeChainPayload()
     if (payload) {
@@ -80,6 +105,20 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     // config.feature 가 바뀌면 (라우트 변경 → 페이지 재마운트) 새 payload 검사
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.feature])
+
+  // v4.7.x — #G3: 활성 프로필 로드 (SQL 페이지에서만)
+  useEffect(() => {
+    if (!isLiveDbCapable) return
+    let cancelled = false
+    fetch('/db-profiles/active-live', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled) return
+        if (Array.isArray(data)) setLiveDbProfiles(data as LiveDbProfile[])
+      })
+      .catch(() => { /* silent — Live DB 비활성 환경에서 정상 */ })
+    return () => { cancelled = true }
+  }, [isLiveDbCapable])
 
   const setOption = useCallback((name: string, value: string) => {
     setOptionValues((prev) => ({ ...prev, [name]: value }))
@@ -124,10 +163,14 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     setChainSource('')  // 분석을 직접 실행한 시점부터는 체이닝 인디케이터 제거
     setStreaming(true)
     try {
-      // 백엔드 /stream/init은 feature, input, input2, sourceType 4개 파라미터만 받음
+      // 백엔드 /stream/init 파라미터 — v4.7.x 부터 dbProfileId 추가 (옵션)
       const params: Record<string, string> = {
         feature: config.feature,
         input: input.trim(),
+      }
+      // v4.7.x — #G3 Live DB: 사용자가 프로필 선택했을 때만 백엔드에 전송
+      if (isLiveDbCapable && liveDbProfileId != null) {
+        params.dbProfileId = String(liveDbProfileId)
       }
       // inputLanguage → sourceType (백엔드 기대 파라미터명)
       if (config.inputLanguage) params.sourceType = config.inputLanguage
@@ -315,7 +358,35 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
             onDragLeave={config.allowFileUpload ? handleDragLeave : undefined}
           />
 
-          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+          <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {/* v4.7.x — #G3 Live DB: SQL 페이지 + 활성 프로필이 1개 이상일 때만 노출 */}
+            {isLiveDbCapable && liveDbProfiles.length > 0 && (
+              <div
+                title="선택된 DB 에서 EXPLAIN PLAN / 통계 / 인덱스 메타를 자동 수집하여 Claude 분석에 첨부됩니다 (read-only)"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontSize: 11, padding: '4px 8px', borderRadius: 14,
+                  background: liveDbProfileId != null ? 'rgba(16,185,129,0.12)' : 'transparent',
+                  border: `1px solid ${liveDbProfileId != null ? '#10b981' : 'var(--border-color)'}`,
+                  color: liveDbProfileId != null ? '#10b981' : 'var(--text-muted)',
+                  fontWeight: 600,
+                }}>
+                <FaPlug style={{ fontSize: 10 }} />
+                <span>Live DB</span>
+                <select
+                  value={liveDbProfileId ?? ''}
+                  onChange={(e) => setLiveDbProfileId(e.target.value ? Number(e.target.value) : null)}
+                  style={{
+                    fontSize: 11, border: 'none', background: 'transparent',
+                    color: 'inherit', cursor: 'pointer', padding: '0 2px', fontWeight: 600,
+                  }}>
+                  <option value="">OFF</option>
+                  {liveDbProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <CostHint inputText={input} />
             <button onClick={startAnalysis} disabled={streaming || !input.trim()}
               style={{ ...analyzeBtn, opacity: streaming || !input.trim() ? 0.5 : 1 }}>
