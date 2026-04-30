@@ -67,7 +67,7 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
   - `sameInput` / `extractFirstCodeBlock` 변환 정책으로 다음 페이지 입력 자동 채움
   - 자동 채워진 페이지에는 입력 헤더에 **🔗 체이닝 입력** 인디케이터
 
-- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 (#G3, Phase 0~3)** — Oracle + PostgreSQL
+- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 + 인덱스 시뮬레이터 (#G3, Phase 0~4)** — Oracle + PostgreSQL
   - 사용자가 SQL 만 입력 → 백엔드가 자동으로 **EXPLAIN PLAN + 테이블 통계 + 인덱스 메타**
     수집 → Claude system prompt 에 prepend (실데이터 기반 분석)
   - 기존 22+ 분석 페이지 중 6개 SQL 페이지 (`/advisor`, `/explain`, `/sql/index-advisor`,
@@ -83,7 +83,15 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
     - **PostgreSQL 11+**: `pg_class.reltuples` + `pg_stat_user_tables`,
       `pg_index` + `pg_attribute` + `LATERAL unnest WITH ORDINALITY` 로 컬럼 위치 보존,
       `EXPLAIN (FORMAT TEXT, COSTS true)` (ANALYZE 없이 — 부하 0)
-  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 17 클래스 + 61 단위 테스트
+  - **(Phase 4) 인덱스 시뮬레이터** — `/sql/index-advisor` 페이지의 추천 인덱스를
+    Oracle INVISIBLE INDEX 트릭으로 *잠시 만들어 EXPLAIN 비교*. 운영 영향 0.
+    - 안전장치: 이름 prefix `CTK_SIM_*` 강제 / INVISIBLE 옵션 강제 / 최대 5개 인덱스 /
+      60s timeout / try-finally cleanup (실패해도 항상 DROP) /
+      `ALTER SESSION SET optimizer_use_invisible_indexes` 세션 단위 격리
+    - UI: 추천 인덱스 옆 **🔌 시뮬레이션** 버튼 → before/after cost 진행바 +
+      개선률 % + 펼치면 EXPLAIN PLAN 좌우 비교
+    - 신규 endpoint: `POST /api/v1/livedb/simulate-index` (JSON body)
+  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 21 클래스 + 79 단위 테스트
 
 ### 🆕 v4.7.0 하이라이트 — 인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드
 

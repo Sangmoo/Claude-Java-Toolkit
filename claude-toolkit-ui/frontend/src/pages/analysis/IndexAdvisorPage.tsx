@@ -1,12 +1,30 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   FaDatabase, FaInfoCircle, FaCheckCircle, FaPlus, FaCopy, FaPlay,
-  FaServer, FaExclamationTriangle, FaEraser,
+  FaServer, FaExclamationTriangle, FaEraser, FaPlug, FaSpinner,
 } from 'react-icons/fa'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import { useToast } from '../../hooks/useToast'
 import { copyToClipboard } from '../../utils/clipboard'
 import { useThemeStore } from '../../stores/themeStore'
+
+interface LiveDbProfile {
+  id: number
+  name: string
+  description?: string
+  maskedUrl?: string
+}
+
+interface SimulationResult {
+  beforeCost: number | null
+  afterCost: number | null
+  beforePlanText?: string
+  afterPlanText?: string
+  improvementPercent: number | null
+  hasComparison: boolean
+  warnings: string[]
+  simulatedIndexes: string[]
+}
 
 /**
  * v4.3.x — SQL 인덱스 임팩트 시뮬레이션 (UX 개선판)
@@ -116,13 +134,64 @@ export default function IndexAdvisorPage() {
   const toast = useToast()
   const { theme } = useThemeStore()
 
-  // 페이지 진입 시 대상 DB 정보 로드
+  // v4.7.x — #G3 Phase 4: Live DB 시뮬레이션 — 활성 프로필 + 시뮬 결과 (인덱스별)
+  const [liveDbProfiles, setLiveDbProfiles]   = useState<LiveDbProfile[]>([])
+  const [liveDbProfileId, setLiveDbProfileId] = useState<number | null>(null)
+  const [simResults, setSimResults]           = useState<Record<string, SimulationResult>>({})
+  const [simLoading, setSimLoading]           = useState<Record<string, boolean>>({})
+
+  // 페이지 진입 시 대상 DB 정보 + 활성 Live DB 프로필 로드
   useEffect(() => {
     fetch('/api/v1/sql/index-advisor/target-db', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => setTargetDb((j?.data ?? j) as TargetDbInfo))
       .catch(() => {})
+    fetch('/db-profiles/active-live', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => {
+        if (Array.isArray(data)) setLiveDbProfiles(data as LiveDbProfile[])
+      })
+      .catch(() => {})
   }, [])
+
+  /** 추천 인덱스 1개에 대해 INVISIBLE INDEX 시뮬레이션 */
+  const simulate = async (recKey: string, ddl: string) => {
+    if (!liveDbProfileId) {
+      toast.error('Live DB 프로필을 먼저 선택해주세요')
+      return
+    }
+    if (!sql.trim()) {
+      toast.error('SQL 입력이 필요합니다')
+      return
+    }
+    setSimLoading((prev) => ({ ...prev, [recKey]: true }))
+    try {
+      const res = await fetch('/api/v1/livedb/simulate-index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userSql: sql, indexDefs: [ddl], dbProfileId: liveDbProfileId }),
+      })
+      const j = await res.json().catch(() => null)
+      if (!res.ok || !j?.success) {
+        toast.error(j?.error || `HTTP ${res.status}`)
+        return
+      }
+      setSimResults((prev) => ({ ...prev, [recKey]: j.data as SimulationResult }))
+      const r = j.data as SimulationResult
+      if (r.improvementPercent != null) {
+        toast.success(`시뮬레이션 완료 — 비용 ${r.improvementPercent}% 감소`)
+      } else if (r.hasComparison) {
+        toast.info('시뮬레이션 완료 — 비용 변화 없음')
+      } else {
+        toast.info('시뮬레이션 일부 정보 누락 — warnings 참조')
+      }
+    } catch (e) {
+      toast.error('시뮬레이션 요청 실패: ' + String(e))
+    } finally {
+      setSimLoading((prev) => ({ ...prev, [recKey]: false }))
+    }
+  }
 
   const onEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
@@ -188,6 +257,38 @@ export default function IndexAdvisorPage() {
 
       {/* 대상 DB 안내 박스 */}
       <TargetDbBanner info={targetDb} />
+
+      {/* v4.7.x — #G3 Phase 4: Live DB 시뮬레이션 프로필 선택 */}
+      {liveDbProfiles.length > 0 && (
+        <div style={{
+          background: liveDbProfileId ? 'rgba(16,185,129,0.06)' : 'var(--bg-card)',
+          border: `1px solid ${liveDbProfileId ? '#10b981' : 'var(--border-color)'}`,
+          borderRadius: '8px', padding: '10px 14px', marginBottom: '12px',
+          display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+        }}>
+          <FaPlug style={{ color: liveDbProfileId ? '#10b981' : 'var(--text-muted)', fontSize: '14px' }} />
+          <strong style={{ fontSize: '13px', color: liveDbProfileId ? '#10b981' : 'var(--text-default)' }}>
+            인덱스 시뮬레이션 (INVISIBLE INDEX)
+          </strong>
+          <select
+            value={liveDbProfileId ?? ''}
+            onChange={(e) => setLiveDbProfileId(e.target.value ? Number(e.target.value) : null)}
+            style={{
+              padding: '4px 10px', fontSize: '12px',
+              background: 'var(--bg-default)', border: '1px solid var(--border-color)',
+              borderRadius: '4px', color: 'var(--text-default)', cursor: 'pointer',
+            }}>
+            <option value="">OFF</option>
+            {liveDbProfiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+            💡 활성화 시 각 추천 인덱스에 <strong>🔌 시뮬레이션</strong> 버튼이 노출됩니다
+            (INVISIBLE 인덱스로 비용 비교 — 운영 영향 0)
+          </span>
+        </div>
+      )}
 
       {/* 입력 영역 */}
       <div style={{
@@ -264,7 +365,15 @@ export default function IndexAdvisorPage() {
         </div>
       )}
 
-      {result && <ResultPanel result={result} onCopyDdl={copyDdl} />}
+      {result && (
+        <ResultPanel
+          result={result}
+          onCopyDdl={copyDdl}
+          onSimulate={liveDbProfileId ? simulate : undefined}
+          simResults={simResults}
+          simLoading={simLoading}
+        />
+      )}
     </>
   )
 }
@@ -316,7 +425,15 @@ function TargetDbBanner({ info }: { info: TargetDbInfo | null }) {
   )
 }
 
-function ResultPanel({ result, onCopyDdl }: { result: AdvisorResult; onCopyDdl: (ddl: string) => void }) {
+function ResultPanel({
+  result, onCopyDdl, onSimulate, simResults, simLoading,
+}: {
+  result: AdvisorResult
+  onCopyDdl: (ddl: string) => void
+  onSimulate?: (recKey: string, ddl: string) => void
+  simResults: Record<string, SimulationResult>
+  simLoading: Record<string, boolean>
+}) {
   return (
     <>
       {/* 분석된 DB 정보 표시 */}
@@ -392,7 +509,11 @@ function ResultPanel({ result, onCopyDdl }: { result: AdvisorResult; onCopyDdl: 
           {tr.recommendations?.length > 0 && (
             <div>
               <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-muted)' }}>신규 인덱스 추천</div>
-              {tr.recommendations.map((rec) => (
+              {tr.recommendations.map((rec) => {
+                const recKey = `${tr.table}.${rec.indexName}`
+                const sim    = simResults[recKey]
+                const busy   = simLoading[recKey]
+                return (
                 <div key={rec.indexName} style={{
                   padding: '10px', borderRadius: '4px', marginBottom: '6px',
                   background: 'rgba(245,158,11,0.05)', borderLeft: '3px solid #f59e0b',
@@ -414,19 +535,41 @@ function ResultPanel({ result, onCopyDdl }: { result: AdvisorResult; onCopyDdl: 
                       background: 'var(--bg-default)', padding: '8px 10px', borderRadius: '4px',
                       fontSize: '12px', overflowX: 'auto', margin: 0, fontFamily: 'monospace',
                     }}>{rec.ddl}</pre>
-                    <button
-                      onClick={() => onCopyDdl(rec.ddl)}
-                      style={{
-                        position: 'absolute', top: '4px', right: '4px',
-                        padding: '2px 6px', fontSize: '10px', cursor: 'pointer',
-                        background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-                        borderRadius: '3px', color: 'var(--text-default)',
-                      }}>
-                      <FaCopy /> 복사
-                    </button>
+                    <div style={{ position: 'absolute', top: '4px', right: '4px', display: 'flex', gap: '4px' }}>
+                      {/* v4.7.x — Phase 4: 인덱스 시뮬레이션 버튼 (Live DB 프로필 활성 시만) */}
+                      {onSimulate && (
+                        <button
+                          onClick={() => onSimulate(recKey, rec.ddl)}
+                          disabled={busy}
+                          title="이 인덱스를 INVISIBLE 로 잠시 만들어 EXPLAIN 비용 비교 (운영 영향 0)"
+                          style={{
+                            padding: '2px 8px', fontSize: '10px',
+                            cursor: busy ? 'wait' : 'pointer',
+                            background: '#10b981', border: 'none',
+                            borderRadius: '3px', color: '#fff', fontWeight: 600,
+                            display: 'inline-flex', alignItems: 'center', gap: '3px',
+                          }}>
+                          {busy ? <FaSpinner className="spin" style={{ fontSize: 9 }} /> : <FaPlug style={{ fontSize: 9 }} />}
+                          {busy ? '시뮬 중…' : '시뮬레이션'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onCopyDdl(rec.ddl)}
+                        style={{
+                          padding: '2px 6px', fontSize: '10px', cursor: 'pointer',
+                          background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                          borderRadius: '3px', color: 'var(--text-default)',
+                        }}>
+                        <FaCopy /> 복사
+                      </button>
+                    </div>
                   </div>
+
+                  {/* v4.7.x — Phase 4: 시뮬 결과 카드 */}
+                  {sim && <SimulationCard sim={sim} />}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -444,6 +587,110 @@ function ResultPanel({ result, onCopyDdl }: { result: AdvisorResult; onCopyDdl: 
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * v4.7.x — Phase 4: 인덱스 시뮬레이션 결과 카드.
+ *
+ * - before/after cost 비교 progress bar
+ * - improvement % 표시
+ * - 펼치면 EXPLAIN PLAN 텍스트 (before vs after)
+ * - warnings (graceful degradation 메시지) 노출
+ */
+function SimulationCard({ sim }: { sim: SimulationResult }) {
+  const [showPlans, setShowPlans] = useState(false)
+  const before = sim.beforeCost ?? 0
+  const after  = sim.afterCost ?? 0
+  const max    = Math.max(before, after, 1)
+  const beforePct = before > 0 ? (before / max) * 100 : 0
+  const afterPct  = after  > 0 ? (after  / max) * 100 : 0
+  const improvement = sim.improvementPercent
+
+  return (
+    <div style={{
+      marginTop: 8, padding: 10,
+      background: 'var(--bg-default)', border: '1px solid #10b981',
+      borderRadius: 6, borderLeft: '3px solid #10b981',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <FaPlug style={{ color: '#10b981', fontSize: 11 }} />
+        <strong style={{ fontSize: 12, color: '#10b981' }}>시뮬레이션 결과 (INVISIBLE INDEX)</strong>
+        {improvement != null && improvement > 0 && (
+          <span style={{
+            marginLeft: 'auto', fontSize: 14, fontWeight: 700, color: '#10b981',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            ✅ {improvement}% 비용 감소
+          </span>
+        )}
+        {improvement != null && improvement <= 0 && (
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>
+            비용 변화 없음 또는 증가
+          </span>
+        )}
+      </div>
+
+      {sim.hasComparison && (
+        <div style={{ fontSize: 11, marginBottom: 8 }}>
+          <CostBar label="현재"     cost={before} pct={beforePct} color="#ef4444" />
+          <CostBar label="인덱스 적용 후" cost={after}  pct={afterPct}  color="#10b981" />
+        </div>
+      )}
+
+      {sim.warnings && sim.warnings.length > 0 && (
+        <div style={{ fontSize: 11, color: '#f59e0b', marginBottom: 6 }}>
+          {sim.warnings.map((w, i) => (
+            <div key={i}>⚠️ {w}</div>
+          ))}
+        </div>
+      )}
+
+      {(sim.beforePlanText || sim.afterPlanText) && (
+        <button
+          type="button"
+          onClick={() => setShowPlans(!showPlans)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text-muted)',
+            fontSize: 11, cursor: 'pointer', padding: 0,
+          }}>
+          {showPlans ? '▼' : '▶'} EXPLAIN PLAN 비교 보기
+        </button>
+      )}
+
+      {showPlans && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+          <PlanColumn title="현재 PLAN"   text={sim.beforePlanText} />
+          <PlanColumn title="적용 후 PLAN" text={sim.afterPlanText} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CostBar({ label, cost, pct, color }: { label: string; cost: number; pct: number; color: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+      <span style={{ width: 90, color: 'var(--text-muted)' }}>{label}</span>
+      <div style={{ flex: 1, height: 14, background: 'var(--bg-card)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, transition: 'width 0.3s' }} />
+      </div>
+      <span style={{ width: 80, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color }}>
+        {cost.toLocaleString()}
+      </span>
+    </div>
+  )
+}
+
+function PlanColumn({ title, text }: { title: string; text?: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>{title}</div>
+      <pre style={{
+        background: 'var(--bg-card)', padding: 6, fontSize: 10, lineHeight: 1.4,
+        margin: 0, borderRadius: 3, maxHeight: 220, overflow: 'auto',
+      }}>{text || '(없음)'}</pre>
+    </div>
   )
 }
 
