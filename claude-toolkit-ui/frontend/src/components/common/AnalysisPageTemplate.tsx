@@ -98,6 +98,8 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   const isLiveDbCapable = LIVE_DB_FEATURES.has(config.feature)
   const [liveDbProfiles, setLiveDbProfiles]   = useState<LiveDbProfile[]>([])
   const [liveDbProfileId, setLiveDbProfileId] = useState<number | null>(null)
+  // v4.7.x — #G3 보강: 글로벌 enabled 상태 — false 면 chip 회색 + 활성화 안내
+  const [liveDbGlobalEnabled, setLiveDbGlobalEnabled] = useState<boolean>(false)
 
   // v4.7.x — #G3 보강: 체이닝 payload 의 dbProfileId 를 mount 후 1회 자동 적용.
   // 단, 활성 프로필 목록이 로드된 *다음* 에 적용해야 dropdown 에 반영됨.
@@ -118,15 +120,17 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.feature])
 
-  // v4.7.x — #G3: 활성 프로필 로드 (SQL 페이지에서만)
+  // v4.7.x — #G3: 활성 프로필 + 글로벌 enabled 상태 로드 (SQL 페이지에서만)
   useEffect(() => {
     if (!isLiveDbCapable) return
     let cancelled = false
-    fetch('/db-profiles/active-live', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : []))
+    // 신규 wrapper endpoint — globalEnabled + profiles 함께 반환
+    fetch('/db-profiles/active-live-status', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled) return
-        if (Array.isArray(data)) setLiveDbProfiles(data as LiveDbProfile[])
+        if (cancelled || !data) return
+        setLiveDbGlobalEnabled(!!data.globalEnabled)
+        if (Array.isArray(data.profiles)) setLiveDbProfiles(data.profiles as LiveDbProfile[])
       })
       .catch(() => { /* silent — Live DB 비활성 환경에서 정상 */ })
     return () => { cancelled = true }
@@ -394,14 +398,19 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
             {isLiveDbCapable && liveDbProfiles.length > 0 && (() => {
               const selected   = liveDbProfiles.find((p) => p.id === liveDbProfileId)
               const isOpen     = !!selected?.circuitOpen
-              // v4.7.x — #G3 보강 B4: 회로 OPEN 시 chip 색상 변경 + 안내
-              const chipColor  = isOpen ? '#ef4444'                 // 빨강 (OPEN)
-                              : liveDbProfileId != null ? '#10b981' // 초록 (활성)
-                              : 'var(--text-muted)'                 // 회색 (OFF)
-              const chipBg     = isOpen ? 'rgba(239,68,68,0.12)'
+              // v4.7.x — #G3 보강: 글로벌 OFF 시 chip disabled + 안내
+              const globalOff  = !liveDbGlobalEnabled
+              const chipColor  = globalOff ? 'var(--text-muted)'      // 회색 (글로벌 OFF — 동작 안 함)
+                              : isOpen ? '#ef4444'                    // 빨강 (회로 OPEN)
+                              : liveDbProfileId != null ? '#10b981'   // 초록 (활성)
+                              : 'var(--text-muted)'                   // 회색 (OFF)
+              const chipBg     = globalOff ? 'rgba(100,116,139,0.12)'
+                              : isOpen ? 'rgba(239,68,68,0.12)'
                               : liveDbProfileId != null ? 'rgba(16,185,129,0.12)'
                               : 'transparent'
-              const titleText  = isOpen
+              const titleText  = globalOff
+                ? '⚠️ Live DB 글로벌 OFF — 프로필 선택해도 동작 안 함. /admin/health 의 ADMIN 활성화 또는 application.yml: toolkit.livedb.enabled=true 필요'
+                : isOpen
                 ? `프로필 '${selected?.name}' 회로 OPEN — ${selected?.circuitSecondsUntilHalfOpen}초 후 자동 복구. ADMIN 이 강제 복구 가능 (/admin/health).`
                 : '선택된 DB 에서 EXPLAIN PLAN / 통계 / 인덱스 메타를 자동 수집하여 Claude 분석에 첨부됩니다 (read-only)'
               return (
@@ -411,20 +420,25 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   fontSize: 11, padding: '4px 8px', borderRadius: 14,
                   background: chipBg,
-                  border: `1px solid ${chipColor}`,
+                  border: `1px dashed ${chipColor}`,
                   color: chipColor,
                   fontWeight: 600,
+                  opacity: globalOff ? 0.6 : 1,
                 }}>
                 <FaPlug style={{ fontSize: 10 }} />
-                <span>{isOpen ? 'Live DB 🔴' : 'Live DB'}</span>
+                <span>
+                  {globalOff ? 'Live DB ⚠️' : isOpen ? 'Live DB 🔴' : 'Live DB'}
+                </span>
                 <select
                   value={liveDbProfileId ?? ''}
                   onChange={(e) => setLiveDbProfileId(e.target.value ? Number(e.target.value) : null)}
+                  disabled={globalOff}
                   style={{
                     fontSize: 11, border: 'none', background: 'transparent',
-                    color: 'inherit', cursor: 'pointer', padding: '0 2px', fontWeight: 600,
+                    color: 'inherit', cursor: globalOff ? 'not-allowed' : 'pointer',
+                    padding: '0 2px', fontWeight: 600,
                   }}>
-                  <option value="">OFF</option>
+                  <option value="">{globalOff ? '글로벌 OFF' : 'OFF'}</option>
                   {liveDbProfiles.map((p) => (
                     <option key={p.id} value={p.id} disabled={p.circuitOpen}>
                       {p.name}{p.circuitOpen ? ` 🔴 (${p.circuitSecondsUntilHalfOpen}s)` : ''}

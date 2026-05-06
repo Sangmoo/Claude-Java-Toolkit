@@ -17,6 +17,10 @@ public class DbProfileController {
     @Autowired(required = false)
     private io.github.claudetoolkit.ui.livedb.LiveDbCircuitBreaker liveDbCircuitBreaker;
 
+    /** v4.7.x — #G3 보강: 글로벌 enabled 상태를 응답에 포함 (chip UI 가 즉시 사용자에게 안내) */
+    @Autowired(required = false)
+    private io.github.claudetoolkit.ui.livedb.LiveDbConfig liveDbConfig;
+
     public DbProfileController(DbProfileService service, ToolkitSettings settings) {
         this.service  = service;
         this.settings = settings;
@@ -252,6 +256,20 @@ public class DbProfileController {
      * v4.7.x — Live DB 분석에 사용 가능한 활성 프로필 목록 (분석 페이지 dropdown 용).
      * 모든 사용자 read 가능 — 비밀번호 제외 메타만 반환.
      */
+    /**
+     * v4.7.x — #G3 보강: 메타 정보 (globalEnabled) + 활성 프로필을 wrapper 로 반환.
+     * 신규 클라이언트는 이 endpoint 사용 권장. 기존 /active-live 는 호환성 위해 유지.
+     */
+    @GetMapping("/active-live-status")
+    @ResponseBody
+    public java.util.Map<String, Object> activeLiveStatus() {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        boolean globalEnabled = liveDbConfig != null && liveDbConfig.isEnabled();
+        resp.put("globalEnabled", globalEnabled);
+        resp.put("profiles",      activeLiveProfiles());
+        return resp;
+    }
+
     @GetMapping("/active-live")
     @ResponseBody
     public java.util.List<java.util.Map<String, Object>> activeLiveProfiles() {

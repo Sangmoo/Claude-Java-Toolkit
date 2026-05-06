@@ -94,6 +94,27 @@ export default function AdminHealthPage() {
   const [refreshing, setRefreshing] = useState(false)
   const api = useApi()
 
+  // v4.7.x — #G3 보강: 런타임 글로벌 ON/OFF 토글
+  const toggleGlobalLiveDb = async (next: boolean) => {
+    if (!confirm(next
+      ? 'Live DB 를 글로벌 활성화하시겠습니까?\n\n주의: 현재 인스턴스에만 적용됩니다 — 재시작 후엔 application.yml / 환경변수 가 우선합니다.'
+      : 'Live DB 를 글로벌 비활성화하시겠습니까?')) return
+    try {
+      const res = await fetch(`/api/v1/admin/livedb/enabled?value=${next}`, {
+        method: 'POST', credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (d?.success) {
+        alert(d.message + (d.warning ? '\n\n⚠️ ' + d.warning : ''))
+        // 즉시 재조회
+        const fresh = await fetch('/api/v1/admin/livedb/stats', { credentials: 'include' })
+        if (fresh.ok) setLiveDbStats(await fresh.json())
+      } else {
+        alert(d?.error || '실패')
+      }
+    } catch { alert('요청 실패') }
+  }
+
   // v4.7.x — Phase 5: Live DB 회로차단 강제 복구
   const forceCloseBreaker = async (profileId: number, profileName: string) => {
     if (!confirm(`프로필 '${profileName}' 회로차단기를 강제 복구하시겠습니까?`)) return
@@ -327,12 +348,47 @@ export default function AdminHealthPage() {
             }}>
               {liveDbStats.config?.enabled ? '✓ ENABLED' : '○ DISABLED'}
             </span>
+            {/* v4.7.x — #G3 보강: 즉시 토글 버튼 */}
+            <button
+              onClick={() => toggleGlobalLiveDb(!liveDbStats.config?.enabled)}
+              style={{
+                padding: '4px 10px', fontSize: 11, cursor: 'pointer',
+                background: liveDbStats.config?.enabled ? 'transparent' : '#10b981',
+                color:      liveDbStats.config?.enabled ? 'var(--text-muted)' : '#fff',
+                border: `1px solid ${liveDbStats.config?.enabled ? 'var(--border-color)' : '#10b981'}`,
+                borderRadius: 4, fontWeight: 600,
+              }}>
+              {liveDbStats.config?.enabled ? '⏸ 비활성화' : '▶ 활성화'}
+            </button>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
             한도: 분당 {liveDbStats.config?.maxCallsPerMinute ?? 0} 호출 ·
             timeout {liveDbStats.config?.defaultTimeoutSeconds ?? 0}s ·
             max rows {liveDbStats.config?.maxRows ?? 0}
           </div>
+
+          {/* v4.7.x — #G3 보강: DISABLED 상태일 때 사유 + 활성화 가이드 안내 박스 */}
+          {!liveDbStats.config?.enabled && (
+            <div style={{
+              background: 'rgba(245,158,11,0.08)', border: '1px solid #f59e0b',
+              borderRadius: 6, padding: '10px 12px', fontSize: 12, marginBottom: 12,
+            }}>
+              <strong style={{ color: '#f59e0b' }}>ℹ️ 왜 DISABLED 인가?</strong>
+              <div style={{ marginTop: 6, lineHeight: 1.7, color: 'var(--text-default)' }}>
+                Live DB 활성화는 <strong>3-layer</strong> 모두 ON 이어야 동작합니다:
+                <ol style={{ margin: '4px 0 4px', paddingLeft: 20 }}>
+                  <li><strong>Layer 1 (현재 OFF ❌)</strong> — 글로벌 feature flag.
+                    위 <strong>"▶ 활성화"</strong> 버튼으로 즉시 ON (현재 인스턴스만).
+                    영구하려면 <code>application.yml</code> 의 <code>toolkit.livedb.enabled: true</code>
+                    또는 환경변수 <code>TOOLKIT_LIVEDB_ENABLED=true</code> + 재시작</li>
+                  <li><strong>Layer 2</strong> — DbProfile 별 토글: <code>/db-profiles</code>
+                    페이지에서 각 프로필의 🔌 Live: ON 클릭</li>
+                  <li><strong>Layer 3</strong> — 분석 페이지 chip 에서 프로필 선택 후 분석 시작</li>
+                </ol>
+                현재 Layer 1 만 OFF 라서 Layer 2/3 활성화도 동작 안 함 (kill switch 우선).
+              </div>
+            </div>
+          )}
 
           {/* 글로벌 합계 */}
           {liveDbStats.total && (

@@ -110,4 +110,33 @@ public class LiveDbHealthController {
         resp.put("message", "Live DB 통계 + 회로차단 모두 초기화");
         return ResponseEntity.ok(resp);
     }
+
+    /**
+     * v4.7.x — #G3 보강: 런타임 글로벌 ON/OFF 토글 (ADMIN 전용).
+     *
+     * <p><b>주의</b>: 이 토글은 *현재 JVM 인스턴스* 에만 적용. application 재시작 후엔
+     * {@code application.yml} 또는 환경변수 {@code TOOLKIT_LIVEDB_ENABLED} 가 우선.
+     * 영구 활성화하려면 yml/env 도 함께 수정 필요.
+     */
+    @PostMapping("/enabled")
+    public ResponseEntity<Map<String, Object>> setEnabled(
+            @org.springframework.web.bind.annotation.RequestParam("value") boolean value,
+            HttpServletRequest request) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (!request.isUserInRole("ADMIN")) {
+            resp.put("success", false);
+            resp.put("error",   "ADMIN 권한이 필요합니다.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(resp);
+        }
+        config.setEnabled(value);
+        resp.put("success",  true);
+        resp.put("enabled",  value);
+        resp.put("message",  value
+            ? "✅ Live DB 글로벌 활성화됨 (현재 인스턴스만 — 영구하려면 yml/환경변수 변경)"
+            : "⏸ Live DB 글로벌 비활성화");
+        resp.put("warning", value
+            ? "재시작 후엔 yml/env 가 우선합니다. 영구 ON 을 원하면 application.yml 의 toolkit.livedb.enabled=true 추가"
+            : null);
+        return ResponseEntity.ok(resp);
+    }
 }
