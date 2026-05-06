@@ -16,9 +16,11 @@ interface Props {
   feature: string
   resultText: string
   inputText: string
+  /** v4.7.x — #G3 보강: 출발 페이지의 Live DB 프로필 ID (옵션) — 다음 페이지에 자동 전달 */
+  liveDbProfileId?: number | null
 }
 
-export default function NextStepHints({ feature, resultText, inputText }: Props) {
+export default function NextStepHints({ feature, resultText, inputText, liveDbProfileId }: Props) {
   const navigate    = useNavigate()
   const suggestions = getNextStepsFor(feature)
 
@@ -28,7 +30,7 @@ export default function NextStepHints({ feature, resultText, inputText }: Props)
   const handleClick = (s: ChainSuggestion) => {
     const payload = s.buildPayload(resultText, inputText)
     if (!payload || !payload.trim()) return
-    pushChainPayload(payload, feature)
+    pushChainPayload(payload, feature, liveDbProfileId ?? undefined)
     navigate(s.targetPath)
   }
 

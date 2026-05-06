@@ -99,12 +99,20 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
   const [liveDbProfiles, setLiveDbProfiles]   = useState<LiveDbProfile[]>([])
   const [liveDbProfileId, setLiveDbProfileId] = useState<number | null>(null)
 
+  // v4.7.x — #G3 보강: 체이닝 payload 의 dbProfileId 를 mount 후 1회 자동 적용.
+  // 단, 활성 프로필 목록이 로드된 *다음* 에 적용해야 dropdown 에 반영됨.
+  // 따라서 별도 ref/state 로 보류해두고 useEffect 에서 활성 목록 로드 후 매칭.
+  const [pendingDbProfileId, setPendingDbProfileId] = useState<number | null>(null)
+
   useEffect(() => {
     const payload = consumeChainPayload()
     if (payload) {
       setInput(payload.value)
       setChainSource(payload.sourceFeature)
-      toast.success(`이전 분석 결과에서 입력이 자동 채워졌습니다 (출처: ${payload.sourceFeature})`)
+      // 출발 페이지의 Live DB 프로필을 자동 복원 — 활성 목록 로드 완료 후 적용 (아래 effect)
+      if (payload.dbProfileId != null) setPendingDbProfileId(payload.dbProfileId)
+      const liveBadge = payload.dbProfileId != null ? ' + Live DB 프로필' : ''
+      toast.success(`이전 분석 결과에서 입력${liveBadge}이 자동 채워졌습니다 (출처: ${payload.sourceFeature})`)
     }
     // config.feature 가 바뀌면 (라우트 변경 → 페이지 재마운트) 새 payload 검사
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,6 +131,20 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
       .catch(() => { /* silent — Live DB 비활성 환경에서 정상 */ })
     return () => { cancelled = true }
   }, [isLiveDbCapable])
+
+  // v4.7.x — #G3 보강: 활성 프로필 목록이 로드된 후 pending dbProfileId 가 있으면 자동 선택
+  useEffect(() => {
+    if (pendingDbProfileId == null) return
+    if (liveDbProfiles.length === 0) return  // 아직 로드 안 됨 — 다음 effect 호출 대기
+    const exists = liveDbProfiles.some((p) => p.id === pendingDbProfileId)
+    if (exists) {
+      setLiveDbProfileId(pendingDbProfileId)
+    } else {
+      // 출발 페이지의 프로필이 도착 페이지엔 활성 안 됐을 수 있음 (드물지만 가능)
+      toast.info('이전 페이지의 Live DB 프로필이 이 페이지엔 사용 불가 — 수동 재선택 필요')
+    }
+    setPendingDbProfileId(null)  // 1회용
+  }, [pendingDbProfileId, liveDbProfiles, toast])
 
   const setOption = useCallback((name: string, value: string) => {
     setOptionValues((prev) => ({ ...prev, [name]: value }))
@@ -219,7 +241,12 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
       esRef.current = es
       es.onmessage = (e) => {
         if (e.data === '[DONE]' || e.data === 'done') { es.close(); esRef.current = null; setStreaming(false); return }
-        acc += e.data + '\n'; setResult(acc)
+        // v4.7.x — 가짜 \n 제거 버그 fix:
+        //   백엔드 SseStreamController.sendSseData() 가 이미 원본 newline 을
+        //   별도 data: 라인으로 분할해서 EventSource 가 자동 join 함. 매 chunk 마다
+        //   \n 을 덧붙이면 단어 중간 ("최적화"/"포인트") 이 강제 분할되어 마크다운
+        //   soft-break 로 보기 흉해짐. (v4.6.x useHarnessStream 동일 패턴)
+        acc += e.data; setResult(acc)
       }
       es.addEventListener('done', (ev: MessageEvent) => {
         // v4.7.x — 캐시 적중 시 백엔드가 data='cached' 로 알림
@@ -450,6 +477,7 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
                     feature={config.feature}
                     resultText={result}
                     inputText={input}
+                    liveDbProfileId={liveDbProfileId}
                   />
                 )}
                 {/* v4.7.x — #4 결과 후속 질문 패널. 스트리밍이 끝난 뒤에만 노출하여

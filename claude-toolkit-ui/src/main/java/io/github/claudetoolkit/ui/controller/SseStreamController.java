@@ -300,14 +300,32 @@ public class SseStreamController {
                     if (memoContext != null && !memoContext.trim().isEmpty()) {
                         systemPrompt = systemPrompt + "\n\n[프로젝트 컨텍스트]\n" + memoContext;
                     }
-                    // v4.7.x — #G3 Live DB Phase 2: SQL 관련 feature + 사용자가 프로필 선택 시
-                    // 실시간 DB 메타 (테이블 통계 / 인덱스 / EXPLAIN PLAN) 자동 첨부
-                    String liveDbMd = maybeAttachLiveDbContext(
-                            input.feature, input.input, input.dbProfileId);
-                    if (!liveDbMd.isEmpty()) {
-                        systemPrompt = systemPrompt + "\n\n" + liveDbMd;
+                    // v4.7.x — #G3 Live DB Phase 2 + 보강: 한 번만 fetch 해서 두 곳에서 재사용:
+                    //   ① system prompt 의 [실시간 DB 메타] (markdown)
+                    //   ② explain_plan 의 input2 가 비어있을 때 EXPLAIN PLAN 본문 자동 채움
+                    io.github.claudetoolkit.ui.livedb.LiveDbContext liveCtx = null;
+                    if (liveDbContextService != null
+                            && input.dbProfileId != null
+                            && io.github.claudetoolkit.ui.livedb.SqlAnalysisFeatures
+                                    .shouldAttachLiveDbContext(input.feature)) {
+                        try {
+                            liveCtx = liveDbContextService.fetch(input.input, input.dbProfileId);
+                        } catch (Exception ignored) { /* graceful */ }
                     }
-                    String userMessage = buildUserMessage(input.feature, input.input, input.input2, input.sourceType);
+                    if (liveCtx != null && !liveCtx.isEmpty()) {
+                        String md = io.github.claudetoolkit.ui.livedb.LiveDbContextFormatter.format(liveCtx);
+                        if (!md.isEmpty()) systemPrompt = systemPrompt + "\n\n" + md;
+                    }
+                    // explain_plan 자동 채움 — 사용자가 input2 비워뒀고 Live DB 가 EXPLAIN 추출 성공한 경우
+                    String effectiveInput2 = input.input2;
+                    if ("explain_plan".equals(input.feature)
+                            && (effectiveInput2 == null || effectiveInput2.trim().isEmpty())
+                            && liveCtx != null
+                            && liveCtx.getExplainPlanFormatted() != null
+                            && !liveCtx.getExplainPlanFormatted().isEmpty()) {
+                        effectiveInput2 = liveCtx.getExplainPlanFormatted();
+                    }
+                    String userMessage = buildUserMessage(input.feature, input.input, effectiveInput2, input.sourceType);
 
                     final StringBuilder resultBuf = new StringBuilder();
                     claudeClient.chatStream(systemPrompt, userMessage,

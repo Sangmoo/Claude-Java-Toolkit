@@ -338,12 +338,26 @@ export interface ChainPayload {
   value: string
   sourceFeature: string
   ts: number
+  /**
+   * v4.7.x — #G3 보강: 출발 페이지에서 선택했던 Live DB 프로필 ID.
+   * 도착 페이지의 dropdown 이 자동 같은 프로필 선택 — 사용자가 다시 고를 필요 없음.
+   * undefined 면 출발 페이지가 Live DB OFF 였거나 SQL 페이지가 아니었다는 의미.
+   */
+  dbProfileId?: number
 }
 
-/** 다음 페이지로 입력 전달 — 호출 후 즉시 navigate 를 하면 된다. */
-export function pushChainPayload(value: string, sourceFeature: string) {
+/**
+ * 다음 페이지로 입력 전달 — 호출 후 즉시 navigate 를 하면 된다.
+ * @param dbProfileId 출발 페이지의 Live DB 프로필 ID (옵션) — 도착 페이지에서 자동 복원.
+ */
+export function pushChainPayload(value: string, sourceFeature: string, dbProfileId?: number | null) {
   try {
-    const payload: ChainPayload = { value, sourceFeature, ts: Date.now() }
+    const payload: ChainPayload = {
+      value,
+      sourceFeature,
+      ts: Date.now(),
+      dbProfileId: dbProfileId ?? undefined,
+    }
     sessionStorage.setItem(CHAIN_PAYLOAD_KEY, JSON.stringify(payload))
   } catch {
     /* sessionStorage 불가 환경 — 사용자가 수동 복사해야 함 */
