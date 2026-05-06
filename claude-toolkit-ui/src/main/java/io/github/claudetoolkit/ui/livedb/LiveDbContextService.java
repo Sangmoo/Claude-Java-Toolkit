@@ -42,6 +42,9 @@ public class LiveDbContextService {
     private LiveDbCircuitBreaker circuitBreaker;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private LiveDbCallStats callStats;
+    /** v4.7.x — #G3 보강 B2: 외부감사 추적용 audit_log 기록 — 옵셔널 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.security.AuditLogService auditLogService;
 
     /** 프로필 ID → DataSource 캐시 — 매번 새 connection pool 만드는 비용 회피 */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
@@ -105,12 +108,14 @@ public class LiveDbContextService {
         }
 
         long t0 = System.currentTimeMillis();
+        Integer status = 200;
         try {
             ReadOnlyJdbcTemplate ro = getOrCreateJdbc(profile);
             LiveDbContextProvider provider = pickProvider(profile);
             if (provider == null) {
                 log.warn("[LiveDb] No provider for profile '{}' (only Oracle/Postgres supported)",
                          profile.getName());
+                status = 501;
                 return null;
             }
             // schema = profile 의 username (Oracle 관례 — username 이 schema)
@@ -123,16 +128,35 @@ public class LiveDbContextService {
             // statement timeout — circuit breaker 의 trigger 신호
             if (callStats != null) callStats.recordTimeout(profile.getId(), System.currentTimeMillis() - t0);
             log.warn("[LiveDb] timeout for profile '{}': {}", profile.getName(), e.getMessage());
+            status = 504;
             LiveDbContext err = new LiveDbContext();
             err.addWarning("Live DB 쿼리 timeout (" + config.getDefaultTimeoutSeconds() + "초): " + e.getMessage());
             return err;
         } catch (Exception e) {
             if (callStats != null) callStats.recordFailure(profile.getId(), System.currentTimeMillis() - t0);
             log.warn("[LiveDb] fetch failed for profile '{}': {}", profile.getName(), e.getMessage());
+            status = 500;
             LiveDbContext err = new LiveDbContext();
             err.addWarning("Live DB 컨텍스트 수집 실패: " + e.getMessage());
             return err;
+        } finally {
+            // v4.7.x — #G3 보강 B2: 외부감사 추적 — 사용자 facing 호출당 1 row
+            recordAudit("livedb.fetch", profile, username, status, System.currentTimeMillis() - t0);
         }
+    }
+
+    /**
+     * v4.7.x — #G3 보강 B2: audit_log 에 facade 레벨 호출 기록.
+     * 운영팀 / 외부감사인이 "사용자 X 가 언제 어떤 프로필로 livedb 호출했는지" 추적 가능.
+     * 실패해도 silent — 호출 흐름에 영향 X.
+     */
+    private void recordAudit(String operation, DbProfile profile, String username,
+                             Integer status, long durationMs) {
+        if (auditLogService == null) return;
+        try {
+            String endpoint = "[livedb] " + operation + " profile=" + profile.getName();
+            auditLogService.log(endpoint, "INTERNAL", null, null, status, false, username, durationMs);
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -225,5 +249,16 @@ public class LiveDbContextService {
     public synchronized void invalidate(Long dbProfileId) {
         dataSourceCache.remove(dbProfileId);
         jdbcCache.remove(dbProfileId);
+        log.debug("[LiveDb] invalidated cache for profile {}", dbProfileId);
+    }
+
+    /**
+     * v4.7.x — #G3 보강 B1: DbProfileService 가 발행하는 변경 이벤트 listener.
+     * UPDATE / DELETE / 활성화 토글 모두에서 캐시 invalidate — 변경 후 stale
+     * connection / password 사용 사고 방지.
+     */
+    @org.springframework.context.event.EventListener
+    public void onProfileChanged(io.github.claudetoolkit.ui.dbprofile.DbProfileChangedEvent ev) {
+        invalidate(ev.getProfileId());
     }
 }

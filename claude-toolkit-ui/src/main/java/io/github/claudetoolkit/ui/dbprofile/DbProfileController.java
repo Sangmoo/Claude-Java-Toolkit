@@ -1,6 +1,7 @@
 package io.github.claudetoolkit.ui.dbprofile;
 
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,10 @@ public class DbProfileController {
 
     private final DbProfileService service;
     private final ToolkitSettings  settings;
+
+    /** v4.7.x — #G3 보강 B4: dropdown 응답에 회로 상태 포함 (옵셔널 — Live DB 비활성 시 null) */
+    @Autowired(required = false)
+    private io.github.claudetoolkit.ui.livedb.LiveDbCircuitBreaker liveDbCircuitBreaker;
 
     public DbProfileController(DbProfileService service, ToolkitSettings settings) {
         this.service  = service;
@@ -114,6 +119,14 @@ public class DbProfileController {
             m.put("description", p.getDescription() != null ? p.getDescription() : "");
             m.put("maskedUrl",   p.getMaskedUrl());
             // 비밀번호 / username 은 노출 X (보안)
+            // v4.7.x — #G3 보강 B4: 회로 상태 포함 — UI 가 즉시 dropdown 옵션 색상 / disabled 처리
+            if (liveDbCircuitBreaker != null) {
+                m.put("circuitOpen",                  liveDbCircuitBreaker.isOpen(p.getId()));
+                m.put("circuitSecondsUntilHalfOpen",  liveDbCircuitBreaker.secondsUntilHalfOpen(p.getId()));
+            } else {
+                m.put("circuitOpen",                  false);
+                m.put("circuitSecondsUntilHalfOpen",  0L);
+            }
             result.add(m);
         }
         return result;

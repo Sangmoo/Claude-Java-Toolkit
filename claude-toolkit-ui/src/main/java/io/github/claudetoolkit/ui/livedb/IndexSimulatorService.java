@@ -43,6 +43,9 @@ public class IndexSimulatorService {
     private LiveDbCircuitBreaker circuitBreaker;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private LiveDbCallStats callStats;
+    /** v4.7.x — #G3 보강 B2: 외부감사 추적용 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.security.AuditLogService auditLogService;
 
     /** 프로필 ID → DataSource 캐시 — Live DB connection pool 과 분리 (DDL 가능) */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
@@ -102,17 +105,34 @@ public class IndexSimulatorService {
 
         DataSource ds = getOrCreateDataSource(profile);
         long t0 = System.currentTimeMillis();
+        Integer status = 200;
         try {
             IndexSimulationResult result = simulator.simulate(userSql, indexDefs, ds);
             if (callStats != null) callStats.recordSuccess(profile.getId(), System.currentTimeMillis() - t0);
             return result;
         } catch (org.springframework.dao.QueryTimeoutException e) {
             if (callStats != null) callStats.recordTimeout(profile.getId(), System.currentTimeMillis() - t0);
+            status = 504;
             throw e;
         } catch (RuntimeException e) {
             if (callStats != null) callStats.recordFailure(profile.getId(), System.currentTimeMillis() - t0);
+            status = 500;
             throw e;
+        } finally {
+            // v4.7.x — #G3 보강 B2: facade 레벨 audit
+            recordAudit("livedb.simulate-index", profile, username, status,
+                        System.currentTimeMillis() - t0, indexDefs.size());
         }
+    }
+
+    private void recordAudit(String operation, DbProfile profile, String username,
+                             Integer status, long durationMs, int indexCount) {
+        if (auditLogService == null) return;
+        try {
+            String endpoint = "[livedb] " + operation + " profile=" + profile.getName()
+                    + " indexes=" + indexCount;
+            auditLogService.log(endpoint, "INTERNAL", null, null, status, false, username, durationMs);
+        } catch (Exception ignored) {}
     }
 
     private String currentUsername() {
@@ -156,5 +176,14 @@ public class IndexSimulatorService {
 
     public synchronized void invalidate(Long dbProfileId) {
         dataSourceCache.remove(dbProfileId);
+        log.debug("[IndexSimulator] invalidated cache for profile {}", dbProfileId);
+    }
+
+    /**
+     * v4.7.x — #G3 보강 B1: DbProfileService 변경 이벤트 listener.
+     */
+    @org.springframework.context.event.EventListener
+    public void onProfileChanged(io.github.claudetoolkit.ui.dbprofile.DbProfileChangedEvent ev) {
+        invalidate(ev.getProfileId());
     }
 }

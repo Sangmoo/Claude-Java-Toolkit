@@ -2,6 +2,7 @@ package io.github.claudetoolkit.ui.dbprofile;
 
 import io.github.claudetoolkit.ui.config.SettingsPersistenceService;
 import io.github.claudetoolkit.ui.config.ToolkitSettings;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,13 +15,17 @@ public class DbProfileService {
     private final DbProfileRepository      repository;
     private final ToolkitSettings          settings;
     private final SettingsPersistenceService persistenceService;
+    /** v4.7.x — #G3 보강 B1: 캐시 invalidate 이벤트 발행 — Live DB 모듈이 listen */
+    private final ApplicationEventPublisher events;
 
     public DbProfileService(DbProfileRepository repository,
                             ToolkitSettings settings,
-                            SettingsPersistenceService persistenceService) {
+                            SettingsPersistenceService persistenceService,
+                            ApplicationEventPublisher events) {
         this.repository         = repository;
         this.settings           = settings;
         this.persistenceService = persistenceService;
+        this.events             = events;
     }
 
     public DbProfile save(String name, String url, String username, String password, String description) {
@@ -36,7 +41,10 @@ public class DbProfileService {
         p.setUsername(username);
         if (password != null && !password.isEmpty()) p.setPassword(password);
         p.setDescription(description);
-        return repository.save(p);
+        DbProfile saved = repository.save(p);
+        // v4.7.x — #G3 보강 B1: 캐시 invalidate (DataSource / ReadOnlyJdbcTemplate)
+        events.publishEvent(new DbProfileChangedEvent(id, DbProfileChangedEvent.Type.UPDATED));
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +59,8 @@ public class DbProfileService {
 
     public void deleteById(Long id) {
         repository.deleteById(id);
+        // v4.7.x — #G3 보강 B1: 삭제된 프로필 캐시도 즉시 invalidate
+        events.publishEvent(new DbProfileChangedEvent(id, DbProfileChangedEvent.Type.DELETED));
     }
 
     /** Apply this profile's DB connection to the active settings and persist. */
@@ -77,6 +87,9 @@ public class DbProfileService {
         if (p == null) return false;
         p.setReadOnlyForLiveAnalysis(enabled);
         repository.save(p);
+        // v4.7.x — #G3 보강 B1: 활성화/비활성화 토글 후 캐시 reset — 비활성화된 프로필이
+        //   캐시에 남아 있다가 다시 활성화 시 stale 상태로 동작하는 것을 방지.
+        events.publishEvent(new DbProfileChangedEvent(id, DbProfileChangedEvent.Type.LIVE_ANALYSIS_TOGGLED));
         return enabled;
     }
 

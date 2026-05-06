@@ -102,6 +102,8 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
     - **신규 endpoint**: `GET /api/v1/admin/livedb/stats`,
       `POST /api/v1/admin/livedb/stats/reset`, `POST /api/v1/admin/livedb/breaker/{id}/close`
   - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 25 클래스 + 107 단위/통합 테스트
+  - 📘 **운영 가이드**: [`docs/livedb-operations.md`](./docs/livedb-operations.md) — 활성화 3-step
+    + DB 권한 요구사항 (Oracle/PG) + 트러블슈팅 7개 Q&A + Kill Switch 절차
 
 ### 🆕 v4.7.0 하이라이트 — 인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드
 

@@ -28,6 +28,10 @@ interface LiveDbProfile {
   name: string
   description?: string
   maskedUrl?: string
+  /** v4.7.x — #G3 보강 B4: 회로 OPEN 상태 여부 — true 면 dropdown disabled */
+  circuitOpen?: boolean
+  /** 자동 복구까지 남은 초 */
+  circuitSecondsUntilHalfOpen?: number
 }
 
 export interface AnalysisOption {
@@ -360,19 +364,32 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
 
           <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             {/* v4.7.x — #G3 Live DB: SQL 페이지 + 활성 프로필이 1개 이상일 때만 노출 */}
-            {isLiveDbCapable && liveDbProfiles.length > 0 && (
+            {isLiveDbCapable && liveDbProfiles.length > 0 && (() => {
+              const selected   = liveDbProfiles.find((p) => p.id === liveDbProfileId)
+              const isOpen     = !!selected?.circuitOpen
+              // v4.7.x — #G3 보강 B4: 회로 OPEN 시 chip 색상 변경 + 안내
+              const chipColor  = isOpen ? '#ef4444'                 // 빨강 (OPEN)
+                              : liveDbProfileId != null ? '#10b981' // 초록 (활성)
+                              : 'var(--text-muted)'                 // 회색 (OFF)
+              const chipBg     = isOpen ? 'rgba(239,68,68,0.12)'
+                              : liveDbProfileId != null ? 'rgba(16,185,129,0.12)'
+                              : 'transparent'
+              const titleText  = isOpen
+                ? `프로필 '${selected?.name}' 회로 OPEN — ${selected?.circuitSecondsUntilHalfOpen}초 후 자동 복구. ADMIN 이 강제 복구 가능 (/admin/health).`
+                : '선택된 DB 에서 EXPLAIN PLAN / 통계 / 인덱스 메타를 자동 수집하여 Claude 분석에 첨부됩니다 (read-only)'
+              return (
               <div
-                title="선택된 DB 에서 EXPLAIN PLAN / 통계 / 인덱스 메타를 자동 수집하여 Claude 분석에 첨부됩니다 (read-only)"
+                title={titleText}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   fontSize: 11, padding: '4px 8px', borderRadius: 14,
-                  background: liveDbProfileId != null ? 'rgba(16,185,129,0.12)' : 'transparent',
-                  border: `1px solid ${liveDbProfileId != null ? '#10b981' : 'var(--border-color)'}`,
-                  color: liveDbProfileId != null ? '#10b981' : 'var(--text-muted)',
+                  background: chipBg,
+                  border: `1px solid ${chipColor}`,
+                  color: chipColor,
                   fontWeight: 600,
                 }}>
                 <FaPlug style={{ fontSize: 10 }} />
-                <span>Live DB</span>
+                <span>{isOpen ? 'Live DB 🔴' : 'Live DB'}</span>
                 <select
                   value={liveDbProfileId ?? ''}
                   onChange={(e) => setLiveDbProfileId(e.target.value ? Number(e.target.value) : null)}
@@ -382,11 +399,14 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
                   }}>
                   <option value="">OFF</option>
                   {liveDbProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id} disabled={p.circuitOpen}>
+                      {p.name}{p.circuitOpen ? ` 🔴 (${p.circuitSecondsUntilHalfOpen}s)` : ''}
+                    </option>
                   ))}
                 </select>
               </div>
-            )}
+              )
+            })()}
             <CostHint inputText={input} />
             <button onClick={startAnalysis} disabled={streaming || !input.trim()}
               style={{ ...analyzeBtn, opacity: streaming || !input.trim() ? 0.5 : 1 }}>

@@ -13,6 +13,8 @@ interface LiveDbProfile {
   name: string
   description?: string
   maskedUrl?: string
+  circuitOpen?: boolean
+  circuitSecondsUntilHalfOpen?: number
 }
 
 interface SimulationResult {
@@ -280,7 +282,10 @@ export default function IndexAdvisorPage() {
             }}>
             <option value="">OFF</option>
             {liveDbProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              // v4.7.x — #G3 보강 B4: 회로 OPEN 프로필은 disabled + 표시
+              <option key={p.id} value={p.id} disabled={p.circuitOpen}>
+                {p.name}{p.circuitOpen ? ` 🔴 (${p.circuitSecondsUntilHalfOpen}s 후 복구)` : ''}
+              </option>
             ))}
           </select>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: 'auto' }}>
