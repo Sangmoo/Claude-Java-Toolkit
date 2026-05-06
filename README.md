@@ -67,7 +67,7 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
   - `sameInput` / `extractFirstCodeBlock` 변환 정책으로 다음 페이지 입력 자동 채움
   - 자동 채워진 페이지에는 입력 헤더에 **🔗 체이닝 입력** 인디케이터
 
-- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 + 인덱스 시뮬레이터 (#G3, Phase 0~4)** — Oracle + PostgreSQL
+- 🔌 **Live DB 직접 연결 — EXPLAIN/통계 자동 수집 + 인덱스 시뮬레이터 + 운영 대시보드 (#G3, Phase 0~5 완료)** — Oracle + PostgreSQL
   - 사용자가 SQL 만 입력 → 백엔드가 자동으로 **EXPLAIN PLAN + 테이블 통계 + 인덱스 메타**
     수집 → Claude system prompt 에 prepend (실데이터 기반 분석)
   - 기존 22+ 분석 페이지 중 6개 SQL 페이지 (`/advisor`, `/explain`, `/sql/index-advisor`,
@@ -91,7 +91,17 @@ v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자
     - UI: 추천 인덱스 옆 **🔌 시뮬레이션** 버튼 → before/after cost 진행바 +
       개선률 % + 펼치면 EXPLAIN PLAN 좌우 비교
     - 신규 endpoint: `POST /api/v1/livedb/simulate-index` (JSON body)
-  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 21 클래스 + 79 단위 테스트
+  - **(Phase 5) 운영 대시보드 + Rate Limit + 회로차단기** — 운영팀이 즉시 모니터링
+    가능한 헬스 인프라:
+    - **Rate Limiter** — sliding window per (user × profile), 분당 max 10 호출
+      (설정 가능, 0 이면 비활성). 사용자 격리.
+    - **회로차단기** — 10분 내 timeout 5건 발생 시 5분 자동 비활성. 만료 후 자동 복구.
+      ADMIN 이 강제 복구 가능 (`POST /api/v1/admin/livedb/breaker/{id}/close`)
+    - **호출 통계** — 프로필별 성공/실패/timeout 카운트 + 평균 latency, JVM 라이프타임 누적
+    - **`/admin/health` 신규 카드** — 통계 표 + 회로 상태 (🟢 CLOSED / 🔴 OPEN) + ADMIN 강제 복구 버튼
+    - **신규 endpoint**: `GET /api/v1/admin/livedb/stats`,
+      `POST /api/v1/admin/livedb/stats/reset`, `POST /api/v1/admin/livedb/breaker/{id}/close`
+  - 신규 패키지 `io.github.claudetoolkit.ui.livedb` — 25 클래스 + 107 단위/통합 테스트
 
 ### 🆕 v4.7.0 하이라이트 — 인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드
 

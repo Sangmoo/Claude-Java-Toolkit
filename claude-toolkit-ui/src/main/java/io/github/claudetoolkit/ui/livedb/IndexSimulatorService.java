@@ -36,6 +36,14 @@ public class IndexSimulatorService {
     private final LiveDbConfig         config;
     private final OracleIndexSimulator oracleSimulator = new OracleIndexSimulator();
 
+    /** v4.7.x — Phase 5: 운영 가드 — 옵셔널 (테스트 빈 미등록 허용) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbRateLimiter rateLimiter;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbCircuitBreaker circuitBreaker;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbCallStats callStats;
+
     /** 프로필 ID → DataSource 캐시 — Live DB connection pool 과 분리 (DDL 가능) */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
 
@@ -75,8 +83,47 @@ public class IndexSimulatorService {
             return err;
         }
 
+        // v4.7.x — Phase 5: 운영 가드. 시뮬레이션은 Live DB 보다 비용이 더 크므로
+        // (DDL 실행) 동일 가드를 적용하되 별도 quota 가 아닌 같은 풀을 사용.
+        if (circuitBreaker != null && circuitBreaker.isOpen(profile.getId())) {
+            IndexSimulationResult err = new IndexSimulationResult();
+            err.setUserSql(userSql);
+            err.addWarning("프로필 일시 비활성 (회로차단기 작동 중) — "
+                    + circuitBreaker.secondsUntilHalfOpen(profile.getId()) + "초 후 자동 복구");
+            return err;
+        }
+        String username = currentUsername();
+        if (rateLimiter != null && !rateLimiter.tryAcquire(username, profile.getId())) {
+            IndexSimulationResult err = new IndexSimulationResult();
+            err.setUserSql(userSql);
+            err.addWarning("Live DB 호출 분당 한도 초과 — 잠시 후 재시도");
+            return err;
+        }
+
         DataSource ds = getOrCreateDataSource(profile);
-        return simulator.simulate(userSql, indexDefs, ds);
+        long t0 = System.currentTimeMillis();
+        try {
+            IndexSimulationResult result = simulator.simulate(userSql, indexDefs, ds);
+            if (callStats != null) callStats.recordSuccess(profile.getId(), System.currentTimeMillis() - t0);
+            return result;
+        } catch (org.springframework.dao.QueryTimeoutException e) {
+            if (callStats != null) callStats.recordTimeout(profile.getId(), System.currentTimeMillis() - t0);
+            throw e;
+        } catch (RuntimeException e) {
+            if (callStats != null) callStats.recordFailure(profile.getId(), System.currentTimeMillis() - t0);
+            throw e;
+        }
+    }
+
+    private String currentUsername() {
+        try {
+            org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {}
+        return "(anon)";
     }
 
     private IndexSimulator pickSimulator(DbProfile profile) {

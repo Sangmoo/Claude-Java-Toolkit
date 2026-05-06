@@ -610,16 +610,18 @@ footer{
 
       <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🔌</div>
-        <div class="feat-title">Live DB 직접 연결 + 인덱스 시뮬레이터 (#G3 Phase 0~4)</div>
-        <div class="feat-desc">사용자가 SQL 만 입력 → 백엔드가 자동으로 <strong>EXPLAIN PLAN + 테이블 통계 + 인덱스 메타</strong> 수집 → Claude prompt 에 prepend. <strong>이중 보안 차단</strong>: ① <code>SqlClassifier</code> 가 SELECT/EXPLAIN/DESC/WITH 만 통과 (멀티 statement / 주석 우회 / 문자열 리터럴 안 ; 까지 처리), ② <code>ReadOnlyJdbcTemplate</code> statement timeout + max rows, ③ <code>toolkit.livedb.enabled=false</code> kill switch + DbProfile 별 명시적 ADMIN 토글. <strong>Default OFF</strong>. 6개 SQL 페이지 자동 적용. <strong>Oracle</strong> + <strong>PostgreSQL 11+</strong> 지원. <strong>(Phase 4) 인덱스 시뮬레이터</strong>: <code>/sql/index-advisor</code> 의 추천 인덱스를 Oracle <code>INVISIBLE INDEX</code> 트릭으로 잠시 만들어 EXPLAIN 비교 — 운영 영향 0. UI 에 before/after cost 진행바 + 개선률 % + EXPLAIN PLAN 좌우 비교. 안전장치: 이름 prefix 강제 + 최대 5개 + 60s timeout + try/finally cleanup.</div>
+        <div class="feat-title">Live DB 직접 연결 + 인덱스 시뮬레이터 + 운영 대시보드 (#G3 Phase 0~5)</div>
+        <div class="feat-desc">사용자가 SQL 만 입력 → 백엔드가 자동으로 <strong>EXPLAIN PLAN + 테이블 통계 + 인덱스 메타</strong> 수집 → Claude prompt 에 prepend. <strong>이중 보안 차단</strong>: <code>SqlClassifier</code> + <code>ReadOnlyJdbcTemplate</code> + kill switch. <strong>Default OFF</strong>. 6개 SQL 페이지 자동 적용. <strong>Oracle + PostgreSQL 11+</strong>. <strong>(Phase 4) 인덱스 시뮬레이터</strong>: <code>INVISIBLE INDEX</code> 트릭으로 추천 인덱스 비용 비교 — 운영 영향 0. <strong>(Phase 5) 운영 대시보드</strong>: Rate limiter (분당 사용자별 quota, sliding window) + 회로차단기 (10분 내 timeout 5건 → 5분 자동 비활성) + 호출 통계 (프로필별 성공/실패/timeout/avg latency) + <code>/admin/health</code> 카드 + ADMIN 강제 복구 / 통계 reset 엔드포인트.</div>
         <div class="feat-tags">
           <span class="tag">🆕 v4.7.1</span>
           <span class="tag">🛡 이중 차단</span>
           <span class="tag">🔒 Default OFF</span>
           <span class="tag">📊 실데이터</span>
           <span class="tag">🐘 PostgreSQL</span>
-          <span class="tag">🧪 79 tests</span>
           <span class="tag">⚡ INVISIBLE INDEX</span>
+          <span class="tag">🚦 Rate Limit</span>
+          <span class="tag">🔌 Circuit Breaker</span>
+          <span class="tag">🧪 107 tests</span>
         </div>
       </div>
     </div>

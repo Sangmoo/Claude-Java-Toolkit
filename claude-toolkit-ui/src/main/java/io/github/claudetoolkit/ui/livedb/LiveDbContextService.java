@@ -35,6 +35,14 @@ public class LiveDbContextService {
     private final OracleLiveDbContextProvider   oracleProvider   = new OracleLiveDbContextProvider();
     private final PostgresLiveDbContextProvider postgresProvider = new PostgresLiveDbContextProvider();
 
+    /** v4.7.x — Phase 5: 운영 가드 — 옵셔널 (테스트 환경에서 빈 미등록도 허용) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbRateLimiter rateLimiter;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbCircuitBreaker circuitBreaker;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbCallStats callStats;
+
     /** 프로필 ID → DataSource 캐시 — 매번 새 connection pool 만드는 비용 회피 */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
 
@@ -79,24 +87,67 @@ public class LiveDbContextService {
             return null;
         }
 
+        // v4.7.x — Phase 5: 운영 가드 — circuit breaker / rate limiter
+        if (circuitBreaker != null && circuitBreaker.isOpen(profile.getId())) {
+            log.info("[LiveDb] Circuit OPEN — profile '{}' temporarily disabled ({}s remaining)",
+                     profile.getName(), circuitBreaker.secondsUntilHalfOpen(profile.getId()));
+            LiveDbContext err = new LiveDbContext();
+            err.addWarning("프로필 '" + profile.getName() + "' 일시 비활성 (회로차단기 작동 중) — "
+                    + circuitBreaker.secondsUntilHalfOpen(profile.getId()) + "초 후 자동 복구");
+            return err;
+        }
+        String username = currentUsername();
+        if (rateLimiter != null && !rateLimiter.tryAcquire(username, profile.getId())) {
+            log.info("[LiveDb] Rate limit exceeded — user={}, profile={}", username, profile.getName());
+            LiveDbContext err = new LiveDbContext();
+            err.addWarning("Live DB 호출 분당 한도 초과 (" + config.getMaxCallsPerMinute() + "/min) — 잠시 후 재시도");
+            return err;
+        }
+
+        long t0 = System.currentTimeMillis();
         try {
             ReadOnlyJdbcTemplate ro = getOrCreateJdbc(profile);
             LiveDbContextProvider provider = pickProvider(profile);
             if (provider == null) {
-                log.warn("[LiveDb] No provider for profile '{}' (only Oracle supported in Phase 1)",
+                log.warn("[LiveDb] No provider for profile '{}' (only Oracle/Postgres supported)",
                          profile.getName());
                 return null;
             }
             // schema = profile 의 username (Oracle 관례 — username 이 schema)
             String schema = profile.getUsername();
-            return provider.fetch(userSql, schema, ro);
+            LiveDbContext ctx = provider.fetch(userSql, schema, ro);
+            if (callStats != null) callStats.recordSuccess(profile.getId(), System.currentTimeMillis() - t0);
+            return ctx;
 
+        } catch (org.springframework.dao.QueryTimeoutException e) {
+            // statement timeout — circuit breaker 의 trigger 신호
+            if (callStats != null) callStats.recordTimeout(profile.getId(), System.currentTimeMillis() - t0);
+            log.warn("[LiveDb] timeout for profile '{}': {}", profile.getName(), e.getMessage());
+            LiveDbContext err = new LiveDbContext();
+            err.addWarning("Live DB 쿼리 timeout (" + config.getDefaultTimeoutSeconds() + "초): " + e.getMessage());
+            return err;
         } catch (Exception e) {
+            if (callStats != null) callStats.recordFailure(profile.getId(), System.currentTimeMillis() - t0);
             log.warn("[LiveDb] fetch failed for profile '{}': {}", profile.getName(), e.getMessage());
             LiveDbContext err = new LiveDbContext();
             err.addWarning("Live DB 컨텍스트 수집 실패: " + e.getMessage());
             return err;
         }
+    }
+
+    /**
+     * v4.7.x — Phase 5: 백그라운드 스레드에서도 username capture 시도.
+     * SecurityContext 가 비어 있으면 "(anon)" — RateLimiter 가 같은 키로 묶어 격리.
+     */
+    private String currentUsername() {
+        try {
+            org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {}
+        return "(anon)";
     }
 
     /**

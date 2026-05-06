@@ -1,9 +1,34 @@
 import { useEffect, useState } from 'react'
 import {
   FaHeartbeat, FaServer, FaDatabase, FaMemory, FaStethoscope, FaSpinner,
-  FaSitemap, FaLayerGroup, FaShieldAlt, FaBug, FaRobot,
+  FaSitemap, FaLayerGroup, FaShieldAlt, FaBug, FaRobot, FaPlug,
 } from 'react-icons/fa'
 import { useApi } from '../../hooks/useApi'
+
+// v4.7.x — #G3 Phase 5: Live DB 통계 카드
+interface LiveDbProfileStats {
+  profileId: number
+  profileName: string
+  success: number
+  failure: number
+  timeout: number
+  totalCalls: number
+  avgLatencyMs: number
+  lastCallMillis: number
+  circuitOpen: boolean
+  circuitSecondsUntilHalfOpen: number
+}
+interface LiveDbStatsResponse {
+  success: boolean
+  config?: {
+    enabled: boolean
+    defaultTimeoutSeconds: number
+    maxRows: number
+    maxCallsPerMinute: number
+  }
+  byProfile?: LiveDbProfileStats[]
+  total?: { success: number; failure: number; timeout: number; totalCalls: number }
+}
 
 interface HealthData {
   jvmHeapUsed: string; jvmHeapMax: string; heapUsagePercent: number
@@ -63,10 +88,30 @@ interface HealthSummary {
 export default function AdminHealthPage() {
   const [data, setData] = useState<HealthData | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
+  const [liveDbStats, setLiveDbStats] = useState<LiveDbStatsResponse | null>(null)
   const [diagReport, setDiagReport] = useState<string>('')
   const [diagLoading, setDiagLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const api = useApi()
+
+  // v4.7.x — Phase 5: Live DB 회로차단 강제 복구
+  const forceCloseBreaker = async (profileId: number, profileName: string) => {
+    if (!confirm(`프로필 '${profileName}' 회로차단기를 강제 복구하시겠습니까?`)) return
+    try {
+      const res = await fetch(`/api/v1/admin/livedb/breaker/${profileId}/close`, {
+        method: 'POST', credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (d?.success) {
+        alert(`프로필 '${profileName}' 회로차단 강제 복구됨`)
+        // 즉시 재조회
+        const fresh = await fetch('/api/v1/admin/livedb/stats', { credentials: 'include' })
+        if (fresh.ok) setLiveDbStats(await fresh.json())
+      } else {
+        alert(d?.error || '복구 실패')
+      }
+    } catch { alert('요청 실패') }
+  }
 
   const runDiagnose = async () => {
     setDiagLoading(true)
@@ -93,6 +138,14 @@ export default function AdminHealthPage() {
         if (cancelled) return
         if (d) setData(d)
         if (s) setSummary(s)
+        // v4.7.x — Phase 5: Live DB 통계는 별도 호출 (404 시 silent — 미설치 환경 호환)
+        try {
+          const r = await fetch('/api/v1/admin/livedb/stats', { credentials: 'include' })
+          if (r.ok) {
+            const j = await r.json() as LiveDbStatsResponse
+            if (!cancelled) setLiveDbStats(j)
+          }
+        } catch { /* silent */ }
       } finally {
         if (!cancelled) setRefreshing(false)
       }
@@ -256,6 +309,100 @@ export default function AdminHealthPage() {
         )}
       </div>
 
+      {/* v4.7.x — #G3 Phase 5: Live DB 통계 카드 */}
+      {liveDbStats && liveDbStats.success && (
+        <div style={{
+          marginTop: 24, background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)', borderRadius: 12, padding: 18,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <FaPlug style={{ color: '#10b981' }} />
+            <strong style={{ fontSize: 14 }}>Live DB 호출 통계</strong>
+            <span style={{
+              marginLeft: 'auto', fontSize: 11,
+              padding: '2px 8px', borderRadius: 10,
+              background: liveDbStats.config?.enabled ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.12)',
+              color:      liveDbStats.config?.enabled ? '#10b981' : 'var(--text-muted)',
+              fontWeight: 700,
+            }}>
+              {liveDbStats.config?.enabled ? '✓ ENABLED' : '○ DISABLED'}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
+            한도: 분당 {liveDbStats.config?.maxCallsPerMinute ?? 0} 호출 ·
+            timeout {liveDbStats.config?.defaultTimeoutSeconds ?? 0}s ·
+            max rows {liveDbStats.config?.maxRows ?? 0}
+          </div>
+
+          {/* 글로벌 합계 */}
+          {liveDbStats.total && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <BadgeBox color="#10b981" text={`✓ 성공 ${liveDbStats.total.success}`} />
+              <BadgeBox color="#ef4444" text={`✗ 실패 ${liveDbStats.total.failure}`} />
+              <BadgeBox color="#f59e0b" text={`⏱ timeout ${liveDbStats.total.timeout}`} />
+              <BadgeBox color="var(--text-muted)" text={`총 ${liveDbStats.total.totalCalls}건`} />
+            </div>
+          )}
+
+          {/* 프로필별 표 */}
+          {liveDbStats.byProfile && liveDbStats.byProfile.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-primary)', textAlign: 'left' }}>
+                    <th style={tableTh}>프로필</th>
+                    <th style={tableTh}>성공</th>
+                    <th style={tableTh}>실패</th>
+                    <th style={tableTh}>timeout</th>
+                    <th style={tableTh}>총 호출</th>
+                    <th style={tableTh}>평균 latency</th>
+                    <th style={tableTh}>회로 상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveDbStats.byProfile.map((p) => (
+                    <tr key={p.profileId} style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <td style={tableTd}><strong>{p.profileName}</strong></td>
+                      <td style={{ ...tableTd, color: '#10b981' }}>{p.success}</td>
+                      <td style={{ ...tableTd, color: p.failure > 0 ? '#ef4444' : 'inherit' }}>{p.failure}</td>
+                      <td style={{ ...tableTd, color: p.timeout > 0 ? '#f59e0b' : 'inherit' }}>{p.timeout}</td>
+                      <td style={tableTd}>{p.totalCalls}</td>
+                      <td style={tableTd}>{p.avgLatencyMs}ms</td>
+                      <td style={tableTd}>
+                        {p.circuitOpen ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ color: '#ef4444' }}>🔴 OPEN</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
+                              ({p.circuitSecondsUntilHalfOpen}s 후 자동 복구)
+                            </span>
+                            <button
+                              onClick={() => forceCloseBreaker(p.profileId, p.profileName)}
+                              title="강제 복구"
+                              style={{
+                                padding: '2px 6px', fontSize: 10, cursor: 'pointer',
+                                background: '#ef4444', color: '#fff', border: 'none',
+                                borderRadius: 3,
+                              }}>
+                              강제 복구
+                            </button>
+                          </span>
+                        ) : (
+                          <span style={{ color: '#10b981' }}>🟢 CLOSED</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '12px' }}>
+              아직 Live DB 호출 기록이 없습니다.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Claude API 연결 진단 */}
       <div style={{ marginTop: '24px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -345,4 +492,13 @@ function fmtTime(ms: number | undefined | null): string {
   if (diff < 3_600_000)     return `${Math.floor(diff / 60_000)}분 전`
   if (diff < 86_400_000)    return `${Math.floor(diff / 3_600_000)}시간 전`
   return new Date(ms).toLocaleString()
+}
+
+// v4.7.x — Phase 5: 테이블 스타일 (livedb 통계 카드 전용)
+const tableTh: React.CSSProperties = {
+  padding: '6px 10px', fontWeight: 600, fontSize: 11,
+  color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)',
+}
+const tableTd: React.CSSProperties = {
+  padding: '6px 10px', fontSize: 12,
 }
