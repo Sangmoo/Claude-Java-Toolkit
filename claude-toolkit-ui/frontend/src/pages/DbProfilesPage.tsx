@@ -105,9 +105,17 @@ export default function DbProfilesPage() {
         body: new URLSearchParams(form),
         credentials: 'include',
       })
-      const d = await res.json()
-      setTestResult(d.success ? 'ok:연결 성공' : `error:${d.error || '연결 실패'}`)
-    } catch { setTestResult('error:연결 실패') }
+      const d = await res.json().catch(() => null)
+      // 응답에 url 도 함께 포함되어 디버깅에 유용
+      const urlSuffix = d?.url ? `\n[조립된 URL] ${d.url}` : ''
+      if (d?.success) {
+        setTestResult('ok:연결 성공 — ' + (d.message || 'OK') + urlSuffix)
+      } else {
+        setTestResult('error:' + (d?.error || `HTTP ${res.status}`) + urlSuffix)
+      }
+    } catch (e) {
+      setTestResult('error:요청 실패 — ' + String(e))
+    }
     setTesting(false)
   }
 
@@ -119,15 +127,20 @@ export default function DbProfilesPage() {
         body: new URLSearchParams(form),
         credentials: 'include',
       })
-      if (res.ok) {
+      const d = await res.json().catch(() => null)
+      // 백엔드가 200 OK + success:false 를 반환할 수 있어 양쪽 모두 검사
+      if (res.ok && d?.success) {
         toast.success('프로필이 추가되었습니다.')
         setShowModal(false)
         setForm({ name: '', dbType: 'oracle', host: '', port: '1521', dbName: '', username: '', password: '' })
+        setTestResult(null)
         reload()
       } else {
-        toast.error('저장 실패')
+        toast.error(d?.error || `저장 실패 (HTTP ${res.status})`)
       }
-    } catch { toast.error('저장 오류') }
+    } catch (e) {
+      toast.error('저장 오류 — ' + String(e))
+    }
   }
 
   return (
@@ -298,8 +311,17 @@ export default function DbProfilesPage() {
                 </Field>
               </div>
               {testResult && (
-                <div style={{ fontSize: '12px', color: testResult.startsWith('ok') ? 'var(--green)' : 'var(--red)' }}>
-                  {testResult.split(':')[1]}
+                <div style={{
+                  fontSize: '12px',
+                  color: testResult.startsWith('ok') ? 'var(--green)' : 'var(--red)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 6,
+                  padding: '8px 10px',
+                }}>
+                  {testResult.substring(testResult.indexOf(':') + 1)}
                 </div>
               )}
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>

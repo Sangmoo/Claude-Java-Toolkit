@@ -43,6 +43,151 @@ public class DbProfileController {
         return "redirect:/db-profiles";
     }
 
+    /**
+     * v4.7.x — #G3 보강: 프론트엔드 (DbProfilesPage) 가 사용하는 form 형식의 저장 엔드포인트.
+     *
+     * <p>입력: dbType / host / port / dbName / username / password
+     * <p>동작: dbType 별로 url 자동 조립 → 기존 service.save() 위임 → JSON 반환
+     */
+    @PostMapping("/create")
+    @ResponseBody
+    public java.util.Map<String, Object> create(
+            @RequestParam(defaultValue = "")       String name,
+            @RequestParam(defaultValue = "oracle") String dbType,
+            @RequestParam(defaultValue = "")       String host,
+            @RequestParam(defaultValue = "")       String port,
+            @RequestParam(defaultValue = "")       String dbName,
+            @RequestParam(defaultValue = "")       String username,
+            @RequestParam(defaultValue = "")       String password,
+            @RequestParam(defaultValue = "")       String description) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        try {
+            if (name.trim().isEmpty() || host.trim().isEmpty() || port.trim().isEmpty()) {
+                resp.put("success", false);
+                resp.put("error",   "name / host / port 필수");
+                return resp;
+            }
+            String url = buildJdbcUrl(dbType.trim(), host.trim(), port.trim(), dbName.trim());
+            if (url == null) {
+                resp.put("success", false);
+                resp.put("error",   "지원하지 않는 dbType: " + dbType);
+                return resp;
+            }
+            DbProfile saved = service.save(name.trim(), url, username.trim(), password, description.trim());
+            resp.put("success", true);
+            resp.put("id",      saved.getId());
+            resp.put("url",     url);
+            return resp;
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   "저장 실패: " + e.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * v4.7.x — #G3 보강: 입력한 DB 정보로 JDBC 연결 테스트.
+     *
+     * <p>실제 DB 연결을 시도하고 즉시 close. 성공/실패 + 에러 메시지를 JSON 반환.
+     */
+    @PostMapping("/test")
+    @ResponseBody
+    public java.util.Map<String, Object> testConnection(
+            @RequestParam(defaultValue = "oracle") String dbType,
+            @RequestParam(defaultValue = "")       String host,
+            @RequestParam(defaultValue = "")       String port,
+            @RequestParam(defaultValue = "")       String dbName,
+            @RequestParam(defaultValue = "")       String username,
+            @RequestParam(defaultValue = "")       String password) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        if (host.trim().isEmpty() || port.trim().isEmpty()) {
+            resp.put("success", false);
+            resp.put("error",   "host / port 필수");
+            return resp;
+        }
+        String url = buildJdbcUrl(dbType.trim(), host.trim(), port.trim(), dbName.trim());
+        if (url == null) {
+            resp.put("success", false);
+            resp.put("error",   "지원하지 않는 dbType: " + dbType);
+            return resp;
+        }
+
+        // 드라이버 자동 로드 (Oracle / PG / MySQL — pom 에 의존성 있으면 자동 등록)
+        try {
+            registerDriverIfNeeded(dbType);
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   "JDBC 드라이버 로드 실패 (" + dbType + "): " + e.getMessage());
+            resp.put("url",     url);
+            return resp;
+        }
+
+        // 연결 시도 — 10초 timeout
+        java.util.Properties props = new java.util.Properties();
+        if (!username.isEmpty()) props.put("user",     username);
+        if (!password.isEmpty()) props.put("password", password);
+        // Oracle 의 경우 connectTimeout 은 driver 별로 prop 이름 다름 — 단순화 위해 DriverManager.setLoginTimeout
+        java.sql.DriverManager.setLoginTimeout(10);
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, props)) {
+            // 검증: SELECT 1 (DBMS 별 호환)
+            try (java.sql.Statement st = conn.createStatement()) {
+                st.setQueryTimeout(5);
+                String pingSql;
+                if ("oracle".equalsIgnoreCase(dbType))           pingSql = "SELECT 1 FROM DUAL";
+                else if ("mysql".equalsIgnoreCase(dbType))       pingSql = "SELECT 1";
+                else if ("postgresql".equalsIgnoreCase(dbType))  pingSql = "SELECT 1";
+                else                                              pingSql = "SELECT 1";
+                try (java.sql.ResultSet rs = st.executeQuery(pingSql)) {
+                    rs.next();
+                }
+            }
+            resp.put("success", true);
+            resp.put("url",     url);
+            resp.put("message", "연결 성공");
+            return resp;
+        } catch (java.sql.SQLException e) {
+            resp.put("success", false);
+            resp.put("error",   "연결 실패: " + e.getMessage()
+                    + " (errorCode=" + e.getErrorCode() + ", sqlState=" + e.getSQLState() + ")");
+            resp.put("url",     url);
+            return resp;
+        }
+    }
+
+    /**
+     * dbType 별 JDBC URL 조립.
+     * <ul>
+     *   <li>oracle: SID 형식 → {@code jdbc:oracle:thin:@host:port:sid}
+     *       <br/>service-name 도 사용 가능 — port 다음 콜론(:) 대신 슬래시(/) 면 service-name 으로 인식하는 드라이버도 있으나
+     *       1차 출시는 SID 형식 우선 (오래된 Oracle DB 에서 가장 호환성 높음).</li>
+     *   <li>postgresql: {@code jdbc:postgresql://host:port/dbName}</li>
+     *   <li>mysql: {@code jdbc:mysql://host:port/dbName}</li>
+     * </ul>
+     */
+    private String buildJdbcUrl(String dbType, String host, String port, String dbName) {
+        if ("oracle".equalsIgnoreCase(dbType)) {
+            // dbName 이 비어 있으면 default ORCL
+            String sid = dbName.isEmpty() ? "ORCL" : dbName;
+            return "jdbc:oracle:thin:@" + host + ":" + port + ":" + sid;
+        }
+        if ("postgresql".equalsIgnoreCase(dbType) || "postgres".equalsIgnoreCase(dbType)) {
+            return "jdbc:postgresql://" + host + ":" + port + "/" + (dbName.isEmpty() ? "postgres" : dbName);
+        }
+        if ("mysql".equalsIgnoreCase(dbType)) {
+            return "jdbc:mysql://" + host + ":" + port + "/" + (dbName.isEmpty() ? "mysql" : dbName);
+        }
+        return null;
+    }
+
+    /** 드라이버 명시적 등록 — Spring Boot 환경에서는 자동 등록되지만 안전 측 explicit. */
+    private void registerDriverIfNeeded(String dbType) throws Exception {
+        if ("oracle".equalsIgnoreCase(dbType))            Class.forName("oracle.jdbc.OracleDriver");
+        else if ("postgresql".equalsIgnoreCase(dbType) || "postgres".equalsIgnoreCase(dbType))
+                                                          Class.forName("org.postgresql.Driver");
+        else if ("mysql".equalsIgnoreCase(dbType))        Class.forName("com.mysql.cj.jdbc.Driver");
+    }
+
     @PostMapping("/{id}/update")
     public String update(
             @PathVariable Long id,
