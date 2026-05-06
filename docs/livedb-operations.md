@@ -86,16 +86,49 @@ GRANT SELECT ON ALL TABLES IN SCHEMA app_schema TO ctk_analysis_user;
 
 ### Step 3: 프로필별 Live 분석 활성화
 
-**ADMIN 만 가능**:
+#### 방법 A — UI 에서 (권장, ADMIN 사용자)
+
+1. `/db-profiles` 페이지 접속
+2. 활성화할 프로필 행의 **🔌 Live: OFF** 버튼 클릭
+3. 보안 확인 모달이 뜨면 운영자 확인사항 (read-only 권한 / 시뮬레이션 권한) 검토
+4. **"확인하고 활성화"** 클릭 → 행에 **🟢 Live 분석 ON** 배지 노출
+5. 비활성화는 같은 버튼을 다시 클릭 (확인 없이 즉시)
+
+#### 방법 B — API 직접 (자동화 / CI 환경)
 ```bash
-# /db-profiles 페이지 또는 API 직접
 curl -X POST -d 'enabled=true' \
+     -b cookies.txt \
      /db-profiles/{profileId}/live-analysis
 ```
 
 활성화된 프로필은 `/db-profiles/active-live` 에서 노출되어, 일반 사용자가 분석 페이지 chip 에서 선택 가능.
 
 > ⚠️ **명시적 활성화 의미**: "이 프로필의 user 가 read-only 권한만 가지고 있음" 을 ADMIN 이 보장한다는 의미. 코드 게이트 (SqlClassifier) + DB 권한 *이중 차단*.
+
+### ⚠️ ALL 권한 user 사용 시 주의사항
+
+기술적으로는 user 에 `GRANT ALL` 또는 INSERT/UPDATE/DELETE 권한이 있어도 *동작합니다* — `SqlClassifier` 가 코드 레벨에서 SELECT/EXPLAIN/DESC/WITH 만 통과시키므로.
+
+**그러나 권장하지 않습니다**:
+
+| 이유 | 설명 |
+|------|------|
+| 이중 차단 원칙 | 코드 게이트 + DB 권한 둘 다 read-only 여야 진짜 안전 |
+| 미래 회귀 위험 | 새 endpoint 가 SqlClassifier 적용을 빠뜨리면 DB 권한이 마지막 방어선 |
+| 외부감사 / 컴플라이언스 | "분석 user 는 read-only" 라고 보증할 수 있어야 통과 |
+| 활성화 모달의 명시적 보증 | "이 user 가 read-only 권한만 갖고 있음" 운영자 책임 — ALL 권한이면 거짓 |
+
+**권장 패턴 — user 분리**:
+
+`DbProfile.liveAnalysisUser` 필드 (이미 entity 에 존재) 를 활용하면 *컨텍스트 수집* 과 *운영 로직* 의 user 를 분리 가능:
+- `DbProfile.username` = 운영 user (ALL 권한, 실제 connection-pool 용)
+- `DbProfile.liveAnalysisUser` = 분석 전용 (SELECT 만)
+
+다만 **인덱스 시뮬레이터 (Phase 4)** 는 `CREATE INDEX` / `DROP INDEX` 권한이 *반드시 필요* — read-only 만으로는 동작 안 함:
+- 시뮬레이션은 `profile.username` (메인 user, ALL/DDL 권한) 사용
+- Live DB 컨텍스트 수집은 `liveAnalysisUser` (read-only) 사용 가능
+
+**일반 권장**: 가장 단순하게는 *분석 전용 user 1개* 를 만들어 `DbProfile.username` 으로 등록 + `SELECT` + `CREATE INDEX (staging schema 한정)` 권한 부여.
 
 ---
 

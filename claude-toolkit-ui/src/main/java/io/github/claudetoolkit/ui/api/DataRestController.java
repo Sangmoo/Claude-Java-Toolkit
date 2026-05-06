@@ -967,8 +967,30 @@ public class DataRestController {
     @GetMapping("/db-profiles")
     public ResponseEntity<ApiResponse<List<?>>> dbProfiles() {
         try {
-            List<?> list = em.createQuery("SELECT p FROM DbProfile p ORDER BY p.id").getResultList();
-            return ResponseEntity.ok(ApiResponse.ok(list));
+            // v4.7.x — #G3 보강: 명시적 DTO 로 변환 (password 노출 차단 + Live 분석 필드 포함)
+            @SuppressWarnings("unchecked")
+            List<io.github.claudetoolkit.ui.dbprofile.DbProfile> profiles =
+                em.createQuery("SELECT p FROM DbProfile p ORDER BY p.id")
+                  .getResultList();
+            String activeUrl = toolkitSettings.getDb().getUrl();
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (io.github.claudetoolkit.ui.dbprofile.DbProfile p : profiles) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id",          p.getId());
+                m.put("name",        p.getName());
+                m.put("description", p.getDescription() != null ? p.getDescription() : "");
+                m.put("maskedUrl",   p.getMaskedUrl());
+                m.put("username",    p.getUsername());
+                // password 는 노출 X — 보안
+                // 활성(=현재 settings 의 url 과 동일)
+                m.put("active",      activeUrl != null && activeUrl.equals(p.getUrl()));
+                // Live DB 분석 토글 상태 (B5: UI 토글용)
+                m.put("readOnlyForLiveAnalysis",  p.isReadOnlyForLiveAnalysis());
+                m.put("liveAnalysisUser",         p.getLiveAnalysisUser());
+                m.put("liveQueryTimeoutSeconds",  p.getLiveQueryTimeoutSeconds());
+                result.add(m);
+            }
+            return ResponseEntity.ok(ApiResponse.ok(result));
         } catch (Exception e) {
             log.warn("DB 프로필 조회 실패", e);
             return ResponseEntity.ok(ApiResponse.ok(Collections.emptyList()));
