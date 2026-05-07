@@ -1,6 +1,6 @@
 package io.github.claudetoolkit.ui.platform;
 
-import jakarta.annotation.PreDestroy;
+import javax.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -116,7 +116,7 @@ public class McpServerLauncher {
             this.stdoutPump = pumpToLog(process.getInputStream(), false);
             this.stderrPump = pumpToLog(process.getErrorStream(), true);
             log.info("{} 자동 기동 성공 — pid={}, listening on {}:{}, backend=http://localhost:{}",
-                    logPrefix, process.pid(), host, port, backendPort);
+                    logPrefix, pidOrUnknown(process), host, port, backendPort);
         } catch (IOException e) {
             log.error("{} 기동 실패 — '{}'. node 실행파일 경로 확인 (toolkit.mcp.node). cause: {}",
                     logPrefix, nodeExecutable, e.getMessage());
@@ -129,7 +129,7 @@ public class McpServerLauncher {
         if (p == null || !p.isAlive()) {
             return;
         }
-        log.info("{} 종료 신호 (pid={})", logPrefix, p.pid());
+        log.info("{} 종료 신호 (pid={})", logPrefix, pidOrUnknown(p));
         p.destroy();
         try {
             if (!p.waitFor(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
@@ -213,7 +213,27 @@ public class McpServerLauncher {
 
     public Long getPid() {
         Process p = this.process;
-        return (p != null && p.isAlive()) ? p.pid() : null;
+        return (p != null && p.isAlive()) ? tryGetPid(p) : null;
+    }
+
+    /**
+     * Process.pid() 는 Java 9+ 추가 — Java 8 빌드를 위해 reflection 으로 호출.
+     * 실패하면 null 반환 (로그/운영 정보용이라 기능에는 영향 없음).
+     */
+    private static Long tryGetPid(Process p) {
+        if (p == null) return null;
+        try {
+            java.lang.reflect.Method m = Process.class.getMethod("pid");
+            Object v = m.invoke(p);
+            return (v instanceof Long) ? (Long) v : null;
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static String pidOrUnknown(Process p) {
+        Long pid = tryGetPid(p);
+        return pid != null ? pid.toString() : "?";
     }
 
     /** 외부 표시용 — 헬스/관리 페이지에서 사용 */
