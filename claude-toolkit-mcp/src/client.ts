@@ -1,8 +1,9 @@
 /**
- * v4.7.x — #M3 Phase 3: 도구 backend REST client.
+ * v4.7.x — #M3 Phase 3 + 사내망 공유: 도구 backend REST client.
  *
- * Claude Toolkit 의 /api/v1/analyze 를 호출하는 단순 wrapper.
- * 환경변수 CTK_URL + CTK_API_KEY 를 사용.
+ * 두 모드 지원:
+ *   - stdio mode: 환경변수 CTK_URL + CTK_API_KEY 사용 (legacy)
+ *   - http mode: 클라이언트가 헤더로 보낸 X-Api-Key를 per-request 로 전달
  */
 
 export interface AnalyzeRequest {
@@ -25,30 +26,40 @@ export interface AnalyzeResponse {
   error?: string;
 }
 
+export interface ToolkitClientOptions {
+  baseUrl?: string;
+  apiKey?: string;
+  defaultDbProfileId?: number;
+}
+
 export class ToolkitClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly defaultDbProfileId?: number;
 
-  constructor() {
-    const url = process.env.CTK_URL;
-    const key = process.env.CTK_API_KEY;
+  constructor(opts: ToolkitClientOptions = {}) {
+    const url = opts.baseUrl ?? process.env.CTK_URL;
+    const key = opts.apiKey ?? process.env.CTK_API_KEY;
     if (!url) {
       throw new Error(
-        '환경변수 CTK_URL 미설정 — 도구 base URL 필요 (예: http://localhost:8027)'
+        '도구 base URL 미설정 — 환경변수 CTK_URL 또는 ToolkitClientOptions.baseUrl 필요 (예: http://localhost:8027)'
       );
     }
     if (!key) {
       throw new Error(
-        '환경변수 CTK_API_KEY 미설정 — /admin/api-keys 페이지에서 발급'
+        'API Key 미설정 — 환경변수 CTK_API_KEY 또는 요청 헤더 X-Api-Key 필요'
       );
     }
     this.baseUrl = url.replace(/\/+$/, '');
     this.apiKey = key;
 
-    const dbId = process.env.CTK_DB_PROFILE_ID;
-    if (dbId && /^\d+$/.test(dbId)) {
-      this.defaultDbProfileId = parseInt(dbId, 10);
+    if (opts.defaultDbProfileId != null) {
+      this.defaultDbProfileId = opts.defaultDbProfileId;
+    } else {
+      const dbId = process.env.CTK_DB_PROFILE_ID;
+      if (dbId && /^\d+$/.test(dbId)) {
+        this.defaultDbProfileId = parseInt(dbId, 10);
+      }
     }
   }
 

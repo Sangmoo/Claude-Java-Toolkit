@@ -1,0 +1,42 @@
+; -----------------------------------------------------------------------------
+; claude-toolkit-mcp — systemd unit (Linux 사내 호스트용)
+; -----------------------------------------------------------------------------
+; 설치:
+;   sudo cp service/claude-toolkit-mcp.service /etc/systemd/system/
+;   sudo cp service/claude-toolkit-mcp.env.example /etc/claude-toolkit-mcp.env
+;   sudo $EDITOR /etc/claude-toolkit-mcp.env       # 환경변수 편집
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now claude-toolkit-mcp
+;
+; 로그:
+;   journalctl -u claude-toolkit-mcp -f
+; -----------------------------------------------------------------------------
+
+[Unit]
+Description=Claude Toolkit MCP Server (Streamable HTTP)
+Documentation=https://github.com/Sangmoo/Claude-Java-Toolkit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=claude-toolkit
+Group=claude-toolkit
+WorkingDirectory=/opt/claude-toolkit-mcp
+EnvironmentFile=/etc/claude-toolkit-mcp.env
+ExecStart=/usr/bin/node /opt/claude-toolkit-mcp/dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+; --- hardening ----------------------------------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/log/claude-toolkit-mcp
+
+[Install]
+WantedBy=multi-user.target

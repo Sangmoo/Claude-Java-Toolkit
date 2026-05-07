@@ -50,6 +50,17 @@ toolkit:
     default-timeout-seconds: ${TOOLKIT_LIVEDB_TIMEOUT:30}
     max-rows: ${TOOLKIT_LIVEDB_MAX_ROWS:1000}
     max-calls-per-minute: ${TOOLKIT_LIVEDB_RATE_LIMIT:10}
+  # v4.7.x — #M3 사내망 공유 MCP Server 자동 기동.
+  # WAS startup 시점에 claude-toolkit-mcp(Streamable HTTP) 를 child process 로 spawn,
+  # WAS shutdown 시 동시 종료. 자세한 동작은 platform/McpServerLauncher.java 참고.
+  # 비활성화하려면 TOOLKIT_MCP_AUTOSTART=false.
+  mcp:
+    auto-start: ${TOOLKIT_MCP_AUTOSTART:true}
+    project-root: ${TOOLKIT_MCP_PROJECT_ROOT:../claude-toolkit-mcp}
+    host: ${TOOLKIT_MCP_HOST:0.0.0.0}      # 사내망 노출. 본인 PC 만이면 127.0.0.1
+    port: ${TOOLKIT_MCP_PORT:8028}
+    node: ${TOOLKIT_MCP_NODE:node}         # PATH 의 node 또는 절대경로 (예: C:/Program Files/nodejs/node.exe)
+    log-prefix: "[MCP]"
 
 # ── Actuator / Health / Metrics ───────────────────────────────────────────
 management:
