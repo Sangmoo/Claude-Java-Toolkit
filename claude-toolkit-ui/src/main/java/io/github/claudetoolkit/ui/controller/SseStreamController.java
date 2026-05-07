@@ -362,7 +362,8 @@ public class SseStreamController {
 
     // ── System prompt resolver ────────────────────────────────────────────────
 
-    private String resolveSystemPrompt(String feature, String sourceType) {
+    /** v4.7.x — #M3 Phase 2: AnalyzeApiV1Controller 가 재사용 — 가시성 public */
+    public String resolveSystemPrompt(String feature, String sourceType) {
         if ("sql_review".equals(feature)) {
             return "당신은 Oracle SQL 전문가입니다. SQL 코드를 분석하여 성능 문제, 안티패턴, 개선 방안을 ## 리뷰 결과 형식으로 출력하세요. 각 항목은 [SEVERITY: HIGH/MEDIUM/LOW]로 표시하세요.";
         }
@@ -439,7 +440,8 @@ public class SseStreamController {
         return "당신은 Java/Spring 개발 전문가 어시스턴트입니다.";
     }
 
-    private String buildUserMessage(String feature, String input, String input2, String sourceType) {
+    /** v4.7.x — #M3 Phase 2: AnalyzeApiV1Controller 가 재사용 — 가시성 public */
+    public String buildUserMessage(String feature, String input, String input2, String sourceType) {
         if ("sql_review".equals(feature) || "sql_security".equals(feature)) {
             return "다음 SQL을 분석해주세요:\n\n```sql\n" + input + "\n```";
         }
