@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
@@ -27,11 +28,16 @@ public class SecurityConfig {
 
     private final TwoFactorAuthHandler twoFactorAuthHandler;
     private final LoginAttemptHandler  loginAttemptHandler;
+    /** v4.7.x — #M3 Platform: 멀티 API 키 필터 (옵셔널 — 빈 등록 안 됐으면 null) */
+    private final io.github.claudetoolkit.ui.platform.PlatformAuthFilter platformAuthFilter;
 
     public SecurityConfig(TwoFactorAuthHandler twoFactorAuthHandler,
-                          LoginAttemptHandler loginAttemptHandler) {
+                          LoginAttemptHandler loginAttemptHandler,
+                          @org.springframework.beans.factory.annotation.Autowired(required = false)
+                          io.github.claudetoolkit.ui.platform.PlatformAuthFilter platformAuthFilter) {
         this.twoFactorAuthHandler = twoFactorAuthHandler;
         this.loginAttemptHandler  = loginAttemptHandler;
+        this.platformAuthFilter   = platformAuthFilter;
     }
 
     @Bean
@@ -132,6 +138,13 @@ public class SecurityConfig {
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
                 .permitAll();
+
+        // v4.7.x — #M3 Platform: X-Api-Key 헤더 인증 (멀티 키)
+        // UsernamePasswordAuthenticationFilter 보다 *앞* 에 위치 — 세션 인증 전에 헤더 키 우선 시도.
+        // 세션 인증된 사용자는 PlatformAuthFilter 가 그대로 통과 (이미 인증됨).
+        if (platformAuthFilter != null) {
+            http.addFilterBefore(platformAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        }
 
         return http.build();
     }

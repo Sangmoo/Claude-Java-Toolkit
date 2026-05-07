@@ -9,6 +9,7 @@ import {
   FaBug, FaEyeSlash, FaUserShield,
   FaUsersCog, FaUserLock, FaShareAlt, FaShieldAlt, FaHeartbeat,
   FaSlidersH, FaMagic, FaServer, FaCog,
+  FaKey,
 } from 'react-icons/fa'
 
 export interface MenuItem {
@@ -117,6 +118,7 @@ export const menuSections: MenuSection[] = [
     items: [
       { label: '사용자 관리', path: '/admin/users', icon: FaUsersCog, color: '#ef4444' },
       { label: '사용자 권한 관리', path: '/admin/permissions', icon: FaUserLock, color: '#ef4444' },
+      { label: 'API Key 관리', path: '/admin/api-keys', icon: FaKey, color: '#f59e0b' },
       { label: '팀 설정 공유', path: '/settings/shared', icon: FaShareAlt, color: '#ef4444' },
       { label: '팀 대시보드', path: '/admin/team-dashboard', icon: FaChartLine, color: '#3b82f6' },
       { label: '감사 로그', path: '/admin/audit-dashboard', icon: FaShieldAlt, color: '#f59e0b' },
