@@ -535,6 +535,77 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     v4.7.x 차세대 — Platform / MCP Server (#M3)
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(59,130,246,.06),rgba(16,185,129,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">🚀 v4.7.x 차세대 — Platform</p>
+      <h2 class="section-title">Consumer → Platform — IDE 안에서 도구를 사용</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        Claude Code / Cursor / Cline 등 <strong>AI agent 가 IDE 안에서 12+ 분석 기능을 직접 호출</strong>. 도구의 정체성 변화 — 별도 페이지로 가야 사용 가능하던 도구가 <strong>사내 모든 시스템의 hub</strong> 로 진화. CI/CD / curl / 사내 자동화도 같은 X-Api-Key 헤더로 즉시.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🔐</div>
+        <div class="feat-title">API Key 인프라 — 멀티 키 + RBAC</div>
+        <div class="feat-desc">SHA-256 해시 저장 + 발급 직후 plaintext 1회 노출. per-key <strong>role (READ_ONLY/WRITE/ADMIN)</strong> + <strong>분당 호출 한도</strong> (sliding window) + 만료 / 회수 / 사용 통계. timing-safe 비교 + audit_log 자동 기록. ADMIN 페이지 <code>/admin/api-keys</code>.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">🔒 SHA-256</span>
+          <span class="tag">⏱ Rate Limit</span>
+          <span class="tag">📋 RBAC</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">🌐</div>
+        <div class="feat-title">공식 REST API v1 — 모든 분석의 단일 진입점</div>
+        <div class="feat-desc"><code>POST /api/v1/analyze</code> 동기 호출 — 12개 feature 통합 진입점. 응답에 <strong>토큰 + 비용 + latency + 모델 + 캐시 적중</strong>. Live DB 통합 자동 (<code>dbProfileId</code> 파라미터). <code>GET /api/v1/features</code> discovery — SDK 자동 생성 / CLI auto-complete 활용.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">⚡ 동기</span>
+          <span class="tag">💰 비용 표시</span>
+          <span class="tag">🔌 Live DB</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🤖</div>
+        <div class="feat-title">MCP Server — Claude Code / Cursor 통합</div>
+        <div class="feat-desc"><code>@claude-toolkit/mcp-server</code> npm 패키지 — Anthropic <strong>MCP 표준</strong> 서버 (stdio transport). Claude Code / Cursor / Cline / Continue.dev 자동 호환. <strong>12개 분석 tool</strong> 노출: SQL 분석 6 + Java/Code 분석 6. <strong>5분 통합</strong> — ADMIN 키 발급 → mcp_settings.json 한 줄 → IDE 재시작. 📘 <a href="https://github.com/Sangmoo/Claude-Java-Toolkit/blob/master/docs/mcp-setup.md" style="color:#10b981">docs/mcp-setup.md</a></div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">🤖 MCP 표준</span>
+          <span class="tag">🛠 12 tools</span>
+          <span class="tag">⚡ 5분 통합</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal" style="margin-top:32px;padding:20px;background:rgba(0,0,0,.3);border-radius:12px;border:1px solid var(--border);">
+      <div style="font-family:monospace;font-size:13px;color:#94a3b8;line-height:1.6;white-space:pre-wrap">
+<strong style="color:#10b981">// Claude Code 통합 예시 — ~/.config/claude/mcp_settings.json</strong>
+{
+  "mcpServers": {
+    "claude-toolkit": {
+      "command": "npx",
+      "args": ["-y", "@claude-toolkit/mcp-server"],
+      "env": {
+        "CTK_URL":     "http://localhost:8027",
+        "CTK_API_KEY": "ctk_live_..."
+      }
+    }
+  }
+}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      v4.7.1 — 운영/UX 5종 강화 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(139,92,246,.05),rgba(249,115,22,.04));">

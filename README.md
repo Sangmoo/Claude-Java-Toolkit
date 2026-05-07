@@ -29,6 +29,54 @@ Python용 Claude 통합 도구는 많지만, **JDK 1.8+ / Oracle 11g+ / Spring B
 
 국내 SI / 금융 / 유통 환경의 현실을 반영하여 설계되었습니다.
 
+### 🆕 v4.7.x 차세대 — Platform / MCP Server (#M3)
+
+도구의 정체성 변화: **Consumer → Platform**. Claude Code / Cursor / Cline 등 AI agent 가
+*IDE 안에서* 도구의 12+ 분석 기능을 직접 호출. CI/CD pipeline / curl / 사내 자동화도
+같은 X-Api-Key 헤더로 즉시 호출 가능.
+
+- 🔐 **API Key 인프라 — 멀티 키 + RBAC** — `/admin/api-keys`
+  - SHA-256 해시 저장 + 발급 직후 plaintext 1회 노출
+  - per-key role (READ_ONLY / WRITE / ADMIN) + 분당 호출 한도 (sliding window)
+  - 만료 / 회수 / 사용 통계 (lastUsedAt + totalCalls)
+  - timing-safe 비교 + audit_log 자동 기록
+
+- 🌐 **공식 REST API v1** — `POST /api/v1/analyze` 동기 진입점
+  - 12개 feature 통합 진입점 + 캐시 / Live DB / history 자동
+  - 응답에 토큰 + 비용 + latency + 모델 정보
+  - `GET /api/v1/features` discovery (MCP / SDK 자동 생성용)
+
+- 🤖 **MCP Server — `@claude-toolkit/mcp-server`** (Node.js)
+  - Claude Code / Cursor / Cline / Continue.dev 자동 호환
+  - **12개 분석 tool** 노출: SQL 분석 6 + Java/Code 분석 6
+  - stdio transport (표준) + 환경변수 기반 설정
+  - **5분 통합**: ADMIN 키 발급 → mcp_settings.json 한 줄 → IDE 재시작
+  - 📘 [`docs/mcp-setup.md`](./docs/mcp-setup.md) 통합 가이드
+
+```bash
+# Claude Code 통합 예시 — ~/.config/claude/mcp_settings.json
+{
+  "mcpServers": {
+    "claude-toolkit": {
+      "command": "npx",
+      "args": ["-y", "@claude-toolkit/mcp-server"],
+      "env": {
+        "CTK_URL":     "http://localhost:8027",
+        "CTK_API_KEY": "ctk_live_..."
+      }
+    }
+  }
+}
+```
+
+```bash
+# CI/CD / curl 직접 호출 예시
+curl -X POST $CTK_URL/api/v1/analyze \
+  -H "X-Api-Key: ctk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"feature":"sql_review","input":"SELECT * FROM T_ORDER ..."}' | jq
+```
+
 ### 🆕 v4.7.1 패치 — 운영 인프라 + 사용자 워크플로 5종 강화
 
 v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자가 **현장에서 바로 체감**할 수 있는 5가지 영역을 한 번에 강화한 누적 패치. 모두 기존 컴포넌트 재사용 위주로 백엔드 구조 변경 최소화.
