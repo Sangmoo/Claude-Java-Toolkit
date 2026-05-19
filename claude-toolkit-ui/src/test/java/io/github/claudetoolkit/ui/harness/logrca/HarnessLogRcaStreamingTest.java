@@ -53,12 +53,16 @@ class HarnessLogRcaStreamingTest {
     @BeforeEach
     void stubClaudeClient() throws Exception {
         doAnswer(inv -> {
+            // 50ms delay lets Spring MVC register the SseEmitter async-context handler
+            // before the background thread calls emitter.send() — prevents CME in full suite runs
+            Thread.sleep(50);
             Consumer<String> sink = inv.getArgument(3);
             sink.accept("[fake stage output]");
             return null;
         }).when(claudeClient).chatStream(anyString(), anyString(), anyInt(), any());
 
         doAnswer(inv -> {
+            Thread.sleep(50);
             Consumer<String> sink = inv.getArgument(4);
             sink.accept("[fake builder output (continuation)]");
             return null;

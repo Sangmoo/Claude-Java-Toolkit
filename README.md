@@ -77,6 +77,21 @@ curl -X POST $CTK_URL/api/v1/analyze \
   -d '{"feature":"sql_review","input":"SELECT * FROM T_ORDER ..."}' | jq
 ```
 
+### 🆕 v4.7.2 패치 — ADMIN 2FA 필수화 + 보안 단위 테스트
+
+보안 정책 강화: **ADMIN 계정의 2FA(TOTP)를 선택이 아닌 필수**로 전환. 동시에 인증·2FA 핵심 로직 전반에 단위 테스트를 추가해 회귀 안전망을 구축.
+
+- 🔐 **ADMIN 2FA 필수화** — `POST /account/disable-2fa` 에 ADMIN 역할 차단 추가
+  - ADMIN 계정이 2FA 비활성화 요청 시 `{ "success": false, "error": "ADMIN 계정은 2FA를 비활성화할 수 없습니다." }` 반환
+  - 로그인 흐름(`TwoFactorAuthHandler`)은 이미 ADMIN 을 강제로 `/login/2fa` 로 리다이렉트하여 미설정 시 초기 등록 페이지 표시 — 이번 패치는 *사후 비활성화* 경로를 차단하는 마지막 퍼즐
+  - REVIEWER / VIEWER 는 기존대로 2FA 선택 적용
+
+- 🧪 **단위 테스트 24개 신규** — `TotpServiceTest` / `TwoFactorAuthHandlerTest` / `AccountController2faTest` + `SecuritySmokeTests` 4건 추가
+  - **`TotpServiceTest` (14 케이스)** — RFC 6238 TOTP 알고리즘 검증: `generateSecret()` Base32 포맷·유일성, Base32 왕복 변환, `verifyCode()` null/비정상 코드 거부, `buildOtpAuthUri()` 형식
+  - **`TwoFactorAuthHandlerTest` (5 케이스)** — 로그인 성공 핸들러: ADMIN → `2fa_pending` 세션 세팅 + `/login/2fa` 리다이렉트, Non-ADMIN → `/` 직행, 실패 카운터 리셋, 사용자 미존재 안전 처리
+  - **`AccountController2faTest` (5 케이스)** — ADMIN 비활성화 거부, REVIEWER/VIEWER 정상 비활성화, 사용자 미존재 no-op
+  - **`SecuritySmokeTests` (4 케이스 추가)** — `2fa_pending=true` 인터셉터 리다이렉트 검증 + ADMIN disable-2fa API 응답 `success=false` 검증
+
 ### 🆕 v4.7.1 패치 — 운영 인프라 + 사용자 워크플로 5종 강화
 
 v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자가 **현장에서 바로 체감**할 수 있는 5가지 영역을 한 번에 강화한 누적 패치. 모두 기존 컴포넌트 재사용 위주로 백엔드 구조 변경 최소화.

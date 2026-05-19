@@ -606,6 +606,46 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     v4.7.2 — ADMIN 2FA 필수화 + 보안 테스트
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(239,68,68,.05),rgba(139,92,246,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">v4.7.2 — 보안 패치</p>
+      <h2 class="section-title">ADMIN 2FA 필수화 + 단위 테스트 24건</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        ADMIN 계정의 2FA(TOTP) 를 <strong>선택 → 필수</strong>로 전환. 인증·2FA 핵심 로직 전반에 단위 테스트를 추가해 회귀 안전망 구축.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">🔐</div>
+        <div class="feat-title">ADMIN 2FA 필수화</div>
+        <div class="feat-desc"><code>POST /account/disable-2fa</code> 에 ADMIN 역할 차단 추가. ADMIN 이 2FA 비활성화 시도 시 <code>{ "success": false }</code> 반환. 로그인 흐름(<code>TwoFactorAuthHandler</code>)은 이미 ADMIN 을 강제로 2FA 등록·인증 페이지로 유도 — 이번 패치는 <strong>사후 비활성화 경로까지 차단</strong>하여 ADMIN 2FA 를 완전 필수화. REVIEWER / VIEWER 는 기존대로 선택.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.2</span>
+          <span class="tag">🔒 ADMIN 필수</span>
+          <span class="tag">🛡 보안 강화</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🧪</div>
+        <div class="feat-title">보안 단위 테스트 24건 신규</div>
+        <div class="feat-desc"><strong>TotpServiceTest (14)</strong> — RFC 6238 알고리즘·Base32·null 방어. <strong>TwoFactorAuthHandlerTest (5)</strong> — ADMIN 2FA 강제 리다이렉트, 실패 카운터 리셋. <strong>AccountController2faTest (5)</strong> — ADMIN 비활성화 거부, REVIEWER/VIEWER 정상 처리. <strong>SecuritySmokeTests (4 추가)</strong> — 인터셉터 동작 + API 응답 검증.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕 v4.7.2</span>
+          <span class="tag">🧪 24 tests</span>
+          <span class="tag">RFC 6238 TOTP</span>
+          <span class="tag">🔄 회귀 방지</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      v4.7.1 — 운영/UX 5종 강화 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(139,92,246,.05),rgba(249,115,22,.04));">

@@ -70,6 +70,9 @@ class HarnessSpMigrationStreamingTest {
         // Mockito.when() 체인에서도 checked 처리 필요 → 메서드 시그니처에 throws.
         // chatStream(system, user, maxTokens, sink) — Consumer 에 가짜 chunk 즉시 emit
         doAnswer(inv -> {
+            // 50ms delay lets Spring MVC register the SseEmitter async-context handler
+            // before the background thread calls emitter.send() — prevents CME in full suite runs
+            Thread.sleep(50);
             Consumer<String> sink = inv.getArgument(3);
             sink.accept("[fake stage output]");
             return null;
@@ -77,6 +80,7 @@ class HarnessSpMigrationStreamingTest {
 
         // chatStreamWithContinuation(system, user, maxTokens, contCount, sink)
         doAnswer(inv -> {
+            Thread.sleep(50);
             Consumer<String> sink = inv.getArgument(4);
             sink.accept("[fake builder output (continuation)]");
             return null;

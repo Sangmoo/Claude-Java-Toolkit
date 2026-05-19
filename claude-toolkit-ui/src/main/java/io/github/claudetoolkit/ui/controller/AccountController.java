@@ -137,13 +137,18 @@ public class AccountController {
         return ResponseEntity.ok(resp);
     }
 
-    /** 2FA 비활성화 */
+    /** 2FA 비활성화 — ADMIN 계정은 비활성화 불가 */
     @PostMapping("/disable-2fa")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> disable2fa(Principal principal) {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         AppUser user = userRepository.findByUsername(principal.getName()).orElse(null);
         if (user != null) {
+            if ("ADMIN".equals(user.getRole())) {
+                resp.put("success", false);
+                resp.put("error", "ADMIN 계정은 2FA를 비활성화할 수 없습니다.");
+                return ResponseEntity.ok(resp);
+            }
             user.setTotpSecret(null);
             userRepository.save(user);
         }
