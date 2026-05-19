@@ -1,16 +1,23 @@
 package io.github.claudetoolkit.ui.smoke;
 
+import io.github.claudetoolkit.ui.user.AppUser;
+import io.github.claudetoolkit.ui.user.AppUserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Optional;
+
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -37,6 +44,9 @@ class SecuritySmokeTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private AppUserRepository appUserRepository;
 
     // ── 1.7: /api/v1/admin/** 역할 게이팅 ────────────────────────────
 
@@ -114,5 +124,61 @@ class SecuritySmokeTests {
                         throw new AssertionError("auth/login 은 permitAll 이어야 함: " + status);
                     }
                 });
+    }
+
+    // ── 2FA 인터셉터 ──────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("2fa_pending=true 인 인증 사용자는 /login/2fa 로 리다이렉트 (인터셉터)")
+    @WithMockUser(username = "admin1", roles = {"ADMIN"})
+    void twoFaPending_interceptor_redirectsToTwoFaPage() throws Exception {
+        mockMvc.perform(get("/")
+                .sessionAttr("2fa_pending", Boolean.TRUE))
+                .andExpect(status().isFound())
+                .andExpect(result -> {
+                    String location = result.getResponse().getHeader("Location");
+                    if (location == null || !location.contains("/login/2fa")) {
+                        throw new AssertionError("2fa_pending=true 면 /login/2fa 로 리다이렉트 해야 함. Location=" + location);
+                    }
+                });
+    }
+
+    @Test
+    @DisplayName("2fa_pending 없으면 인터셉터가 차단하지 않음")
+    @WithMockUser(username = "admin1", roles = {"ADMIN"})
+    void noTwoFaPending_interceptor_doesNotBlock() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(result -> {
+                    String location = result.getResponse().getHeader("Location");
+                    if (location != null && location.contains("/login/2fa")) {
+                        throw new AssertionError("2fa_pending 없으면 /login/2fa 로 리다이렉트 안 해야 함");
+                    }
+                });
+    }
+
+    // ── ADMIN 2FA 필수화 ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("ADMIN 은 POST /account/disable-2fa 시 오류 반환 (2FA 필수)")
+    @WithMockUser(username = "admin1", roles = {"ADMIN"})
+    void admin_cannotDisable2fa_returnsFalse() throws Exception {
+        AppUser admin = new AppUser("admin1", "hash", "ADMIN");
+        when(appUserRepository.findByUsername("admin1")).thenReturn(Optional.of(admin));
+
+        mockMvc.perform(post("/account/disable-2fa"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("REVIEWER 는 POST /account/disable-2fa 성공")
+    @WithMockUser(username = "reviewer1", roles = {"REVIEWER"})
+    void reviewer_canDisable2fa_returnsTrue() throws Exception {
+        AppUser reviewer = new AppUser("reviewer1", "hash", "REVIEWER");
+        when(appUserRepository.findByUsername("reviewer1")).thenReturn(Optional.of(reviewer));
+
+        mockMvc.perform(post("/account/disable-2fa"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 }

@@ -176,6 +176,173 @@ curl -X POST http://localhost:8027/api/v1/analyze \
 
 ---
 
+## 5-2. 사내망 공유 모드 (Streamable HTTP)
+
+> **언제 쓰나?** MCP 서버를 한 PC(또는 사내 서버)에 1대만 띄우고, 같은 사내망의 여러 개발자 PC가 그 서버를 공유. 각 사용자는 자기 키로 접속 — audit log/rate limit 이 사람별로 분리됨.
+
+### 아키텍처
+
+```
+[개발자 A 의 Claude Desktop]                      [MCP 호스트 (사내 1대)]
+  npx mcp-remote ───stdio───┐                     ┌─ MCP HTTP :8028 ─┐
+                            ├─ HTTP + X-Api-Key ─→│  per-request      │
+[개발자 B 의 Cursor]        │   (각자 다른 키)    │  ToolkitClient    │
+  npx mcp-remote ───stdio───┘                     │  ↓                │
+                                                  │  POST /api/v1/    │
+                                                  │  analyze          │
+                                                  └────┬──────────────┘
+                                                       ↓
+                                              [도구 backend :8027]
+                                              (PlatformAuthFilter 가
+                                               각 사용자 키별 검증)
+```
+
+핵심: **MCP 서버는 X-Api-Key 헤더를 그대로 backend 에 전달** (per-request 패스스루). MCP 서버 자체는 키를 저장하지 않음 — backend 의 기존 보안 모델이 그대로 살아남음.
+
+### Step A — MCP 서버 호스트 설정 (1대)
+
+```bash
+cd claude-toolkit-mcp
+npm install
+npm run build
+
+# 환경변수
+export CTK_URL=http://localhost:8027        # 같은 호스트의 backend
+export MCP_TRANSPORT=http
+export MCP_HTTP_HOST=0.0.0.0                # 사내망 노출 (default)
+export MCP_HTTP_PORT=8028                   # default
+
+npm run start:http
+# → [MCP] http ready — listening on 0.0.0.0:8028 (12 tools, stateless, per-request X-Api-Key)
+```
+
+방화벽이 8028 을 사내망에 열어줘야 함. 외부 인터넷에 직접 노출하지 말 것 — VPN/사내망 안에서만 사용.
+
+### Step B — 각 개발자가 자기 키 발급
+
+`/admin/api-keys` 에서 사람별로 발급. 이름은 `홍길동 — Cursor` 처럼 식별 가능하게.
+
+### Step C — 클라이언트 PC 의 mcp_settings.json
+
+플랫폼별 경로:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Cursor: `Settings → Features → Model Context Protocol`
+- Cline: `VS Code Command Palette → Cline: Add MCP Server`
+
+```json
+{
+  "mcpServers": {
+    "claude-toolkit": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "http://mcp-host.사내도메인:8028/mcp",
+        "--header",
+        "X-Api-Key:ctk_live_본인키..."
+      ]
+    }
+  }
+}
+```
+
+> ⚠️ `--header` 와 키 사이는 콜론(`:`)으로 구분, 공백 없음. mcp-remote 가 stdio↔HTTP 브릿지 역할을 하므로 클라이언트 측 코드 수정 불요.
+
+### Step D — health check
+```bash
+curl http://mcp-host.사내도메인:8028/healthz
+# {"status":"ok","tools":12,"transport":"http"}
+```
+
+### 권장 운영 패턴
+
+| 상황 | 권장 |
+|------|------|
+| 개인 노트북에서 단독 사용 | stdio (§2) — 가장 단순 |
+| 팀 5명 이상 공유 (개발 PC 1대 기동) | mvn spring-boot:run + auto-launcher (§5-3) |
+| 사내 서버 + Docker 배포 | docker-compose 분리 컨테이너 (§5-4) |
+| 외부 인터넷 노출 필요 | 권장 안 함. 부득이하면 reverse proxy (nginx) + TLS + 사내망 ACL |
+
+### 5-3. 자동 기동 (개발 환경 — mvn spring-boot:run)
+
+`mvn spring-boot:run` 시 Spring Boot 의 `McpServerLauncher` 가 8028을 자동 spawn합니다. 별도 창에서 `npm run start:http` 를 띄울 필요 없음.
+
+```yaml
+# application.yml — 기본값 (변경 불필요)
+toolkit:
+  mcp:
+    auto-start: true              # ${TOOLKIT_MCP_AUTOSTART:true}
+    project-root: ../claude-toolkit-mcp
+    host: 0.0.0.0
+    port: 8028
+    node: node                    # PATH 의 node 또는 절대경로
+```
+
+기동 후 Spring Boot 로그에 다음이 보이면 정상:
+```
+[MCP] 자동 기동 성공 — pid=..., listening on 0.0.0.0:8028, backend=http://localhost:8027
+[MCP] [MCP] http ready — listening on 0.0.0.0:8028 (12 tools, ...)
+```
+
+**비활성화**: `TOOLKIT_MCP_AUTOSTART=false`
+
+**`node` PATH 안 잡힐 때**: `TOOLKIT_MCP_NODE="C:/Program Files/nodejs/node.exe"`
+
+**dist 가 없을 때**: launcher 가 `dist/index.js 미존재` 경고 후 스킵. `cd claude-toolkit-mcp && npm install && npm run build` 한 번 실행 후 재기동.
+
+### 5-4. Docker 배포 (운영 — docker-compose)
+
+Docker 환경에서는 **MCP 를 별도 컨테이너로 분리**합니다 (이미 `docker-compose.yml` 에 추가됨). claude-toolkit 컨테이너의 launcher 는 자동 OFF (`TOOLKIT_MCP_AUTOSTART=false`).
+
+```bash
+# 빌드 + 기동 — claude-toolkit-mcp 가 함께 올라옴
+docker-compose build --no-cache claude-toolkit claude-toolkit-mcp
+docker-compose up -d claude-toolkit claude-toolkit-mcp
+
+# 모니터링 프로필도 함께
+docker-compose --profile monitoring up -d
+```
+
+| 컨테이너 | 호스트 포트 | 컨테이너 내부 |
+|---------|-----------|-------------|
+| `claude-toolkit` | 8027 | 8027 (Spring Boot) |
+| `claude-toolkit-mcp` | 8028 | 8028 (Streamable HTTP) |
+
+컨테이너 간 통신: docker network DNS 로 `claude-toolkit-mcp → claude-toolkit:8027`.
+
+**검증**:
+```bash
+# 호스트에서
+curl http://localhost:8028/healthz
+# {"status":"ok","tools":12,"transport":"http"}
+
+# 컨테이너 로그
+docker logs -f claude-toolkit-mcp
+```
+
+**MCP 만 재시작**:
+```bash
+docker-compose restart claude-toolkit-mcp
+```
+
+**MCP 만 재빌드**:
+```bash
+docker-compose build claude-toolkit-mcp
+docker-compose up -d claude-toolkit-mcp
+```
+
+### 트러블슈팅 (HTTP 모드)
+
+| 증상 | 점검 |
+|------|------|
+| `npx mcp-remote` 가 connection refused | 호스트 IP/포트, 방화벽 8028 inbound, MCP 서버가 `0.0.0.0` 으로 listen 중인지 |
+| 401 X-Api-Key 헤더 필요 | mcp_settings.json 의 `--header` 형식 (`X-Api-Key:키`, 공백 없음) |
+| 401 Invalid API key | backend 에서 키 회수/만료 — `/admin/api-keys` |
+| 호출은 되는데 결과가 비어있음 | MCP 서버 로그(`[MCP] http 처리 실패: ...`) 확인 |
+
+---
+
 ## 6. 보안 모델
 
 ```

@@ -18,6 +18,10 @@ services:
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
       - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+      # Docker 환경에서는 MCP 서버를 *별도 컨테이너* (claude-toolkit-mcp) 로 분리 —
+      # 이 컨테이너 안의 launcher 가 중복 spawn 하지 않도록 명시적으로 OFF.
+      # (dev 환경 mvn spring-boot:run 시에는 application.yml 의 default=true 가 유효)
+      - TOOLKIT_MCP_AUTOSTART=false
       # JAVA_OPTS 는 Dockerfile 의 기본값 (TLS/DNS 튜닝 포함) 을 사용한다.
       # 커스텀 옵션이 필요할 때만 override — 기본값을 덮지 않도록 주의.
     volumes:
@@ -26,6 +30,38 @@ services:
       # D:\path → 컨테이너 /host/d/path 로 자동 접근
       - /c:/host/c:ro
       - /d:/host/d:ro
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────────────────────────
+  # v4.7.x — #M3 사내망 공유 MCP Server (Streamable HTTP transport)
+  # ────────────────────────────────────────────────────────────────────────
+  # 같은 docker network 안에서 backend(claude-toolkit:8027) 호출.
+  # 호스트의 8028 → 컨테이너 8028 publish — 사내망 다른 PC 가 mcp-remote 로 접속.
+  #
+  # 클라이언트(개발자 PC) 의 claude_desktop_config.json:
+  #   "claude-toolkit": {
+  #     "command": "npx",
+  #     "args": ["-y", "mcp-remote", "http://<호스트IP>:8028/mcp",
+  #              "--header", "X-Api-Key:ctk_live_..."]
+  #   }
+  claude-toolkit-mcp:
+    build:
+      context: .
+      dockerfile: claude-toolkit-mcp/Dockerfile
+    container_name: claude-toolkit-mcp
+    ports:
+      - "${MCP_PORT:-8028}:8028"
+    environment:
+      # docker network DNS 로 backend 도달. 호스트포트가 아니라 *서비스명*.
+      - CTK_URL=http://claude-toolkit:8027
+      - MCP_TRANSPORT=http
+      - MCP_HTTP_HOST=0.0.0.0
+      - MCP_HTTP_PORT=8028
+      - TZ=Asia/Seoul
+      # CTK_API_KEY 는 *의도적으로* 주입하지 않음 — per-request 헤더 패스스루.
+    depends_on:
+      claude-toolkit:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── MySQL (docker-compose --profile mysql up -d) ──
