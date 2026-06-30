@@ -142,16 +142,29 @@ export default function IndexAdvisorPage() {
   const [simResults, setSimResults]           = useState<Record<string, SimulationResult>>({})
   const [simLoading, setSimLoading]           = useState<Record<string, boolean>>({})
 
+  // v4.7.x — #G3: globalEnabled 상태 (AnalysisPageTemplate 과 동일하게 active-live-status 사용)
+  const [liveDbGlobalEnabled, setLiveDbGlobalEnabled] = useState<boolean>(false)
+
   // 페이지 진입 시 대상 DB 정보 + 활성 Live DB 프로필 로드
   useEffect(() => {
     fetch('/api/v1/sql/index-advisor/target-db', { credentials: 'include' })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => setTargetDb((j?.data ?? j) as TargetDbInfo))
       .catch(() => {})
-    fetch('/db-profiles/active-live', { credentials: 'include' })
-      .then((r) => r.ok ? r.json() : [])
+    // active-live-status: globalEnabled + profiles 함께 반환 (active-live 구 엔드포인트 교체)
+    fetch('/db-profiles/active-live-status', { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (Array.isArray(data)) setLiveDbProfiles(data as LiveDbProfile[])
+        if (!data) return
+        setLiveDbGlobalEnabled(!!data.globalEnabled)
+        if (Array.isArray(data.profiles)) {
+          const profiles = data.profiles as LiveDbProfile[]
+          setLiveDbProfiles(profiles)
+          if (data.globalEnabled) {
+            const firstHealthy = profiles.find((p) => !p.circuitOpen)
+            if (firstHealthy) setLiveDbProfileId(firstHealthy.id)
+          }
+        }
       })
       .catch(() => {})
   }, [])

@@ -535,12 +535,12 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
-     v4.7.x 차세대 — Platform / MCP Server (#M3)
+     차세대 — Platform / MCP Server (#M3)
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(59,130,246,.06),rgba(16,185,129,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">🚀 v4.7.x 차세대 — Platform</p>
+      <p class="section-eyebrow">🚀 차세대 — Platform</p>
       <h2 class="section-title">Consumer → Platform — IDE 안에서 도구를 사용</h2>
       <p class="section-desc" style="margin:0 auto;max-width:760px">
         Claude Code / Cursor / Cline 등 <strong>AI agent 가 IDE 안에서 12+ 분석 기능을 직접 호출</strong>. 도구의 정체성 변화 — 별도 페이지로 가야 사용 가능하던 도구가 <strong>사내 모든 시스템의 hub</strong> 로 진화. CI/CD / curl / 사내 자동화도 같은 X-Api-Key 헤더로 즉시.
@@ -553,7 +553,7 @@ footer{
         <div class="feat-title">API Key 인프라 — 멀티 키 + RBAC</div>
         <div class="feat-desc">SHA-256 해시 저장 + 발급 직후 plaintext 1회 노출. per-key <strong>role (READ_ONLY/WRITE/ADMIN)</strong> + <strong>분당 호출 한도</strong> (sliding window) + 만료 / 회수 / 사용 통계. timing-safe 비교 + audit_log 자동 기록. ADMIN 페이지 <code>/admin/api-keys</code>.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">🆕</span>
           <span class="tag">🔒 SHA-256</span>
           <span class="tag">⏱ Rate Limit</span>
           <span class="tag">📋 RBAC</span>
@@ -565,7 +565,7 @@ footer{
         <div class="feat-title">공식 REST API v1 — 모든 분석의 단일 진입점</div>
         <div class="feat-desc"><code>POST /api/v1/analyze</code> 동기 호출 — 12개 feature 통합 진입점. 응답에 <strong>토큰 + 비용 + latency + 모델 + 캐시 적중</strong>. Live DB 통합 자동 (<code>dbProfileId</code> 파라미터). <code>GET /api/v1/features</code> discovery — SDK 자동 생성 / CLI auto-complete 활용.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">🆕</span>
           <span class="tag">⚡ 동기</span>
           <span class="tag">💰 비용 표시</span>
           <span class="tag">🔌 Live DB</span>
@@ -577,7 +577,7 @@ footer{
         <div class="feat-title">MCP Server — Claude Code / Cursor 통합</div>
         <div class="feat-desc"><code>@claude-toolkit/mcp-server</code> npm 패키지 — Anthropic <strong>MCP 표준</strong> 서버 (stdio transport). Claude Code / Cursor / Cline / Continue.dev 자동 호환. <strong>12개 분석 tool</strong> 노출: SQL 분석 6 + Java/Code 분석 6. <strong>5분 통합</strong> — ADMIN 키 발급 → mcp_settings.json 한 줄 → IDE 재시작. 📘 <a href="https://github.com/Sangmoo/Claude-Java-Toolkit/blob/master/docs/mcp-setup.md" style="color:#10b981">docs/mcp-setup.md</a></div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.x</span>
+          <span class="tag">🆕</span>
           <span class="tag">🤖 MCP 표준</span>
           <span class="tag">🛠 12 tools</span>
           <span class="tag">⚡ 5분 통합</span>
@@ -606,12 +606,12 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
-     v4.7.2 — ADMIN 2FA 필수화 + 보안 테스트
+     보안 패치 — ADMIN 2FA 필수화 + 보안 테스트
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(239,68,68,.05),rgba(139,92,246,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">v4.7.2 — 보안 패치</p>
+      <p class="section-eyebrow">보안 패치</p>
       <h2 class="section-title">ADMIN 2FA 필수화 + 단위 테스트 24건</h2>
       <p class="section-desc" style="margin:0 auto;max-width:760px">
         ADMIN 계정의 2FA(TOTP) 를 <strong>선택 → 필수</strong>로 전환. 인증·2FA 핵심 로직 전반에 단위 테스트를 추가해 회귀 안전망 구축.
@@ -624,7 +624,7 @@ footer{
         <div class="feat-title">ADMIN 2FA 필수화</div>
         <div class="feat-desc"><code>POST /account/disable-2fa</code> 에 ADMIN 역할 차단 추가. ADMIN 이 2FA 비활성화 시도 시 <code>{ "success": false }</code> 반환. 로그인 흐름(<code>TwoFactorAuthHandler</code>)은 이미 ADMIN 을 강제로 2FA 등록·인증 페이지로 유도 — 이번 패치는 <strong>사후 비활성화 경로까지 차단</strong>하여 ADMIN 2FA 를 완전 필수화. REVIEWER / VIEWER 는 기존대로 선택.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.2</span>
+          <span class="tag">🆕</span>
           <span class="tag">🔒 ADMIN 필수</span>
           <span class="tag">🛡 보안 강화</span>
         </div>
@@ -635,7 +635,7 @@ footer{
         <div class="feat-title">보안 단위 테스트 24건 신규</div>
         <div class="feat-desc"><strong>TotpServiceTest (14)</strong> — RFC 6238 알고리즘·Base32·null 방어. <strong>TwoFactorAuthHandlerTest (5)</strong> — ADMIN 2FA 강제 리다이렉트, 실패 카운터 리셋. <strong>AccountController2faTest (5)</strong> — ADMIN 비활성화 거부, REVIEWER/VIEWER 정상 처리. <strong>SecuritySmokeTests (4 추가)</strong> — 인터셉터 동작 + API 응답 검증.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.2</span>
+          <span class="tag">🆕</span>
           <span class="tag">🧪 24 tests</span>
           <span class="tag">RFC 6238 TOTP</span>
           <span class="tag">🔄 회귀 방지</span>
@@ -646,15 +646,15 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
-     v4.7.1 — 운영/UX 5종 강화 콜아웃
+     최신 패치 — 운영/UX 5종 강화 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(139,92,246,.05),rgba(249,115,22,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">v4.7.1 — 누적 패치</p>
+      <p class="section-eyebrow">최신 패치</p>
       <h2 class="section-title">운영 인프라 + 사용자 워크플로 5종 강화</h2>
       <p class="section-desc" style="margin:0 auto;max-width:760px">
-        v4.7.0 메이저 릴리스 직후 운영팀 / 외부감사인 / 일반 사용자가 <strong>현장에서 바로 체감</strong>할 수 있는 5가지 영역 동시 강화. 모두 기존 컴포넌트 재사용 위주로 백엔드 구조 변경 최소화.
+        운영팀 / 외부감사인 / 일반 사용자가 <strong>현장에서 바로 체감</strong>할 수 있는 5가지 영역 동시 강화. 모두 기존 컴포넌트 재사용 위주로 백엔드 구조 변경 최소화.
       </p>
     </div>
 
@@ -664,7 +664,7 @@ footer{
         <div class="feat-title">Settings 변경 감사 로그</div>
         <div class="feat-desc">22개 시스템 설정 (DB / Claude / scanPath / SMTP / rate-limit 등) 변경 시 <strong>이전값/새값/변경자/IP/시각</strong> 자동 기록. 외부감사인이 "settings 가 언제 누구에 의해 어떻게 바뀌었는지" 1쿼리로 추적. 패스워드 / API 키 등 민감 필드는 자동 마스킹 (<code>***</code> 평문 보관 X). 신규 페이지 <code>/admin/config-changes</code>.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">📋 22 필드</span>
           <span class="tag">🔐 자동 마스킹</span>
           <span class="tag">👤 ADMIN 전용</span>
@@ -676,7 +676,7 @@ footer{
         <div class="feat-title">파일 해시 기반 분석 캐시</div>
         <div class="feat-desc">입력 정규화 (BOM / CRLF / trailing whitespace / 연속 빈 줄 축약) → 같은 의미의 입력은 항상 같은 키로 매핑. 캐시 키도 <strong>4-arg (feature + input + input2 + sourceType)</strong> 로 분리해 <code>review</code> vs <code>security</code> 옵션 충돌 버그 회귀 방지. JVM 라이프타임 hit/miss 카운터 + 적중률, 모든 결과 헤더에 <strong>⚡ 캐시 적중</strong> 칩 (Claude API 비용 0).</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🔑 4-arg 키</span>
           <span class="tag">📈 hit rate</span>
           <span class="tag">💰 비용 0</span>
@@ -688,7 +688,7 @@ footer{
         <div class="feat-title">리뷰 이력 태깅 시스템</div>
         <div class="feat-desc">각 분석 결과에 콤마 구분 태그 (예: <code>성능, SLA위반, DB</code>) — 본인 또는 ADMIN 만 수정. 헤더 dropdown 빈도순 빠른 선택 + 클릭으로 토글 필터. 카드 행 칩 + 확장 영역 자동완성 dropdown (Enter 저장 / Esc 취소). 정규화: trim / 빈·중복 제거 / 30자 상한, <code>,DB,</code> 패턴으로 콤마 매칭 충돌 방지.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🔍 자동완성</span>
           <span class="tag">📊 빈도순</span>
           <span class="tag">⚡ 정확 매칭</span>
@@ -700,7 +700,7 @@ footer{
         <div class="feat-title">결과 후속 질문 패널 (Follow-up Q&amp;A)</div>
         <div class="feat-desc">분석 결과 직후 같은 화면에서 "왜 이 결과가 나왔나요?" / "PostgreSQL 에서는?" 등 추가 질문 — 페이지 이동 없이 결과를 보면서 질문. 기존 <code>/chat/send</code> + <code>/chat/stream</code> SSE 인프라 그대로 재사용 (백엔드 변경 0). 결과 + 원본 입력 + 페이지 라벨을 첫 질문 시 1회 컨텍스트로 전달, 이후 멀티턴. <strong>22+ 분석 페이지에 한 번에 적용.</strong></div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🔄 SSE 재사용</span>
           <span class="tag">🌐 22 페이지</span>
           <span class="tag">📝 멀티턴</span>
@@ -712,7 +712,7 @@ footer{
         <div class="feat-title">분석 체이닝 — 결과 후 다음 단계 1-클릭</div>
         <div class="feat-desc">14개 feature × 평균 3개 다음단계 매핑 (총 ~40개 체이닝 경로) — <code>sql_review → /explain → /sql/index-advisor → /sql-translate → /erd</code> 등 자연스러운 흐름. <strong>sessionStorage 기반 1회용 handoff</strong> (60초 TTL), URL 길이 제한·로그 노출 우려 0. <code>sameInput</code> / <code>extractFirstCodeBlock</code> 변환 정책으로 다음 페이지 입력 자동 채움. 자동 채워진 페이지에는 <strong>🔗 체이닝 입력</strong> 인디케이터.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🗺 40+ 경로</span>
           <span class="tag">🚀 1-클릭</span>
           <span class="tag">📦 sessionStorage</span>
@@ -724,7 +724,7 @@ footer{
         <div class="feat-title">Live DB 직접 연결 + 인덱스 시뮬레이터 + 운영 대시보드 (#G3 Phase 0~5)</div>
         <div class="feat-desc">사용자가 SQL 만 입력 → 백엔드가 자동으로 <strong>EXPLAIN PLAN + 테이블 통계 + 인덱스 메타</strong> 수집 → Claude prompt 에 prepend. <strong>이중 보안 차단</strong>: <code>SqlClassifier</code> + <code>ReadOnlyJdbcTemplate</code> + kill switch. <strong>Default OFF</strong>. 6개 SQL 페이지 자동 적용. <strong>Oracle + PostgreSQL 11+</strong>. <strong>(Phase 4) 인덱스 시뮬레이터</strong>: <code>INVISIBLE INDEX</code> 트릭으로 추천 인덱스 비용 비교 — 운영 영향 0. <strong>(Phase 5) 운영 대시보드</strong>: Rate limiter (분당 사용자별 quota, sliding window) + 회로차단기 (10분 내 timeout 5건 → 5분 자동 비활성) + 호출 통계 (프로필별 성공/실패/timeout/avg latency) + <code>/admin/health</code> 카드 + ADMIN 강제 복구 / 통계 reset 엔드포인트.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🛡 이중 차단</span>
           <span class="tag">🔒 Default OFF</span>
           <span class="tag">📊 실데이터</span>
@@ -740,12 +740,12 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
-     v4.7.0 — 메이저 릴리스 콜아웃
+     메이저 업데이트 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(245,158,11,.05),rgba(124,107,240,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">v4.7.0 — 메이저 릴리스</p>
+      <p class="section-eyebrow">메이저 업데이트</p>
       <h2 class="section-title">인사이트 + 컴플라이언스 + UX 풀 스택 업그레이드</h2>
       <p class="section-desc" style="margin:0 auto;max-width:760px">
         운영팀 / 외부감사인 / 사용자 모두를 위한 5개 영역 동시 강화. 한국 컴플라이언스 4종 자동 리포트와 영구 이력 저장이 추가되며, 사용자별 인사이트와 시스템 헬스 모니터링까지 포함된 메이저 업데이트입니다.
@@ -758,7 +758,7 @@ footer{
         <div class="feat-title">한국 컴플라이언스 리포트 (4종)</div>
         <div class="feat-desc"><strong>FSS / PIPA / 정보통신망법 / 외부감사 종합</strong> 4종 자동 집계 리포트. review_history + audit_log 기반으로 자동 점검 표 + 수동 검토 체크리스트 + 종합 의견 작성. <strong>Markdown / Excel(4시트) / 인쇄·PDF</strong> 다운로드 + Claude 기반 <strong>AI 경영진 요약</strong> 옵션. 생성 시 자동으로 H2 영구 저장 (최대 500건), <strong>"저장된 리포트 이력" 모달</strong> 에서 과거 리포트 다시 보기·다운로드·삭제.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">📋 4종 법령</span>
           <span class="tag">📊 4시트 Excel</span>
           <span class="tag">🤖 AI 요약</span>
@@ -771,7 +771,7 @@ footer{
         <div class="feat-title">시스템 헬스 대시보드 확장</div>
         <div class="feat-desc">기존 4개 카드(서버/JVM/DB/시스템) + <strong>5개 신규 카드</strong>: 인덱서 5종 (MyBatis SQL · Spring URL · MiPlatform · Java 패키지 · MyBatis Caller) · 캐시 3종 (분석 / Java 파일 / DB 객체) · Claude API · 감사 로그 · 오류 로그. 30초 자동 갱신, 미해결 오류 강조 + 딥링크.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">🗺 인덱서 5종</span>
           <span class="tag">📚 캐시 3종</span>
           <span class="tag">🐞 오류 추적</span>
@@ -783,7 +783,7 @@ footer{
         <div class="feat-title">사용자/팀 인사이트</div>
         <div class="feat-desc"><code>/roi-report</code> 페이지에 두 신규 섹션. <strong>내 활동</strong> — 본인 분석/채팅/시간 절감 + Top 5 기능 BarChart + 12주 누적 추이 LineChart. <strong>팀 비교</strong> (ADMIN) — 팀 평균/누적 + <strong>본인 순위·백분위 진행 바</strong> + Top 5 사용자.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">📈 12주 추이</span>
           <span class="tag">🏆 백분위</span>
           <span class="tag">👥 팀 비교</span>
@@ -795,7 +795,7 @@ footer{
         <div class="feat-title">검색 강화 — 필터 + 정렬 + 매치 강조</div>
         <div class="feat-desc"><code>/api/v1/search</code> 에 <strong>type / from / to / sort</strong> 4개 파라미터. 매치 위치 ±60자 발췌 snippet + <code>&lt;mark&gt;</code> 노란 강조. SearchPage 에 필터 토글 + URL 동기화 (공유·새로고침 안전). title/type/input/output 매치 필드 라벨 칩 표시.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">🎯 4개 필터</span>
           <span class="tag">🟡 매치 강조</span>
           <span class="tag">🔗 URL 동기화</span>
@@ -807,7 +807,7 @@ footer{
         <div class="feat-title">분석 비용 미리보기</div>
         <div class="feat-desc">모든 분석 시작 버튼 옆에 인라인 표시 — <code>🪙 ~12K 토큰 · 예상 $0.062 (Sonnet 4)</code>. 한국어 1.8 chars/token + 영어 3.5 chars/token 휴리스틱(±15% 오차). 큰 입력으로 무심코 비용 발생하는 사고 방지. <strong>23개 분석 페이지</strong> 자동 적용 (AnalysisPageTemplate 단일 변경).</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">💰 사전 추정</span>
           <span class="tag">🌐 23 페이지</span>
         </div>
@@ -818,7 +818,7 @@ footer{
         <div class="feat-title">회귀 테스트 12건 추가</div>
         <div class="feat-desc">SSE 스트리밍 경로의 분석 이력 저장 누락 회귀 방지 — SP 마이그레이션 / SQL 최적화 / Log RCA 하네스 + Impact 분석 4종 통합 테스트. FSS 컴플라이언스 markdown 빌더 8 케이스 단위 테스트. <code>mvn test</code> 한 번이면 백엔드 전반 검증.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.7</span>
+          <span class="tag">🆕</span>
           <span class="tag">🛡 회귀 방지</span>
           <span class="tag">⚡ DB 의존 없음</span>
         </div>
@@ -828,12 +828,12 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
-     v4.6.1 — UX/안정성 패치 콜아웃
+     UX/안정성 패치 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,transparent,rgba(124,107,240,.04));">
   <div class="container">
     <div class="reveal" style="text-align:center;margin-bottom:36px">
-      <p class="section-eyebrow">v4.6.1 — 이전 업데이트</p>
+      <p class="section-eyebrow">이전 업데이트</p>
       <h2 class="section-title">현장 피드백 기반 UX · 정확도 패치</h2>
       <p class="section-desc" style="margin:0 auto;max-width:720px">
         큰 신규 기능보다는 사용자가 매일 마주치는 마찰을 한 번에 정리하는 데 집중한 패치입니다. 검색·이력·정확도 세 축에서 즉시 체감되는 개선이 모여 있습니다.
@@ -1031,7 +1031,7 @@ footer{
         <div class="feat-title">테이블 영향 분석</div>
         <div class="feat-desc">특정 테이블 변경의 영향 범위를 <strong>TABLE → MyBatis → Java → Controller</strong> 4단계로 역추적합니다. Settings 에 연결된 Oracle DB 의 <strong>테이블 픽커</strong> 로 이름을 즉시 채우고, MyBatis 구문 / Java 파일 / Controller 행을 클릭하면 <strong>모달로 전체 소스가 열려 클립보드 복사</strong> 까지 한 번에 처리합니다. <code>MyBatisCallerIndex</code> 의 mapper 클래스 단위 검증으로 같은 메서드명을 갖는 다른 매퍼의 false-positive 가 제거되어 결과 정확도가 크게 향상됐습니다.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.6.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">📋 파일 모달 + 복사</span>
           <span class="tag">🔌 DB 테이블 픽커</span>
           <span class="tag">🎯 정확도 패치</span>
@@ -1042,7 +1042,7 @@ footer{
         <div class="feat-title">전역 검색</div>
         <div class="feat-desc">상단바 가운데에 상시 노출되는 검색창으로 어느 페이지에서든 즉시 호출 가능합니다. 테두리는 <strong>Settings 팔레트의 accent 색상으로 자동 동기화</strong>(테마 변경 시 즉시 추종)되고, Enter / 버튼 클릭으로 <code>/search?q=...</code> 로 이동해 <strong>메뉴 카탈로그 + 분석 이력</strong> 두 종류 결과를 한 화면에 보여 줍니다. URL 파라미터로 진입하면 자동 검색되어 공유·새로고침에 안전.</div>
         <div class="feat-tags">
-          <span class="tag">🆕 v4.6.1</span>
+          <span class="tag">🆕</span>
           <span class="tag">🎨 팔레트 추종</span>
           <span class="tag">📂 메뉴 + 이력 통합</span>
           <span class="tag">🔗 URL 파라미터</span>
@@ -1071,7 +1071,7 @@ footer{
       <div class="feat-card reveal">
         <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">🔬</div>
         <div class="feat-title" data-i18n="feat.harness.title">하네스 파이프라인 (4종)</div>
-        <div class="feat-desc" data-i18n="feat.harness.desc">동일한 Analyst → Builder → Reviewer → Verifier 4단계 패턴을 4가지 시나리오에 적용한 하네스 제품군입니다. <strong>코드 리뷰</strong> (Java/SQL Verifier 정적 검증), <strong>오류 로그 RCA</strong> (가설→검증SQL+패치+롤백→우도→사내 표준 보고서, 일반/보안 모드), <strong>SP→Java 마이그레이션</strong> (Oracle SP 자동 로드 → Service+Mapper+XML+DTO+테스트), <strong>SQL 최적화</strong> (병목 분석 → N개 후보 → 우도 평가 → 단계별 Rollout Plan). 공통 PromptLoader · Orchestrator · 권한 게이팅 · SSE 스트리밍 인프라 공유. <strong>v4.6.1</strong>: 스트리밍 경로의 분석 이력 저장 누락 수정, 마크다운 청크 경계에서 단어가 갈라져 보이던 버그 수정, "소스선택하기" 버튼이 메뉴별로 PROCEDURE/FUNCTION/PACKAGE/TRIGGER 만 노출되도록 필터링.</div>
+        <div class="feat-desc" data-i18n="feat.harness.desc">동일한 Analyst → Builder → Reviewer → Verifier 4단계 패턴을 4가지 시나리오에 적용한 하네스 제품군입니다. <strong>코드 리뷰</strong> (Java/SQL Verifier 정적 검증), <strong>오류 로그 RCA</strong> (가설→검증SQL+패치+롤백→우도→사내 표준 보고서, 일반/보안 모드), <strong>SP→Java 마이그레이션</strong> (Oracle SP 자동 로드 → Service+Mapper+XML+DTO+테스트), <strong>SQL 최적화</strong> (병목 분석 → N개 후보 → 우도 평가 → 단계별 Rollout Plan). 공통 PromptLoader · Orchestrator · 권한 게이팅 · SSE 스트리밍 인프라 공유. 스트리밍 경로의 분석 이력 저장 누락 수정, 마크다운 청크 경계에서 단어가 갈라져 보이던 버그 수정, "소스선택하기" 버튼이 메뉴별로 PROCEDURE/FUNCTION/PACKAGE/TRIGGER 만 노출되도록 필터링.</div>
         <div class="feat-tags">
           <span class="tag">🔬 코드 리뷰</span>
           <span class="tag">🐞 오류 로그 RCA</span>
@@ -1079,7 +1079,7 @@ footer{
           <span class="tag">⚡ SQL 최적화</span>
           <span class="tag">🛡 권한 게이팅</span>
           <span class="tag">⚡ SSE 스트리밍</span>
-          <span class="tag">💾 이력 저장 (v4.6.1)</span>
+          <span class="tag">💾 이력 저장</span>
           <span class="tag">🛠 마크다운 버그 수정</span>
         </div>
       </div>

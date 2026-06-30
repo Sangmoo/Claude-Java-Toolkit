@@ -65,6 +65,8 @@ claude-toolkit-ui/frontend/node/
 # Vite 빌드 결과물 (mvn package 시 자동 생성)
 claude-toolkit-ui/src/main/resources/static/assets/
 claude-toolkit-ui/src/main/resources/static/index.html
+# TypeScript 증분 빌드 캐시 — 로컬 머신별로 달라져 git 노이즈 유발
+**/tsconfig.tsbuildinfo
 
 # ── OS ─────────────────────────────────────────────────────────────────────
 .DS_Store

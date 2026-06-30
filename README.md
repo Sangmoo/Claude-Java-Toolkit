@@ -383,6 +383,11 @@ DB_TYPE=postgresql docker-compose --profile postgresql --profile monitoring up -
 | `DB_USERNAME` / `DB_PASSWORD` | DB 계정 | `claude` / `claude1234` |
 | `PORT` | 웹 서버 포트 | `8027` |
 | `GRAFANA_USER` / `GRAFANA_PASSWORD` | Grafana 관리자 계정 (monitoring 프로필) | `admin` / `admin` |
+| `TOOLKIT_LIVEDB_ENABLED` | Live DB 직접 연결 기능 활성화 | `true` |
+| `TOOLKIT_LIVEDB_TIMEOUT` | Live DB 쿼리 타임아웃(초) | `30` |
+| `TOOLKIT_LIVEDB_MAX_ROWS` | Live DB 조회 최대 행 수 | `1000` |
+| `TOOLKIT_LIVEDB_RATE_LIMIT` | 사용자별 분당 Live DB 호출 한도 | `10` |
+| `CTK_DB_PROFILE_ID` | MCP 도구 기본 Live DB 프로필 ID | (미설정) |
 
 > Kubernetes / Helm 배포는 아래 [🚢 배포 가이드](#-배포-가이드-deployment-guide) 섹션 참고.
 
@@ -407,7 +412,7 @@ curl http://localhost:8027/actuator/health
 {
   "status": "UP",
   "components": {
-    "claudeApi": { "status": "UP", "details": { "model": "claude-sonnet-4-20250514", "responseTime": "342ms" } },
+    "claudeApi": { "status": "UP", "details": { "model": "claude-sonnet-4-6", "responseTime": "342ms" } },
     "oracleDb":  { "status": "UNKNOWN", "details": { "reason": "Oracle DB 미설정" } }
   }
 }
@@ -622,7 +627,7 @@ helm upgrade --install claude-toolkit ./helm/claude-toolkit \
 | `replicaCount` | `1` | Pod 복제 수 (HPA 비활성 시) |
 | `db.type` | `h2` | `h2` / `mysql` / `postgresql` |
 | `claude.apiKey` | `""` | API 키 (또는 `secret.existingSecret`) |
-| `claude.model` | `claude-sonnet-4-5` | 기본 모델 |
+| `claude.model` | `claude-sonnet-4-6` | 기본 모델 |
 | `persistence.size` | `5Gi` | H2 PVC 크기 |
 | `ingress.enabled` | `false` | Ingress 활성화 |
 | `autoscaling.enabled` | `false` | HPA 활성화 |
@@ -807,7 +812,7 @@ export ORACLE_DB_URL=jdbc:oracle:thin:@//host:1521/SERVICE_NAME
 # application.yml
 claude:
   api-key: ${CLAUDE_API_KEY}
-  model:   claude-sonnet-4-5
+  model:   claude-sonnet-4-6
   max-tokens: 4096
 ```
 

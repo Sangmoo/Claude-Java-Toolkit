@@ -150,6 +150,20 @@ export default function AnalysisPageTemplate({ config }: { config: AnalysisPageC
     setPendingDbProfileId(null)  // 1회용
   }, [pendingDbProfileId, liveDbProfiles, toast])
 
+  // 활성 프로필이 1개 이상 + 글로벌 ON 이면 사용자가 직접 선택하지 않았어도
+  // 첫 번째 (회로 OPEN 아님) 프로필을 기본값으로 자동 선택 — 매번 토글하는 번거로움 제거.
+  // pendingDbProfileId(체이닝 자동 복원) 가 있으면 그쪽에 양보. liveDbProfileId 가
+  // 한 번이라도 set 되면 더 이상 덮지 않으므로 사용자의 명시적 OFF 선택은 보존된다.
+  useEffect(() => {
+    if (!isLiveDbCapable) return
+    if (!liveDbGlobalEnabled) return
+    if (liveDbProfileId != null) return
+    if (pendingDbProfileId != null) return
+    if (liveDbProfiles.length === 0) return
+    const firstHealthy = liveDbProfiles.find((p) => !p.circuitOpen)
+    if (firstHealthy) setLiveDbProfileId(firstHealthy.id)
+  }, [isLiveDbCapable, liveDbGlobalEnabled, liveDbProfiles, liveDbProfileId, pendingDbProfileId])
+
   const setOption = useCallback((name: string, value: string) => {
     setOptionValues((prev) => ({ ...prev, [name]: value }))
   }, [])

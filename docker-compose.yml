@@ -22,6 +22,14 @@ services:
       # 이 컨테이너 안의 launcher 가 중복 spawn 하지 않도록 명시적으로 OFF.
       # (dev 환경 mvn spring-boot:run 시에는 application.yml 의 default=true 가 유효)
       - TOOLKIT_MCP_AUTOSTART=false
+      # v4.7.x — #G3 Live DB: 분석 페이지가 운영 DB 에 직접 EXPLAIN/통계 조회.
+      # 활성화 후에도 (1) ADMIN 이 /db-profiles 에서 read-only DbProfile 등록,
+      # (2) SqlClassifier 가 SELECT/EXPLAIN/DESC/WITH 만 통과시키므로 이중 차단.
+      # 자세한 권한 요구사항은 docs/livedb-operations.md 참고.
+      - TOOLKIT_LIVEDB_ENABLED=${TOOLKIT_LIVEDB_ENABLED:-true}
+      - TOOLKIT_LIVEDB_TIMEOUT=${TOOLKIT_LIVEDB_TIMEOUT:-30}
+      - TOOLKIT_LIVEDB_MAX_ROWS=${TOOLKIT_LIVEDB_MAX_ROWS:-1000}
+      - TOOLKIT_LIVEDB_RATE_LIMIT=${TOOLKIT_LIVEDB_RATE_LIMIT:-10}
       # JAVA_OPTS 는 Dockerfile 의 기본값 (TLS/DNS 튜닝 포함) 을 사용한다.
       # 커스텀 옵션이 필요할 때만 override — 기본값을 덮지 않도록 주의.
     volumes:
@@ -59,6 +67,11 @@ services:
       - MCP_HTTP_PORT=8028
       - TZ=Asia/Seoul
       # CTK_API_KEY 는 *의도적으로* 주입하지 않음 — per-request 헤더 패스스루.
+      # Live DB default 프로필 — MCP 도구 호출 시 args.dbProfileId 가 없으면 이 값 사용.
+      # 미설정 시 LLM 이 매 호출마다 dbProfileId 인자를 직접 넣어줘야 EXPLAIN PLAN 자동
+      # 첨부가 동작한다 (현실적으로 자주 누락). /db-profiles/active-live-status 응답의
+      # profiles[].id 를 확인 후 .env 파일에 CTK_DB_PROFILE_ID=N 으로 설정.
+      - CTK_DB_PROFILE_ID=${CTK_DB_PROFILE_ID:-}
     depends_on:
       claude-toolkit:
         condition: service_healthy

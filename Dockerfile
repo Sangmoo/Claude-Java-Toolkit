@@ -82,8 +82,11 @@ EXPOSE 8027
 #   /actuator/health/readiness 는 StartupReadiness 가 Settings/DB warmup 을
 #   완료한 후에야 UP 으로 응답. 이전 /actuator/health 는 Spring Boot 시작 즉시
 #   UP 이라 사용자가 "준비 안된" 상태에서 화면 진입해 빈 결과 / 오류를 봤음.
-# start-period 도 90초로 증가 (warmup 시간 확보)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+# start-period 는 300초 — HarnessCacheService 가 호스트 마운트 (/host/c, /host/d)
+# 의 Java 소스 스캔 + Oracle ALL_OBJECTS 조회를 @PostConstruct 단계에서 동기 수행하기
+# 때문에, 큰 프로젝트/원격 DB 환경에선 70초 이상도 걸린다. 이전 90s 는 마진이 부족해
+# claude-toolkit-mcp(depends_on: service_healthy) 가 영영 시작되지 않는 사례가 있었다.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD curl -f http://localhost:8027/actuator/health/readiness || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --spring.profiles.active=${DB_TYPE:-h2}"]

@@ -20,7 +20,7 @@ spring:
 
 claude:
   api-key: ${CLAUDE_API_KEY:}   # Set via env var: export CLAUDE_API_KEY=sk-ant-...
-  model: claude-sonnet-4-20250514
+  model: claude-sonnet-4-6
   max-tokens: 8192
   timeout-seconds: 120
   base-url: ${CLAUDE_BASE_URL:https://api.anthropic.com}
