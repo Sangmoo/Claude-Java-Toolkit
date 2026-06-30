@@ -205,6 +205,9 @@ public class McpServerLauncher {
         }
     }
 
+    public boolean isAutoStart() { return autoStart; }
+    public int getPort()         { return port; }
+
     /** 진단용 — health check 컨트롤러 등에서 노출 가능 */
     public boolean isRunning() {
         Process p = this.process;

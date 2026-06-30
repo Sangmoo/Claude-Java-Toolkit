@@ -174,6 +174,13 @@ public class IndexSimulatorService {
         return ds;
     }
 
+    /** Application shutdown 시 DataSource 캐시 정리. */
+    @javax.annotation.PreDestroy
+    public synchronized void shutdown() {
+        dataSourceCache.clear();
+        log.info("[IndexSimulator] DataSource 캐시 정리 완료 (shutdown)");
+    }
+
     public synchronized void invalidate(Long dbProfileId) {
         dataSourceCache.remove(dbProfileId);
         log.debug("[IndexSimulator] invalidated cache for profile {}", dbProfileId);

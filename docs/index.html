@@ -606,6 +606,78 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     인프라 하드닝 — 보안·안정성 선제 개선
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(16,185,129,.05),rgba(59,130,246,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">인프라 하드닝</p>
+      <h2 class="section-title">보안·안정성 선제 개선 5종</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        코드 리뷰에서 발견된 운영 리스크를 선제적으로 해소. 암호화 키 보호부터 MCP 헬스 모니터링까지 인프라 전반을 하드닝.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🔑</div>
+        <div class="feat-title">암호화 키 파일 권한 강제 (600)</div>
+        <div class="feat-desc"><code>CryptoUtils</code> 가 <code>~/.claude-toolkit/.encryption-key</code> 생성 시 owner read/write only(600) 로 강제 설정. Docker/Linux 환경에서 다른 프로세스가 AES 키를 읽을 수 없도록 차단. Windows 에서는 Java <code>File.setReadable/setWritable</code> API 로 부분 적용.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🔒 파일 권한 600</span>
+          <span class="tag">🛡 AES 키 보호</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🛡</div>
+        <div class="feat-title">API Key DoS 방어 — 길이 사전 차단</div>
+        <div class="feat-desc"><code>ApiKeyFilter</code> 에서 BCrypt 비교 전 512자 초과 키를 즉시 거부. BCrypt 는 입력 길이에 비례해 CPU 를 소모하므로, 비정상적으로 긴 값으로 서버를 마비시키는 공격을 타이트하게 차단.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">⚡ BCrypt DoS 방어</span>
+          <span class="tag">🔐 API Key</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;">🔌</div>
+        <div class="feat-title">DataSource 캐시 정상 종료</div>
+        <div class="feat-desc"><code>LiveDbContextService</code> / <code>IndexSimulatorService</code> 에 <code>@PreDestroy</code> 추가. JVM graceful shutdown 시 DataSource 캐시 맵을 명시적으로 정리해 핫-리로드·컨테이너 재시작 시 메모리 누수 방지.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">♻️ @PreDestroy</span>
+          <span class="tag">💧 리소스 정리</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">⚙️</div>
+        <div class="feat-title">Claude 모델 환경변수화</div>
+        <div class="feat-desc"><code>application.yml</code> 의 <code>claude.model</code> 이 <code>${CLAUDE_MODEL:claude-sonnet-4-6}</code> 로 변경. 재빌드 없이 환경변수 한 줄(<code>CLAUDE_MODEL=claude-opus-4-8</code>)로 모델 전환 가능 — Docker / Helm / JAR 배포 모두 즉시 적용.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🤖 CLAUDE_MODEL</span>
+          <span class="tag">⚡ 재빌드 불필요</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(249,115,22,.12);color:#f97316;">🩺</div>
+        <div class="feat-title">MCP Server 헬스 인디케이터</div>
+        <div class="feat-desc"><code>McpServerHealthIndicator</code> 신규 추가. <code>/actuator/health</code> 에 <code>mcpServer</code> 컴포넌트가 노출되어 Prometheus / Grafana 알람에 자동 연동. auto-start=false 이면 <code>UP(disabled)</code>, 프로세스 다운이면 <code>DOWN</code> — 운영팀이 즉시 인지 가능.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🩺 /actuator/health</span>
+          <span class="tag">📊 Grafana 알람</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      보안 패치 — ADMIN 2FA 필수화 + 보안 테스트
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(239,68,68,.05),rgba(139,92,246,.04));">

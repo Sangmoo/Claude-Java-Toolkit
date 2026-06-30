@@ -73,6 +73,11 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             sendUnauthorized(res, "X-Api-Key 헤더가 없습니다.");
             return;
         }
+        // BCrypt 는 입력 길이에 비례해 CPU 를 소모 — 비정상적으로 긴 값은 사전 차단 (DoS 방어)
+        if (apiKey.length() > 512) {
+            sendUnauthorized(res, "X-Api-Key 헤더가 올바르지 않습니다.");
+            return;
+        }
 
         try {
             if (!ENCODER.matches(apiKey, settings.getApiKeyHash())) {

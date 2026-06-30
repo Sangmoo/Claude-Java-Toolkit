@@ -144,6 +144,14 @@ public final class CryptoUtils {
         } finally {
             fos.close();
         }
+
+        // 파일 권한 600 (owner r/w only) — Linux/Docker 보안. Windows 에서는 부분 적용됨.
+        keyFile.setReadable(false, false);
+        keyFile.setReadable(true, true);
+        keyFile.setWritable(false, false);
+        keyFile.setWritable(true, true);
+        keyFile.setExecutable(false, false);
+
         return keyBytes;
     }
 

@@ -77,6 +77,16 @@ curl -X POST $CTK_URL/api/v1/analyze \
   -d '{"feature":"sql_review","input":"SELECT * FROM T_ORDER ..."}' | jq
 ```
 
+### 🔒 최신 보안·안정성 개선 — 인프라 하드닝
+
+코드 리뷰를 통해 발견된 운영 리스크를 선제적으로 해소.
+
+- 🔑 **암호화 키 파일 권한 강제 (600)** — `CryptoUtils` 가 `~/.claude-toolkit/.encryption-key` 생성 시 OS 에 상관없이 owner read/write only 로 설정. Docker/Linux 환경에서 다른 프로세스가 키를 읽을 수 없도록 차단.
+- 🛡 **API Key DoS 방어** — `ApiKeyFilter` 에서 BCrypt 비교 전 키 길이 512자 초과 시 사전 차단. 비정상적으로 긴 입력으로 CPU 를 소모시키는 요청 자동 거부.
+- 🔌 **DataSource 캐시 정상 종료** — `LiveDbContextService` / `IndexSimulatorService` 에 `@PreDestroy` 추가. JVM graceful shutdown 시 캐시 맵 명시적 정리.
+- ⚙️ **Claude 모델 환경변수화** — `application.yml` 의 `claude.model` 이 `${CLAUDE_MODEL:claude-sonnet-4-6}` 으로 변경. 재빌드 없이 환경변수 한 줄로 모델 전환 가능.
+- 🩺 **MCP Server 헬스 인디케이터** — `McpServerHealthIndicator` 신규 추가. `/actuator/health` 에 `mcpServer` 컴포넌트가 노출되어 Prometheus / Grafana 알람에 자동 연동.
+
 ### 🆕 v4.7.2 패치 — ADMIN 2FA 필수화 + 보안 단위 테스트
 
 보안 정책 강화: **ADMIN 계정의 2FA(TOTP)를 선택이 아닌 필수**로 전환. 동시에 인증·2FA 핵심 로직 전반에 단위 테스트를 추가해 회귀 안전망을 구축.
@@ -376,6 +386,7 @@ DB_TYPE=postgresql docker-compose --profile postgresql --profile monitoring up -
 | 환경변수 | 설명 | 기본값 |
 |----------|------|--------|
 | `CLAUDE_API_KEY` | Anthropic API 키 | (필수) |
+| `CLAUDE_MODEL` | 사용할 Claude 모델 ID (재빌드 없이 전환 가능) | `claude-sonnet-4-6` |
 | `DB_TYPE` | 내부 DB 유형 (`h2`/`mysql`/`postgresql`) | `h2` |
 | `DB_HOST` | DB 호스트 (MySQL/PG) | `db` |
 | `DB_PORT` | DB 포트 | `3306` |
@@ -412,8 +423,9 @@ curl http://localhost:8027/actuator/health
 {
   "status": "UP",
   "components": {
-    "claudeApi": { "status": "UP", "details": { "model": "claude-sonnet-4-6", "responseTime": "342ms" } },
-    "oracleDb":  { "status": "UNKNOWN", "details": { "reason": "Oracle DB 미설정" } }
+    "claudeApi":   { "status": "UP", "details": { "model": "claude-sonnet-4-6", "responseTime": "342ms" } },
+    "oracleDb":    { "status": "UNKNOWN", "details": { "reason": "Oracle DB 미설정" } },
+    "mcpServer":   { "status": "UP", "details": { "status": "running", "pid": 12345, "port": 8028 } }
   }
 }
 ```

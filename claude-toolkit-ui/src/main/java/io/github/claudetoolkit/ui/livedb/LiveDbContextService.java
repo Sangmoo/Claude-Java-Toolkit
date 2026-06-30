@@ -244,6 +244,17 @@ public class LiveDbContextService {
     }
 
     /**
+     * Application shutdown 시 DataSource 캐시 정리.
+     * DriverManagerDataSource 는 pool 을 보유하지 않으나 맵을 비워 GC 유도.
+     */
+    @javax.annotation.PreDestroy
+    public synchronized void shutdown() {
+        dataSourceCache.clear();
+        jdbcCache.clear();
+        log.info("[LiveDb] DataSource 캐시 정리 완료 (shutdown)");
+    }
+
+    /**
      * 캐시된 프로필을 무효화 — DbProfile 이 수정/삭제될 때 호출 (Phase 5 wiring).
      */
     public synchronized void invalidate(Long dbProfileId) {
