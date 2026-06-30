@@ -233,6 +233,66 @@ public class DbProfileController {
     }
 
     /**
+     * 저장된 프로필 ID 로 연결 테스트 — 비밀번호는 DB 에 저장된 값 사용.
+     */
+    @PostMapping("/{id}/test-existing")
+    @ResponseBody
+    public java.util.Map<String, Object> testExistingConnection(@PathVariable Long id) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        DbProfile p = service.findById(id);
+        if (p == null) {
+            resp.put("success", false);
+            resp.put("error",   "프로필을 찾을 수 없습니다 (id=" + id + ")");
+            return resp;
+        }
+
+        String url      = p.getUrl();
+        String username = p.getUsername();
+        String password = p.getPassword();
+        String dbType   = inferDbType(url);
+
+        try { registerDriverIfNeeded(dbType); }
+        catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   "JDBC 드라이버 로드 실패 (" + dbType + "): " + e.getMessage());
+            resp.put("url",     url);
+            return resp;
+        }
+
+        java.util.Properties props = new java.util.Properties();
+        if (username != null && !username.isEmpty()) props.put("user",     username);
+        if (password != null && !password.isEmpty()) props.put("password", password);
+        java.sql.DriverManager.setLoginTimeout(10);
+
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, props)) {
+            try (java.sql.Statement st = conn.createStatement()) {
+                st.setQueryTimeout(5);
+                String pingSql = "oracle".equalsIgnoreCase(dbType) ? "SELECT 1 FROM DUAL" : "SELECT 1";
+                try (java.sql.ResultSet rs = st.executeQuery(pingSql)) { rs.next(); }
+            }
+            resp.put("success", true);
+            resp.put("url",     url);
+            resp.put("message", "연결 성공 (" + p.getName() + ")");
+            return resp;
+        } catch (java.sql.SQLException e) {
+            resp.put("success", false);
+            resp.put("error",   "연결 실패: " + e.getMessage()
+                    + " (errorCode=" + e.getErrorCode() + ")");
+            resp.put("url",     url);
+            return resp;
+        }
+    }
+
+    /** JDBC URL 에서 dbType 추론 */
+    private String inferDbType(String url) {
+        if (url == null) return "";
+        if (url.contains(":oracle:"))     return "oracle";
+        if (url.contains(":postgresql:")) return "postgresql";
+        if (url.contains(":mysql:"))      return "mysql";
+        return "";
+    }
+
+    /**
      * v4.7.x — #G3 Live DB Phase 0: 분석 채널 활성/비활성 토글 (ADMIN 전용).
      *
      * <p>SecurityConfig 가 /db-profiles/** 를 ADMIN 으로 제한하므로 추가 권한 검사 없음.

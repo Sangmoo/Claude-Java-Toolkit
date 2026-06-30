@@ -593,6 +593,56 @@
       }
     }
   ],
+    {
+      "type": "row",
+      "title": "MCP Server",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 48 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "MCP Server 상태",
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 49 },
+      "targets": [
+        {
+          "expr": "health_mcpServer_status{status=\"UP\"} or vector(0)",
+          "legendFormat": "status",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" }
+    },
+    {
+      "type": "stat",
+      "title": "MCP 헬스체크 — /actuator/health",
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "description": "Spring Boot Actuator 의 mcpServer 컴포넌트 UP/DOWN 상태",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 49 },
+      "targets": [
+        {
+          "expr": "spring_boot_info{application=\"claude-toolkit\"}",
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "blue" } }
+      },
+      "options": { "reduceOptions": { "calcs": ["count"] }, "orientation": "auto", "textMode": "value_and_name", "colorMode": "background" }
+    }
+  ],
   "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",

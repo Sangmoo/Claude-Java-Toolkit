@@ -77,6 +77,17 @@ curl -X POST $CTK_URL/api/v1/analyze \
   -d '{"feature":"sql_review","input":"SELECT * FROM T_ORDER ..."}' | jq
 ```
 
+### 🚀 최신 기능 추가 — 8종 개선
+
+- 📊 **이력 CSV 내보내기** — `/history` 페이지에 CSV 버튼 추가. `GET /api/v1/export/csv/history` 엔드포인트가 UTF-8 BOM 포함 CSV 를 반환 — Excel 에서 한글 깨짐 없음. 기존 Excel 내보내기와 병행 제공.
+- 🔗 **회로차단기 DB 공유** — `LiveDbCircuitBreaker` 가 `livedb_breaker_state` JPA 테이블을 source-of-truth 로 사용. 멀티 인스턴스 배포에서 한 인스턴스의 차단 결정이 전체 인스턴스에 즉시 전파. 단일 인스턴스에서는 기존 in-memory 동작 유지 (DB 자동 감지).
+- 📈 **Grafana MCP 패널** — `claude-toolkit-overview.json` 대시보드에 MCP Server 섹션 추가 (상태 stat 패널 2개).
+- 🩺 **Admin 헬스 페이지 MCP 카드** — `/admin/health` 에 MCP Server 상태 카드 노출. `GET /api/v1/admin/health/mcp` 엔드포인트에서 `autoStart / running / pid / port` 조회.
+- 🔌 **DB 프로필 연결 테스트 버튼** — `/db-profiles` 목록의 각 행에 "연결 테스트" 버튼 추가. `POST /db-profiles/{id}/test-existing` 이 저장된 자격증명으로 실제 JDBC 연결 시도.
+- ⚙️ **`TOOLKIT_MCP_AUTOSTART` 환경변수 노출** — `docker-compose.yml` 에서 `${TOOLKIT_MCP_AUTOSTART:-false}` 로 변경. `.env` 파일 한 줄로 MCP 자동 기동 전환 가능.
+- 🧪 **`McpServerHealthIndicator` 단위 테스트** — 4 케이스: disabled/running+pid/running-no-pid/not-running.
+- 🧪 **`ApiKeyFilter` 512자 차단 테스트** — MockedStatic 으로 SecuritySettings 를 격리, 513자 키 → 401, 512자 키 → BCrypt 단계까지 통과 검증.
+
 ### 🔒 최신 보안·안정성 개선 — 인프라 하드닝
 
 코드 리뷰를 통해 발견된 운영 리스크를 선제적으로 해소.
@@ -398,6 +409,7 @@ DB_TYPE=postgresql docker-compose --profile postgresql --profile monitoring up -
 | `TOOLKIT_LIVEDB_TIMEOUT` | Live DB 쿼리 타임아웃(초) | `30` |
 | `TOOLKIT_LIVEDB_MAX_ROWS` | Live DB 조회 최대 행 수 | `1000` |
 | `TOOLKIT_LIVEDB_RATE_LIMIT` | 사용자별 분당 Live DB 호출 한도 | `10` |
+| `TOOLKIT_MCP_AUTOSTART` | 사내망 MCP Server 자동 기동 여부 (`true`/`false`). Docker 에서는 `false` 기본 — MCP 는 별도 컨테이너로 분리. dev 환경에서는 `true` (application.yml 기본) | `false` (Docker) |
 | `CTK_DB_PROFILE_ID` | MCP 도구 기본 Live DB 프로필 ID | (미설정) |
 
 > Kubernetes / Helm 배포는 아래 [🚢 배포 가이드](#-배포-가이드-deployment-guide) 섹션 참고.

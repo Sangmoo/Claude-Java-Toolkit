@@ -320,6 +320,31 @@ export default function HistoryPage() {
     }
   }
 
+  const downloadCsv = async () => {
+    try {
+      const res = await fetch('/api/v1/export/csv/history?limit=1000', {
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        toast.error(`CSV 내보내기 실패 (HTTP ${res.status})`)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+      a.download = `claude-toolkit-history-${ts}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('CSV 파일이 다운로드되었습니다 (최근 1000건)')
+    } catch {
+      toast.error('CSV 다운로드 요청 실패')
+    }
+  }
+
   // v4.2.7: 다중 선택 삭제 — 선택된 이력을 일괄로 삭제. 개별 엔드포인트를
   // 병렬 호출하여 백엔드 역할 체크(VIEWER 차단)를 그대로 활용한다.
   const deleteSelected = async () => {
@@ -611,12 +636,19 @@ export default function HistoryPage() {
             {selectedIds.size > 0 ? <FaFileExport /> : <FaDownload />}
             {selectedIds.size > 0 ? ` 선택 ${selectedIds.size}건 (MD)` : ' 내보내기 (MD)'}
           </button>
-          {/* v4.3.0: Excel 워크북 다운로드 (3 시트: 요약/이력 상세/유형별 통계) */}
+          {/* Excel 워크북 다운로드 (3 시트: 요약/이력 상세/유형별 통계) */}
           <button
             onClick={downloadExcel}
             style={{ ...btnStyle, background: '#1f7244', color: '#fff', borderColor: '#1f7244' }}
             title="Excel(.xlsx) 다운로드 — 최근 1000건, 시트 분리 + 합계 수식">
             <FaFileExcel /> Excel
+          </button>
+          {/* CSV 다운로드 (UTF-8 BOM — Excel 한글 호환) */}
+          <button
+            onClick={downloadCsv}
+            style={{ ...btnStyle, background: '#0f766e', color: '#fff', borderColor: '#0f766e' }}
+            title="CSV 다운로드 — 최근 1000건, UTF-8 BOM (Excel 한글 호환)">
+            <FaFileExport /> CSV
           </button>
         </div>
       </div>

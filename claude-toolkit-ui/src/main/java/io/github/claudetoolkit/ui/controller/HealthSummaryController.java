@@ -51,6 +51,9 @@ public class HealthSummaryController {
     private final AuditLogRepository    auditLogRepo;
     private final ErrorLogRepository    errorLogRepo;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private io.github.claudetoolkit.ui.platform.McpServerLauncher mcpLauncher;
+
     public HealthSummaryController(MyBatisIndexer mybatisIndexer,
                                    SpringUrlIndexer springUrlIndexer,
                                    MiPlatformIndexer miplatformIndexer,
@@ -92,6 +95,23 @@ public class HealthSummaryController {
             return ResponseEntity.ok(ApiResponse.<Map<String, Object>>error(
                     "헬스 조회 실패: " + e.getMessage()));
         }
+    }
+
+    /** MCP Server 상태 단독 조회 — AdminHealthPage 의 MCP 카드용. */
+    @GetMapping("/mcp")
+    public ResponseEntity<Map<String, Object>> mcpStatus() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        if (mcpLauncher == null) {
+            m.put("available", false);
+            m.put("reason",    "McpServerLauncher 빈 미등록 (toolkit.mcp.auto-start 설정 확인)");
+            return ResponseEntity.ok(m);
+        }
+        m.put("available",  true);
+        m.put("autoStart",  mcpLauncher.isAutoStart());
+        m.put("running",    mcpLauncher.isRunning());
+        m.put("pid",        mcpLauncher.getPid());
+        m.put("port",       mcpLauncher.getPort());
+        return ResponseEntity.ok(m);
     }
 
     // ── 인덱서 5종 ──────────────────────────────────────────────────────────

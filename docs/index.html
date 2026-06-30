@@ -718,6 +718,89 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     8종 기능 추가 콜아웃
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(16,185,129,.05),rgba(59,130,246,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">기능 추가 8종</p>
+      <h2 class="section-title">CSV 내보내기 · DB 공유 · MCP 헬스 · 연결 테스트</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        분석 이력 CSV 내보내기, 회로차단기 DB 공유(멀티 인스턴스), Grafana MCP 패널, Admin 헬스 MCP 카드, DB 프로필 연결 테스트 버튼, 단위 테스트 2종 신규.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">📊</div>
+        <div class="feat-title">이력 CSV 내보내기</div>
+        <div class="feat-desc"><code>/history</code> 페이지에 CSV 버튼 추가. <code>GET /api/v1/export/csv/history</code> 엔드포인트가 UTF-8 BOM 포함 CSV 반환 — Excel 에서 한글 깨짐 없음. 기존 Excel(.xlsx) 3-시트 내보내기와 병행 제공. 컬럼: ID · 유형 · 제목 · 생성일시 · 입력/출력/총 토큰 · 출력 미리보기.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">📄 UTF-8 BOM</span>
+          <span class="tag">🟢 Excel 호환</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(124,107,240,.12);color:#8b5cf6;">🔗</div>
+        <div class="feat-title">회로차단기 DB 공유 (멀티 인스턴스)</div>
+        <div class="feat-desc"><code>LiveDbCircuitBreaker</code> 가 <code>livedb_breaker_state</code> JPA 테이블을 source-of-truth 로 사용. 멀티 인스턴스 배포에서 한 인스턴스의 차단 결정이 전체 인스턴스에 즉시 전파. DB repository 미존재 시 기존 in-memory 동작 자동 유지. Hibernate DDL auto 로 테이블 자동 생성.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🏗 JPA Entity</span>
+          <span class="tag">🌐 멀티 인스턴스</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(249,115,22,.12);color:#f97316;">📈</div>
+        <div class="feat-title">Grafana MCP Server 패널</div>
+        <div class="feat-desc">기존 <code>claude-toolkit-overview.json</code> 대시보드에 <strong>MCP Server 섹션</strong> 추가. Spring Boot Actuator 의 <code>mcpServer</code> 헬스 컴포넌트 UP/DOWN 상태를 Grafana stat 패널로 시각화. 모니터링 프로필 사용자는 재시작만으로 패널이 즉시 노출.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">📊 Grafana</span>
+          <span class="tag">🩺 헬스 가시화</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">🩺</div>
+        <div class="feat-title">Admin 헬스 페이지 MCP 상태 카드</div>
+        <div class="feat-desc"><code>/admin/health</code> 페이지에 MCP Server 전용 카드 추가. <code>GET /api/v1/admin/health/mcp</code> 에서 <code>autoStart / running / pid / port</code> 실시간 조회. 프로세스 중단 시 빨간 경고 배지 + 재시작 안내 자동 표시. 30초 자동 갱신.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🔍 실시간</span>
+          <span class="tag">⚠ 이상 감지</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">🔌</div>
+        <div class="feat-title">DB 프로필 연결 테스트 버튼</div>
+        <div class="feat-desc"><code>/db-profiles</code> 목록의 각 행에 <strong>"연결 테스트"</strong> 버튼 추가. <code>POST /db-profiles/{id}/test-existing</code> 이 저장된 자격증명으로 실제 JDBC 연결 시도 (10초 timeout, SELECT 1 ping). 결과 — 성공/실패 메시지를 인라인으로 5초 표시.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">⚡ JDBC 테스트</span>
+          <span class="tag">🕒 10s timeout</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">⚙️</div>
+        <div class="feat-title">환경변수 노출 + 단위 테스트 2종</div>
+        <div class="feat-desc"><code>docker-compose.yml</code> 에서 <code>TOOLKIT_MCP_AUTOSTART</code> 가 <code>${TOOLKIT_MCP_AUTOSTART:-false}</code> 로 변경 — <code>.env</code> 한 줄로 MCP 자동 기동 제어. <strong>McpServerHealthIndicatorTest</strong> 4 케이스 신규 (disabled/running+pid/running-no-pid/not-running). <strong>ApiKeyFilterTest</strong> 3 케이스 신규 — MockedStatic 으로 SecuritySettings 격리, 513자 키 → 401 DoS 차단 검증.</div>
+        <div class="feat-tags">
+          <span class="tag">🆕</span>
+          <span class="tag">🧪 7 tests</span>
+          <span class="tag">⚙ 환경변수</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      최신 패치 — 운영/UX 5종 강화 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(139,92,246,.05),rgba(249,115,22,.04));">

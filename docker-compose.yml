@@ -21,7 +21,8 @@ services:
       # Docker 환경에서는 MCP 서버를 *별도 컨테이너* (claude-toolkit-mcp) 로 분리 —
       # 이 컨테이너 안의 launcher 가 중복 spawn 하지 않도록 명시적으로 OFF.
       # (dev 환경 mvn spring-boot:run 시에는 application.yml 의 default=true 가 유효)
-      - TOOLKIT_MCP_AUTOSTART=false
+      - TOOLKIT_MCP_AUTOSTART=${TOOLKIT_MCP_AUTOSTART:-false}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-6}
       # v4.7.x — #G3 Live DB: 분석 페이지가 운영 DB 에 직접 EXPLAIN/통계 조회.
       # 활성화 후에도 (1) ADMIN 이 /db-profiles 에서 read-only DbProfile 등록,
       # (2) SqlClassifier 가 SELECT/EXPLAIN/DESC/WITH 만 통과시키므로 이중 차단.

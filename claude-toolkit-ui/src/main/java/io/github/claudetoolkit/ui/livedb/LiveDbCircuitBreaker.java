@@ -2,7 +2,9 @@ package io.github.claudetoolkit.ui.livedb;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,8 +35,15 @@ public class LiveDbCircuitBreaker {
     static final long OPEN_DURATION_MS = 5 * 60 * 1000L;  // 5 min
 
     private final LiveDbCallStats stats;
-    /** 프로필 ID → 차단 시작 시각 (0 이면 차단 안 됨) */
+    /**
+     * 인스턴스 로컬 캐시 — isOpen() 매 호출마다 DB I/O 를 줄이기 위한 1차 캐시.
+     * DB repository 가 없으면 이 맵이 단독 소스 오브 트루스 (기존 동작 유지).
+     */
     private final Map<Long, Long> openedAt = new ConcurrentHashMap<Long, Long>();
+
+    /** 멀티 인스턴스 공유용 DB 레포지토리. null 이면 in-memory 단독 동작. */
+    @Autowired(required = false)
+    private LiveDbBreakerStateRepository stateRepo;
 
     public LiveDbCircuitBreaker(LiveDbCallStats stats) {
         this.stats = stats;
@@ -42,11 +51,45 @@ public class LiveDbCircuitBreaker {
 
     /**
      * 프로필이 현재 차단 상태인지 확인. true 면 호출 거부.
+     *
+     * <p>DB repository 가 있으면 DB 를 source-of-truth 로 사용 — 멀티 인스턴스 공유.
+     * 없으면 in-memory 맵만 사용 (단일 인스턴스 기존 동작).
      */
+    @Transactional
     public boolean isOpen(Long profileId) {
+        if (stateRepo != null) {
+            return isOpenDb(profileId);
+        }
+        return isOpenInMemory(profileId);
+    }
+
+    private boolean isOpenDb(Long profileId) {
+        LiveDbBreakerState state = stateRepo.findById(profileId).orElse(null);
+        if (state == null) {
+            if (recentTimeoutCount(profileId) >= TIMEOUT_THRESHOLD) {
+                stateRepo.save(new LiveDbBreakerState(profileId, System.currentTimeMillis()));
+                openedAt.put(profileId, System.currentTimeMillis());
+                log.warn("[LiveDbCircuitBreaker] 프로필 {} 자동 차단 (DB) — 최근 {}분 timeout {}건",
+                         profileId, WINDOW_MS / 60000, TIMEOUT_THRESHOLD);
+                return true;
+            }
+            return false;
+        }
+        long elapsed = System.currentTimeMillis() - state.getOpenedAt();
+        if (elapsed >= OPEN_DURATION_MS) {
+            stateRepo.deleteById(profileId);
+            openedAt.remove(profileId);
+            log.info("[LiveDbCircuitBreaker] 프로필 {} 자동 복구 (DB, {}분 경과)",
+                     profileId, OPEN_DURATION_MS / 60000);
+            return false;
+        }
+        openedAt.put(profileId, state.getOpenedAt());
+        return true;
+    }
+
+    private boolean isOpenInMemory(Long profileId) {
         Long opened = openedAt.get(profileId);
         if (opened == null) {
-            // 차단된 적 없음 — 단, 현재 timeout 임계 초과 여부도 즉시 검사 (lazy open)
             if (recentTimeoutCount(profileId) >= TIMEOUT_THRESHOLD) {
                 openedAt.put(profileId, System.currentTimeMillis());
                 log.warn("[LiveDbCircuitBreaker] 프로필 {} 자동 차단 — 최근 {}분 timeout {}건",
@@ -55,10 +98,8 @@ public class LiveDbCircuitBreaker {
             }
             return false;
         }
-        // 이미 차단된 상태 — 만료 시각 검사
         long elapsed = System.currentTimeMillis() - opened;
         if (elapsed >= OPEN_DURATION_MS) {
-            // 자동 복구
             openedAt.remove(profileId);
             log.info("[LiveDbCircuitBreaker] 프로필 {} 자동 복구 ({}분 경과)",
                      profileId, OPEN_DURATION_MS / 60000);
@@ -70,20 +111,28 @@ public class LiveDbCircuitBreaker {
     /** 차단까지 남은 시간 (초) — 헬스 대시보드 표시용. 차단 안 됐으면 0. */
     public long secondsUntilHalfOpen(Long profileId) {
         Long opened = openedAt.get(profileId);
+        if (opened == null && stateRepo != null) {
+            LiveDbBreakerState state = stateRepo.findById(profileId).orElse(null);
+            if (state != null) opened = state.getOpenedAt();
+        }
         if (opened == null) return 0;
         long remaining = OPEN_DURATION_MS - (System.currentTimeMillis() - opened);
         return Math.max(0, remaining / 1000);
     }
 
     /** ADMIN 이 강제 복구 */
+    @Transactional
     public void forceClose(Long profileId) {
         openedAt.remove(profileId);
+        if (stateRepo != null) stateRepo.deleteById(profileId);
         log.info("[LiveDbCircuitBreaker] 프로필 {} ADMIN 강제 복구", profileId);
     }
 
     /** 모든 회로 초기화 (테스트용) */
+    @Transactional
     public void reset() {
         openedAt.clear();
+        if (stateRepo != null) stateRepo.deleteAll();
     }
 
     private int recentTimeoutCount(Long profileId) {

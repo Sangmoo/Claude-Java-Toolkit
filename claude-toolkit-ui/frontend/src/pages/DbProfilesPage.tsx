@@ -28,6 +28,7 @@ export default function DbProfilesPage() {
   const [form, setForm] = useState({ name: '', dbType: 'oracle', host: '', port: '1521', dbName: '', username: '', password: '' })
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
+  const [existingTest, setExistingTest] = useState<{ id: number; result: string } | null>(null)
   // v4.7.x — #G3: Live 분석 활성화 확인 모달 (보안 게이트 — ADMIN 명시적 동의)
   const [liveConfirm, setLiveConfirm] = useState<DbProfile | null>(null)
   const api = useApi()
@@ -94,6 +95,25 @@ export default function DbProfilesPage() {
     } finally {
       setLiveConfirm(null)
     }
+  }
+
+  const testExistingConnection = async (id: number) => {
+    setExistingTest({ id, result: '테스트 중...' })
+    try {
+      const res = await fetch(`/db-profiles/${id}/test-existing`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (d?.success) {
+        setExistingTest({ id, result: 'ok:연결 성공 — ' + (d.message || 'OK') })
+      } else {
+        setExistingTest({ id, result: 'error:' + (d?.error || `HTTP ${res.status}`) })
+      }
+    } catch (e) {
+      setExistingTest({ id, result: 'error:요청 실패 — ' + String(e) })
+    }
+    setTimeout(() => setExistingTest(null), 5000)
   }
 
   const testConnection = async () => {
@@ -210,6 +230,23 @@ export default function DbProfilesPage() {
               </button>
             )}
 
+            {/* 기존 프로필 연결 테스트 */}
+            <button
+              onClick={() => testExistingConnection(p.id)}
+              title="저장된 연결 정보로 DB 접속 테스트"
+              style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <FaSync style={{ fontSize: 10 }} /> 연결 테스트
+            </button>
+            {existingTest?.id === p.id && (
+              <span style={{
+                fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                background: existingTest.result.startsWith('ok:') ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                color: existingTest.result.startsWith('ok:') ? '#10b981' : '#ef4444',
+                maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {existingTest.result.replace(/^(ok:|error:)/, '')}
+              </span>
+            )}
             {!p.active && <button onClick={() => activate(p.id)} style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: 'var(--green)' }}><FaCheck /> 활성화</button>}
             <button onClick={() => remove(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: '14px' }}><FaTrash /></button>
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   FaHeartbeat, FaServer, FaDatabase, FaMemory, FaStethoscope, FaSpinner,
-  FaSitemap, FaLayerGroup, FaShieldAlt, FaBug, FaRobot, FaPlug,
+  FaSitemap, FaLayerGroup, FaShieldAlt, FaBug, FaRobot, FaPlug, FaNetworkWired,
 } from 'react-icons/fa'
 import { useApi } from '../../hooks/useApi'
 
@@ -85,10 +85,20 @@ interface HealthSummary {
   errorLog:  ErrorLogStat
 }
 
+interface McpStatus {
+  available: boolean
+  autoStart?: boolean
+  running?: boolean
+  pid?: number | null
+  port?: number
+  reason?: string
+}
+
 export default function AdminHealthPage() {
   const [data, setData] = useState<HealthData | null>(null)
   const [summary, setSummary] = useState<HealthSummary | null>(null)
   const [liveDbStats, setLiveDbStats] = useState<LiveDbStatsResponse | null>(null)
+  const [mcpStatus, setMcpStatus] = useState<McpStatus | null>(null)
   const [diagReport, setDiagReport] = useState<string>('')
   const [diagLoading, setDiagLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -165,6 +175,13 @@ export default function AdminHealthPage() {
           if (r.ok) {
             const j = await r.json() as LiveDbStatsResponse
             if (!cancelled) setLiveDbStats(j)
+          }
+        } catch { /* silent */ }
+        try {
+          const r = await fetch('/api/v1/admin/health/mcp', { credentials: 'include' })
+          if (r.ok) {
+            const j = await r.json() as McpStatus
+            if (!cancelled) setMcpStatus(j)
           }
         } catch { /* silent */ }
       } finally {
@@ -328,9 +345,32 @@ export default function AdminHealthPage() {
             )}
           </Card>
         )}
+        {/* MCP Server 상태 카드 */}
+        {mcpStatus && (
+          <Card icon={<FaNetworkWired style={{ color: mcpStatus.running ? '#10b981' : mcpStatus.autoStart === false ? 'var(--text-muted)' : '#ef4444' }} />} title="MCP Server">
+            {!mcpStatus.available ? (
+              <BadgeBox color="var(--text-muted)" text={mcpStatus.reason || '미설치'} />
+            ) : (
+              <>
+                <Stat label="Auto-Start" value={mcpStatus.autoStart ? 'enabled' : 'disabled'} />
+                <Stat label="상태" value={mcpStatus.running ? '✓ 실행 중' : '✗ 중단됨'}
+                      highlight={mcpStatus.running ? '#10b981' : mcpStatus.autoStart ? '#ef4444' : undefined} />
+                {mcpStatus.running && mcpStatus.port && (
+                  <Stat label="포트" value={String(mcpStatus.port)} />
+                )}
+                {mcpStatus.running && mcpStatus.pid != null && (
+                  <Stat label="PID" value={String(mcpStatus.pid)} />
+                )}
+                {!mcpStatus.running && mcpStatus.autoStart && (
+                  <BadgeBox color="#ef4444" text="⚠ MCP 프로세스 종료 — 서버 재시작 필요" />
+                )}
+              </>
+            )}
+          </Card>
+        )}
       </div>
 
-      {/* v4.7.x — #G3 Phase 5: Live DB 통계 카드 */}
+      {/* Live DB 통계 카드 */}
       {liveDbStats && liveDbStats.success && (
         <div style={{
           marginTop: 24, background: 'var(--bg-secondary)',

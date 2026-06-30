@@ -90,6 +90,65 @@ public class ExportRestController {
     }
 
     /**
+     * 이력 목록을 CSV (UTF-8 BOM) 로 다운로드.
+     * Excel 에서 한글이 깨지지 않도록 BOM(EF BB BF) 을 파일 앞에 붙임.
+     *
+     * @param limit 최대 행 수 (기본 1000, 최대 10000)
+     */
+    @GetMapping(value = "/csv/history", produces = "text/csv; charset=UTF-8")
+    public ResponseEntity<byte[]> exportHistoryCsv(
+            @RequestParam(value = "limit", defaultValue = "1000") int limit) {
+        try {
+            int safeLimit = Math.max(1, Math.min(limit, 10000));
+            List<ReviewHistory> rows = historyRepository.findRecentEntries(PageRequest.of(0, safeLimit));
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("ID,유형,제목,생성일시,입력토큰,출력토큰,총토큰,출력미리보기\n");
+            for (ReviewHistory h : rows) {
+                sb.append(h.getId()).append(',');
+                sb.append(csvEscape(h.getType())).append(',');
+                sb.append(csvEscape(h.getTitle())).append(',');
+                sb.append(h.getCreatedAt() != null ? h.getCreatedAt().toString() : "").append(',');
+                sb.append(h.getInputTokens()  != null ? h.getInputTokens()  : 0).append(',');
+                sb.append(h.getOutputTokens() != null ? h.getOutputTokens() : 0).append(',');
+                long total = (h.getInputTokens() != null ? h.getInputTokens() : 0L)
+                           + (h.getOutputTokens() != null ? h.getOutputTokens() : 0L);
+                sb.append(total).append(',');
+                String preview = h.getOutputContent() != null
+                        ? h.getOutputContent().replace('\n', ' ') : "";
+                if (preview.length() > 200) preview = preview.substring(0, 200) + "...";
+                sb.append(csvEscape(preview)).append('\n');
+            }
+
+            byte[] bom  = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+            byte[] body = sb.toString().getBytes(StandardCharsets.UTF_8);
+            byte[] full = new byte[bom.length + body.length];
+            System.arraycopy(bom,  0, full, 0,          bom.length);
+            System.arraycopy(body, 0, full, bom.length, body.length);
+
+            String filename = "claude-toolkit-history-" + System.currentTimeMillis() + ".csv";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(full.length);
+
+            log.info("CSV 이력 내보내기 성공: rows={}, bytes={}", rows.size(), full.length);
+            return ResponseEntity.ok().headers(headers).body(full);
+        } catch (Exception e) {
+            log.error("CSV 이력 내보내기 실패", e);
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    private static String csvEscape(String v) {
+        if (v == null) return "";
+        if (v.contains(",") || v.contains("\"") || v.contains("\n")) {
+            return "\"" + v.replace("\"", "\"\"") + "\"";
+        }
+        return v;
+    }
+
+    /**
      * 이력 목록을 Excel(.xlsx) 워크북으로 다운로드.
      *
      * @param limit 최대 행 수 (기본 1000, 최대 10000)
