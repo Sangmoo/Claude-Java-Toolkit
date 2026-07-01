@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -47,6 +49,30 @@ public class LiveDbCircuitBreaker {
 
     public LiveDbCircuitBreaker(LiveDbCallStats stats) {
         this.stats = stats;
+    }
+
+    /**
+     * 재시작 시 DB 에 남아 있는 OPEN 상태를 in-memory 캐시로 프리로드.
+     * secondsUntilHalfOpen() 이 첫 호출 전에도 정확한 값을 반환하도록 함.
+     */
+    @PostConstruct
+    public void preloadFromDb() {
+        if (stateRepo == null) return;
+        try {
+            for (LiveDbBreakerState s : stateRepo.findAll()) {
+                long elapsed = System.currentTimeMillis() - s.getOpenedAt();
+                if (elapsed < OPEN_DURATION_MS) {
+                    openedAt.put(s.getProfileId(), s.getOpenedAt());
+                } else {
+                    stateRepo.deleteById(s.getProfileId());
+                }
+            }
+            if (!openedAt.isEmpty()) {
+                log.info("[LiveDbCircuitBreaker] DB 에서 {} 개 프로필 OPEN 상태 복원", openedAt.size());
+            }
+        } catch (Exception e) {
+            log.warn("[LiveDbCircuitBreaker] DB preload 실패 (무시) — {}", e.getMessage());
+        }
     }
 
     /**

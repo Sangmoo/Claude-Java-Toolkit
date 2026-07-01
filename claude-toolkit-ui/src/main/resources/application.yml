@@ -1,5 +1,9 @@
 server:
   port: ${PORT:8027}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml,text/csv
+    min-response-size: 2048
 
 spring:
   application:
@@ -83,10 +87,14 @@ management:
       # 묶지 않도록 함. Indicator 자체에도 60초 캐시가 있어서 이중 보호.
       cache:
         time-to-live: 30s
-      # v4.4.x — StartupReadiness 를 readiness probe 그룹에 포함
+      # readiness: K8s 트래픽 수신 준비 여부 — DB + startup 만 포함.
+      # mcpServer 는 의도적으로 제외: MCP 프로세스가 down 돼도 앱 자체는 동작하므로
+      # readiness 실패(Pod 재시작 루프)로 이어지면 안 됨.
       group:
         readiness:
           include: readinessState,startupReadiness,db
+        # liveness 그룹은 기본(전체) — mcpServer DOWN 은 UP 이지만 detail 로 표시되므로
+        # K8s liveness probe 에도 영향 없음 (probe 는 HTTP 200 여부만 확인).
   metrics:
     # v4.3.0: 모든 메트릭에 application 태그 자동 부여 (Grafana 다중 인스턴스 구분용)
     tags:

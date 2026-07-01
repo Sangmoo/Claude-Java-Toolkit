@@ -77,7 +77,18 @@ curl -X POST $CTK_URL/api/v1/analyze \
   -d '{"feature":"sql_review","input":"SELECT * FROM T_ORDER ..."}' | jq
 ```
 
-### 🚀 최신 기능 추가 — 8종 개선
+### 🚀 최신 기능 추가 — 8종 추가 개선
+
+- 🔍 **MCP 포트 소켓 리스닝 헬스체크** — `McpServerHealthIndicator` 에 TCP 소켓 500ms 체크 추가. 프로세스 생존 + 포트 실제 오픈 여부를 `portListening: true/false` detail 로 구분. 기동 중 상태를 `starting` 으로 분리해 Grafana 알람 오탐 방지.
+- ✏️ **DB 프로필 편집 모달** — `/db-profiles` 목록 각 행에 편집(✏) 버튼 추가. 기존 저장값을 `GET /{id}/json` 으로 불러와 편집 모달 표시. `POST /{id}/update-json` AJAX 엔드포인트로 저장.
+- 📊 **이력 CSV 선택 내보내기** — 체크박스 선택 건만 CSV 로 내보내는 `POST /api/v1/export/csv/history/selected` 추가. 선택 없으면 전체 1000건 fallback. 버튼 레이블도 선택 건수 실시간 반영.
+- 📋 **Live DB 쿼리 실행 이력** — `livedb_query_log` JPA 테이블에 Live DB 호출마다 자동 기록 (profileId · username · SQL · 소요시간 · 상태). `GET /api/v1/admin/livedb/query-log` 로 조회.
+- 🧪 **`LiveDbBreakerStateRepository` @DataJpaTest** — H2 인메모리로 실제 JPA 동작 검증 (save/findAll/deleteById 3 케이스).
+- ⚙️ **DB 회로차단기 @PostConstruct 프리로드** — 앱 재시작 시 DB 에 남은 OPEN 상태를 in-memory 캐시로 복원. `secondsUntilHalfOpen()` 이 재시작 직후에도 정확한 값 반환.
+- 📦 **API 응답 Gzip 압축** — `server.compression.enabled: true`, `min-response-size: 2048`, JSON/CSV/HTML 전 유형 포함. 대용량 이력 응답에서 네트워크 전송량 대폭 감소.
+- 🩺 **Readiness Probe 명시적 mcpServer 제외** — `/health/readiness` 그룹에서 `mcpServer` 제거 이유를 주석으로 명시. MCP 프로세스 다운이 K8s Pod 재시작 루프로 이어지지 않도록 방지.
+
+### 🚀 이전 기능 추가 — 8종 개선
 
 - 📊 **이력 CSV 내보내기** — `/history` 페이지에 CSV 버튼 추가. `GET /api/v1/export/csv/history` 엔드포인트가 UTF-8 BOM 포함 CSV 를 반환 — Excel 에서 한글 깨짐 없음. 기존 Excel 내보내기와 병행 제공.
 - 🔗 **회로차단기 DB 공유** — `LiveDbCircuitBreaker` 가 `livedb_breaker_state` JPA 테이블을 source-of-truth 로 사용. 멀티 인스턴스 배포에서 한 인스턴스의 차단 결정이 전체 인스턴스에 즉시 전파. 단일 인스턴스에서는 기존 in-memory 동작 유지 (DB 자동 감지).

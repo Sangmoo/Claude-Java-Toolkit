@@ -6,6 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -31,6 +34,9 @@ public class LiveDbHealthController {
     private final LiveDbCallStats       stats;
     private final LiveDbCircuitBreaker  breaker;
     private final DbProfileService      profileService;
+
+    @Autowired(required = false)
+    private LiveDbQueryLogRepository queryLogRepo;
 
     public LiveDbHealthController(LiveDbConfig config,
                                   LiveDbCallStats stats,
@@ -108,6 +114,46 @@ public class LiveDbHealthController {
         breaker.reset();
         resp.put("success", true);
         resp.put("message", "Live DB 통계 + 회로차단 모두 초기화");
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * 최근 Live DB 쿼리 실행 이력 — ADMIN 감사·성능 트래킹.
+     * @param limit 최대 행 수 (기본 100, 최대 500)
+     * @param profileId 특정 프로필만 조회 (생략하면 전체)
+     */
+    @GetMapping("/query-log")
+    public ResponseEntity<Map<String, Object>> queryLog(
+            @RequestParam(value = "limit", defaultValue = "100") int limit,
+            @RequestParam(value = "profileId", required = false) Long profileId) {
+        Map<String, Object> resp = new LinkedHashMap<String, Object>();
+        if (queryLogRepo == null) {
+            resp.put("success", false);
+            resp.put("error", "LiveDbQueryLogRepository 미등록 — Spring JPA 설정 확인");
+            return ResponseEntity.ok(resp);
+        }
+        int safeLimit = Math.max(1, Math.min(limit, 500));
+        List<LiveDbQueryLog> logs = profileId != null
+                ? queryLogRepo.findRecentByProfile(profileId, PageRequest.of(0, safeLimit))
+                : queryLogRepo.findRecent(PageRequest.of(0, safeLimit));
+
+        List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+        for (LiveDbQueryLog l : logs) {
+            Map<String, Object> m = new LinkedHashMap<String, Object>();
+            m.put("id",           l.getId());
+            m.put("profileId",    l.getProfileId());
+            m.put("executedAt",   l.getExecutedAt() != null ? l.getExecutedAt().toString() : null);
+            m.put("username",     l.getUsername());
+            m.put("sqlText",      l.getSqlText());
+            m.put("durationMs",   l.getDurationMs());
+            m.put("rowCount",     l.getRowCount());
+            m.put("status",       l.getStatus());
+            m.put("errorMessage", l.getErrorMessage());
+            rows.add(m);
+        }
+        resp.put("success", true);
+        resp.put("count",   rows.size());
+        resp.put("logs",    rows);
         return ResponseEntity.ok(resp);
     }
 

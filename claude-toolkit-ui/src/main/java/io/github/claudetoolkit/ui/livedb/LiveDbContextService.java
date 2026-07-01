@@ -46,6 +46,10 @@ public class LiveDbContextService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private io.github.claudetoolkit.ui.security.AuditLogService auditLogService;
 
+    /** 쿼리 실행 이력 — 옵셔널 (DDL auto-create 로 테이블 자동 생성) */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LiveDbQueryLogRepository queryLogRepo;
+
     /** 프로필 ID → DataSource 캐시 — 매번 새 connection pool 만드는 비용 회피 */
     private final Map<Long, DataSource> dataSourceCache = new HashMap<Long, DataSource>();
 
@@ -109,6 +113,9 @@ public class LiveDbContextService {
 
         long t0 = System.currentTimeMillis();
         Integer status = 200;
+        String logStatus = "OK";
+        String errorMsg  = null;
+        LiveDbContext result = null;
         try {
             ReadOnlyJdbcTemplate ro = getOrCreateJdbc(profile);
             LiveDbContextProvider provider = pickProvider(profile);
@@ -116,33 +123,59 @@ public class LiveDbContextService {
                 log.warn("[LiveDb] No provider for profile '{}' (only Oracle/Postgres supported)",
                          profile.getName());
                 status = 501;
+                logStatus = "ERROR";
+                errorMsg  = "No provider for dbType";
                 return null;
             }
             // schema = profile 의 username (Oracle 관례 — username 이 schema)
             String schema = profile.getUsername();
-            LiveDbContext ctx = provider.fetch(userSql, schema, ro);
+            result = provider.fetch(userSql, schema, ro);
             if (callStats != null) callStats.recordSuccess(profile.getId(), System.currentTimeMillis() - t0);
-            return ctx;
+            return result;
 
         } catch (org.springframework.dao.QueryTimeoutException e) {
             // statement timeout — circuit breaker 의 trigger 신호
             if (callStats != null) callStats.recordTimeout(profile.getId(), System.currentTimeMillis() - t0);
             log.warn("[LiveDb] timeout for profile '{}': {}", profile.getName(), e.getMessage());
-            status = 504;
+            status   = 504;
+            logStatus = "TIMEOUT";
+            errorMsg  = e.getMessage();
             LiveDbContext err = new LiveDbContext();
             err.addWarning("Live DB 쿼리 timeout (" + config.getDefaultTimeoutSeconds() + "초): " + e.getMessage());
+            result = err;
             return err;
         } catch (Exception e) {
             if (callStats != null) callStats.recordFailure(profile.getId(), System.currentTimeMillis() - t0);
             log.warn("[LiveDb] fetch failed for profile '{}': {}", profile.getName(), e.getMessage());
-            status = 500;
+            status   = 500;
+            logStatus = "ERROR";
+            errorMsg  = e.getMessage();
             LiveDbContext err = new LiveDbContext();
             err.addWarning("Live DB 컨텍스트 수집 실패: " + e.getMessage());
+            result = err;
             return err;
         } finally {
+            long durationMs = System.currentTimeMillis() - t0;
             // v4.7.x — #G3 보강 B2: 외부감사 추적 — 사용자 facing 호출당 1 row
-            recordAudit("livedb.fetch", profile, username, status, System.currentTimeMillis() - t0);
+            recordAudit("livedb.fetch", profile, username, status, durationMs);
+            // 쿼리 실행 이력 기록 (비동기 — 실패해도 main 흐름 무영향)
+            recordQueryLog(profile.getId(), username, userSql, durationMs, result, logStatus, errorMsg);
         }
+    }
+
+    private void recordQueryLog(Long profileId, String username, String sqlText,
+                                long durationMs, LiveDbContext ctx, String status, String errorMsg) {
+        if (queryLogRepo == null) return;
+        try {
+            Integer rowCount = null;  // LiveDbContext 는 EXPLAIN 메타 — row count 별도 없음
+            String truncSql = sqlText != null && sqlText.length() > 2000
+                    ? sqlText.substring(0, 2000) : sqlText;
+            String truncErr = errorMsg != null && errorMsg.length() > 512
+                    ? errorMsg.substring(0, 512) : errorMsg;
+            queryLogRepo.save(new LiveDbQueryLog(
+                    profileId, java.time.LocalDateTime.now(), username,
+                    truncSql, durationMs, rowCount, status, truncErr));
+        } catch (Exception ignored) {}
     }
 
     /**

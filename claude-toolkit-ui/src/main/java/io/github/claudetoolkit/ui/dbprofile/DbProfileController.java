@@ -192,6 +192,43 @@ public class DbProfileController {
         else if ("mysql".equalsIgnoreCase(dbType))        Class.forName("com.mysql.cj.jdbc.Driver");
     }
 
+    /** AJAX: JSON 방식 프로필 수정 (프론트 편집 모달 → 저장) */
+    @PostMapping("/{id}/update-json")
+    @ResponseBody
+    public java.util.Map<String, Object> updateJson(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "")       String name,
+            @RequestParam(defaultValue = "oracle") String dbType,
+            @RequestParam(defaultValue = "")       String host,
+            @RequestParam(defaultValue = "")       String port,
+            @RequestParam(defaultValue = "")       String dbName,
+            @RequestParam(defaultValue = "")       String username,
+            @RequestParam(defaultValue = "")       String password,
+            @RequestParam(defaultValue = "")       String description) {
+        java.util.Map<String, Object> resp = new java.util.LinkedHashMap<String, Object>();
+        try {
+            if (name.trim().isEmpty() || host.trim().isEmpty() || port.trim().isEmpty()) {
+                resp.put("success", false);
+                resp.put("error",   "name / host / port 필수");
+                return resp;
+            }
+            String url = buildJdbcUrl(dbType.trim(), host.trim(), port.trim(), dbName.trim());
+            if (url == null) {
+                resp.put("success", false);
+                resp.put("error",   "지원하지 않는 dbType: " + dbType);
+                return resp;
+            }
+            service.update(id, name.trim(), url, username.trim(), password, description.trim());
+            resp.put("success", true);
+            resp.put("id",      id);
+            return resp;
+        } catch (Exception e) {
+            resp.put("success", false);
+            resp.put("error",   "수정 실패: " + e.getMessage());
+            return resp;
+        }
+    }
+
     @PostMapping("/{id}/update")
     public String update(
             @PathVariable Long id,

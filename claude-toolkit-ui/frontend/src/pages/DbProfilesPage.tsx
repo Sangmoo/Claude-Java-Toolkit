@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FaServer, FaPlus, FaTrash, FaCheck, FaTimes, FaSync, FaPlug, FaShieldAlt } from 'react-icons/fa'
+import { FaServer, FaPlus, FaTrash, FaCheck, FaTimes, FaSync, FaPlug, FaShieldAlt, FaEdit } from 'react-icons/fa'
 import { useApi } from '../hooks/useApi'
 import { useToast } from '../hooks/useToast'
 import { useAuthStore } from '../stores/authStore'
@@ -29,6 +29,10 @@ export default function DbProfilesPage() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
   const [existingTest, setExistingTest] = useState<{ id: number; result: string } | null>(null)
+  // 편집 모달
+  const [editProfile, setEditProfile] = useState<DbProfile | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', dbType: 'oracle', host: '', port: '1521', dbName: '', username: '', password: '' })
+  const [editSaving, setEditSaving] = useState(false)
   // v4.7.x — #G3: Live 분석 활성화 확인 모달 (보안 게이트 — ADMIN 명시적 동의)
   const [liveConfirm, setLiveConfirm] = useState<DbProfile | null>(null)
   const api = useApi()
@@ -95,6 +99,50 @@ export default function DbProfilesPage() {
     } finally {
       setLiveConfirm(null)
     }
+  }
+
+  const openEditModal = async (p: DbProfile) => {
+    // /{id}/json 으로 현재 저장된 값 조회 (password 는 반환 안 함)
+    try {
+      const res = await fetch(`/db-profiles/${p.id}/json`, { credentials: 'include' })
+      const d = await res.json().catch(() => null)
+      if (d?.error) { toast.error('프로필 조회 실패'); return }
+      // url → host/port/dbName 역파싱 (간단히 regex)
+      const url: string = d.url || ''
+      let dbType = 'oracle', host = '', port = '1521', dbName = ''
+      const oraMatch = url.match(/^jdbc:oracle:thin:@([^:]+):(\d+):(.+)$/)
+      const pgMatch  = url.match(/^jdbc:postgresql:\/\/([^:]+):(\d+)\/(.+)$/)
+      const myMatch  = url.match(/^jdbc:mysql:\/\/([^:]+):(\d+)\/(.+)$/)
+      if (oraMatch) { dbType = 'oracle';     host = oraMatch[1]; port = oraMatch[2]; dbName = oraMatch[3] }
+      else if (pgMatch) { dbType = 'postgresql'; host = pgMatch[1];  port = pgMatch[2];  dbName = pgMatch[3]  }
+      else if (myMatch) { dbType = 'mysql';      host = myMatch[1];  port = myMatch[2];  dbName = myMatch[3]  }
+      setEditForm({ name: d.name || '', dbType, host, port, dbName, username: d.username || '', password: '' })
+    } catch { toast.error('프로필 조회 오류'); return }
+    setEditProfile(p)
+  }
+
+  const saveEdit = async () => {
+    if (!editProfile) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/db-profiles/${editProfile.id}/update-json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(editForm),
+        credentials: 'include',
+      })
+      const d = await res.json().catch(() => null)
+      if (res.ok && d?.success) {
+        toast.success('프로필이 수정되었습니다.')
+        setEditProfile(null)
+        reload()
+      } else {
+        toast.error(d?.error || '수정 실패')
+      }
+    } catch (e) {
+      toast.error('수정 오류 — ' + String(e))
+    }
+    setEditSaving(false)
   }
 
   const testExistingConnection = async (id: number) => {
@@ -248,6 +296,7 @@ export default function DbProfilesPage() {
               </span>
             )}
             {!p.active && <button onClick={() => activate(p.id)} style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: 'var(--green)' }}><FaCheck /> 활성화</button>}
+            <button onClick={() => openEditModal(p)} title="프로필 편집" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--blue)', fontSize: '14px' }}><FaEdit /></button>
             <button onClick={() => remove(p.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: '14px' }}><FaTrash /></button>
           </div>
           )
@@ -296,6 +345,63 @@ export default function DbProfilesPage() {
                 style={{ ...primaryBtn, flex: 'none', padding: '8px 18px', background: '#10b981' }}>
                 <FaCheck /> 확인하고 활성화
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 편집 모달 */}
+      {editProfile && (
+        <div style={overlayStyle} onClick={() => setEditProfile(null)}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>DB 프로필 편집</h3>
+              <button onClick={() => setEditProfile(null)} style={iconBtn}><FaTimes /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Field label="프로필 이름">
+                <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} style={inputStyle} />
+              </Field>
+              <Field label="DB 유형">
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {['oracle', 'mysql', 'postgresql'].map((t) => (
+                    <button key={t} onClick={() => setEditForm({ ...editForm, dbType: t, port: t === 'oracle' ? '1521' : t === 'mysql' ? '3306' : '5432' })}
+                      style={{
+                        padding: '5px 14px', borderRadius: '16px', fontSize: '12px', cursor: 'pointer',
+                        border: `1px solid ${editForm.dbType === t ? 'var(--accent)' : 'var(--border-color)'}`,
+                        background: editForm.dbType === t ? 'var(--accent-subtle)' : 'transparent',
+                        color: editForm.dbType === t ? 'var(--accent)' : 'var(--text-sub)',
+                      }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+                <Field label="호스트">
+                  <input value={editForm.host} onChange={(e) => setEditForm({ ...editForm, host: e.target.value })} style={inputStyle} />
+                </Field>
+                <Field label="포트">
+                  <input value={editForm.port} onChange={(e) => setEditForm({ ...editForm, port: e.target.value })} style={inputStyle} />
+                </Field>
+              </div>
+              <Field label="DB 이름 / SID">
+                <input value={editForm.dbName} onChange={(e) => setEditForm({ ...editForm, dbName: e.target.value })} style={inputStyle} />
+              </Field>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <Field label="사용자명">
+                  <input value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} style={inputStyle} />
+                </Field>
+                <Field label="비밀번호 (변경 시에만 입력)">
+                  <input type="password" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} placeholder="변경 없으면 빈칸" style={inputStyle} />
+                </Field>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button onClick={() => setEditProfile(null)} style={outlineBtn}>취소</button>
+                <button onClick={saveEdit} disabled={editSaving} style={{ ...primaryBtn, opacity: editSaving ? 0.7 : 1 }}>
+                  {editSaving ? '저장 중...' : '저장'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

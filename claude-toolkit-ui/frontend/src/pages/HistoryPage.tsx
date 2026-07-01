@@ -322,9 +322,17 @@ export default function HistoryPage() {
 
   const downloadCsv = async () => {
     try {
-      const res = await fetch('/api/v1/export/csv/history?limit=1000', {
-        credentials: 'include',
-      })
+      let res: Response
+      if (selectedIds.size > 0) {
+        res = await fetch('/api/v1/export/csv/history/selected', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Array.from(selectedIds)),
+          credentials: 'include',
+        })
+      } else {
+        res = await fetch('/api/v1/export/csv/history?limit=1000', { credentials: 'include' })
+      }
       if (!res.ok) {
         toast.error(`CSV 내보내기 실패 (HTTP ${res.status})`)
         return
@@ -334,12 +342,15 @@ export default function HistoryPage() {
       const a = document.createElement('a')
       a.href = url
       const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-      a.download = `claude-toolkit-history-${ts}.csv`
+      const suffix = selectedIds.size > 0 ? `selected_${selectedIds.size}` : 'all'
+      a.download = `claude-toolkit-history-${suffix}-${ts}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast.success('CSV 파일이 다운로드되었습니다 (최근 1000건)')
+      toast.success(selectedIds.size > 0
+        ? `CSV 다운로드 완료 (선택 ${selectedIds.size}건)`
+        : 'CSV 파일이 다운로드되었습니다 (최근 1000건)')
     } catch {
       toast.error('CSV 다운로드 요청 실패')
     }
@@ -643,12 +654,16 @@ export default function HistoryPage() {
             title="Excel(.xlsx) 다운로드 — 최근 1000건, 시트 분리 + 합계 수식">
             <FaFileExcel /> Excel
           </button>
-          {/* CSV 다운로드 (UTF-8 BOM — Excel 한글 호환) */}
+          {/* CSV 다운로드 (선택 건 또는 전체 1000건, UTF-8 BOM) */}
           <button
             onClick={downloadCsv}
-            style={{ ...btnStyle, background: '#0f766e', color: '#fff', borderColor: '#0f766e' }}
-            title="CSV 다운로드 — 최근 1000건, UTF-8 BOM (Excel 한글 호환)">
-            <FaFileExport /> CSV
+            style={selectedIds.size > 0
+              ? { ...btnStyle, background: '#0d9488', color: '#fff', borderColor: '#0d9488' }
+              : { ...btnStyle, background: '#0f766e', color: '#fff', borderColor: '#0f766e' }}
+            title={selectedIds.size > 0
+              ? `선택 ${selectedIds.size}건 CSV 다운로드`
+              : 'CSV 다운로드 — 최근 1000건, UTF-8 BOM (Excel 한글 호환)'}>
+            <FaFileExport /> {selectedIds.size > 0 ? `CSV (${selectedIds.size}건)` : 'CSV'}
           </button>
         </div>
       </div>

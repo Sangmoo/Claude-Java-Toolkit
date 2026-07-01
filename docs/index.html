@@ -718,6 +718,53 @@ footer{
 </section>
 
 <!-- ══════════════════════════════════════
+     기능 추가 8종 Round 2 콜아웃
+     ══════════════════════════════════════ -->
+<section style="padding:64px 0;background:linear-gradient(180deg,rgba(59,130,246,.06),rgba(16,185,129,.04));">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:36px">
+      <p class="section-eyebrow">🆕 기능 추가</p>
+      <h2 class="section-title">포트 헬스체크 · 편집 모달 · 선택 CSV · 쿼리 이력</h2>
+      <p class="section-desc" style="margin:0 auto;max-width:760px">
+        MCP 포트 소켓 리스닝 체크 강화, DB 프로필 편집 모달, 이력 CSV 선택 내보내기, Live DB 쿼리 실행 이력 테이블, @DataJpaTest 단위 테스트, Gzip 압축, Readiness Probe 개선.
+      </p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(59,130,246,.12);color:#3b82f6;">🔍</div>
+        <div class="feat-title">MCP 포트 소켓 리스닝 헬스체크</div>
+        <div class="feat-desc"><code>McpServerHealthIndicator</code> 에 TCP 소켓 500ms 연결 체크 추가. 프로세스가 살아 있어도 포트 미오픈 상태를 <code>status: starting</code> 으로 구분 — Grafana 알람 오탐 방지. <code>portListening: true/false</code> detail 추가.</div>
+        <div class="feat-tags"><span class="tag">🆕</span><span class="tag">🩺 Actuator</span></div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(16,185,129,.12);color:#10b981;">✏️</div>
+        <div class="feat-title">DB 프로필 편집 모달</div>
+        <div class="feat-desc"><code>/db-profiles</code> 목록 각 행에 편집 버튼(✏) 추가. 클릭 시 기존 저장값을 <code>GET /{id}/json</code> 으로 불러와 편집 모달 표시. <code>POST /{id}/update-json</code> 으로 JSON 방식 저장 (기존 redirect 엔드포인트와 별개로 AJAX 전용 추가).</div>
+        <div class="feat-tags"><span class="tag">🆕</span><span class="tag">⚡ UX</span></div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(249,115,22,.12);color:#f97316;">📊</div>
+        <div class="feat-title">이력 CSV — 선택 건만 내보내기</div>
+        <div class="feat-desc">이력 페이지에서 체크박스로 선택한 건만 CSV 로 내보낼 수 있도록 <code>POST /api/v1/export/csv/history/selected</code> 엔드포인트 추가. 선택이 없으면 전체 최근 1000건 fallback. CSV 버튼이 선택 건수를 실시간 반영.</div>
+        <div class="feat-tags"><span class="tag">🆕</span><span class="tag">📄 CSV</span></div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(124,107,240,.12);color:#8b5cf6;">📋</div>
+        <div class="feat-title">Live DB 쿼리 실행 이력</div>
+        <div class="feat-desc">Live DB 호출마다 <code>livedb_query_log</code> 테이블에 자동 기록 (profileId · username · SQL · 소요시간 · 상태). ADMIN은 <code>GET /api/v1/admin/livedb/query-log?limit=100</code> 으로 최근 로그 조회. DDL auto-create 로 테이블 자동 생성.</div>
+        <div class="feat-tags"><span class="tag">🆕</span><span class="tag">🕵 감사</span><span class="tag">⚡ 성능</span></div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">🧪</div>
+        <div class="feat-title">@DataJpaTest + Gzip + Readiness</div>
+        <div class="feat-desc"><code>LiveDbBreakerStateRepository</code> 에 대한 <code>@DataJpaTest</code> 단위 테스트 3건 신규 (H2 인메모리). 서버 응답 Gzip 압축 활성화 (<code>min-response-size: 2048</code>). <code>/health/readiness</code> 에서 <code>mcpServer</code> 제외 명시 — Pod 재시작 루프 방지.</div>
+        <div class="feat-tags"><span class="tag">🆕</span><span class="tag">🧪 JPA Test</span><span class="tag">📦 Gzip</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
      8종 기능 추가 콜아웃
      ══════════════════════════════════════ -->
 <section style="padding:64px 0;background:linear-gradient(180deg,rgba(16,185,129,.05),rgba(59,130,246,.04));">

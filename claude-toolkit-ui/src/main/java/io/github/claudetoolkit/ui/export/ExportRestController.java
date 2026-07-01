@@ -13,13 +13,18 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * v4.3.0 — 분석 결과를 외부 표준 포맷으로 내보내는 REST API.
@@ -136,6 +141,61 @@ public class ExportRestController {
             return ResponseEntity.ok().headers(headers).body(full);
         } catch (Exception e) {
             log.error("CSV 이력 내보내기 실패", e);
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * 선택 건만 CSV 내보내기 — 프론트에서 선택된 id 배열을 JSON body 로 전달.
+     * 빈 배열이면 전체 최근 1000건 fallback.
+     */
+    @PostMapping(value = "/csv/history/selected", produces = "text/csv; charset=UTF-8")
+    public ResponseEntity<byte[]> exportSelectedHistoryCsv(@RequestBody List<Long> ids) {
+        try {
+            List<ReviewHistory> rows;
+            if (ids == null || ids.isEmpty()) {
+                rows = historyRepository.findRecentEntries(PageRequest.of(0, 1000));
+            } else {
+                Set<Long> idSet = ids.stream().collect(Collectors.toSet());
+                rows = historyRepository.findAllById(ids).stream()
+                        .filter(h -> idSet.contains(h.getId()))
+                        .collect(Collectors.toList());
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("ID,유형,제목,생성일시,입력토큰,출력토큰,총토큰,출력미리보기\n");
+            for (ReviewHistory h : rows) {
+                sb.append(h.getId()).append(',');
+                sb.append(csvEscape(h.getType())).append(',');
+                sb.append(csvEscape(h.getTitle())).append(',');
+                sb.append(h.getCreatedAt() != null ? h.getCreatedAt().toString() : "").append(',');
+                sb.append(h.getInputTokens()  != null ? h.getInputTokens()  : 0).append(',');
+                sb.append(h.getOutputTokens() != null ? h.getOutputTokens() : 0).append(',');
+                long total = (h.getInputTokens() != null ? h.getInputTokens() : 0L)
+                           + (h.getOutputTokens() != null ? h.getOutputTokens() : 0L);
+                sb.append(total).append(',');
+                String preview = h.getOutputContent() != null
+                        ? h.getOutputContent().replace('\n', ' ') : "";
+                if (preview.length() > 200) preview = preview.substring(0, 200) + "...";
+                sb.append(csvEscape(preview)).append('\n');
+            }
+
+            byte[] bom  = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+            byte[] body = sb.toString().getBytes(StandardCharsets.UTF_8);
+            byte[] full = new byte[bom.length + body.length];
+            System.arraycopy(bom,  0, full, 0,          bom.length);
+            System.arraycopy(body, 0, full, bom.length, body.length);
+
+            String filename = "claude-toolkit-history-selected-" + System.currentTimeMillis() + ".csv";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(full.length);
+
+            log.info("CSV 선택 내보내기 성공: rows={}, bytes={}", rows.size(), full.length);
+            return ResponseEntity.ok().headers(headers).body(full);
+        } catch (Exception e) {
+            log.error("CSV 선택 내보내기 실패", e);
             return ResponseEntity.status(500).build();
         }
     }
